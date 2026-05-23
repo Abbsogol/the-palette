@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import SaveButton from '@/components/SaveButton'
 
 export default async function DesignPage({ params }) {
   const { id } = await params
@@ -37,8 +38,8 @@ export default async function DesignPage({ params }) {
   return (
     <div style={{ paddingBottom: '32px' }}>
 
-      {/* Back button */}
-      <div style={{ padding: '16px 20px 0' }}>
+      {/* Back button + Save button */}
+      <div style={{ padding: '16px 20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Link href="/" style={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -53,6 +54,7 @@ export default async function DesignPage({ params }) {
           </svg>
           Back
         </Link>
+        <SaveButton designId={design.id} />
       </div>
 
       {/* Full-width image */}
