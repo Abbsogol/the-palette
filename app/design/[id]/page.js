@@ -57,11 +57,11 @@ export default async function DesignPage({ params }) {
 
       {/* Full-width image */}
       {design.image_url && (
-        <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', marginTop: '16px' }}>
+        <div style={{ width: '100%', marginTop: '16px' }}>
           <img
             src={design.image_url}
             alt={design.title}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            style={{ width: '100%', height: 'auto', display: 'block' }}
           />
         </div>
       )}
