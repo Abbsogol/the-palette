@@ -123,15 +123,13 @@ export default async function DesignPage({ params }) {
                     background: colour.hex_code || '#333', flexShrink: 0,
                     border: '0.5px solid rgba(255,255,255,0.1)',
                   }} />
-                  <div>
-                    <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', marginBottom: '2px' }}>
-                      {colour.colour_name || colour.hex_code}
+                  <div style={{ flex: 1 }}>
+                    <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', marginBottom: '6px' }}>
+                      {colour.colour_name || 'Unnamed'}
                     </p>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>
-                      {colour.hex_code}
-                      {colour.brand_name && ` · ${colour.brand_name}`}
-                      {colour.brand_code && ` ${colour.brand_code}`}
-                    </p>
+                    <ColourRow label="Colour code" value={colour.hex_code} />
+                    <ColourRow label="Brand" value={clean(colour.brand_name)} />
+                    <ColourRow label="Brand code" value={clean(colour.brand_code)} />
                   </div>
                 </div>
               ))}
@@ -158,6 +156,22 @@ export default async function DesignPage({ params }) {
 
       </div>
     </div>
+  )
+}
+
+// Filter out accidental "Optional" placeholder values
+function clean(value) {
+  if (!value) return null
+  if (value.toLowerCase() === 'optional') return null
+  return value
+}
+
+function ColourRow({ label, value }) {
+  return (
+    <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginBottom: '2px' }}>
+      <span style={{ color: 'var(--text-secondary)', opacity: 0.5 }}>{label}: </span>
+      {value || <span style={{ opacity: 0.4 }}>—</span>}
+    </p>
   )
 }
 
