@@ -372,9 +372,9 @@ export default function AdminPage() {
                   <input value={colour.hex_code} onChange={e => updateColour(i, 'hex_code', e.target.value)} placeholder="#hex code" style={{ ...inputStyle, flex: 1 }} />
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                  <input value={colour.colour_name} onChange={e => updateColour(i, 'colour_name', e.target.value)} placeholder="Colour name" style={inputStyle} />
-                  <input value={colour.brand_name} onChange={e => updateColour(i, 'brand_name', e.target.value)} placeholder="Brand name" style={inputStyle} />
-                  <input value={colour.brand_code} onChange={e => updateColour(i, 'brand_code', e.target.value)} placeholder="Brand code" style={{ ...inputStyle, gridColumn: '1 / -1' }} />
+                  <input value={colour.colour_name} onChange={e => updateColour(i, 'colour_name', e.target.value)} placeholder="Colour name (optional)" style={inputStyle} />
+                  <input value={colour.brand_name} onChange={e => updateColour(i, 'brand_name', e.target.value)} placeholder="Brand (optional)" style={inputStyle} />
+                  <input value={colour.brand_code} onChange={e => updateColour(i, 'brand_code', e.target.value)} placeholder="Brand code (optional)" style={{ ...inputStyle, gridColumn: '1 / -1' }} />
                 </div>
                 {colours.length > 1 && <button onClick={() => removeColour(i)} style={{ ...ghostBtn, marginTop: '8px', color: '#e57373' }}>Remove colour</button>}
               </div>
