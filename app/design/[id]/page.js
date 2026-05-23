@@ -19,6 +19,13 @@ export default async function DesignPage({ params }) {
     .eq('design_id', id)
     .order('colour_order', { ascending: true })
 
+  // Fetch extra images
+  const { data: extraImages } = await supabase
+    .from('design_images')
+    .select('*')
+    .eq('design_id', id)
+    .order('image_order', { ascending: true })
+
   // Fetch its tags
   const { data: designTags } = await supabase
     .from('design_tags')
@@ -34,6 +41,11 @@ export default async function DesignPage({ params }) {
   }
 
   const tags = designTags?.map(dt => dt.tags?.name).filter(Boolean) || []
+
+  // Technique can be comma-separated — split into chips
+  const techniqueChips = design.technique
+    ? design.technique.split(',').map(t => t.trim()).filter(Boolean)
+    : []
 
   return (
     <div style={{ paddingBottom: '32px' }}>
@@ -57,7 +69,7 @@ export default async function DesignPage({ params }) {
         <SaveButton designId={design.id} />
       </div>
 
-      {/* Full-width image */}
+      {/* Main image */}
       {design.image_url && (
         <div style={{ width: '100%', marginTop: '16px' }}>
           <img
@@ -65,6 +77,21 @@ export default async function DesignPage({ params }) {
             alt={design.title}
             style={{ width: '100%', height: 'auto', display: 'block' }}
           />
+        </div>
+      )}
+
+      {/* Extra images gallery */}
+      {extraImages && extraImages.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', marginTop: '4px' }}>
+          {extraImages.map((img) => (
+            <div key={img.id} style={{ width: '100%', aspectRatio: '1/1', overflow: 'hidden' }}>
+              <img
+                src={img.image_url}
+                alt={design.title}
+                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+              />
+            </div>
+          ))}
         </div>
       )}
 
@@ -84,7 +111,7 @@ export default async function DesignPage({ params }) {
 
         {/* Spec chips */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '20px' }}>
-          {[design.shape, design.length, design.occasion, design.technique].filter(Boolean).map((spec) => (
+          {[design.shape, design.length, design.occasion].filter(Boolean).map((spec) => (
             <span key={spec} style={{
               background: 'var(--bg-chip)',
               color: 'var(--text-secondary)',
@@ -95,6 +122,19 @@ export default async function DesignPage({ params }) {
               textTransform: 'capitalize',
             }}>
               {spec}
+            </span>
+          ))}
+          {techniqueChips.map((t) => (
+            <span key={t} style={{
+              background: 'var(--bg-chip)',
+              color: 'var(--text-secondary)',
+              fontSize: '12px',
+              fontWeight: '500',
+              padding: '6px 12px',
+              borderRadius: '20px',
+              textTransform: 'capitalize',
+            }}>
+              {t}
             </span>
           ))}
         </div>
@@ -135,7 +175,6 @@ export default async function DesignPage({ params }) {
                   padding: '12px',
                   border: '0.5px solid var(--border)',
                 }}>
-                  {/* Colour swatch */}
                   <div style={{
                     width: '36px',
                     height: '36px',

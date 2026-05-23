@@ -5,9 +5,9 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
 const FILTERS = {
-  occasion: ['everyday', 'night out', 'editorial', 'wedding', 'party', 'office'],
-  technique: ['gel', 'acrylic', 'nail polish', 'dip powder'],
-  shape: ['stiletto', 'almond', 'square', 'round', 'coffin', 'oval'],
+  occasion: ['everyday', 'night out', 'editorial', 'statement', 'wedding', 'bridal', 'party', 'birthday', 'office', 'date night', 'festival', 'holiday', 'vacation', 'new year\'s', 'christmas', 'halloween', 'valentine\'s', 'summer', 'autumn', 'winter', 'spring'],
+  technique: ['gel', 'acrylic', 'dip powder', 'polygel', 'hard gel', 'biab', 'nail polish', 'press-on', 'chrome powder', 'cat eye', '3d gel', 'nail art', 'stamping', 'ombre', 'glitter', 'foil', 'airbrush'],
+  shape: ['stiletto', 'almond', 'square', 'round', 'coffin', 'oval', 'ballerina', 'squoval'],
   length: ['short', 'medium', 'long', 'extra long'],
 }
 
@@ -31,8 +31,8 @@ export default function SearchPage() {
       if (query.trim()) {
         q = q.ilike('title', `%${query.trim()}%`)
       }
-      if (activeFilters.occasion) q = q.eq('occasion', activeFilters.occasion)
-      if (activeFilters.technique) q = q.eq('technique', activeFilters.technique)
+      if (activeFilters.occasion) q = q.ilike('occasion', `%${activeFilters.occasion}%`)
+      if (activeFilters.technique) q = q.ilike('technique', `%${activeFilters.technique}%`)
       if (activeFilters.shape) q = q.eq('shape', activeFilters.shape)
       if (activeFilters.length) q = q.eq('length', activeFilters.length)
 
