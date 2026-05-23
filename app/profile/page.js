@@ -103,7 +103,7 @@ export default function ProfilePage() {
           {[
             { type: 'user', label: 'Design lover', desc: 'Browse, save, and discover nail designs' },
             { type: 'creator', label: 'Nail artist', desc: 'Publish your work and build your portfolio' },
-            { type: 'salon', label: 'Salon', desc: 'Showcase your salon's designs and services' },
+            { type: 'salon', label: 'Salon', desc: "Showcase your salon's designs and services" },
           ].map(({ type, label, desc }) => (
             <button
               key={type}
