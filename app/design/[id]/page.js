@@ -1,32 +1,31 @@
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import SaveButton from '@/components/SaveButton'
+import ImageCarousel from '@/components/ImageCarousel'
+
+export const dynamic = 'force-dynamic'
 
 export default async function DesignPage({ params }) {
   const { id } = await params
 
-  // Fetch the design
   const { data: design } = await supabase
     .from('designs')
     .select('*')
     .eq('id', id)
     .single()
 
-  // Fetch its colours
   const { data: colours } = await supabase
     .from('design_colours')
     .select('*')
     .eq('design_id', id)
     .order('colour_order', { ascending: true })
 
-  // Fetch extra images
   const { data: extraImages } = await supabase
     .from('design_images')
     .select('*')
     .eq('design_id', id)
     .order('image_order', { ascending: true })
 
-  // Fetch its tags
   const { data: designTags } = await supabase
     .from('design_tags')
     .select('tags(name)')
@@ -42,24 +41,31 @@ export default async function DesignPage({ params }) {
 
   const tags = designTags?.map(dt => dt.tags?.name).filter(Boolean) || []
 
-  // Technique can be comma-separated — split into chips
+  // Build full image list: main first, then extras
+  const allImages = [
+    design.image_url,
+    ...(extraImages?.map(img => img.image_url) || []),
+  ].filter(Boolean)
+
+  // Technique can be comma-separated
   const techniqueChips = design.technique
     ? design.technique.split(',').map(t => t.trim()).filter(Boolean)
+    : []
+
+  // Occasion can be comma-separated
+  const occasionChips = design.occasion
+    ? design.occasion.split(',').map(o => o.trim()).filter(Boolean)
     : []
 
   return (
     <div style={{ paddingBottom: '32px' }}>
 
-      {/* Back button + Save button */}
+      {/* Back + Save */}
       <div style={{ padding: '16px 20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Link href="/" style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '6px',
-          color: 'var(--text-secondary)',
-          textDecoration: 'none',
-          fontSize: '13px',
-          fontWeight: '500',
+          display: 'inline-flex', alignItems: 'center', gap: '6px',
+          color: 'var(--text-secondary)', textDecoration: 'none',
+          fontSize: '13px', fontWeight: '500',
         }}>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -69,84 +75,34 @@ export default async function DesignPage({ params }) {
         <SaveButton designId={design.id} />
       </div>
 
-      {/* Main image */}
-      {design.image_url && (
-        <div style={{ width: '100%', marginTop: '16px' }}>
-          <img
-            src={design.image_url}
-            alt={design.title}
-            style={{ width: '100%', height: 'auto', display: 'block' }}
-          />
-        </div>
-      )}
-
-      {/* Extra images gallery */}
-      {extraImages && extraImages.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', marginTop: '4px' }}>
-          {extraImages.map((img) => (
-            <div key={img.id} style={{ width: '100%', aspectRatio: '1/1', overflow: 'hidden' }}>
-              <img
-                src={img.image_url}
-                alt={design.title}
-                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-              />
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Swipeable image carousel */}
+      <ImageCarousel images={allImages} title={design.title} />
 
       {/* Content */}
       <div style={{ padding: '20px 20px 0' }}>
 
-        {/* Title */}
         <h1 style={{
-          color: 'var(--text-primary)',
-          fontSize: '22px',
-          fontWeight: '500',
-          letterSpacing: '-0.02em',
-          marginBottom: '16px',
+          color: 'var(--text-primary)', fontSize: '22px', fontWeight: '500',
+          letterSpacing: '-0.02em', marginBottom: '16px',
         }}>
           {design.title}
         </h1>
 
         {/* Spec chips */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '20px' }}>
-          {[design.shape, design.length, design.occasion].filter(Boolean).map((spec) => (
-            <span key={spec} style={{
-              background: 'var(--bg-chip)',
-              color: 'var(--text-secondary)',
-              fontSize: '12px',
-              fontWeight: '500',
-              padding: '6px 12px',
-              borderRadius: '20px',
-              textTransform: 'capitalize',
-            }}>
-              {spec}
-            </span>
+          {[design.shape, design.length].filter(Boolean).map((spec) => (
+            <span key={spec} style={chipStyle}>{spec}</span>
           ))}
-          {techniqueChips.map((t) => (
-            <span key={t} style={{
-              background: 'var(--bg-chip)',
-              color: 'var(--text-secondary)',
-              fontSize: '12px',
-              fontWeight: '500',
-              padding: '6px 12px',
-              borderRadius: '20px',
-              textTransform: 'capitalize',
-            }}>
-              {t}
-            </span>
+          {occasionChips.map(o => (
+            <span key={o} style={chipStyle}>{o}</span>
+          ))}
+          {techniqueChips.map(t => (
+            <span key={t} style={chipStyle}>{t}</span>
           ))}
         </div>
 
-        {/* Description */}
         {design.description && (
-          <p style={{
-            color: 'var(--text-secondary)',
-            fontSize: '14px',
-            lineHeight: '1.7',
-            marginBottom: '24px',
-          }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.7', marginBottom: '24px' }}>
             {design.description}
           </p>
         )}
@@ -154,33 +110,17 @@ export default async function DesignPage({ params }) {
         {/* Colours */}
         {colours && colours.length > 0 && (
           <div style={{ marginBottom: '24px' }}>
-            <p style={{
-              color: 'var(--accent)',
-              fontSize: '11px',
-              fontWeight: '500',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              marginBottom: '12px',
-            }}>
-              Colour Specs
-            </p>
+            <p style={sectionLabel}>Colour Specs</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {colours.map((colour) => (
                 <div key={colour.id} style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  background: 'var(--bg-card)',
-                  borderRadius: '10px',
-                  padding: '12px',
-                  border: '0.5px solid var(--border)',
+                  display: 'flex', alignItems: 'center', gap: '12px',
+                  background: 'var(--bg-card)', borderRadius: '10px',
+                  padding: '12px', border: '0.5px solid var(--border)',
                 }}>
                   <div style={{
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '8px',
-                    background: colour.hex_code || '#333',
-                    flexShrink: 0,
+                    width: '36px', height: '36px', borderRadius: '8px',
+                    background: colour.hex_code || '#333', flexShrink: 0,
                     border: '0.5px solid rgba(255,255,255,0.1)',
                   }} />
                   <div>
@@ -202,24 +142,12 @@ export default async function DesignPage({ params }) {
         {/* Tags */}
         {tags.length > 0 && (
           <div>
-            <p style={{
-              color: 'var(--accent)',
-              fontSize: '11px',
-              fontWeight: '500',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              marginBottom: '12px',
-            }}>
-              Tags
-            </p>
+            <p style={sectionLabel}>Tags</p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
               {tags.map((tag) => (
                 <span key={tag} style={{
-                  background: 'var(--bg-chip)',
-                  color: 'var(--text-secondary)',
-                  fontSize: '12px',
-                  padding: '6px 12px',
-                  borderRadius: '20px',
+                  background: 'var(--bg-chip)', color: 'var(--text-secondary)',
+                  fontSize: '12px', padding: '6px 12px', borderRadius: '20px',
                 }}>
                   #{tag}
                 </span>
@@ -231,4 +159,23 @@ export default async function DesignPage({ params }) {
       </div>
     </div>
   )
+}
+
+const chipStyle = {
+  background: 'var(--bg-chip)',
+  color: 'var(--text-secondary)',
+  fontSize: '12px',
+  fontWeight: '500',
+  padding: '6px 12px',
+  borderRadius: '20px',
+  textTransform: 'capitalize',
+}
+
+const sectionLabel = {
+  color: 'var(--accent)',
+  fontSize: '11px',
+  fontWeight: '500',
+  letterSpacing: '0.08em',
+  textTransform: 'uppercase',
+  marginBottom: '12px',
 }
