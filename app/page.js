@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
 export default async function Home() {
@@ -33,14 +34,17 @@ export default async function Home() {
           gap: '10px',
         }}>
           {designs.map((design) => (
-            <div
+            <Link
               key={design.id}
+              href={`/design/${design.id}`}
               style={{
                 background: 'var(--bg-card)',
                 borderRadius: '12px',
                 border: '0.5px solid var(--border)',
                 overflow: 'hidden',
                 cursor: 'pointer',
+                textDecoration: 'none',
+                display: 'block',
               }}
             >
               {/* Image */}
@@ -91,7 +95,7 @@ export default async function Home() {
                   {design.shape} · {design.occasion}
                 </p>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       ) : (
