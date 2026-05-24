@@ -58,8 +58,7 @@ export default async function Home() {
                     style={{
                       width: '100%',
                       height: '100%',
-                      objectFit: 'cover',
-                      objectPosition: 'left center',
+                      objectFit: 'contain',
                       display: 'block',
                     }}
                   />
