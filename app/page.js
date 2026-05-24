@@ -1,4 +1,4 @@
-import Link from 'next/link'
+app/page.jsimport Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
@@ -59,6 +59,7 @@ export default async function Home() {
                       width: '100%',
                       height: '100%',
                       objectFit: 'cover',
+                      objectPosition: 'left center',
                       display: 'block',
                     }}
                   />
