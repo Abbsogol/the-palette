@@ -77,11 +77,12 @@ export default function BatchUploadPage() {
 
     const { data: designRow, error: designErr } = await supabase
       .from('designs')
-      .insert({ title: design.title, description: design.description || null, image_url: imageUrl, shape: design.shape || null, length: design.length || null, occasion, technique, slug })
+      .insert({ title: design.title, description: design.description || null, image_url: imageUrl, shape: design.shape || null, length: design.length || null, occasion, technique })
       .select('id')
       .single()
     if (designErr) throw new Error(designErr.message)
     const designId = designRow.id
+      await supabase.from('designs').update({ slug }).eq('id', designId)
 
     if (design.colours?.length) {
       const rows = design.colours.map(c => ({
