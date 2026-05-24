@@ -98,7 +98,7 @@ export default function BatchUploadPage() {
 
     if (imgs?.extras?.length) {
       const urls = await Promise.all(imgs.extras.map(f => uploadFile(f, slug)))
-      const rows = urls.map((url, i) => ({ design_id: designId, image_url: url, order: i + 1 }))
+      const rows = urls.map((url, i) => ({ design_id: designId, image_url: url}))
       const { error } = await supabase.from('design_images').insert(rows)
       if (error) throw new Error(error.message)
     }
