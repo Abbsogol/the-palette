@@ -14,9 +14,19 @@ const FILTERS = {
 export default function SearchPage() {
   const [query, setQuery] = useState('')
   const [activeFilters, setActiveFilters] = useState({})
+  const [tagFilter, setTagFilter] = useState(null)
   const [designs, setDesigns] = useState([])
   const [loading, setLoading] = useState(false)
   const [openSection, setOpenSection] = useState(null)
+
+  // Read tag/query from URL on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const tag = params.get('tag')
+    const q = params.get('q')
+    if (tag) setTagFilter(tag)
+    if (q) setQuery(q)
+  }, [])
 
   useEffect(() => {
     const fetch = async () => {
@@ -36,13 +46,42 @@ export default function SearchPage() {
       if (activeFilters.shape) q = q.eq('shape', activeFilters.shape)
       if (activeFilters.length) q = q.eq('length', activeFilters.length)
 
+      // Tag filter: look up tag ID then filter designs by it
+      if (tagFilter) {
+        const { data: tagRow } = await supabase
+          .from('tags')
+          .select('id')
+          .eq('name', tagFilter)
+          .single()
+
+        if (tagRow) {
+          const { data: designTagRows } = await supabase
+            .from('design_tags')
+            .select('design_id')
+            .eq('tag_id', tagRow.id)
+
+          const ids = designTagRows?.map(r => r.design_id) || []
+          if (ids.length > 0) {
+            q = q.in('id', ids)
+          } else {
+            setDesigns([])
+            setLoading(false)
+            return
+          }
+        } else {
+          setDesigns([])
+          setLoading(false)
+          return
+        }
+      }
+
       const { data } = await q
       setDesigns(data || [])
       setLoading(false)
     }
 
     fetch()
-  }, [query, activeFilters])
+  }, [query, activeFilters, tagFilter])
 
   const toggleFilter = (category, value) => {
     setActiveFilters(prev => ({
@@ -54,14 +93,14 @@ export default function SearchPage() {
   const clearAll = () => {
     setActiveFilters({})
     setQuery('')
+    setTagFilter(null)
   }
 
-  const hasActiveFilters = Object.values(activeFilters).some(Boolean) || query.trim()
+  const hasActiveFilters = Object.values(activeFilters).some(Boolean) || query.trim() || tagFilter
 
   return (
     <div style={{ padding: '24px 20px 0' }}>
 
-      {/* Header */}
       <div style={{ marginBottom: '16px' }}>
         <h1 style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '22px', letterSpacing: '-0.02em', marginBottom: '4px' }}>
           Search
@@ -70,6 +109,25 @@ export default function SearchPage() {
           Find designs by name or filter
         </p>
       </div>
+
+      {/* Active tag chip */}
+      {tagFilter && (
+        <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Tag:</span>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: '6px',
+            background: 'var(--accent)', color: '#2C0A1E',
+            fontSize: '12px', fontWeight: '600',
+            padding: '5px 12px', borderRadius: '20px',
+          }}>
+            #{tagFilter}
+            <button
+              onClick={() => setTagFilter(null)}
+              style={{ background: 'none', border: 'none', color: '#2C0A1E', cursor: 'pointer', padding: 0, lineHeight: 1, fontSize: '14px' }}
+            >×</button>
+          </span>
+        </div>
+      )}
 
       {/* Search bar */}
       <div style={{ position: 'relative', marginBottom: '16px' }}>
@@ -102,19 +160,11 @@ export default function SearchPage() {
       <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {Object.entries(FILTERS).map(([category, options]) => (
           <div key={category} style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', overflow: 'hidden' }}>
-
-            {/* Section header */}
             <button
               onClick={() => setOpenSection(openSection === category ? null : category)}
               style={{
-                width: '100%',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '12px 16px',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
+                width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '12px 16px', background: 'none', border: 'none', cursor: 'pointer',
                 fontFamily: "'DM Sans', sans-serif",
               }}
             >
@@ -133,8 +183,6 @@ export default function SearchPage() {
                 <path d="M3 5L7 9L11 5" stroke="#888888" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </button>
-
-            {/* Options */}
             {openSection === category && (
               <div style={{ padding: '0 16px 12px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                 {options.map(option => {
@@ -146,14 +194,10 @@ export default function SearchPage() {
                       style={{
                         background: isActive ? 'var(--accent)' : 'var(--bg-chip)',
                         color: isActive ? '#2C0A1E' : 'var(--text-secondary)',
-                        border: 'none',
-                        borderRadius: '20px',
-                        padding: '6px 14px',
-                        fontSize: '12px',
-                        fontWeight: '500',
+                        border: 'none', borderRadius: '20px', padding: '6px 14px',
+                        fontSize: '12px', fontWeight: '500',
                         fontFamily: "'DM Sans', sans-serif",
-                        cursor: 'pointer',
-                        textTransform: 'capitalize',
+                        cursor: 'pointer', textTransform: 'capitalize',
                       }}
                     >
                       {option}
@@ -166,27 +210,19 @@ export default function SearchPage() {
         ))}
       </div>
 
-      {/* Clear filters */}
       {hasActiveFilters && (
         <button
           onClick={clearAll}
           style={{
-            background: 'none',
-            border: '0.5px solid var(--border)',
-            borderRadius: '20px',
-            padding: '6px 16px',
-            color: 'var(--text-secondary)',
-            fontSize: '12px',
-            fontFamily: "'DM Sans', sans-serif",
-            cursor: 'pointer',
-            marginBottom: '20px',
+            background: 'none', border: '0.5px solid var(--border)', borderRadius: '20px',
+            padding: '6px 16px', color: 'var(--text-secondary)', fontSize: '12px',
+            fontFamily: "'DM Sans', sans-serif", cursor: 'pointer', marginBottom: '20px',
           }}
         >
           Clear all filters
         </button>
       )}
 
-      {/* Results */}
       {loading ? (
         <p style={{ color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center', padding: '32px 0' }}>
           Loading...

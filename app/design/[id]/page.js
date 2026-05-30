@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import SaveButton from '@/components/SaveButton'
 import ImageCarousel from '@/components/ImageCarousel'
+import ColourSwatches from '@/components/ColourSwatches'
 
 export const dynamic = 'force-dynamic'
 
@@ -41,18 +42,15 @@ export default async function DesignPage({ params }) {
 
   const tags = designTags?.map(dt => dt.tags?.name).filter(Boolean) || []
 
-  // Build full image list: main first, then extras
   const allImages = [
     design.image_url,
     ...(extraImages?.map(img => img.image_url) || []),
   ].filter(Boolean)
 
-  // Technique can be comma-separated
   const techniqueChips = design.technique
     ? design.technique.split(',').map(t => t.trim()).filter(Boolean)
     : []
 
-  // Occasion can be comma-separated
   const occasionChips = design.occasion
     ? design.occasion.split(',').map(o => o.trim()).filter(Boolean)
     : []
@@ -75,10 +73,8 @@ export default async function DesignPage({ params }) {
         <SaveButton designId={design.id} />
       </div>
 
-      {/* Swipeable image carousel */}
       <ImageCarousel images={allImages} title={design.title} />
 
-      {/* Content */}
       <div style={{ padding: '20px 20px 0' }}>
 
         <h1 style={{
@@ -107,48 +103,27 @@ export default async function DesignPage({ params }) {
           </p>
         )}
 
-        {/* Colours */}
+        {/* Colours — client component handles copy + hides empty fields */}
         {colours && colours.length > 0 && (
           <div style={{ marginBottom: '24px' }}>
             <p style={sectionLabel}>Colour Specs</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {colours.map((colour) => (
-                <div key={colour.id} style={{
-                  display: 'flex', alignItems: 'center', gap: '12px',
-                  background: 'var(--bg-card)', borderRadius: '10px',
-                  padding: '12px', border: '0.5px solid var(--border)',
-                }}>
-                  <div style={{
-                    width: '36px', height: '36px', borderRadius: '8px',
-                    background: colour.hex_code || '#333', flexShrink: 0,
-                    border: '0.5px solid rgba(255,255,255,0.1)',
-                  }} />
-                  <div style={{ flex: 1 }}>
-                    <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', marginBottom: '6px' }}>
-                      {colour.colour_name || 'Unnamed'}
-                    </p>
-                    <ColourRow label="Colour code" value={colour.hex_code} />
-                    <ColourRow label="Brand" value={clean(colour.brand_name)} />
-                    <ColourRow label="Brand code" value={clean(colour.brand_code)} />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <ColourSwatches colours={colours} />
           </div>
         )}
 
-        {/* Tags */}
+        {/* Tags — clickable, navigate to search filtered by tag */}
         {tags.length > 0 && (
           <div>
             <p style={sectionLabel}>Tags</p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
               {tags.map((tag) => (
-                <span key={tag} style={{
+                <Link key={tag} href={`/search?tag=${encodeURIComponent(tag)}`} style={{
                   background: 'var(--bg-chip)', color: 'var(--text-secondary)',
                   fontSize: '12px', padding: '6px 12px', borderRadius: '20px',
+                  textDecoration: 'none', display: 'inline-block',
                 }}>
                   #{tag}
-                </span>
+                </Link>
               ))}
             </div>
           </div>
@@ -156,22 +131,6 @@ export default async function DesignPage({ params }) {
 
       </div>
     </div>
-  )
-}
-
-// Filter out accidental "Optional" placeholder values
-function clean(value) {
-  if (!value) return null
-  if (value.toLowerCase() === 'optional') return null
-  return value
-}
-
-function ColourRow({ label, value }) {
-  return (
-    <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginBottom: '2px' }}>
-      <span style={{ color: 'var(--text-secondary)', opacity: 0.5 }}>{label}: </span>
-      {value || <span style={{ opacity: 0.4 }}>—</span>}
-    </p>
   )
 }
 

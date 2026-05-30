@@ -10,12 +10,14 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
 
   // Auth form state
-  const [mode, setMode] = useState('login') // login | signup | choose-type
+  const [mode, setMode] = useState('login') // login | signup | choose-type | forgot
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [displayName, setDisplayName] = useState('')
   const [chosenType, setChosenType] = useState(null)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [forgotSent, setForgotSent] = useState(false)
 
   // Profile edit state
   const [savedCount, setSavedCount] = useState(0)
@@ -52,15 +54,16 @@ export default function ProfilePage() {
     setLoading(false)
   }
 
-  // Step 1: email + password
+  // Step 1: validate email + password + display name, then move to account type selection
   const handleSignUpStep1 = async (e) => {
     e.preventDefault()
     if (password.length < 6) { setError('Password must be at least 6 characters'); return }
+    if (!displayName.trim()) { setError('Please enter a display name'); return }
     setError('')
     setMode('choose-type')
   }
 
-  // Step 2: create account with chosen type
+  // Step 2: create account with chosen type + save display name
   const handleCreateAccount = async () => {
     if (!chosenType) return
     setSubmitting(true)
@@ -68,7 +71,11 @@ export default function ProfilePage() {
     const { data, error } = await supabase.auth.signUp({ email, password })
     if (error) { setError(error.message); setSubmitting(false); return }
     if (data.user) {
-      await supabase.from('profiles').upsert({ id: data.user.id, account_type: chosenType })
+      await supabase.from('profiles').upsert({
+        id: data.user.id,
+        account_type: chosenType,
+        display_name: displayName.trim(),
+      })
     }
     setSubmitting(false)
   }
@@ -82,6 +89,18 @@ export default function ProfilePage() {
     setSubmitting(false)
   }
 
+  const handleForgotPassword = async (e) => {
+    e.preventDefault()
+    setError('')
+    setSubmitting(true)
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/profile`,
+    })
+    if (error) { setError(error.message) }
+    else { setForgotSent(true) }
+    setSubmitting(false)
+  }
+
   const handleLogout = async () => { await supabase.auth.signOut() }
 
   const saveField = async (field, value, setter) => {
@@ -92,7 +111,45 @@ export default function ProfilePage() {
 
   if (loading) return <div style={{ padding: '24px 20px', color: 'var(--text-secondary)', fontSize: '14px' }}>Loading...</div>
 
-  // ─── LOGGED OUT: Choose account type ───
+  // ─── FORGOT PASSWORD ───
+  if (!user && mode === 'forgot') {
+    return (
+      <div style={{ padding: '24px 20px' }}>
+        <h1 style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '22px', letterSpacing: '-0.02em', marginBottom: '4px' }}>
+          Reset password
+        </h1>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '32px' }}>
+          We'll send a reset link to your email
+        </p>
+        {forgotSent ? (
+          <div style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '20px', border: '0.5px solid var(--border)', textAlign: 'center' }}>
+            <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '500', marginBottom: '8px' }}>Check your email</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '20px' }}>We sent a password reset link to {email}</p>
+            <button onClick={() => { setMode('login'); setForgotSent(false) }}
+              style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
+              Back to login
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleForgotPassword} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required
+              style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px 16px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none' }} />
+            {error && <p style={{ color: '#E07070', fontSize: '13px' }}>{error}</p>}
+            <button type="submit" disabled={submitting}
+              style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", fontWeight: '500', cursor: 'pointer', marginTop: '4px' }}>
+              {submitting ? 'Sending...' : 'Send reset link'}
+            </button>
+            <button type="button" onClick={() => { setMode('login'); setError('') }}
+              style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
+              ← Back to login
+            </button>
+          </form>
+        )}
+      </div>
+    )
+  }
+
+  // ─── CHOOSE ACCOUNT TYPE ───
   if (!user && mode === 'choose-type') {
     return (
       <div style={{ padding: '24px 20px' }}>
@@ -111,11 +168,8 @@ export default function ProfilePage() {
               style={{
                 background: chosenType === type ? 'var(--accent)' : 'var(--bg-card)',
                 border: chosenType === type ? 'none' : '0.5px solid var(--border)',
-                borderRadius: '12px',
-                padding: '16px',
-                textAlign: 'left',
-                cursor: 'pointer',
-                fontFamily: "'DM Sans', sans-serif",
+                borderRadius: '12px', padding: '16px', textAlign: 'left',
+                cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
               }}
             >
               <p style={{ color: chosenType === type ? '#2C0A1E' : 'var(--text-primary)', fontSize: '15px', fontWeight: '500', marginBottom: '4px' }}>{label}</p>
@@ -133,12 +187,12 @@ export default function ProfilePage() {
         >
           {submitting ? 'Creating account...' : 'Create account'}
         </button>
-        <button onClick={() => setMode('signup')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer', marginTop: '12px', display: 'block', margin: '12px auto 0' }}>← Back</button>
+        <button onClick={() => setMode('signup')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer', display: 'block', margin: '12px auto 0' }}>← Back</button>
       </div>
     )
   }
 
-  // ─── LOGGED OUT: Login / Signup form ───
+  // ─── LOGIN / SIGNUP FORM ───
   if (!user) {
     return (
       <div style={{ padding: '24px 20px' }}>
@@ -149,6 +203,10 @@ export default function ProfilePage() {
           {mode === 'login' ? 'Sign in to save your favourite designs' : 'Join to start saving designs'}
         </p>
         <form onSubmit={mode === 'login' ? handleLogin : handleSignUpStep1} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {mode === 'signup' && (
+            <input type="text" placeholder="Display name" value={displayName} onChange={e => setDisplayName(e.target.value)} required
+              style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px 16px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none' }} />
+          )}
           <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required
             style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px 16px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none' }} />
           <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required
@@ -159,7 +217,17 @@ export default function ProfilePage() {
             {submitting ? 'Loading...' : mode === 'login' ? 'Log in' : 'Continue →'}
           </button>
         </form>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '13px', textAlign: 'center', marginTop: '24px' }}>
+
+        {mode === 'login' && (
+          <div style={{ textAlign: 'center', marginTop: '12px' }}>
+            <button onClick={() => { setMode('forgot'); setError('') }}
+              style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer', padding: 0 }}>
+              Forgot password?
+            </button>
+          </div>
+        )}
+
+        <p style={{ color: 'var(--text-secondary)', fontSize: '13px', textAlign: 'center', marginTop: '16px' }}>
           {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
           <button onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError('') }}
             style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer', padding: 0 }}>
@@ -185,7 +253,6 @@ export default function ProfilePage() {
           </h1>
         </div>
 
-        {/* Creator profile info */}
         <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', overflow: 'hidden' }}>
           {[
             { label: 'Display name', field: 'display_name', value: profile.display_name, editing: editingName, setEditing: setEditingName, input: nameInput, setInput: setNameInput },
@@ -213,7 +280,6 @@ export default function ProfilePage() {
           ))}
         </div>
 
-        {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
           <div style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '16px', border: '0.5px solid var(--border)', textAlign: 'center' }}>
             <p style={{ color: 'var(--text-primary)', fontSize: '28px', fontWeight: '500' }}>{myDesigns.length}</p>
@@ -225,7 +291,6 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Public profile link */}
         <Link href={`/creator/${user.id}`}
           style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', borderRadius: '12px', padding: '16px', border: '0.5px solid var(--border)', textDecoration: 'none' }}>
           <div>
@@ -237,7 +302,6 @@ export default function ProfilePage() {
           </svg>
         </Link>
 
-        {/* My designs */}
         <div>
           <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>My Designs</p>
           {myDesigns.length === 0 ? (
@@ -264,7 +328,6 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {/* Log out */}
         <button onClick={handleLogout}
           style={{ width: '100%', background: 'none', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px', color: 'var(--text-secondary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", fontWeight: '500', cursor: 'pointer' }}>
           Log out
@@ -315,7 +378,7 @@ export default function ProfilePage() {
 
       <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', overflow: 'hidden' }}>
         <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '14px 16px 8px' }}>Settings</p>
-        {['Dark / light mode', 'Change password', 'Notification preferences'].map((item, i) => (
+        {['Dark / light mode', 'Change password', 'Notification preferences'].map((item) => (
           <div key={item} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderTop: '0.5px solid var(--border)' }}>
             <p style={{ color: 'var(--text-primary)', fontSize: '14px' }}>{item}</p>
             <span style={{ background: 'var(--bg-chip)', color: 'var(--text-secondary)', fontSize: '10px', fontWeight: '500', padding: '3px 8px', borderRadius: '20px' }}>Soon</span>
