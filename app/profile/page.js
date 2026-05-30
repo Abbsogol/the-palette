@@ -17,6 +17,9 @@ export default function ProfilePage() {
   const [chosenType, setChosenType] = useState(null)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [resetMode, setResetMode] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [resetDone, setResetDone] = useState(false)
   const [forgotSent, setForgotSent] = useState(false)
 
   // Profile edit state
@@ -35,6 +38,7 @@ export default function ProfilePage() {
       else setLoading(false)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (_event === 'PASSWORD_RECOVERY') { setResetMode(true); return }
       if (session?.user) loadUserData(session.user)
       else { setUser(null); setProfile(null); setLoading(false) }
     })
@@ -107,6 +111,41 @@ export default function ProfilePage() {
     await supabase.from('profiles').update({ [field]: value }).eq('id', user.id)
     setProfile(prev => ({ ...prev, [field]: value }))
     setter(false)
+  }
+
+  const handleSetNewPassword = async (e) => {
+    e.preventDefault()
+    if (newPassword.length < 6) { setError('Password must be at least 6 characters'); return }
+    setSubmitting(true)
+    setError('')
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) { setError(error.message) }
+    else { setResetDone(true); setResetMode(false) }
+    setSubmitting(false)
+  }
+
+
+  // ─── PASSWORD RECOVERY (from email reset link) ───
+  if (resetMode) {
+    return (
+      <div style={{ padding: '24px 20px' }}>
+        <h1 style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '22px', letterSpacing: '-0.02em', marginBottom: '4px' }}>
+          Set new password
+        </h1>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '32px' }}>
+          Choose a new password for your account
+        </p>
+        <form onSubmit={handleSetNewPassword} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <input type="password" placeholder="New password (min 6 characters)" value={newPassword} onChange={e => setNewPassword(e.target.value)} required
+            style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px 16px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none' }} />
+          {error && <p style={{ color: '#E07070', fontSize: '13px' }}>{error}</p>}
+          <button type="submit" disabled={submitting}
+            style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", fontWeight: '500', cursor: 'pointer', marginTop: '4px' }}>
+            {submitting ? 'Saving...' : 'Save new password'}
+          </button>
+        </form>
+      </div>
+    )
   }
 
   if (loading) return <div style={{ padding: '24px 20px', color: 'var(--text-secondary)', fontSize: '14px' }}>Loading...</div>
@@ -340,7 +379,12 @@ export default function ProfilePage() {
   return (
     <div style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
       <div>
-        <h1 style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '22px', letterSpacing: '-0.02em', marginBottom: '4px' }}>Profile</h1>
+        {resetDone && (
+        <div style={{ background: 'var(--accent)', borderRadius: '12px', padding: '14px 16px', marginBottom: '4px' }}>
+          <p style={{ color: '#2C0A1E', fontSize: '14px', fontWeight: '500' }}>✓ Password updated successfully</p>
+        </div>
+      )}
+      <h1 style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '22px', letterSpacing: '-0.02em', marginBottom: '4px' }}>Profile</h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Your account</p>
       </div>
 
