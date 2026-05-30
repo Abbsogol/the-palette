@@ -94,7 +94,7 @@ export default function ProfilePage() {
     setError('')
     setSubmitting(true)
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/profile`,
+      redirectTo: 'https://the-palette-one.vercel.app/profile',
     })
     if (error) { setError(error.message) }
     else { setForgotSent(true) }
