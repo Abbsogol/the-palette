@@ -32,6 +32,24 @@ export default async function DesignPage({ params }) {
     .select('tags(name)')
     .eq('design_id', id)
 
+  // Related designs — match by occasion or technique
+  const firstOccasion = design?.occasion?.split(',')[0]?.trim()
+  const firstTechnique = design?.technique?.split(',')[0]?.trim()
+  let related = []
+  if (firstOccasion || firstTechnique) {
+    const orParts = []
+    if (firstOccasion) orParts.push(`occasion.ilike.%${firstOccasion}%`)
+    if (firstTechnique) orParts.push(`technique.ilike.%${firstTechnique}%`)
+    const { data: relatedData } = await supabase
+      .from('designs')
+      .select('id, title, image_url, shape, occasion')
+      .eq('is_published', true)
+      .neq('id', id)
+      .or(orParts.join(','))
+      .limit(6)
+    related = relatedData || []
+  }
+
   if (!design) {
     return (
       <div style={{ padding: '24px 20px', color: 'var(--text-secondary)' }}>
@@ -130,6 +148,35 @@ export default async function DesignPage({ params }) {
         )}
 
       </div>
+
+      {/* Related designs */}
+      {related.length > 0 && (
+        <div style={{ marginTop: '8px', borderTop: '0.5px solid var(--border)', padding: '24px 20px 0' }}>
+          <p style={sectionLabel}>You might also like</p>
+          <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            {related.map((r) => (
+              <Link key={r.id} href={`/design/${r.id}`} style={{
+                flexShrink: 0, width: '140px',
+                background: 'var(--bg-card)', borderRadius: '12px',
+                border: '0.5px solid var(--border)', overflow: 'hidden',
+                textDecoration: 'none', display: 'block',
+              }}>
+                {r.image_url ? (
+                  <div style={{ width: '140px', height: '140px', overflow: 'hidden' }}>
+                    <img src={r.image_url} alt={r.title}
+                      style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+                  </div>
+                ) : (
+                  <div style={{ width: '140px', height: '140px', background: 'var(--bg-chip)' }} />
+                )}
+                <div style={{ padding: '8px 10px 10px' }}>
+                  <p style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500', lineHeight: '1.3' }}>{r.title}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
