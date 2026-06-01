@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import SaveButton from '@/components/SaveButton'
 import ImageCarousel from '@/components/ImageCarousel'
 import ColourSwatches from '@/components/ColourSwatches'
+import ShareButton from '@/components/ShareButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -88,7 +89,10 @@ export default async function DesignPage({ params }) {
           </svg>
           Back
         </Link>
-        <SaveButton designId={design.id} />
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <ShareButton title={design.title} />
+          <SaveButton designId={design.id} />
+        </div>
       </div>
 
       <ImageCarousel images={allImages} title={design.title} />
