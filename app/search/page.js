@@ -241,7 +241,7 @@ export default function SearchPage() {
               >
                 {design.image_url ? (
                   <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden' }}>
-                    <img src={design.image_url} alt={design.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    <img src={design.image_url} alt={design.title} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
                   </div>
                 ) : (
                   <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--bg-chip)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
