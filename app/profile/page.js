@@ -22,6 +22,7 @@ export default function ProfilePage() {
   const [resetDone, setResetDone] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [forgotSent, setForgotSent] = useState(false)
+  const [needsAccountType, setNeedsAccountType] = useState(false)
 
   // Profile edit state
   const [savedCount, setSavedCount] = useState(0)
@@ -50,6 +51,7 @@ export default function ProfilePage() {
     setUser(u)
     const { data: prof } = await supabase.from('profiles').select('*').eq('id', u.id).single()
     setProfile(prof)
+    if (!prof?.account_type) { setNeedsAccountType(true) } else { setNeedsAccountType(false) }
     const { count } = await supabase.from('saved_designs').select('*', { count: 'exact', head: true }).eq('user_id', u.id)
     setSavedCount(count || 0)
     if (prof?.account_type === 'creator' || prof?.account_type === 'salon') {
@@ -113,6 +115,26 @@ export default function ProfilePage() {
     if (!confirm('Delete your account permanently? This cannot be undone.')) return
     await supabase.rpc('delete_own_account')
     await supabase.auth.signOut()
+  }
+
+  const handleGoogleSignIn = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: 'https://the-palette-one.vercel.app/profile' }
+    })
+  }
+
+  const handleSetGoogleAccountType = async () => {
+    if (!chosenType) return
+    setSubmitting(true)
+    const name = displayName.trim() || user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User'
+    await supabase.from('profiles').upsert({
+      id: user.id,
+      account_type: chosenType,
+      display_name: name,
+    })
+    await loadUserData(user)
+    setSubmitting(false)
   }
 
   const saveField = async (field, value, setter) => {
@@ -257,6 +279,44 @@ export default function ProfilePage() {
     )
   }
 
+  // ─── GOOGLE USER: pick account type on first sign-in ───
+  if (user && needsAccountType) {
+    const suggestedName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || ''
+    return (
+      <div style={{ padding: '24px 20px' }}>
+        <h1 style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '22px', letterSpacing: '-0.02em', marginBottom: '4px' }}>One more thing</h1>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '28px' }}>How will you use The Palette?</p>
+
+        <input
+          type="text"
+          placeholder="Display name"
+          value={displayName || suggestedName}
+          onChange={e => setDisplayName(e.target.value)}
+          style={{ width: '100%', background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px 16px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none', marginBottom: '16px', boxSizing: 'border-box' }}
+        />
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+          {[
+            { type: 'user', label: 'Design lover', desc: 'Browse, save, and discover nail designs' },
+            { type: 'creator', label: 'Nail artist', desc: 'Publish your work and build your portfolio' },
+            { type: 'salon', label: 'Salon', desc: "Showcase your salon's designs and services" },
+          ].map(({ type, label, desc }) => (
+            <button key={type} onClick={() => setChosenType(type)}
+              style={{ background: chosenType === type ? 'var(--accent)' : 'var(--bg-card)', border: chosenType === type ? 'none' : '0.5px solid var(--border)', borderRadius: '12px', padding: '16px', textAlign: 'left', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>
+              <p style={{ color: chosenType === type ? '#2C0A1E' : 'var(--text-primary)', fontSize: '15px', fontWeight: '500', marginBottom: '4px' }}>{label}</p>
+              <p style={{ color: chosenType === type ? '#2C0A1E' : 'var(--text-secondary)', fontSize: '13px' }}>{desc}</p>
+            </button>
+          ))}
+        </div>
+
+        <button onClick={handleSetGoogleAccountType} disabled={!chosenType || submitting}
+          style={{ width: '100%', background: chosenType ? 'var(--accent)' : 'var(--bg-chip)', color: chosenType ? '#2C0A1E' : 'var(--text-secondary)', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", fontWeight: '500', cursor: chosenType ? 'pointer' : 'default' }}>
+          {submitting ? 'Saving...' : 'Get started'}
+        </button>
+      </div>
+    )
+  }
+
   // ─── LOGIN / SIGNUP FORM ───
   if (!user) {
     return (
@@ -292,7 +352,24 @@ export default function ProfilePage() {
           </div>
         )}
 
-        <p style={{ color: 'var(--text-secondary)', fontSize: '13px', textAlign: 'center', marginTop: '16px' }}>
+        {/* ── Google sign-in ── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '4px 0' }}>
+          <div style={{ flex: 1, height: '0.5px', background: 'var(--border)' }} />
+          <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>or</span>
+          <div style={{ flex: 1, height: '0.5px', background: 'var(--border)' }} />
+        </div>
+        <button onClick={handleGoogleSignIn}
+          style={{ width: '100%', background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", fontWeight: '500', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+          <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+            <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/>
+            <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+            <path d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#FBBC05"/>
+            <path d="M9 3.576c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.961L3.964 7.293C4.672 5.166 6.656 3.576 9 3.576z" fill="#EA4335"/>
+          </svg>
+          Continue with Google
+        </button>
+
+        <p style={{ color: 'var(--text-secondary)', fontSize: '13px', textAlign: 'center', marginTop: '8px' }}>
           {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
           <button onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError('') }}
             style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer', padding: 0 }}>
