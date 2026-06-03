@@ -37,10 +37,14 @@ export default async function CreatorPage({ params }) {
       {/* Header */}
       <div style={{ padding: '20px 20px 0' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
-          <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'var(--bg-chip)', border: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <span style={{ color: 'var(--accent)', fontSize: '20px', fontWeight: '500' }}>
-              {(profile.display_name || '?')[0].toUpperCase()}
-            </span>
+          <div style={{ width: '68px', height: '68px', borderRadius: '50%', background: 'var(--bg-chip)', border: '0.5px solid var(--border)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {profile.avatar_url ? (
+              <img src={profile.avatar_url} alt={profile.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <span style={{ color: 'var(--accent)', fontSize: '24px', fontWeight: '500' }}>
+                {(profile.display_name || '?')[0].toUpperCase()}
+              </span>
+            )}
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
@@ -73,6 +77,21 @@ export default async function CreatorPage({ params }) {
           </div>
         )}
 
+        {/* Book CTA */}
+        <div style={{ marginBottom: '20px' }}>
+          <button style={{
+            width: '100%', background: 'var(--accent)', color: '#2C0A1E',
+            border: 'none', borderRadius: '12px', padding: '13px',
+            fontSize: '14px', fontWeight: '500', fontFamily: "'DM Sans', sans-serif",
+            cursor: 'default', letterSpacing: '0.01em',
+          }}>
+            Book an appointment
+          </button>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '11px', textAlign: 'center', marginTop: '6px' }}>
+            Booking coming soon — contact via Instagram or DM
+          </p>
+        </div>
+
         {/* Stats */}
         <div style={{ display: 'flex', gap: '20px', marginBottom: '24px' }}>
           <div>
@@ -91,7 +110,7 @@ export default async function CreatorPage({ params }) {
                   style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', overflow: 'hidden', textDecoration: 'none', display: 'block' }}>
                   {design.image_url ? (
                     <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden' }}>
-                      <img src={design.image_url} alt={design.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      <img src={design.image_url} alt={design.title} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
                     </div>
                   ) : <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--bg-chip)' }} />}
                   <div style={{ padding: '10px 12px 12px' }}>
