@@ -81,6 +81,7 @@ export default function ProfilePage() {
         account_type: chosenType,
         display_name: displayName.trim(),
       })
+      await loadUserData(data.user)
     }
     setSubmitting(false)
   }
