@@ -20,6 +20,7 @@ export default function ProfilePage() {
   const [resetMode, setResetMode] = useState(false)
   const [newPassword, setNewPassword] = useState('')
   const [resetDone, setResetDone] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [forgotSent, setForgotSent] = useState(false)
 
   // Profile edit state
@@ -146,6 +147,24 @@ export default function ProfilePage() {
         </form>
       </div>
     )
+  }
+
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file || !user) return
+    setUploadingAvatar(true)
+    const ext = file.name.split('.').pop()
+    const path = `avatars/${user.id}.${ext}`
+    const { error: uploadError } = await supabase.storage
+      .from('designs')
+      .upload(path, file, { upsert: true })
+    if (!uploadError) {
+      const { data: { publicUrl } } = supabase.storage.from('designs').getPublicUrl(path)
+      await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id)
+      setProfile(prev => ({ ...prev, avatar_url: publicUrl }))
+    }
+    setUploadingAvatar(false)
   }
 
   if (loading) return <div style={{ padding: '24px 20px', color: 'var(--text-secondary)', fontSize: '14px' }}>Loading...</div>
@@ -376,19 +395,67 @@ export default function ProfilePage() {
   }
 
   // ─── LOGGED IN: Regular user profile ───
+  const initials = (profile?.display_name || user.email || '?').slice(0, 2).toUpperCase()
+  const accountLabel = profile?.account_type === 'creator' ? 'Nail Artist' : profile?.account_type === 'salon' ? 'Salon' : 'Design Lover'
+
   return (
     <div style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-      <div>
-        {resetDone && (
-        <div style={{ background: 'var(--accent)', borderRadius: '12px', padding: '14px 16px', marginBottom: '4px' }}>
+
+      {resetDone && (
+        <div style={{ background: 'var(--accent)', borderRadius: '12px', padding: '14px 16px' }}>
           <p style={{ color: '#2C0A1E', fontSize: '14px', fontWeight: '500' }}>✓ Password updated successfully</p>
         </div>
       )}
-      <h1 style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '22px', letterSpacing: '-0.02em', marginBottom: '4px' }}>Profile</h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Your account</p>
+
+      {/* ── Profile header ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '4px 0' }}>
+        {/* Avatar */}
+        <label style={{ cursor: 'pointer', flexShrink: 0 }}>
+          <input type="file" accept="image/*" onChange={handleAvatarUpload} style={{ display: 'none' }} />
+          <div style={{
+            width: '72px', height: '72px', borderRadius: '50%',
+            background: profile?.avatar_url ? 'transparent' : 'var(--bg-chip)',
+            border: '0.5px solid var(--border)',
+            overflow: 'hidden', position: 'relative',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            {profile?.avatar_url ? (
+              <img src={profile.avatar_url} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <span style={{ color: 'var(--text-secondary)', fontSize: '22px', fontWeight: '500' }}>{initials}</span>
+            )}
+            {uploadingAvatar && (
+              <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ color: '#fff', fontSize: '11px' }}>...</span>
+              </div>
+            )}
+            {/* Edit overlay */}
+            <div style={{
+              position: 'absolute', bottom: 0, left: 0, right: 0,
+              background: 'rgba(0,0,0,0.45)', padding: '4px 0', textAlign: 'center',
+            }}>
+              <span style={{ color: '#fff', fontSize: '9px', fontWeight: '500' }}>EDIT</span>
+            </div>
+          </div>
+        </label>
+        {/* Name + badge */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h1 style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '20px', letterSpacing: '-0.02em', marginBottom: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {profile?.display_name || 'Set a name'}
+          </h1>
+          <span style={{
+            background: 'var(--bg-chip)', color: 'var(--text-secondary)',
+            fontSize: '11px', fontWeight: '500', padding: '3px 10px',
+            borderRadius: '20px', letterSpacing: '0.04em',
+          }}>
+            {accountLabel}
+          </span>
+        </div>
       </div>
 
+      {/* ── Editable fields ── */}
       <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', overflow: 'hidden' }}>
+        {/* Display name */}
         <div style={{ padding: '14px 16px', borderBottom: '0.5px solid var(--border)' }}>
           <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>Display name</p>
           {editingName ? (
@@ -407,10 +474,31 @@ export default function ProfilePage() {
             </div>
           )}
         </div>
+        {/* Bio */}
+        <div style={{ padding: '14px 16px', borderBottom: '0.5px solid var(--border)' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>Bio</p>
+          {editingBio ? (
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input value={bioInput} onChange={e => setBioInput(e.target.value)} autoFocus placeholder="Tell us about yourself"
+                style={{ flex: 1, background: 'var(--bg-chip)', border: '0.5px solid var(--border)', borderRadius: '8px', padding: '8px 12px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none' }} />
+              <button onClick={() => saveField('bio', bioInput, setEditingBio)}
+                style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '8px', padding: '8px 14px', fontSize: '13px', fontWeight: '500', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>Save</button>
+              <button onClick={() => setEditingBio(false)} style={{ background: 'none', color: 'var(--text-secondary)', border: 'none', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>✕</button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <p style={{ color: profile?.bio ? 'var(--text-primary)' : 'var(--text-secondary)', fontSize: '14px' }}>{profile?.bio || 'Not set'}</p>
+              <button onClick={() => { setBioInput(profile?.bio || ''); setEditingBio(true) }}
+                style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>Edit</button>
+            </div>
+          )}
+        </div>
+        {/* Email */}
         <div style={{ padding: '14px 16px', borderBottom: '0.5px solid var(--border)' }}>
           <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>Email</p>
           <p style={{ color: 'var(--text-primary)', fontSize: '14px' }}>{user.email}</p>
         </div>
+        {/* Saved count */}
         <Link href="/saved" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', textDecoration: 'none' }}>
           <div>
             <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>Saved designs</p>
