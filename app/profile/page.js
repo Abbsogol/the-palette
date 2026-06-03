@@ -108,6 +108,12 @@ export default function ProfilePage() {
 
   const handleLogout = async () => { await supabase.auth.signOut() }
 
+  const handleDeleteAccount = async () => {
+    if (!confirm('Delete your account permanently? This cannot be undone.')) return
+    await supabase.rpc('delete_own_account')
+    await supabase.auth.signOut()
+  }
+
   const saveField = async (field, value, setter) => {
     await supabase.from('profiles').update({ [field]: value }).eq('id', user.id)
     setProfile(prev => ({ ...prev, [field]: value }))
@@ -390,6 +396,11 @@ export default function ProfilePage() {
           style={{ width: '100%', background: 'none', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px', color: 'var(--text-secondary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", fontWeight: '500', cursor: 'pointer' }}>
           Log out
         </button>
+
+        <button onClick={handleDeleteAccount}
+          style={{ width: '100%', background: 'none', border: 'none', padding: '8px', color: '#8B3A3A', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
+          Delete account
+        </button>
       </div>
     )
   }
@@ -528,6 +539,11 @@ export default function ProfilePage() {
       <button onClick={handleLogout}
         style={{ width: '100%', background: 'none', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px', color: 'var(--text-secondary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", fontWeight: '500', cursor: 'pointer' }}>
         Log out
+      </button>
+
+      <button onClick={handleDeleteAccount}
+        style={{ width: '100%', background: 'none', border: 'none', padding: '8px', color: '#8B3A3A', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
+        Delete account
       </button>
     </div>
   )
