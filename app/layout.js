@@ -1,5 +1,6 @@
 import './globals.css'
 import BottomNav from '@/components/BottomNav'
+import { Analytics } from '@vercel/analytics/react'
 
 const APP_URL = 'https://the-palette-one.vercel.app'
 
@@ -41,6 +42,7 @@ export default function RootLayout({ children }) {
           {children}
         </main>
         <BottomNav />
+        <Analytics />
       </body>
     </html>
   )
