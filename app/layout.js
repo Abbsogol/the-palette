@@ -28,6 +28,9 @@ export const metadata = {
     description: 'Browse hundreds of curated nail designs with full specs. Save and share with your nail tech.',
     images: ['/og-image.jpg'],
   },
+  icons: {
+    apple: '/apple-touch-icon.png',
+  },
 }
 
 export default function RootLayout({ children }) {
