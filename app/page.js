@@ -56,10 +56,10 @@ export default function Home() {
       {/* Header */}
       <div style={{ padding: '24px 20px 0', marginBottom: '16px' }}>
         <h1 style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '22px', letterSpacing: '-0.02em', marginBottom: '4px' }}>
-          The Palette
+          Laque
         </h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
-          Nail & beauty design platform
+          Nail & beauty design library
         </p>
       </div>
 

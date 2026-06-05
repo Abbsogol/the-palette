@@ -2,8 +2,8 @@ import './globals.css'
 import BottomNav from '@/components/BottomNav'
 
 export const metadata = {
-  title: 'The Palette',
-  description: 'Nail and beauty design platform',
+  title: 'Laque',
+  description: 'A curated library of nail & beauty designs — browse, save, and discover with full specs.',
 }
 
 export default function RootLayout({ children }) {

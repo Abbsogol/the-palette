@@ -241,7 +241,7 @@ export default function ProfilePage() {
     return (
       <div style={{ padding: '24px 20px' }}>
         <h1 style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '22px', letterSpacing: '-0.02em', marginBottom: '4px' }}>I am a...</h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '28px' }}>Choose how you'll use The Palette</p>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '28px' }}>Choose how you'll use Laque</p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
           {[
@@ -285,7 +285,7 @@ export default function ProfilePage() {
     return (
       <div style={{ padding: '24px 20px' }}>
         <h1 style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '22px', letterSpacing: '-0.02em', marginBottom: '4px' }}>One more thing</h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '28px' }}>How will you use The Palette?</p>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '28px' }}>How will you use Laque?</p>
 
         <input
           type="text"
@@ -609,8 +609,8 @@ export default function ProfilePage() {
 
       <div style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '16px', border: '0.5px solid var(--border)' }}>
         <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>About</p>
-        <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500', marginBottom: '4px' }}>The Palette</p>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: '1.6' }}>A curated library of nail and beauty designs — each with full specs, colour codes, and technique details.</p>
+        <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500', marginBottom: '4px' }}>Laque</p>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: '1.6' }}>A curated library of nail & beauty designs — each with full specs, colour codes, and technique details.</p>
         <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '10px' }}>Version 0.1 · Beta</p>
       </div>
 

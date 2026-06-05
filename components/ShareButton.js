@@ -9,7 +9,7 @@ export default function ShareButton({ title }) {
 
     if (navigator.share) {
       try {
-        await navigator.share({ title: `${title} — The Palette`, url })
+        await navigator.share({ title: `${title} — Laque`, url })
       } catch (e) {
         // user dismissed — do nothing
       }
