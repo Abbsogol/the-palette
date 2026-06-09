@@ -536,6 +536,11 @@ export default function AdminPage() {
         <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Admin · Edit Design</p>
         <h1 style={{ color: 'var(--text-primary)', fontSize: '20px', fontWeight: '500', marginBottom: '24px' }}>{editingDesign.title}</h1>
         <DesignForm initial={editingDesign} onSave={saveEdit} onCancel={() => setEditingDesign(null)} saveLabel="Save Changes" />
+        <div style={{ marginTop: '32px', borderTop: '0.5px solid var(--border)', paddingTop: '24px' }}>
+          <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>Shop This Look</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginBottom: '16px' }}>Tap a product to link or unlink it from this design.</p>
+          <LinkedProducts designId={editingDesign.id} />
+        </div>
       </div>
     )
   }
@@ -666,6 +671,82 @@ export default function AdminPage() {
           )}
         </>
       )}
+    </div>
+  )
+}
+
+// ─── Linked Products ─────────────────────────────────────────────
+function LinkedProducts({ designId }) {
+  const [allProducts, setAllProducts] = useState([])
+  const [linkedIds, setLinkedIds] = useState(new Set())
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(null)
+
+  useEffect(() => {
+    const load = async () => {
+      const [{ data: products }, { data: links }] = await Promise.all([
+        supabase.from('products').select('id, name, brand, image_url, price_label').eq('is_published', true).order('created_at', { ascending: false }),
+        supabase.from('design_products').select('product_id').eq('design_id', designId),
+      ])
+      setAllProducts(products || [])
+      setLinkedIds(new Set(links?.map(l => l.product_id) || []))
+      setLoading(false)
+    }
+    load()
+  }, [designId])
+
+  const toggle = async (productId) => {
+    setSaving(productId)
+    if (linkedIds.has(productId)) {
+      await supabase.from('design_products').delete().eq('design_id', designId).eq('product_id', productId)
+      setLinkedIds(prev => { const next = new Set(prev); next.delete(productId); return next })
+    } else {
+      await supabase.from('design_products').insert({ design_id: designId, product_id: productId })
+      setLinkedIds(prev => new Set([...prev, productId]))
+    }
+    setSaving(null)
+  }
+
+  if (loading) return <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Loading products...</p>
+  if (allProducts.length === 0) return <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>No products in shop yet. Add some in the Shop tab first.</p>
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      {allProducts.map(product => {
+        const isLinked = linkedIds.has(product.id)
+        return (
+          <button
+            key={product.id}
+            onClick={() => toggle(product.id)}
+            disabled={saving === product.id}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '12px',
+              background: isLinked ? 'rgba(212,160,192,0.1)' : 'var(--bg-card)',
+              border: isLinked ? '0.5px solid var(--accent)' : '0.5px solid var(--border)',
+              borderRadius: '12px', padding: '10px 12px',
+              cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: 'inherit',
+            }}
+          >
+            {product.image_url
+              ? <img src={product.image_url} alt={product.name} style={{ width: '40px', height: '40px', objectFit: 'contain', borderRadius: '8px', flexShrink: 0, background: 'var(--bg-chip)' }} />
+              : <div style={{ width: '40px', height: '40px', background: 'var(--bg-chip)', borderRadius: '8px', flexShrink: 0 }} />
+            }
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.name}</p>
+              {product.brand && <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '2px' }}>{product.brand}{product.price_label ? ` · ${product.price_label}` : ''}</p>}
+            </div>
+            <div style={{
+              width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0,
+              background: isLinked ? 'var(--accent)' : 'var(--bg-chip)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: isLinked ? '#2C0A1E' : 'var(--text-secondary)',
+              fontSize: '14px', fontWeight: '700',
+            }}>
+              {saving === product.id ? '…' : isLinked ? '✓' : '+'}
+            </div>
+          </button>
+        )
+      })}
     </div>
   )
 }
