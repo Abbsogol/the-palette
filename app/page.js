@@ -38,10 +38,6 @@ export default function LandingPage() {
           0%, 100% { box-shadow: 0 0 0 0 rgba(212,160,192,0.35); }
           50%       { box-shadow: 0 0 0 10px rgba(212,160,192,0); }
         }
-        @keyframes creatorSlide {
-          from { opacity: 0; transform: translateX(-12px); }
-          to   { opacity: 1; transform: translateX(0); }
-        }
         .lq-cta-primary {
           background: var(--accent);
           color: #2C0A1E;
@@ -93,17 +89,6 @@ export default function LandingPage() {
           border-color: var(--accent);
           transform: translateY(-1px);
         }
-        .lq-feature {
-          background: var(--bg-card);
-          border: 0.5px solid var(--border);
-          border-radius: 16px;
-          padding: 20px;
-          display: flex;
-          gap: 16px;
-          align-items: flex-start;
-          transition: border-color 0.2s ease, transform 0.2s ease;
-        }
-        .lq-feature:hover { border-color: var(--accent); transform: translateY(-2px); }
         .lq-creator-row {
           display: flex;
           align-items: center;
@@ -128,6 +113,24 @@ export default function LandingPage() {
           white-space: nowrap;
           font-family: 'DM Sans', sans-serif;
         }
+        .lq-glass-badge {
+          position: absolute;
+          background: rgba(20,20,20,0.82);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+          border: 0.5px solid rgba(255,255,255,0.08);
+          border-radius: 12px;
+          padding: 9px 13px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .lq-feature-img {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          display: block;
+        }
       `}</style>
 
       {/* ── HERO ── */}
@@ -140,115 +143,67 @@ export default function LandingPage() {
         position: 'relative',
         overflow: 'hidden',
       }}>
-
-        {/* Background glow blobs */}
         <div style={{
-          position: 'absolute',
-          top: '10%',
-          right: '-80px',
-          width: '260px',
-          height: '260px',
-          borderRadius: '50%',
+          position: 'absolute', top: '10%', right: '-80px',
+          width: '260px', height: '260px', borderRadius: '50%',
           background: 'radial-gradient(circle, rgba(212,160,192,0.1) 0%, transparent 70%)',
-          animation: 'floatBlob 5s ease-in-out infinite',
-          pointerEvents: 'none',
+          animation: 'floatBlob 5s ease-in-out infinite', pointerEvents: 'none',
         }} />
         <div style={{
-          position: 'absolute',
-          bottom: '12%',
-          left: '-60px',
-          width: '180px',
-          height: '180px',
-          borderRadius: '50%',
+          position: 'absolute', bottom: '12%', left: '-60px',
+          width: '180px', height: '180px', borderRadius: '50%',
           background: 'radial-gradient(circle, rgba(212,160,192,0.06) 0%, transparent 70%)',
-          animation: 'floatBlob 7s ease-in-out 1s infinite',
-          pointerEvents: 'none',
+          animation: 'floatBlob 7s ease-in-out 1s infinite', pointerEvents: 'none',
         }} />
 
-        {/* Beta badge */}
         <div style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '7px',
-          background: 'var(--bg-chip)',
-          border: '0.5px solid var(--border)',
-          borderRadius: '20px',
-          padding: '5px 12px 5px 8px',
-          width: 'fit-content',
-          marginBottom: '24px',
+          display: 'inline-flex', alignItems: 'center', gap: '7px',
+          background: 'var(--bg-chip)', border: '0.5px solid var(--border)',
+          borderRadius: '20px', padding: '5px 12px 5px 8px',
+          width: 'fit-content', marginBottom: '24px',
           animation: 'fadeUp 0.5s ease 0.05s both',
         }}>
-          <span style={{
-            width: '6px', height: '6px', borderRadius: '50%',
-            background: 'var(--accent)', display: 'inline-block', flexShrink: 0,
-          }} />
-          <span style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
-            Beta
-          </span>
+          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent)', display: 'inline-block', flexShrink: 0 }} />
+          <span style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.07em', textTransform: 'uppercase' }}>Beta</span>
         </div>
 
-        {/* Main title */}
         <h1 style={{
-          fontSize: 'clamp(64px, 18vw, 80px)',
-          fontWeight: '500',
-          color: 'var(--text-primary)',
-          letterSpacing: '-0.04em',
-          lineHeight: '0.93',
-          marginBottom: '22px',
+          fontSize: 'clamp(64px, 18vw, 80px)', fontWeight: '500',
+          color: 'var(--text-primary)', letterSpacing: '-0.04em',
+          lineHeight: '0.93', marginBottom: '22px',
           animation: 'fadeUp 0.6s ease 0.15s both',
         }}>
           Laque
         </h1>
 
-        {/* Tagline */}
         <p style={{
-          fontSize: '19px',
-          fontWeight: '400',
-          color: 'var(--text-secondary)',
-          lineHeight: '1.55',
-          marginBottom: '36px',
-          maxWidth: '290px',
+          fontSize: '19px', fontWeight: '400', color: 'var(--text-secondary)',
+          lineHeight: '1.55', marginBottom: '36px', maxWidth: '290px',
           animation: 'fadeUp 0.6s ease 0.28s both',
         }}>
           Your next nail set,{' '}
           <span style={{ color: 'var(--text-primary)', fontWeight: '500' }}>fully specced.</span>
-          <br />
-          Show your nail tech exactly what you want.
+          <br />Show your nail tech exactly what you want.
         </p>
 
-        {/* CTA buttons */}
-        <div style={{
-          display: 'flex',
-          gap: '10px',
-          flexWrap: 'wrap',
-          animation: 'fadeUp 0.6s ease 0.42s both',
-        }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', animation: 'fadeUp 0.6s ease 0.42s both' }}>
           <Link href="/feed" className="lq-cta-primary">
             Explore designs
             <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
               <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </Link>
-          <Link href="/profile" className="lq-cta-secondary">
-            Sign up free
-          </Link>
+          <Link href="/profile" className="lq-cta-secondary">Sign up free</Link>
         </div>
 
-        {/* Stat chips */}
-        <div style={{
-          display: 'flex',
-          gap: '8px',
-          flexWrap: 'wrap',
-          marginTop: '28px',
-          animation: 'fadeUp 0.6s ease 0.55s both',
-        }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '28px', animation: 'fadeUp 0.6s ease 0.55s both' }}>
           {['100+ designs', 'Free to browse', 'No download needed'].map(s => (
             <span key={s} className="lq-stat">{s}</span>
           ))}
         </div>
       </section>
 
-      {/* ── MARQUEE STRIP ── */}
+      {/* ── MARQUEE ── */}
       {marquee.length > 0 && (
         <div style={{
           overflow: 'hidden',
@@ -257,176 +212,161 @@ export default function LandingPage() {
           padding: '14px 0',
           background: 'var(--bg-card)',
         }}>
-          <div style={{
-            display: 'flex',
-            gap: '12px',
-            width: 'max-content',
-            animation: 'marqueeScroll 28s linear infinite',
-          }}>
+          <div style={{ display: 'flex', gap: '12px', width: 'max-content', animation: 'marqueeScroll 28s linear infinite' }}>
             {marquee.map((d, i) => (
               <div key={`${d.id}-${i}`} style={{
-                width: '110px',
-                height: '110px',
-                borderRadius: '10px',
-                overflow: 'hidden',
-                flexShrink: 0,
-                border: '0.5px solid var(--border)',
-                background: 'var(--bg-primary)',
+                width: '110px', height: '110px', borderRadius: '10px',
+                overflow: 'hidden', flexShrink: 0,
+                border: '0.5px solid var(--border)', background: 'var(--bg-primary)',
               }}>
-                {d.image_url && (
-                  <img
-                    src={d.image_url}
-                    alt=""
-                    style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
-                  />
-                )}
+                {d.image_url && <img src={d.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />}
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* ── FEATURES (for users) ── */}
-      <section style={{ padding: '52px 24px 40px' }}>
-        <p style={{
-          color: 'var(--accent)',
-          fontSize: '11px',
-          fontWeight: '500',
-          letterSpacing: '0.09em',
-          textTransform: 'uppercase',
-          marginBottom: '20px',
-        }}>
-          Why Laque
-        </p>
+      {/* ── EDITORIAL FEATURES ── */}
+      <section>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {[
-            {
-              symbol: '✦',
-              title: 'Full colour specs',
-              desc: 'Every design comes with hex codes, gel brand & shade names, and finish type. No more vibes-only inspo.',
-            },
-            {
-              symbol: '◈',
-              title: 'Search & filter',
-              desc: 'Filter by nail shape, length, technique, or occasion. From everyday to editorial.',
-            },
-            {
-              symbol: '◇',
-              title: 'Save & share',
-              desc: 'Bookmark your favourites and share a direct link with your nail tech — no screenshotting required.',
-            },
-          ].map(f => (
-            <div key={f.title} className="lq-feature">
-              <span style={{
-                fontSize: '18px',
-                color: 'var(--accent)',
-                lineHeight: '1',
-                marginTop: '3px',
-                flexShrink: 0,
-              }}>
-                {f.symbol}
-              </span>
-              <div>
-                <p style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '15px', marginBottom: '5px' }}>
-                  {f.title}
-                </p>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: '1.65' }}>
-                  {f.desc}
-                </p>
+        {/* 01 — Fully specced */}
+        <div style={{ padding: '56px 24px 48px', borderBottom: '0.5px solid var(--border)' }}>
+          <p style={{ fontSize: '11px', color: 'var(--text-secondary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '18px', fontFamily: "'DM Sans', sans-serif" }}>01</p>
+          <h2 style={{ fontSize: 'clamp(28px, 8vw, 36px)', fontWeight: '600', color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: '1.12', marginBottom: '24px' }}>
+            Every design,<br />fully specced.
+          </h2>
+
+          {designs[0]?.image_url && (
+            <div style={{ position: 'relative', marginBottom: '20px' }}>
+              <div style={{ borderRadius: '18px', overflow: 'hidden', border: '0.5px solid var(--border)', background: 'var(--bg-card)', aspectRatio: '4 / 3' }}>
+                <img src={designs[0].image_url} alt="" className="lq-feature-img" />
+              </div>
+              <div className="lq-glass-badge" style={{ bottom: '14px', left: '14px' }}>
+                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
+                <span style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500', fontFamily: "'DM Sans', sans-serif" }}>Hex · Brand · Finish</span>
               </div>
             </div>
-          ))}
+          )}
+
+          <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: '1.7', maxWidth: '300px' }}>
+            Gel brand, shade name, finish type — all included. No more screenshot guesswork.
+          </p>
         </div>
+
+        {/* 02 — Search & filter */}
+        <div style={{ padding: '56px 24px 48px', borderBottom: '0.5px solid var(--border)' }}>
+          <p style={{ fontSize: '11px', color: 'var(--text-secondary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '18px', fontFamily: "'DM Sans', sans-serif" }}>02</p>
+          <h2 style={{ fontSize: 'clamp(28px, 8vw, 36px)', fontWeight: '600', color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: '1.12', marginBottom: '24px' }}>
+            Find exactly<br />your vibe.
+          </h2>
+
+          <div style={{ marginBottom: '20px' }}>
+            {/* Active filter chips */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
+              {['Dark', 'Minimal', 'Glam', 'Y2K', 'Bridal'].map((tag, i) => (
+                <span key={tag} style={{
+                  background: i === 2 ? 'var(--accent)' : 'var(--bg-card)',
+                  color: i === 2 ? '#2C0A1E' : 'var(--text-secondary)',
+                  border: i === 2 ? 'none' : '0.5px solid var(--border)',
+                  borderRadius: '20px', padding: '7px 14px',
+                  fontSize: '13px', fontWeight: i === 2 ? '600' : '400',
+                  fontFamily: "'DM Sans', sans-serif",
+                }}>{tag}</span>
+              ))}
+            </div>
+
+            {/* 2-col mini grid */}
+            {designs.length >= 3 && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                {designs.slice(1, 3).map(d => (
+                  <div key={d.id} style={{ borderRadius: '14px', overflow: 'hidden', border: '0.5px solid var(--border)', background: 'var(--bg-card)', aspectRatio: '1 / 1' }}>
+                    {d.image_url && <img src={d.image_url} alt="" className="lq-feature-img" />}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: '1.7', maxWidth: '300px' }}>
+            Filter by shape, length, technique, or occasion. From everyday to editorial.
+          </p>
+        </div>
+
+        {/* 03 — Save & share */}
+        <div style={{ padding: '56px 24px 48px' }}>
+          <p style={{ fontSize: '11px', color: 'var(--text-secondary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '18px', fontFamily: "'DM Sans', sans-serif" }}>03</p>
+          <h2 style={{ fontSize: 'clamp(28px, 8vw, 36px)', fontWeight: '600', color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: '1.12', marginBottom: '24px' }}>
+            Save it. Share it.<br />Show up ready.
+          </h2>
+
+          {designs[3]?.image_url && (
+            <div style={{ position: 'relative', marginBottom: '20px' }}>
+              <div style={{ borderRadius: '18px', overflow: 'hidden', border: '0.5px solid var(--border)', background: 'var(--bg-card)', aspectRatio: '4 / 3' }}>
+                <img src={designs[3].image_url} alt="" className="lq-feature-img" />
+              </div>
+              <div className="lq-glass-badge" style={{ top: '14px', right: '14px' }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="var(--accent)" stroke="none">
+                  <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+                </svg>
+                <span style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500', fontFamily: "'DM Sans', sans-serif" }}>Saved</span>
+              </div>
+            </div>
+          )}
+
+          <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: '1.7', maxWidth: '300px' }}>
+            Bookmark your favourites and send a direct link to your nail tech — no screenshotting required.
+          </p>
+        </div>
+
       </section>
 
-      {/* ── CREATOR / NAIL TECH SECTION ── */}
+      {/* ── CREATOR / NAIL TECH ── */}
       <section style={{
         padding: '48px 24px 52px',
-        position: 'relative',
-        overflow: 'hidden',
+        position: 'relative', overflow: 'hidden',
         background: 'linear-gradient(160deg, rgba(212,160,192,0.07) 0%, rgba(212,160,192,0.02) 60%, transparent 100%)',
         borderTop: '0.5px solid rgba(212,160,192,0.22)',
         borderBottom: '0.5px solid rgba(212,160,192,0.22)',
       }}>
-
-        {/* Accent glow */}
         <div style={{
-          position: 'absolute',
-          top: '-60px',
-          right: '-80px',
-          width: '240px',
-          height: '240px',
-          borderRadius: '50%',
+          position: 'absolute', top: '-60px', right: '-80px',
+          width: '240px', height: '240px', borderRadius: '50%',
           background: 'radial-gradient(circle, rgba(212,160,192,0.15) 0%, transparent 70%)',
-          animation: 'floatBlob 6s ease-in-out 0.5s infinite',
-          pointerEvents: 'none',
+          animation: 'floatBlob 6s ease-in-out 0.5s infinite', pointerEvents: 'none',
         }} />
 
-        {/* Label */}
         <div style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '7px',
-          background: 'rgba(212,160,192,0.1)',
-          border: '0.5px solid rgba(212,160,192,0.3)',
-          borderRadius: '20px',
-          padding: '5px 12px 5px 8px',
-          width: 'fit-content',
-          marginBottom: '22px',
+          display: 'inline-flex', alignItems: 'center', gap: '7px',
+          background: 'rgba(212,160,192,0.1)', border: '0.5px solid rgba(212,160,192,0.3)',
+          borderRadius: '20px', padding: '5px 12px 5px 8px',
+          width: 'fit-content', marginBottom: '22px',
         }}>
-          <span style={{
-            width: '5px', height: '5px', borderRadius: '50%',
-            background: 'var(--accent)', display: 'inline-block', flexShrink: 0,
-          }} />
-          <span style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
-            For nail artists & salons
-          </span>
+          <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'var(--accent)', display: 'inline-block', flexShrink: 0 }} />
+          <span style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.07em', textTransform: 'uppercase' }}>For nail artists & salons</span>
         </div>
 
-        {/* Heading */}
-        <h2 style={{
-          fontSize: 'clamp(28px, 8vw, 38px)',
-          fontWeight: '600',
-          color: 'var(--text-primary)',
-          letterSpacing: '-0.03em',
-          lineHeight: '1.15',
-          marginBottom: '14px',
-        }}>
+        <h2 style={{ fontSize: 'clamp(28px, 8vw, 38px)', fontWeight: '600', color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: '1.15', marginBottom: '14px' }}>
           Publish your work.{' '}
           <span style={{ color: 'var(--accent)' }}>Get discovered.</span>
         </h2>
 
-        {/* Subtext */}
-        <p style={{
-          fontSize: '15px',
-          color: 'var(--text-secondary)',
-          lineHeight: '1.65',
-          marginBottom: '28px',
-          maxWidth: '310px',
-        }}>
+        <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: '1.65', marginBottom: '28px', maxWidth: '310px' }}>
           Get a free creator profile, post your sets with full specs, and reach clients who are already browsing for their next look.
         </p>
 
-        {/* Feature rows */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '32px' }}>
           {[
             { icon: '◈', text: 'Free public portfolio — your work, your page' },
             { icon: '✦', text: 'Get found by clients browsing for inspo' },
             { icon: '◇', text: 'Post designs with colour codes & technique notes' },
-          ].map((item, i) => (
-            <div
-              key={item.text}
-              className="lq-creator-row"
-              style={{ animationDelay: `${i * 0.08}s` }}
-            >
+          ].map(item => (
+            <div key={item.text} className="lq-creator-row">
               <span style={{ color: 'var(--accent)', fontSize: '14px', flexShrink: 0 }}>{item.icon}</span>
               <span style={{ color: 'var(--text-primary)', fontSize: '13px', lineHeight: '1.45' }}>{item.text}</span>
             </div>
           ))}
         </div>
 
-        {/* CTA */}
         <Link href="/profile" className="lq-cta-creator">
           Create a creator account
           <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
@@ -436,27 +376,11 @@ export default function LandingPage() {
       </section>
 
       {/* ── FINAL CTA ── */}
-      <section style={{
-        padding: '40px 24px 56px',
-        textAlign: 'center',
-        borderTop: '0.5px solid var(--border)',
-      }}>
-        <p style={{
-          color: 'var(--text-primary)',
-          fontSize: '22px',
-          fontWeight: '500',
-          letterSpacing: '-0.02em',
-          lineHeight: '1.3',
-          marginBottom: '10px',
-        }}>
+      <section style={{ padding: '40px 24px 56px', textAlign: 'center', borderTop: '0.5px solid var(--border)' }}>
+        <p style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: '500', letterSpacing: '-0.02em', lineHeight: '1.3', marginBottom: '10px' }}>
           Ready to find your next set?
         </p>
-        <p style={{
-          color: 'var(--text-secondary)',
-          fontSize: '14px',
-          marginBottom: '28px',
-          lineHeight: '1.6',
-        }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '28px', lineHeight: '1.6' }}>
           Browse free. Save what you love.<br />Show your nail tech.
         </p>
         <Link href="/feed" className="lq-cta-primary" style={{ display: 'inline-flex' }}>
