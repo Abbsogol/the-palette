@@ -161,43 +161,7 @@ export default async function DesignPage({ params }) {
 
       </div>
 
-      {/* Shop this look */}
-      {shopProducts.length > 0 && (
-        <div style={{ marginTop: '24px', borderTop: '0.5px solid var(--border)', padding: '24px 20px 0' }}>
-          <p style={sectionLabel}>Shop this look</p>
-          <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            {shopProducts.map(product => (
-              <a
-                key={product.id}
-                href={product.affiliate_url}
-                target="_blank"
-                rel="noopener noreferrer sponsored"
-                style={{
-                  flexShrink: 0, width: '140px',
-                  background: 'var(--bg-card)', borderRadius: '12px',
-                  border: '0.5px solid var(--border)', overflow: 'hidden',
-                  textDecoration: 'none', display: 'block',
-                }}
-              >
-                {product.image_url ? (
-                  <div style={{ width: '140px', height: '140px', background: 'var(--bg-chip)', overflow: 'hidden' }}>
-                    <img src={product.image_url} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
-                  </div>
-                ) : (
-                  <div style={{ width: '140px', height: '140px', background: 'var(--bg-chip)' }} />
-                )}
-                <div style={{ padding: '8px 10px 10px' }}>
-                  <p style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500', lineHeight: '1.3', marginBottom: '4px' }}>{product.name}</p>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
-                    {product.price_label && <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '600' }}>{product.price_label}</p>}
-                    <span style={{ background: 'var(--bg-chip)', color: 'var(--text-secondary)', fontSize: '9px', fontWeight: '500', padding: '3px 7px', borderRadius: '6px', whiteSpace: 'nowrap' }}>Shop ↗</span>
-                  </div>
-                </div>
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Shop this look — hidden for now */}
 
       {/* Related designs */}
       {related.length > 0 && (
