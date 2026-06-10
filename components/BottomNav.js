@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 
 const tabs = [
   {
-    href: '/',
+    href: '/feed',
     label: 'Home',
     icon: (active) => (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -64,7 +64,7 @@ export default function BottomNav() {
       zIndex: 100,
     }}>
       {tabs.map((tab) => {
-        const isActive = pathname === tab.href
+        const isActive = pathname === tab.href || (tab.href === '/feed' && pathname === '/')
         return (
           <Link
             key={tab.href}
