@@ -1,69 +1,79 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
 
 export default function LandingPage() {
-  const [designs, setDesigns] = useState([])
+  const [scrollY, setScrollY]               = useState(0)
+  const [tp, setTp]                         = useState(0) // transition progress 0→1
+  const [featuresVisible, setFeaturesVisible] = useState(false)
+  const [creatorVisible, setCreatorVisible]   = useState(false)
+  const transitionRef = useRef(null)
+  const featuresRef   = useRef(null)
+  const creatorRef    = useRef(null)
 
   useEffect(() => {
-    supabase
-      .from('designs')
-      .select('id, image_url')
-      .eq('is_published', true)
-      .order('created_at', { ascending: false })
-      .limit(16)
-      .then(({ data }) => setDesigns(data || []))
+    const onScroll = () => {
+      setScrollY(window.scrollY)
+      if (transitionRef.current) {
+        const rect     = transitionRef.current.getBoundingClientRect()
+        const total    = transitionRef.current.offsetHeight - window.innerHeight
+        const scrolled = Math.max(0, -rect.top)
+        setTp(Math.min(1, scrolled / Math.max(1, total)))
+      }
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  const cardConfigs = [
-    // left cluster
-    { top: '-4%',    left: 'calc(50% - 232px)', rotate: '-20deg', anim: 'fc7', dur: '5.2s', delay: '-0.6s', size: 88 },
-    { top: '12%',    left: 'calc(50% - 252px)', rotate: '-10deg', anim: 'fc3', dur: '6.1s', delay: '-2.4s', size: 84 },
-    { top: '34%',    left: 'calc(50% - 258px)', rotate: '-16deg', anim: 'fc1', dur: '5s',   delay: '0s',    size: 92 },
-    { top: '56%',    left: 'calc(50% - 244px)', rotate: '-6deg',  anim: 'fc5', dur: '4.8s', delay: '-3.5s', size: 86 },
-    { bottom: '-2%', left: 'calc(50% - 228px)', rotate: '-14deg', anim: 'fc3', dur: '5.6s', delay: '-1.2s', size: 82 },
-    { top: '20%',    left: 'calc(50% - 172px)', rotate: '-4deg',  anim: 'fc8', dur: '7s',   delay: '-4s',   size: 68 },
-    { top: '62%',    left: 'calc(50% - 168px)', rotate: '-8deg',  anim: 'fc2', dur: '6.4s', delay: '-2s',   size: 66 },
-    // right cluster
-    { top: '-3%',    left: 'calc(50% + 128px)', rotate: '18deg',  anim: 'fc4', dur: '5.4s', delay: '-1.5s', size: 86 },
-    { top: '11%',    left: 'calc(50% + 148px)', rotate: '12deg',  anim: 'fc2', dur: '4.6s', delay: '-0.8s', size: 80 },
-    { top: '33%',    left: 'calc(50% + 154px)', rotate: '20deg',  anim: 'fc6', dur: '5.8s', delay: '-3.2s', size: 90 },
-    { top: '55%',    left: 'calc(50% + 140px)', rotate: '9deg',   anim: 'fc1', dur: '6.2s', delay: '-4.8s', size: 84 },
-    { bottom: '-1%', left: 'calc(50% + 118px)', rotate: '15deg',  anim: 'fc5', dur: '5s',   delay: '-2.6s', size: 78 },
-    { top: '16%',    left: 'calc(50% + 82px)',  rotate: '5deg',   anim: 'fc7', dur: '7.2s', delay: '-1s',   size: 64 },
-    { top: '60%',    left: 'calc(50% + 90px)',  rotate: '11deg',  anim: 'fc3', dur: '6.8s', delay: '-3.8s', size: 68 },
-    // top centre + bottom centre fill
-    { top: '2%',     left: 'calc(50% - 46px)',  rotate: '7deg',   anim: 'fc8', dur: '5.6s', delay: '-1.7s', size: 82 },
-    { bottom: '2%',  left: 'calc(50% - 50px)',  rotate: '-6deg',  anim: 'fc4', dur: '6.3s', delay: '-3.1s', size: 84 },
-  ]
+  useEffect(() => {
+    const observe = (ref, setter) => {
+      if (!ref.current) return
+      const obs = new IntersectionObserver(
+        ([e]) => { if (e.isIntersecting) setter(true) },
+        { threshold: 0.15 }
+      )
+      obs.observe(ref.current)
+      return () => obs.disconnect()
+    }
+    const c1 = observe(featuresRef, setFeaturesVisible)
+    const c2 = observe(creatorRef,  setCreatorVisible)
+    return () => { c1?.(); c2?.() }
+  }, [])
+
+  // ── drop animation ──────────────────────────────────────────
+  // 0.00→0.50  drop falls in from above (translateY -220→0)
+  // 0.45→0.70  drop grows (scale 0.8→1.4)
+  // 0.65→0.85  drop bursts + fades out (scale 1.4→2.0, opacity 1→0)
+  // 0.65→1.00  ribbons bloom in (opacity 0→1)
+  const dropY       = tp < 0.5 ? -220 + (tp / 0.5) * 220 : (tp - 0.5) * 80
+  const dropScale   = tp < 0.65
+    ? 0.8 + (tp / 0.65) * 0.6
+    : 1.4 + ((tp - 0.65) / 0.2) * 0.6
+  const dropOpacity = tp < 0.62 ? 1 : Math.max(0, 1 - (tp - 0.62) / 0.23)
+  const ribbonsOp   = tp < 0.65 ? 0 : Math.min(1, (tp - 0.65) / 0.3)
+  const splashScale = tp > 0.6 && tp < 0.82
+    ? 1 + ((tp - 0.6) / 0.22) * 3
+    : 0 // splash ring
+  const splashOp    = tp > 0.6 && tp < 0.82
+    ? Math.max(0, 1 - ((tp - 0.6) / 0.22))
+    : 0
 
   return (
     <>
       <style>{`
-        @keyframes fc1 { 0%,100%{transform:rotate(-18deg) translateY(0) translateX(0)}    50%{transform:rotate(-18deg) translateY(-42px) translateX(7px)} }
-        @keyframes fc2 { 0%,100%{transform:rotate(14deg) translateY(0) translateX(0)}     50%{transform:rotate(14deg) translateY(-46px) translateX(-8px)} }
-        @keyframes fc3 { 0%,100%{transform:rotate(-7deg) translateY(0) translateX(0)}     50%{transform:rotate(-7deg) translateY(-36px) translateX(9px)} }
-        @keyframes fc4 { 0%,100%{transform:rotate(19deg) translateY(0) translateX(0)}     50%{transform:rotate(19deg) translateY(-44px) translateX(-7px)} }
-        @keyframes fc5 { 0%,100%{transform:rotate(-13deg) translateY(0) translateX(0)}    50%{transform:rotate(-13deg) translateY(-38px) translateX(8px)} }
-        @keyframes fc6 { 0%,100%{transform:rotate(11deg) translateY(0) translateX(0)}     50%{transform:rotate(11deg) translateY(-40px) translateX(-9px)} }
-        @keyframes fc7 { 0%,100%{transform:rotate(-22deg) translateY(0) translateX(0)}    50%{transform:rotate(-22deg) translateY(-34px) translateX(6px)} }
-        @keyframes fc8 { 0%,100%{transform:rotate(8deg) translateY(0) translateX(0)}      50%{transform:rotate(8deg) translateY(-48px) translateX(-5px)} }
-
         @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(22px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes floatBlob {
-          0%, 100% { transform: translateY(0px) scale(1); }
-          50%       { transform: translateY(-14px) scale(1.04); }
+          from { opacity:0; transform:translateY(24px); }
+          to   { opacity:1; transform:translateY(0); }
         }
         @keyframes pulseGlow {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(212,160,192,0.35); }
-          50%       { box-shadow: 0 0 0 10px rgba(212,160,192,0); }
+          0%,100% { box-shadow:0 0 0 0 rgba(212,160,192,0.4); }
+          50%      { box-shadow:0 0 0 12px rgba(212,160,192,0); }
         }
-
+        @keyframes floatBlob {
+          0%,100% { transform:translateY(0) scale(1); }
+          50%     { transform:translateY(-14px) scale(1.03); }
+        }
         .lq-cta-primary {
           background: var(--accent);
           color: #2C0A1E;
@@ -77,10 +87,9 @@ export default function LandingPage() {
           gap: 8px;
           font-family: 'DM Sans', sans-serif;
           animation: pulseGlow 2.8s ease-in-out 1.2s infinite;
-          transition: transform 0.18s ease, opacity 0.18s ease;
+          transition: transform .18s ease, opacity .18s ease;
         }
-        .lq-cta-primary:hover { transform: scale(1.03); opacity: 0.92; }
-
+        .lq-cta-primary:hover { transform:scale(1.03); opacity:.92; }
         .lq-cta-secondary {
           background: transparent;
           color: var(--text-secondary);
@@ -93,10 +102,9 @@ export default function LandingPage() {
           align-items: center;
           border: 0.5px solid var(--border);
           font-family: 'DM Sans', sans-serif;
-          transition: border-color 0.18s ease, color 0.18s ease;
+          transition: border-color .18s, color .18s;
         }
-        .lq-cta-secondary:hover { border-color: var(--text-secondary); color: var(--text-primary); }
-
+        .lq-cta-secondary:hover { border-color:var(--text-secondary); color:var(--text-primary); }
         .lq-cta-creator {
           background: transparent;
           color: var(--accent);
@@ -109,163 +117,92 @@ export default function LandingPage() {
           align-items: center;
           gap: 8px;
           font-family: 'DM Sans', sans-serif;
-          border: 1px solid rgba(212,160,192,0.5);
-          transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+          border: 1px solid rgba(212,160,192,.5);
+          transition: background .18s, border-color .18s, transform .18s;
         }
-        .lq-cta-creator:hover {
-          background: rgba(212,160,192,0.08);
-          border-color: var(--accent);
-          transform: translateY(-1px);
-        }
-
-        .lq-float-card {
-          position: absolute;
-          border-radius: 12px;
-          overflow: hidden;
-          background: linear-gradient(135deg, #1e1e1e 0%, #252525 100%);
-          border: 1px solid rgba(255,255,255,0.07);
-          box-shadow: 0 8px 32px rgba(0,0,0,0.6);
-        }
-        .lq-float-card img {
-          opacity: 0;
-          transition: opacity 0.5s ease;
-        }
-        .lq-float-card img.img-loaded {
-          opacity: 1;
-        }
-
+        .lq-cta-creator:hover { background:rgba(212,160,192,.08); border-color:var(--accent); transform:translateY(-1px); }
         .lq-feature {
-          background: var(--bg-card);
-          border: 0.5px solid var(--border);
+          background: rgba(30,30,30,0.75);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border: 0.5px solid rgba(255,255,255,0.08);
           border-radius: 16px;
           padding: 20px;
           display: flex;
           gap: 16px;
           align-items: flex-start;
-          transition: border-color 0.2s ease, transform 0.2s ease;
+          transition: border-color .2s, transform .2s;
         }
-        .lq-feature:hover { border-color: var(--accent); transform: translateY(-2px); }
-
+        .lq-feature:hover { border-color:var(--accent); transform:translateY(-2px); }
         .lq-creator-row {
           display: flex;
           align-items: center;
           gap: 12px;
-          background: rgba(212,160,192,0.05);
-          border: 0.5px solid rgba(212,160,192,0.18);
+          background: rgba(212,160,192,.05);
+          border: 0.5px solid rgba(212,160,192,.18);
           border-radius: 12px;
           padding: 13px 14px;
-          transition: background 0.18s ease, border-color 0.18s ease;
+          transition: background .18s, border-color .18s;
         }
-        .lq-creator-row:hover {
-          background: rgba(212,160,192,0.09);
-          border-color: rgba(212,160,192,0.35);
-        }
+        .lq-creator-row:hover { background:rgba(212,160,192,.09); border-color:rgba(212,160,192,.35); }
       `}</style>
 
-      {/* ── COSMOS HERO ── */}
+      {/* ── HERO ── */}
       <section style={{
-        height: '100svh',
-        minHeight: '600px',
-        position: 'relative',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'var(--bg-primary)',
+        height: '100svh', minHeight: '600px',
+        position: 'relative', overflow: 'hidden',
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
       }}>
-        {/* Soft accent glow behind text */}
+        {/* cosmic background with parallax */}
         <div style={{
-          position: 'absolute',
-          width: '280px', height: '280px',
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(212,160,192,0.09) 0%, transparent 70%)',
-          animation: 'floatBlob 8s ease-in-out infinite',
-          pointerEvents: 'none',
-          zIndex: 1,
+          position: 'absolute', inset: '-10%',
+          backgroundImage: 'url(/hero-cosmic.png)',
+          backgroundSize: 'cover', backgroundPosition: 'center',
+          transform: `translateY(${scrollY * 0.25}px)`,
+          willChange: 'transform',
         }} />
+        {/* dark overlay */}
+        <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.52)' }} />
 
-        {/* Floating nail design cards */}
-        {designs.slice(0, cardConfigs.length).map((d, i) => {
-          const cfg = cardConfigs[i]
-          const posStyle = {}
-          if (cfg.top)    posStyle.top    = cfg.top
-          if (cfg.bottom) posStyle.bottom = cfg.bottom
-          if (cfg.left)   posStyle.left   = cfg.left
-          if (cfg.right)  posStyle.right  = cfg.right
-          return (
-            <div
-              key={d.id}
-              className="lq-float-card"
-              style={{
-                ...posStyle,
-                width: cfg.size,
-                height: cfg.size * 1.18,
-                animation: `${cfg.anim} ${cfg.dur} ease-in-out ${cfg.delay} infinite`,
-                zIndex: 0,
-              }}
-            >
-              {d.image_url && (
-                <img
-                  src={d.image_url}
-                  alt=""
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                  onLoad={e => e.currentTarget.classList.add('img-loaded')}
-                />
-              )}
-            </div>
-          )
-        })}
-
-        {/* Centre content */}
+        {/* content */}
         <div style={{
-          position: 'relative', zIndex: 2,
-          display: 'flex', flexDirection: 'column',
-          alignItems: 'center', textAlign: 'center',
-          padding: '0 32px',
+          position:'relative', zIndex:2,
+          display:'flex', flexDirection:'column',
+          alignItems:'center', textAlign:'center',
+          padding:'0 28px',
         }}>
-          {/* Beta badge */}
           <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: '7px',
-            background: 'rgba(212,160,192,0.1)', border: '0.5px solid rgba(212,160,192,0.25)',
-            borderRadius: '20px', padding: '4px 12px 4px 8px',
-            marginBottom: '20px',
-            animation: 'fadeUp 0.5s ease 0.1s both',
+            display:'inline-flex', alignItems:'center', gap:'7px',
+            background:'rgba(212,160,192,0.12)', border:'0.5px solid rgba(212,160,192,0.3)',
+            borderRadius:'20px', padding:'4px 12px 4px 8px',
+            marginBottom:'20px', animation:'fadeUp .5s ease .1s both',
           }}>
-            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent)', display: 'inline-block' }} />
-            <span style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.07em', textTransform: 'uppercase' }}>Beta</span>
+            <span style={{ width:'6px', height:'6px', borderRadius:'50%', background:'var(--accent)', display:'inline-block' }} />
+            <span style={{ color:'var(--accent)', fontSize:'11px', fontWeight:'500', letterSpacing:'.07em', textTransform:'uppercase' }}>Beta</span>
           </div>
 
-          {/* Wordmark */}
           <h1 style={{
-            fontSize: 'clamp(72px, 22vw, 96px)',
-            fontWeight: '500',
-            color: 'var(--text-primary)',
-            letterSpacing: '-0.045em',
-            lineHeight: '0.9',
-            marginBottom: '18px',
-            animation: 'fadeUp 0.6s ease 0.2s both',
+            fontSize:'clamp(72px, 22vw, 100px)', fontWeight:'500',
+            color:'#F5EDE0', letterSpacing:'-0.045em', lineHeight:'.9',
+            marginBottom:'18px', animation:'fadeUp .6s ease .2s both',
+            textShadow:'0 2px 40px rgba(0,0,0,0.6)',
           }}>
             Laque
           </h1>
 
-          {/* Tagline */}
           <p style={{
-            fontSize: '16px',
-            color: 'var(--text-secondary)',
-            lineHeight: '1.55',
-            marginBottom: '30px',
-            maxWidth: '260px',
-            animation: 'fadeUp 0.6s ease 0.35s both',
+            fontSize:'16px', color:'rgba(245,237,224,0.7)',
+            lineHeight:'1.55', marginBottom:'30px', maxWidth:'260px',
+            animation:'fadeUp .6s ease .35s both',
           }}>
             Your next nail set,{' '}
-            <span style={{ color: 'var(--text-primary)', fontWeight: '500' }}>fully specced.</span>
+            <span style={{ color:'#F5EDE0', fontWeight:'500' }}>fully specced.</span>
           </p>
 
-          {/* CTAs */}
           <div style={{
-            display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center',
-            animation: 'fadeUp 0.6s ease 0.48s both',
+            display:'flex', gap:'10px', flexWrap:'wrap', justifyContent:'center',
+            animation:'fadeUp .6s ease .48s both',
           }}>
             <Link href="/feed" className="lq-cta-primary">
               Explore designs
@@ -277,104 +214,231 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Scroll hint */}
+        {/* scroll hint */}
         <div style={{
-          position: 'absolute', bottom: '24px',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
-          animation: 'fadeUp 0.6s ease 0.9s both',
-          zIndex: 2,
+          position:'absolute', bottom:'24px', zIndex:2,
+          display:'flex', flexDirection:'column', alignItems:'center', gap:'6px',
+          animation:'fadeUp .6s ease .9s both',
+          opacity: Math.max(0, 1 - scrollY / 80),
         }}>
-          <span style={{ color: 'var(--text-secondary)', fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Scroll</span>
-          <div style={{ width: '1px', height: '24px', background: 'linear-gradient(to bottom, var(--text-secondary), transparent)' }} />
+          <span style={{ color:'rgba(245,237,224,0.45)', fontSize:'10px', letterSpacing:'.1em', textTransform:'uppercase' }}>Scroll</span>
+          <div style={{ width:'1px', height:'24px', background:'linear-gradient(to bottom, rgba(245,237,224,0.4), transparent)' }} />
         </div>
       </section>
 
-      {/* ── FEATURES ── */}
-      <section style={{ padding: '52px 24px 40px' }}>
-        <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.09em', textTransform: 'uppercase', marginBottom: '20px' }}>
-          Why Laque
-        </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {[
-            { symbol: '✦', title: 'Full colour specs', desc: 'Every design comes with hex codes, gel brand & shade names, and finish type. No more vibes-only inspo.' },
-            { symbol: '◈', title: 'Search & filter', desc: 'Filter by nail shape, length, technique, or occasion. From everyday to editorial.' },
-            { symbol: '◇', title: 'Save & share', desc: 'Bookmark your favourites and share a direct link with your nail tech — no screenshotting required.' },
-          ].map(f => (
-            <div key={f.title} className="lq-feature">
-              <span style={{ fontSize: '18px', color: 'var(--accent)', lineHeight: '1', marginTop: '3px', flexShrink: 0 }}>{f.symbol}</span>
-              <div>
-                <p style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '15px', marginBottom: '5px' }}>{f.title}</p>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: '1.65' }}>{f.desc}</p>
+      {/* ── SCROLL TRANSITION: drop → ribbons ── */}
+      <div ref={transitionRef} style={{ height:'220vh', position:'relative' }}>
+        <div style={{
+          position:'sticky', top:0,
+          height:'100vh', overflow:'hidden',
+          display:'flex', alignItems:'center', justifyContent:'center',
+          background:'var(--bg-primary)',
+        }}>
+          {/* ribbons background blooms in */}
+          <div style={{
+            position:'absolute', inset:0,
+            backgroundImage:'url(/ribbons.png)',
+            backgroundSize:'cover', backgroundPosition:'center',
+            opacity: ribbonsOp,
+            transition:'opacity .05s linear',
+          }} />
+          <div style={{
+            position:'absolute', inset:0,
+            background:'rgba(0,0,0,0.55)',
+            opacity: ribbonsOp,
+          }} />
+
+          {/* splash ring */}
+          {splashOp > 0 && (
+            <div style={{
+              position:'absolute',
+              width:'120px', height:'120px',
+              borderRadius:'50%',
+              border:'2px solid rgba(212,160,192,0.6)',
+              transform:`scale(${splashScale})`,
+              opacity: splashOp,
+              pointerEvents:'none',
+            }} />
+          )}
+
+          {/* the drop */}
+          <div style={{
+            position:'relative', zIndex:2,
+            transform:`translateY(${dropY}px) scale(${dropScale})`,
+            opacity: dropOpacity,
+            willChange:'transform, opacity',
+            transition:'transform .02s linear, opacity .02s linear',
+          }}>
+            <img
+              src="/drop.png"
+              alt=""
+              style={{
+                width:'180px', height:'auto',
+                display:'block',
+                filter:'drop-shadow(0 0 40px rgba(212,160,192,0.35))',
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ── FEATURES (ribbons background) ── */}
+      <section
+        ref={featuresRef}
+        style={{
+          padding:'52px 24px 48px',
+          position:'relative', overflow:'hidden',
+        }}
+      >
+        {/* ribbons bleed from transition */}
+        <div style={{
+          position:'absolute', inset:0,
+          backgroundImage:'url(/ribbons.png)',
+          backgroundSize:'cover', backgroundPosition:'center',
+          opacity:.18,
+        }} />
+        <div style={{ position:'absolute', inset:0, background:'rgba(20,20,20,0.82)' }} />
+
+        <div style={{ position:'relative', zIndex:1 }}>
+          <p style={{
+            color:'var(--accent)', fontSize:'11px', fontWeight:'500',
+            letterSpacing:'.09em', textTransform:'uppercase', marginBottom:'20px',
+            opacity: featuresVisible ? 1 : 0,
+            transform: featuresVisible ? 'none' : 'translateY(16px)',
+            transition:'opacity .6s ease, transform .6s ease',
+          }}>
+            Why Laque
+          </p>
+          <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
+            {[
+              { symbol:'✦', title:'Full colour specs', desc:'Every design comes with hex codes, gel brand & shade names, and finish type. No more vibes-only inspo.' },
+              { symbol:'◈', title:'Search & filter',   desc:'Filter by nail shape, length, technique, or occasion. From everyday to editorial.' },
+              { symbol:'◇', title:'Save & share',      desc:'Bookmark your favourites and share a direct link with your nail tech — no screenshotting required.' },
+            ].map((f, i) => (
+              <div
+                key={f.title}
+                className="lq-feature"
+                style={{
+                  opacity: featuresVisible ? 1 : 0,
+                  transform: featuresVisible ? 'none' : 'translateY(24px)',
+                  transition: `opacity .6s ease ${0.1 + i * 0.12}s, transform .6s ease ${0.1 + i * 0.12}s`,
+                }}
+              >
+                <span style={{ fontSize:'18px', color:'var(--accent)', lineHeight:'1', marginTop:'3px', flexShrink:0 }}>{f.symbol}</span>
+                <div>
+                  <p style={{ color:'var(--text-primary)', fontWeight:'500', fontSize:'15px', marginBottom:'5px' }}>{f.title}</p>
+                  <p style={{ color:'var(--text-secondary)', fontSize:'13px', lineHeight:'1.65' }}>{f.desc}</p>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </section>
 
       {/* ── CREATOR / NAIL TECH ── */}
-      <section style={{
-        padding: '48px 24px 52px',
-        position: 'relative', overflow: 'hidden',
-        background: 'linear-gradient(160deg, rgba(212,160,192,0.07) 0%, rgba(212,160,192,0.02) 60%, transparent 100%)',
-        borderTop: '0.5px solid rgba(212,160,192,0.22)',
-        borderBottom: '0.5px solid rgba(212,160,192,0.22)',
-      }}>
+      <section
+        ref={creatorRef}
+        style={{
+          padding:'48px 24px 52px',
+          position:'relative', overflow:'hidden',
+          borderTop:'0.5px solid rgba(212,160,192,0.22)',
+          borderBottom:'0.5px solid rgba(212,160,192,0.22)',
+        }}
+      >
+        {/* vortex background */}
         <div style={{
-          position: 'absolute', top: '-60px', right: '-80px',
-          width: '240px', height: '240px', borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(212,160,192,0.15) 0%, transparent 70%)',
-          animation: 'floatBlob 6s ease-in-out 0.5s infinite', pointerEvents: 'none',
+          position:'absolute', inset:0,
+          backgroundImage:'url(/vortex.png)',
+          backgroundSize:'cover', backgroundPosition:'center',
+          opacity: creatorVisible ? 0.22 : 0,
+          transition:'opacity 1.2s ease',
+        }} />
+        <div style={{ position:'absolute', inset:0, background:'rgba(20,20,20,0.78)' }} />
+        {/* pink gradient overlay */}
+        <div style={{
+          position:'absolute', inset:0,
+          background:'linear-gradient(160deg, rgba(212,160,192,0.08) 0%, rgba(212,160,192,0.02) 60%, transparent 100%)',
         }} />
 
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: '7px',
-          background: 'rgba(212,160,192,0.1)', border: '0.5px solid rgba(212,160,192,0.3)',
-          borderRadius: '20px', padding: '5px 12px 5px 8px',
-          width: 'fit-content', marginBottom: '22px',
-        }}>
-          <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'var(--accent)', display: 'inline-block', flexShrink: 0 }} />
-          <span style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.07em', textTransform: 'uppercase' }}>For nail artists & salons</span>
+        <div style={{ position:'relative', zIndex:1 }}>
+          <div style={{
+            display:'inline-flex', alignItems:'center', gap:'7px',
+            background:'rgba(212,160,192,0.1)', border:'0.5px solid rgba(212,160,192,0.3)',
+            borderRadius:'20px', padding:'5px 12px 5px 8px',
+            width:'fit-content', marginBottom:'22px',
+            opacity: creatorVisible ? 1 : 0,
+            transform: creatorVisible ? 'none' : 'translateY(16px)',
+            transition:'opacity .6s ease, transform .6s ease',
+          }}>
+            <span style={{ width:'5px', height:'5px', borderRadius:'50%', background:'var(--accent)', display:'inline-block', flexShrink:0 }} />
+            <span style={{ color:'var(--accent)', fontSize:'11px', fontWeight:'500', letterSpacing:'.07em', textTransform:'uppercase' }}>For nail artists & salons</span>
+          </div>
+
+          <h2 style={{
+            fontSize:'clamp(28px, 8vw, 38px)', fontWeight:'600',
+            color:'var(--text-primary)', letterSpacing:'-0.03em', lineHeight:'1.15', marginBottom:'14px',
+            opacity: creatorVisible ? 1 : 0,
+            transform: creatorVisible ? 'none' : 'translateY(20px)',
+            transition:'opacity .6s ease .1s, transform .6s ease .1s',
+          }}>
+            Publish your work.{' '}
+            <span style={{ color:'var(--accent)' }}>Get discovered.</span>
+          </h2>
+
+          <p style={{
+            fontSize:'15px', color:'var(--text-secondary)', lineHeight:'1.65', marginBottom:'28px', maxWidth:'310px',
+            opacity: creatorVisible ? 1 : 0,
+            transform: creatorVisible ? 'none' : 'translateY(16px)',
+            transition:'opacity .6s ease .2s, transform .6s ease .2s',
+          }}>
+            Get a free creator profile, post your sets with full specs, and reach clients who are already browsing for their next look.
+          </p>
+
+          <div style={{ display:'flex', flexDirection:'column', gap:'8px', marginBottom:'32px' }}>
+            {[
+              { icon:'◈', text:'Free public portfolio — your work, your page' },
+              { icon:'✦', text:'Get found by clients browsing for inspo' },
+              { icon:'◇', text:'Post designs with colour codes & technique notes' },
+            ].map((item, i) => (
+              <div
+                key={item.text}
+                className="lq-creator-row"
+                style={{
+                  opacity: creatorVisible ? 1 : 0,
+                  transform: creatorVisible ? 'none' : 'translateX(-16px)',
+                  transition: `opacity .5s ease ${0.3 + i * 0.1}s, transform .5s ease ${0.3 + i * 0.1}s`,
+                }}
+              >
+                <span style={{ color:'var(--accent)', fontSize:'14px', flexShrink:0 }}>{item.icon}</span>
+                <span style={{ color:'var(--text-primary)', fontSize:'13px', lineHeight:'1.45' }}>{item.text}</span>
+              </div>
+            ))}
+          </div>
+
+          <div style={{
+            opacity: creatorVisible ? 1 : 0,
+            transform: creatorVisible ? 'none' : 'translateY(16px)',
+            transition:'opacity .6s ease .6s, transform .6s ease .6s',
+          }}>
+            <Link href="/profile" className="lq-cta-creator">
+              Create a creator account
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </Link>
+          </div>
         </div>
-
-        <h2 style={{ fontSize: 'clamp(28px, 8vw, 38px)', fontWeight: '600', color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: '1.15', marginBottom: '14px' }}>
-          Publish your work.{' '}
-          <span style={{ color: 'var(--accent)' }}>Get discovered.</span>
-        </h2>
-
-        <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: '1.65', marginBottom: '28px', maxWidth: '310px' }}>
-          Get a free creator profile, post your sets with full specs, and reach clients who are already browsing for their next look.
-        </p>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '32px' }}>
-          {[
-            { icon: '◈', text: 'Free public portfolio — your work, your page' },
-            { icon: '✦', text: 'Get found by clients browsing for inspo' },
-            { icon: '◇', text: 'Post designs with colour codes & technique notes' },
-          ].map(item => (
-            <div key={item.text} className="lq-creator-row">
-              <span style={{ color: 'var(--accent)', fontSize: '14px', flexShrink: 0 }}>{item.icon}</span>
-              <span style={{ color: 'var(--text-primary)', fontSize: '13px', lineHeight: '1.45' }}>{item.text}</span>
-            </div>
-          ))}
-        </div>
-
-        <Link href="/profile" className="lq-cta-creator">
-          Create a creator account
-          <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-            <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </Link>
       </section>
 
       {/* ── FINAL CTA ── */}
-      <section style={{ padding: '40px 24px 56px', textAlign: 'center', borderTop: '0.5px solid var(--border)' }}>
-        <p style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: '500', letterSpacing: '-0.02em', lineHeight: '1.3', marginBottom: '10px' }}>
+      <section style={{ padding:'40px 24px 56px', textAlign:'center', borderTop:'0.5px solid var(--border)' }}>
+        <p style={{ color:'var(--text-primary)', fontSize:'22px', fontWeight:'500', letterSpacing:'-0.02em', lineHeight:'1.3', marginBottom:'10px' }}>
           Ready to find your next set?
         </p>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '28px', lineHeight: '1.6' }}>
+        <p style={{ color:'var(--text-secondary)', fontSize:'14px', marginBottom:'28px', lineHeight:'1.6' }}>
           Browse free. Save what you love.<br />Show your nail tech.
         </p>
-        <Link href="/feed" className="lq-cta-primary" style={{ display: 'inline-flex' }}>
+        <Link href="/feed" className="lq-cta-primary" style={{ display:'inline-flex' }}>
           Start exploring
           <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
             <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
