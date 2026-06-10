@@ -13,35 +13,48 @@ export default function LandingPage() {
       .select('id, image_url')
       .eq('is_published', true)
       .order('created_at', { ascending: false })
-      .limit(14)
+      .limit(8)
       .then(({ data }) => setDesigns(data || []))
   }, [])
 
-  const marquee = [...designs, ...designs]
+  const cardConfigs = [
+    { top: '3%',  left: '-7%',  rotate: '-18deg', anim: 'fc1', dur: '6.2s',  delay: '0s',    size: 86 },
+    { top: '5%',  right: '-5%', rotate: '14deg',  anim: 'fc2', dur: '7.4s',  delay: '-2.1s', size: 80 },
+    { top: '36%', left: '-9%',  rotate: '-7deg',  anim: 'fc3', dur: '8.1s',  delay: '-1.3s', size: 78 },
+    { top: '33%', right: '-7%', rotate: '19deg',  anim: 'fc4', dur: '6.8s',  delay: '-3.4s', size: 84 },
+    { bottom: '16%', left: '1%',   rotate: '-13deg', anim: 'fc5', dur: '7.7s', delay: '-4.2s', size: 82 },
+    { bottom: '14%', right: '-1%', rotate: '11deg',  anim: 'fc6', dur: '9.2s', delay: '-0.8s', size: 76 },
+    { top: '16%', left: '14%',  rotate: '-4deg',  anim: 'fc1', dur: '10.5s', delay: '-2.8s', size: 68 },
+    { top: '60%', right: '12%', rotate: '8deg',   anim: 'fc3', dur: '8.8s',  delay: '-1.9s', size: 70 },
+  ]
 
   return (
     <>
       <style>{`
+        @keyframes fc1 { 0%,100%{transform:rotate(-18deg) translateY(0)}   50%{transform:rotate(-18deg) translateY(-10px)} }
+        @keyframes fc2 { 0%,100%{transform:rotate(14deg) translateY(0)}    50%{transform:rotate(14deg) translateY(-13px)} }
+        @keyframes fc3 { 0%,100%{transform:rotate(-7deg) translateY(0)}    50%{transform:rotate(-7deg) translateY(-8px)} }
+        @keyframes fc4 { 0%,100%{transform:rotate(19deg) translateY(0)}    50%{transform:rotate(19deg) translateY(-11px)} }
+        @keyframes fc5 { 0%,100%{transform:rotate(-13deg) translateY(0)}   50%{transform:rotate(-13deg) translateY(-9px)} }
+        @keyframes fc6 { 0%,100%{transform:rotate(11deg) translateY(0)}    50%{transform:rotate(11deg) translateY(-12px)} }
+
         @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(20px); }
+          from { opacity: 0; transform: translateY(22px); }
           to   { opacity: 1; transform: translateY(0); }
         }
         @keyframes floatBlob {
           0%, 100% { transform: translateY(0px) scale(1); }
           50%       { transform: translateY(-14px) scale(1.04); }
         }
-        @keyframes marqueeScroll {
-          0%   { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
         @keyframes pulseGlow {
           0%, 100% { box-shadow: 0 0 0 0 rgba(212,160,192,0.35); }
           50%       { box-shadow: 0 0 0 10px rgba(212,160,192,0); }
         }
+
         .lq-cta-primary {
           background: var(--accent);
           color: #2C0A1E;
-          padding: 14px 24px;
+          padding: 14px 28px;
           border-radius: 14px;
           font-weight: 600;
           font-size: 15px;
@@ -54,6 +67,7 @@ export default function LandingPage() {
           transition: transform 0.18s ease, opacity 0.18s ease;
         }
         .lq-cta-primary:hover { transform: scale(1.03); opacity: 0.92; }
+
         .lq-cta-secondary {
           background: transparent;
           color: var(--text-secondary);
@@ -69,6 +83,7 @@ export default function LandingPage() {
           transition: border-color 0.18s ease, color 0.18s ease;
         }
         .lq-cta-secondary:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+
         .lq-cta-creator {
           background: transparent;
           color: var(--accent);
@@ -89,6 +104,16 @@ export default function LandingPage() {
           border-color: var(--accent);
           transform: translateY(-1px);
         }
+
+        .lq-float-card {
+          position: absolute;
+          border-radius: 12px;
+          overflow: hidden;
+          background: var(--bg-card);
+          border: 1px solid rgba(255,255,255,0.07);
+          box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+
         .lq-feature {
           background: var(--bg-card);
           border: 0.5px solid var(--border);
@@ -100,6 +125,7 @@ export default function LandingPage() {
           transition: border-color 0.2s ease, transform 0.2s ease;
         }
         .lq-feature:hover { border-color: var(--accent); transform: translateY(-2px); }
+
         .lq-creator-row {
           display: flex;
           align-items: center;
@@ -114,110 +140,133 @@ export default function LandingPage() {
           background: rgba(212,160,192,0.09);
           border-color: rgba(212,160,192,0.35);
         }
-        .lq-stat {
-          background: var(--bg-card);
-          border: 0.5px solid var(--border);
-          border-radius: 20px;
-          padding: 5px 11px;
-          font-size: 11px;
-          color: var(--text-secondary);
-          white-space: nowrap;
-          font-family: 'DM Sans', sans-serif;
-        }
       `}</style>
 
-      {/* ── HERO ── */}
+      {/* ── COSMOS HERO ── */}
       <section style={{
-        minHeight: 'calc(100vh - 80px)',
-        padding: '64px 24px 48px',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
+        height: '100svh',
+        minHeight: '600px',
         position: 'relative',
         overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'var(--bg-primary)',
       }}>
+        {/* Soft accent glow behind text */}
         <div style={{
-          position: 'absolute', top: '10%', right: '-80px',
-          width: '260px', height: '260px', borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(212,160,192,0.1) 0%, transparent 70%)',
-          animation: 'floatBlob 5s ease-in-out infinite', pointerEvents: 'none',
-        }} />
-        <div style={{
-          position: 'absolute', bottom: '12%', left: '-60px',
-          width: '180px', height: '180px', borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(212,160,192,0.06) 0%, transparent 70%)',
-          animation: 'floatBlob 7s ease-in-out 1s infinite', pointerEvents: 'none',
+          position: 'absolute',
+          width: '280px', height: '280px',
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(212,160,192,0.09) 0%, transparent 70%)',
+          animation: 'floatBlob 8s ease-in-out infinite',
+          pointerEvents: 'none',
+          zIndex: 1,
         }} />
 
+        {/* Floating nail design cards */}
+        {designs.slice(0, cardConfigs.length).map((d, i) => {
+          const cfg = cardConfigs[i]
+          const posStyle = {}
+          if (cfg.top)    posStyle.top    = cfg.top
+          if (cfg.bottom) posStyle.bottom = cfg.bottom
+          if (cfg.left)   posStyle.left   = cfg.left
+          if (cfg.right)  posStyle.right  = cfg.right
+          return (
+            <div
+              key={d.id}
+              className="lq-float-card"
+              style={{
+                ...posStyle,
+                width: cfg.size,
+                height: cfg.size * 1.18,
+                animation: `${cfg.anim} ${cfg.dur} ease-in-out ${cfg.delay} infinite`,
+                zIndex: 0,
+              }}
+            >
+              {d.image_url && (
+                <img
+                  src={d.image_url}
+                  alt=""
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
+              )}
+            </div>
+          )
+        })}
+
+        {/* Centre content */}
         <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: '7px',
-          background: 'var(--bg-chip)', border: '0.5px solid var(--border)',
-          borderRadius: '20px', padding: '5px 12px 5px 8px',
-          width: 'fit-content', marginBottom: '24px',
-          animation: 'fadeUp 0.5s ease 0.05s both',
+          position: 'relative', zIndex: 2,
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', textAlign: 'center',
+          padding: '0 32px',
         }}>
-          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent)', display: 'inline-block', flexShrink: 0 }} />
-          <span style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.07em', textTransform: 'uppercase' }}>Beta</span>
-        </div>
+          {/* Beta badge */}
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: '7px',
+            background: 'rgba(212,160,192,0.1)', border: '0.5px solid rgba(212,160,192,0.25)',
+            borderRadius: '20px', padding: '4px 12px 4px 8px',
+            marginBottom: '20px',
+            animation: 'fadeUp 0.5s ease 0.1s both',
+          }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent)', display: 'inline-block' }} />
+            <span style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.07em', textTransform: 'uppercase' }}>Beta</span>
+          </div>
 
-        <h1 style={{
-          fontSize: 'clamp(64px, 18vw, 80px)', fontWeight: '500',
-          color: 'var(--text-primary)', letterSpacing: '-0.04em',
-          lineHeight: '0.93', marginBottom: '22px',
-          animation: 'fadeUp 0.6s ease 0.15s both',
-        }}>
-          Laque
-        </h1>
+          {/* Wordmark */}
+          <h1 style={{
+            fontSize: 'clamp(72px, 22vw, 96px)',
+            fontWeight: '500',
+            color: 'var(--text-primary)',
+            letterSpacing: '-0.045em',
+            lineHeight: '0.9',
+            marginBottom: '18px',
+            animation: 'fadeUp 0.6s ease 0.2s both',
+          }}>
+            Laque
+          </h1>
 
-        <p style={{
-          fontSize: '19px', fontWeight: '400', color: 'var(--text-secondary)',
-          lineHeight: '1.55', marginBottom: '36px', maxWidth: '290px',
-          animation: 'fadeUp 0.6s ease 0.28s both',
-        }}>
-          Your next nail set,{' '}
-          <span style={{ color: 'var(--text-primary)', fontWeight: '500' }}>fully specced.</span>
-          <br />Show your nail tech exactly what you want.
-        </p>
+          {/* Tagline */}
+          <p style={{
+            fontSize: '16px',
+            color: 'var(--text-secondary)',
+            lineHeight: '1.55',
+            marginBottom: '30px',
+            maxWidth: '260px',
+            animation: 'fadeUp 0.6s ease 0.35s both',
+          }}>
+            Your next nail set,{' '}
+            <span style={{ color: 'var(--text-primary)', fontWeight: '500' }}>fully specced.</span>
+          </p>
 
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', animation: 'fadeUp 0.6s ease 0.42s both' }}>
-          <Link href="/feed" className="lq-cta-primary">
-            Explore designs
-            <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-              <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </Link>
-          <Link href="/profile" className="lq-cta-secondary">Sign up free</Link>
-        </div>
-
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '28px', animation: 'fadeUp 0.6s ease 0.55s both' }}>
-          {['100+ designs', 'Free to browse', 'No download needed'].map(s => (
-            <span key={s} className="lq-stat">{s}</span>
-          ))}
-        </div>
-      </section>
-
-      {/* ── MARQUEE ── */}
-      {marquee.length > 0 && (
-        <div style={{
-          overflow: 'hidden',
-          borderTop: '0.5px solid var(--border)',
-          borderBottom: '0.5px solid var(--border)',
-          padding: '14px 0',
-          background: 'var(--bg-card)',
-        }}>
-          <div style={{ display: 'flex', gap: '12px', width: 'max-content', animation: 'marqueeScroll 28s linear infinite' }}>
-            {marquee.map((d, i) => (
-              <div key={`${d.id}-${i}`} style={{
-                width: '110px', height: '110px', borderRadius: '10px',
-                overflow: 'hidden', flexShrink: 0,
-                border: '0.5px solid var(--border)', background: 'var(--bg-primary)',
-              }}>
-                {d.image_url && <img src={d.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />}
-              </div>
-            ))}
+          {/* CTAs */}
+          <div style={{
+            display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center',
+            animation: 'fadeUp 0.6s ease 0.48s both',
+          }}>
+            <Link href="/feed" className="lq-cta-primary">
+              Explore designs
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </Link>
+            <Link href="/profile" className="lq-cta-secondary">Sign up free</Link>
           </div>
         </div>
-      )}
+
+        {/* Scroll hint */}
+        <div style={{
+          position: 'absolute', bottom: '24px',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
+          animation: 'fadeUp 0.6s ease 0.9s both',
+          zIndex: 2,
+        }}>
+          <span style={{ color: 'var(--text-secondary)', fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Scroll</span>
+          <div style={{ width: '1px', height: '24px', background: 'linear-gradient(to bottom, var(--text-secondary), transparent)' }} />
+        </div>
+      </section>
 
       {/* ── FEATURES ── */}
       <section style={{ padding: '52px 24px 40px' }}>
