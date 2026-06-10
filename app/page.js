@@ -38,9 +38,9 @@ export default function LandingPage() {
           0%, 100% { box-shadow: 0 0 0 0 rgba(212,160,192,0.35); }
           50%       { box-shadow: 0 0 0 10px rgba(212,160,192,0); }
         }
-        @keyframes spinDot {
-          from { transform: rotate(0deg) translateX(7px); }
-          to   { transform: rotate(360deg) translateX(7px); }
+        @keyframes creatorSlide {
+          from { opacity: 0; transform: translateX(-12px); }
+          to   { opacity: 1; transform: translateX(0); }
         }
         .lq-cta-primary {
           background: var(--accent);
@@ -73,6 +73,26 @@ export default function LandingPage() {
           transition: border-color 0.18s ease, color 0.18s ease;
         }
         .lq-cta-secondary:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+        .lq-cta-creator {
+          background: transparent;
+          color: var(--accent);
+          padding: 14px 24px;
+          border-radius: 14px;
+          font-weight: 600;
+          font-size: 15px;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-family: 'DM Sans', sans-serif;
+          border: 1px solid rgba(212,160,192,0.5);
+          transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+        }
+        .lq-cta-creator:hover {
+          background: rgba(212,160,192,0.08);
+          border-color: var(--accent);
+          transform: translateY(-1px);
+        }
         .lq-feature {
           background: var(--bg-card);
           border: 0.5px solid var(--border);
@@ -84,6 +104,20 @@ export default function LandingPage() {
           transition: border-color 0.2s ease, transform 0.2s ease;
         }
         .lq-feature:hover { border-color: var(--accent); transform: translateY(-2px); }
+        .lq-creator-row {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          background: rgba(212,160,192,0.05);
+          border: 0.5px solid rgba(212,160,192,0.18);
+          border-radius: 12px;
+          padding: 13px 14px;
+          transition: background 0.18s ease, border-color 0.18s ease;
+        }
+        .lq-creator-row:hover {
+          background: rgba(212,160,192,0.09);
+          border-color: rgba(212,160,192,0.35);
+        }
         .lq-stat {
           background: var(--bg-card);
           border: 0.5px solid var(--border);
@@ -107,7 +141,7 @@ export default function LandingPage() {
         overflow: 'hidden',
       }}>
 
-        {/* Background glow blob */}
+        {/* Background glow blobs */}
         <div style={{
           position: 'absolute',
           top: '10%',
@@ -146,8 +180,7 @@ export default function LandingPage() {
         }}>
           <span style={{
             width: '6px', height: '6px', borderRadius: '50%',
-            background: 'var(--accent)', display: 'inline-block',
-            flexShrink: 0,
+            background: 'var(--accent)', display: 'inline-block', flexShrink: 0,
           }} />
           <span style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
             Beta
@@ -253,7 +286,7 @@ export default function LandingPage() {
         </div>
       )}
 
-      {/* ── FEATURES ── */}
+      {/* ── FEATURES (for users) ── */}
       <section style={{ padding: '52px 24px 40px' }}>
         <p style={{
           color: 'var(--accent)',
@@ -307,9 +340,104 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── CREATOR / NAIL TECH SECTION ── */}
+      <section style={{
+        padding: '48px 24px 52px',
+        position: 'relative',
+        overflow: 'hidden',
+        background: 'linear-gradient(160deg, rgba(212,160,192,0.07) 0%, rgba(212,160,192,0.02) 60%, transparent 100%)',
+        borderTop: '0.5px solid rgba(212,160,192,0.22)',
+        borderBottom: '0.5px solid rgba(212,160,192,0.22)',
+      }}>
+
+        {/* Accent glow */}
+        <div style={{
+          position: 'absolute',
+          top: '-60px',
+          right: '-80px',
+          width: '240px',
+          height: '240px',
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(212,160,192,0.15) 0%, transparent 70%)',
+          animation: 'floatBlob 6s ease-in-out 0.5s infinite',
+          pointerEvents: 'none',
+        }} />
+
+        {/* Label */}
+        <div style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '7px',
+          background: 'rgba(212,160,192,0.1)',
+          border: '0.5px solid rgba(212,160,192,0.3)',
+          borderRadius: '20px',
+          padding: '5px 12px 5px 8px',
+          width: 'fit-content',
+          marginBottom: '22px',
+        }}>
+          <span style={{
+            width: '5px', height: '5px', borderRadius: '50%',
+            background: 'var(--accent)', display: 'inline-block', flexShrink: 0,
+          }} />
+          <span style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+            For nail artists & salons
+          </span>
+        </div>
+
+        {/* Heading */}
+        <h2 style={{
+          fontSize: 'clamp(28px, 8vw, 38px)',
+          fontWeight: '600',
+          color: 'var(--text-primary)',
+          letterSpacing: '-0.03em',
+          lineHeight: '1.15',
+          marginBottom: '14px',
+        }}>
+          Publish your work.{' '}
+          <span style={{ color: 'var(--accent)' }}>Get discovered.</span>
+        </h2>
+
+        {/* Subtext */}
+        <p style={{
+          fontSize: '15px',
+          color: 'var(--text-secondary)',
+          lineHeight: '1.65',
+          marginBottom: '28px',
+          maxWidth: '310px',
+        }}>
+          Get a free creator profile, post your sets with full specs, and reach clients who are already browsing for their next look.
+        </p>
+
+        {/* Feature rows */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '32px' }}>
+          {[
+            { icon: '◈', text: 'Free public portfolio — your work, your page' },
+            { icon: '✦', text: 'Get found by clients browsing for inspo' },
+            { icon: '◇', text: 'Post designs with colour codes & technique notes' },
+          ].map((item, i) => (
+            <div
+              key={item.text}
+              className="lq-creator-row"
+              style={{ animationDelay: `${i * 0.08}s` }}
+            >
+              <span style={{ color: 'var(--accent)', fontSize: '14px', flexShrink: 0 }}>{item.icon}</span>
+              <span style={{ color: 'var(--text-primary)', fontSize: '13px', lineHeight: '1.45' }}>{item.text}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* CTA */}
+        <Link href="/profile" className="lq-cta-creator">
+          Create a creator account
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+            <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </Link>
+      </section>
+
       {/* ── FINAL CTA ── */}
       <section style={{
-        padding: '32px 24px 56px',
+        padding: '40px 24px 56px',
         textAlign: 'center',
         borderTop: '0.5px solid var(--border)',
       }}>
