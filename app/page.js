@@ -18,25 +18,27 @@ export default function LandingPage() {
   }, [])
 
   const cardConfigs = [
-    { top: '3%',  left: '-7%',  rotate: '-18deg', anim: 'fc1', dur: '6.2s',  delay: '0s',    size: 86 },
-    { top: '5%',  right: '-5%', rotate: '14deg',  anim: 'fc2', dur: '7.4s',  delay: '-2.1s', size: 80 },
-    { top: '36%', left: '-9%',  rotate: '-7deg',  anim: 'fc3', dur: '8.1s',  delay: '-1.3s', size: 78 },
-    { top: '33%', right: '-7%', rotate: '19deg',  anim: 'fc4', dur: '6.8s',  delay: '-3.4s', size: 84 },
-    { bottom: '16%', left: '1%',   rotate: '-13deg', anim: 'fc5', dur: '7.7s', delay: '-4.2s', size: 82 },
-    { bottom: '14%', right: '-1%', rotate: '11deg',  anim: 'fc6', dur: '9.2s', delay: '-0.8s', size: 76 },
-    { top: '16%', left: '14%',  rotate: '-4deg',  anim: 'fc1', dur: '10.5s', delay: '-2.8s', size: 68 },
-    { top: '60%', right: '12%', rotate: '8deg',   anim: 'fc3', dur: '8.8s',  delay: '-1.9s', size: 70 },
+    // left cluster — positioned relative to centre
+    { top: '5%',     left: 'calc(50% - 228px)', rotate: '-18deg', anim: 'fc1', dur: '5s',   delay: '0s',    size: 90 },
+    { top: '31%',    left: 'calc(50% - 248px)', rotate: '-7deg',  anim: 'fc3', dur: '5.8s', delay: '-2.1s', size: 84 },
+    { bottom: '15%', left: 'calc(50% - 222px)', rotate: '-13deg', anim: 'fc5', dur: '4.6s', delay: '-1.4s', size: 88 },
+    { top: '57%',    left: 'calc(50% - 170px)', rotate: '-4deg',  anim: 'fc2', dur: '6.5s', delay: '-3s',   size: 70 },
+    // right cluster
+    { top: '6%',     left: 'calc(50% + 126px)', rotate: '14deg',  anim: 'fc2', dur: '5.2s', delay: '-1.8s', size: 86 },
+    { top: '29%',    left: 'calc(50% + 146px)', rotate: '19deg',  anim: 'fc4', dur: '4.4s', delay: '-0.7s', size: 82 },
+    { bottom: '17%', left: 'calc(50% + 108px)', rotate: '11deg',  anim: 'fc6', dur: '6s',   delay: '-4.2s', size: 80 },
+    { top: '13%',    left: 'calc(50% + 86px)',  rotate: '5deg',   anim: 'fc1', dur: '7.5s', delay: '-2.8s', size: 68 },
   ]
 
   return (
     <>
       <style>{`
-        @keyframes fc1 { 0%,100%{transform:rotate(-18deg) translateY(0)}   50%{transform:rotate(-18deg) translateY(-10px)} }
-        @keyframes fc2 { 0%,100%{transform:rotate(14deg) translateY(0)}    50%{transform:rotate(14deg) translateY(-13px)} }
-        @keyframes fc3 { 0%,100%{transform:rotate(-7deg) translateY(0)}    50%{transform:rotate(-7deg) translateY(-8px)} }
-        @keyframes fc4 { 0%,100%{transform:rotate(19deg) translateY(0)}    50%{transform:rotate(19deg) translateY(-11px)} }
-        @keyframes fc5 { 0%,100%{transform:rotate(-13deg) translateY(0)}   50%{transform:rotate(-13deg) translateY(-9px)} }
-        @keyframes fc6 { 0%,100%{transform:rotate(11deg) translateY(0)}    50%{transform:rotate(11deg) translateY(-12px)} }
+        @keyframes fc1 { 0%,100%{transform:rotate(-18deg) translateY(0) translateX(0)}    50%{transform:rotate(-18deg) translateY(-30px) translateX(5px)} }
+        @keyframes fc2 { 0%,100%{transform:rotate(14deg) translateY(0) translateX(0)}     50%{transform:rotate(14deg) translateY(-34px) translateX(-6px)} }
+        @keyframes fc3 { 0%,100%{transform:rotate(-7deg) translateY(0) translateX(0)}     50%{transform:rotate(-7deg) translateY(-26px) translateX(7px)} }
+        @keyframes fc4 { 0%,100%{transform:rotate(19deg) translateY(0) translateX(0)}     50%{transform:rotate(19deg) translateY(-32px) translateX(-5px)} }
+        @keyframes fc5 { 0%,100%{transform:rotate(-13deg) translateY(0) translateX(0)}    50%{transform:rotate(-13deg) translateY(-28px) translateX(6px)} }
+        @keyframes fc6 { 0%,100%{transform:rotate(11deg) translateY(0) translateX(0)}     50%{transform:rotate(11deg) translateY(-24px) translateX(-7px)} }
 
         @keyframes fadeUp {
           from { opacity: 0; transform: translateY(22px); }
@@ -109,9 +111,16 @@ export default function LandingPage() {
           position: absolute;
           border-radius: 12px;
           overflow: hidden;
-          background: var(--bg-card);
+          background: linear-gradient(135deg, #1e1e1e 0%, #252525 100%);
           border: 1px solid rgba(255,255,255,0.07);
-          box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+          box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+        }
+        .lq-float-card img {
+          opacity: 0;
+          transition: opacity 0.5s ease;
+        }
+        .lq-float-card img.img-loaded {
+          opacity: 1;
         }
 
         .lq-feature {
@@ -190,6 +199,7 @@ export default function LandingPage() {
                   src={d.image_url}
                   alt=""
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  onLoad={e => e.currentTarget.classList.add('img-loaded')}
                 />
               )}
             </div>
