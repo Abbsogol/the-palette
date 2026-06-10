@@ -90,7 +90,7 @@ export default function LandingPage() {
       const scaleY = map(p, 0.34, IMP, 1.0, 1.95)
       const scaleX = 1 / Math.sqrt(scaleY)
       const dropOp = p < IMP
-        ? map(p, 0.04, 0.14, 0, 1)
+        ? map(p, 0.11, 0.22, 0, 1)   // appears as hero fades (13-18%), fully visible by 22%
         : map(p, IMP, IMP + 0.06, 1, 0)
       if (dropEl) {
         dropEl.style.opacity   = Math.max(0, dropOp)
@@ -258,6 +258,9 @@ export default function LandingPage() {
             width: 'min(200px, 52vw)',
             height: 'auto',
             mixBlendMode: 'screen',
+            filter: 'contrast(1.1) brightness(1.08)',
+            maskImage: 'radial-gradient(ellipse 70% 78% at 50% 48%, black 20%, rgba(0,0,0,0.88) 42%, rgba(0,0,0,0.35) 65%, transparent 82%)',
+            WebkitMaskImage: 'radial-gradient(ellipse 70% 78% at 50% 48%, black 20%, rgba(0,0,0,0.88) 42%, rgba(0,0,0,0.35) 65%, transparent 82%)',
             opacity: 0,
             transformOrigin: '50% 15%',
             willChange: 'transform, opacity',
