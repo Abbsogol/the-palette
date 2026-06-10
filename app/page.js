@@ -5,13 +5,16 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
 export default function LandingPage() {
-  const canvasRef              = useRef(null)
-  const [designs, setDesigns]  = useState([])
-  const [heroOp, setHeroOp]    = useState(1)
-  const [featOp, setFeatOp]    = useState(0)
-  const [creatOp, setCreatOp]  = useState(0)
+  const canvasRef  = useRef(null)   // starfield only
+  const dropRef    = useRef(null)   // drop.png image
+  const ribbonsRef = useRef(null)   // ribbons.png image
+  const flashRef   = useRef(null)   // impact flash
+  const heroRef    = useRef(null)
+  const featRef    = useRef(null)
+  const creatRef   = useRef(null)
+  const [designs, setDesigns] = useState([])
 
-  /* ── load real designs ── */
+  /* ── load designs ── */
   useEffect(() => {
     supabase.from('designs').select('id, image_url')
       .eq('is_published', true)
@@ -20,202 +23,121 @@ export default function LandingPage() {
       .then(({ data }) => setDesigns(data || []))
   }, [])
 
-  /* ── scroll-driven section opacity ── */
+  /* ── animation engine ── */
   useEffect(() => {
-    const cl  = (v, a, b) => Math.max(a, Math.min(b, v))
-    const rng = (p, a, b) => cl((p - a) / (b - a), 0, 1)
-    function tick() {
-      const max = document.documentElement.scrollHeight - window.innerHeight
-      if (max <= 0) return
-      const p = cl(window.scrollY / max, 0, 1)
-      setHeroOp(1 - rng(p, 0.13, 0.18))
-      setFeatOp(rng(p, 0.33, 0.36) * (1 - rng(p, 0.47, 0.51)))
-      setCreatOp(rng(p, 0.66, 0.70))
-    }
-    window.addEventListener('scroll', tick, { passive: true })
-    tick()
-    return () => window.removeEventListener('scroll', tick)
-  }, [])
-
-  /* ── canvas animation ── */
-  useEffect(() => {
-    const canvas = canvasRef.current
+    const canvas  = canvasRef.current
+    const dropEl  = dropRef.current
+    const ribEl   = ribbonsRef.current
+    const flashEl = flashRef.current
+    const heroEl  = heroRef.current
+    const featEl  = featRef.current
+    const creatEl = creatRef.current
     if (!canvas) return
+
     const ctx = canvas.getContext('2d')
     const cl  = (v, a, b) => Math.max(a, Math.min(b, v))
     const map = (v, a, b, c, d) => c + (d - c) * cl((v - a) / (b - a), 0, 1)
-    const eas = t => t < 0.5 ? 2*t*t : -1+(4-2*t)*t
+    const rng = (v, a, b) => cl((v - a) / (b - a), 0, 1)
     let pts = [], raf
 
-    function init() {
+    /* — starfield — */
+    function initCanvas() {
       canvas.width  = window.innerWidth
       canvas.height = window.innerHeight
-      pts = Array.from({ length: 135 }, () => ({
+      pts = Array.from({ length: 130 }, () => ({
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
-        r: Math.random() * 1.6 + 0.35,
-        a: Math.random() * 0.55 + 0.12,
+        r: Math.random() * 1.5 + 0.3,
+        a: Math.random() * 0.52 + 0.10,
         t: Math.random() * Math.PI * 2,
-        spd: Math.random() * 0.004 + 0.001,
-        pink: Math.random() > 0.80,
+        spd: Math.random() * 0.003 + 0.001,
+        pink: Math.random() > 0.82,
       }))
     }
 
-    /* — draw one gel droplet — */
-    function drawDrop(cx, cy, br, sy, al) {
-      if (al <= 0) return
-      ctx.save(); ctx.globalAlpha = al
-      const rx = br / Math.sqrt(sy), ry = br * sy
-
-      // outer glow
-      const og = ctx.createRadialGradient(cx,cy,0, cx,cy, Math.max(rx,ry)*2.8)
-      og.addColorStop(0,'rgba(212,160,192,0.20)'); og.addColorStop(1,'rgba(212,160,192,0)')
-      ctx.fillStyle = og
-      ctx.beginPath(); ctx.ellipse(cx,cy,rx*2.8,ry*2.8,0,0,Math.PI*2); ctx.fill()
-
-      // body
-      const bg = ctx.createRadialGradient(cx-rx*.32,cy-ry*.28,0, cx,cy, Math.max(rx,ry)*1.05)
-      bg.addColorStop(0,    'rgba(252,224,242,0.99)')
-      bg.addColorStop(0.14, 'rgba(234,190,220,0.97)')
-      bg.addColorStop(0.44, 'rgba(212,160,192,0.94)')
-      bg.addColorStop(0.74, 'rgba(166,95,148,0.89)')
-      bg.addColorStop(1,    'rgba(92,30,72,0.85)')
-      ctx.beginPath(); ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2)
-      ctx.fillStyle = bg; ctx.fill()
-
-      // main specular
-      const sg = ctx.createRadialGradient(cx-rx*.38,cy-ry*.38,0, cx-rx*.28,cy-ry*.26, rx*.48)
-      sg.addColorStop(0,'rgba(255,255,255,0.94)'); sg.addColorStop(0.55,'rgba(255,255,255,0.26)'); sg.addColorStop(1,'rgba(255,255,255,0)')
-      ctx.fillStyle = sg
-      ctx.beginPath(); ctx.ellipse(cx-rx*.28,cy-ry*.30,rx*.33,ry*.20,-Math.PI/5,0,Math.PI*2); ctx.fill()
-
-      // secondary specular
-      ctx.fillStyle = 'rgba(255,255,255,0.26)'
-      ctx.beginPath(); ctx.ellipse(cx+rx*.22,cy+ry*.34,rx*.10,ry*.055,Math.PI/4,0,Math.PI*2); ctx.fill()
-      ctx.restore()
-    }
-
-    /* — splash — */
-    function drawSplash(cx, cy, sp, w, h) {
-      if (sp <= 0) return
-      for (let i = 0; i < 14; i++) {
-        const ang = (i / 14) * Math.PI * 2 + (i % 3 === 0 ? 0.18 : -0.12)
-        const spd = (0.52 + (i % 4) * 0.13) * sp
-        const dx  = Math.cos(ang) * w * 0.20 * spd
-        const dy  = Math.sin(ang) * h * 0.13 * spd - h * 0.07 * sp
-        const dr  = (3.2 + (i % 5) * 1.9) * (1 - sp * 0.76)
-        const da  = Math.max(0, 1 - sp * 1.38)
-        if (da > 0 && dr > 0) drawDrop(cx+dx, cy+dy, dr, 1+sp*0.62, da)
-      }
-      const ra = Math.max(0, 0.78 - sp * 1.02)
-      if (ra > 0) {
-        ctx.save(); ctx.globalAlpha = ra
-        ctx.strokeStyle = 'rgba(212,160,192,0.92)'; ctx.lineWidth = 1.6
-        ctx.beginPath(); ctx.arc(cx, cy, w*0.14*sp, 0, Math.PI*2); ctx.stroke()
-        ctx.restore()
-      }
-    }
-
-    /* — lacquer ribbons — */
-    function drawRibbons(cx, cy, rp, w, h) {
-      if (rp <= 0) return
-      const defs = [
-        {c1:[.22,.09],  c2:[.52,.27],  e:[.86,.21],  wt:5.0, col:'212,160,192'},
-        {c1:[-.27,.10], c2:[-.55,.33], e:[-.88,.25], wt:4.5, col:'190,128,166'},
-        {c1:[.14,.20],  c2:[.28,.53],  e:[.52,.80],  wt:3.5, col:'234,184,214'},
-        {c1:[-.17,.17], c2:[-.32,.49], e:[-.47,.74], wt:3.0, col:'170,98,150' },
-        {c1:[.48,.07],  c2:[.78,.17],  e:[1.10,.11], wt:2.5, col:'200,146,176'},
-        {c1:[-.46,.08], c2:[-.72,.23], e:[-1.06,.15],wt:2.5, col:'222,170,200'},
-      ]
-      defs.forEach((r, idx) => {
-        const lp = cl((rp - idx*0.07) / 0.72, 0, 1)
-        if (lp <= 0) return
-        const ep = eas(lp)
-        ctx.save()
-        ctx.globalAlpha = 0.52 + lp * 0.32
-        ctx.strokeStyle = `rgba(${r.col},0.90)`
-        ctx.lineWidth   = r.wt * (0.38 + ep * 0.62)
-        ctx.lineCap     = 'round'
-        ctx.shadowBlur  = 11
-        ctx.shadowColor = `rgba(${r.col},0.46)`
-        ctx.beginPath()
-        ctx.moveTo(cx, cy)
-        ctx.bezierCurveTo(
-          cx+r.c1[0]*w*.50, cy+r.c1[1]*h*.42,
-          cx+r.c2[0]*w*.50, cy+r.c2[1]*h*.42,
-          cx+r.e[0] *w*.50*ep, cy+r.e[1]*h*.42*ep
-        )
-        ctx.stroke(); ctx.restore()
-      })
-    }
-
-    /* — main draw loop — */
-    function draw() {
-      const w = canvas.width, h = canvas.height, cx = w * 0.5
-      const maxS = document.documentElement.scrollHeight - window.innerHeight
-      const p    = maxS > 0 ? cl(window.scrollY / maxS, 0, 1) : 0
-
+    function drawStars() {
+      const w = canvas.width, h = canvas.height
       ctx.fillStyle = '#0b0909'; ctx.fillRect(0, 0, w, h)
-      const bgg = ctx.createLinearGradient(0,0,0,h)
-      bgg.addColorStop(0,  `rgba(38,8,28,${0.36+p*0.20})`)
-      bgg.addColorStop(0.5,'rgba(14,7,18,0.24)')
-      bgg.addColorStop(1,  'rgba(8,4,14,0.46)')
-      ctx.fillStyle = bgg; ctx.fillRect(0,0,w,h)
-
-      // ambient orbs
-      ;[[cx*.54,h*.17,w*.33,'88,32,68',0.070],
-        [cx*1.44,h*.74,w*.27,'68,22,96',0.055],
-        [cx*.80, h*.60,w*.20,'120,50,100',0.040]
-      ].forEach(([ox,oy,or_,col,oa]) => {
-        const g=ctx.createRadialGradient(ox,oy,0,ox,oy,or_)
-        g.addColorStop(0,`rgba(${col},${oa})`); g.addColorStop(1,`rgba(${col},0)`)
-        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(ox,oy,or_,0,Math.PI*2); ctx.fill()
+      const bg = ctx.createLinearGradient(0, 0, 0, h)
+      bg.addColorStop(0, 'rgba(38,8,28,0.55)'); bg.addColorStop(1, 'rgba(8,4,14,0.50)')
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h)
+      ;[[w*.55,h*.18,w*.32,'90,32,70',0.08],[w*1.42,h*.74,w*.26,'65,20,96',0.06]]
+        .forEach(([ox,oy,or_,col,oa]) => {
+          const g = ctx.createRadialGradient(ox,oy,0,ox,oy,or_)
+          g.addColorStop(0,`rgba(${col},${oa})`); g.addColorStop(1,`rgba(${col},0)`)
+          ctx.fillStyle=g; ctx.beginPath(); ctx.arc(ox,oy,or_,0,Math.PI*2); ctx.fill()
+        })
+      pts.forEach(p => {
+        p.t += p.spd
+        const a = p.a * (0.52 + 0.48 * Math.sin(p.t))
+        ctx.fillStyle = p.pink ? `rgba(212,160,192,${a})` : `rgba(255,255,255,${a})`
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill()
       })
-
-      // particles
-      pts.forEach(pt => {
-        pt.t += pt.spd
-        const a = pt.a*(0.52+0.48*Math.sin(pt.t))
-        ctx.fillStyle = pt.pink ? `rgba(212,160,192,${a})` : `rgba(255,255,255,${a})`
-        ctx.beginPath(); ctx.arc(pt.x,pt.y,pt.r,0,Math.PI*2); ctx.fill()
-      })
-
-      // animation phases
-      const FORM_S=0.04, FORM_E=0.14
-      const FALL_S=0.04, FALL_E=0.52
-      const STR_S =0.34, STR_E =0.52
-      const IMP   =0.52, SPLA_E=0.70, RIB_S=0.60
-
-      const dropY  = h * map(p, FALL_S, FALL_E, 0.10, 0.56)
-      const baseR  = w * map(p, 0, FORM_E, 0.018, 0.050)
-      const stretch= map(p, STR_S, STR_E, 1.0, 2.30)
-      const dropA  = p < IMP
-        ? map(p, FORM_S, FORM_E, 0, 1)
-        : map(p, IMP, IMP+0.056, 1, 0)
-
-      // impact flash
-      if (p > IMP && p < IMP+0.040) {
-        const fa = map(p, IMP, IMP+0.040, 0.68, 0)
-        ctx.fillStyle = `rgba(255,212,238,${fa})`; ctx.fillRect(0,0,w,h)
-      }
-
-      const splashP = p > IMP   ? map(p, IMP,   SPLA_E, 0, 1) : 0
-      const ribP    = p > RIB_S ? map(p, RIB_S, 1.0,   0, 1) : 0
-
-      drawSplash  (cx, dropY,  splashP, w, h)
-      drawRibbons (cx, h*0.56, ribP,    w, h)
-      if (p < IMP+0.056) drawDrop(cx, dropY, baseR, stretch, dropA)
-
-      raf = requestAnimationFrame(draw)
+      raf = requestAnimationFrame(drawStars)
     }
 
-    init()
-    window.addEventListener('resize', init)
-    raf = requestAnimationFrame(draw)
-    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', init) }
+    /* — scroll-driven DOM updates (no React state → no re-renders) — */
+    function updateAnim() {
+      const maxS = document.documentElement.scrollHeight - window.innerHeight
+      if (maxS <= 0) return
+      const p = cl(window.scrollY / maxS, 0, 1)
+      const h = window.innerHeight
+
+      const IMP = 0.52
+
+      /* drop.png: falls from above, stretches, fades on impact */
+      const dropY  = map(p, 0.04, IMP, -300, h * 0.40)
+      const scaleY = map(p, 0.34, IMP, 1.0, 1.95)
+      const scaleX = 1 / Math.sqrt(scaleY)
+      const dropOp = p < IMP
+        ? map(p, 0.04, 0.14, 0, 1)
+        : map(p, IMP, IMP + 0.06, 1, 0)
+      if (dropEl) {
+        dropEl.style.opacity   = Math.max(0, dropOp)
+        dropEl.style.transform = `translateY(${dropY}px) scaleX(${scaleX}) scaleY(${scaleY})`
+      }
+
+      /* impact flash */
+      if (flashEl) {
+        const fa = (p > IMP && p < IMP + 0.042)
+          ? map(p, IMP, IMP + 0.042, 0.85, 0) : 0
+        flashEl.style.opacity = Math.max(0, fa)
+      }
+
+      /* ribbons.png: fades in after impact */
+      if (ribEl) {
+        ribEl.style.opacity = Math.max(0, map(p, 0.60, 0.82, 0, 0.92))
+      }
+
+      /* sections */
+      if (heroEl) {
+        heroEl.style.opacity      = 1 - rng(p, 0.13, 0.18)
+        heroEl.style.pointerEvents = +heroEl.style.opacity > 0.05 ? 'auto' : 'none'
+      }
+      if (featEl) {
+        featEl.style.opacity      = rng(p, 0.33, 0.36) * (1 - rng(p, 0.47, 0.51))
+        featEl.style.pointerEvents = +featEl.style.opacity > 0.05 ? 'auto' : 'none'
+      }
+      if (creatEl) {
+        creatEl.style.opacity      = rng(p, 0.66, 0.70)
+        creatEl.style.pointerEvents = +creatEl.style.opacity > 0.05 ? 'auto' : 'none'
+      }
+    }
+
+    initCanvas()
+    window.addEventListener('resize', initCanvas)
+    window.addEventListener('scroll', updateAnim, { passive: true })
+    raf = requestAnimationFrame(drawStars)
+    updateAnim()
+
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', initCanvas)
+      window.removeEventListener('scroll', updateAnim)
+    }
   }, [])
 
-  /* ── card layout (same as cosmos) ── */
+  /* ── card layout ── */
   const cardConfigs = [
     { top:'-4%',    left:'calc(50% - 232px)', anim:'fc7', dur:'5.2s', delay:'-0.6s', size:88 },
     { top:'12%',    left:'calc(50% - 252px)', anim:'fc3', dur:'6.1s', delay:'-2.4s', size:84 },
@@ -254,7 +176,7 @@ export default function LandingPage() {
         @keyframes pulseGlow{0%,100%{box-shadow:0 0 0 0 rgba(212,160,192,0.35)}50%{box-shadow:0 0 0 10px rgba(212,160,192,0)}}
 
         .lq-float-card{
-          position:absolute; border-radius:12px; overflow:hidden;
+          position:absolute;border-radius:12px;overflow:hidden;
           background:linear-gradient(135deg,#1e1e1e 0%,#252525 100%);
           border:1px solid rgba(255,255,255,0.07);
           box-shadow:0 8px 32px rgba(0,0,0,0.6);
@@ -315,29 +237,77 @@ export default function LandingPage() {
         .lq-creator-row:hover{background:rgba(212,160,192,0.09);border-color:rgba(212,160,192,0.35);}
       `}</style>
 
-      {/* ── FIXED CANVAS ── */}
+      {/* ── LAYER 0: Starfield canvas ── */}
       <canvas ref={canvasRef} style={{
         position:'fixed', top:0, left:0,
         width:'100vw', height:'100vh',
         zIndex:0, pointerEvents:'none', display:'block',
       }} />
 
-      {/* ── SCROLLYTELLING CONTAINER: 600vh ── */}
-      <div style={{ position:'relative', height:'600vh' }}>
+      {/* ── LAYER 1: Falling drop (drop.png, screen blend removes bg) ── */}
+      <div style={{
+        position:'fixed', top:0, left:0, right:0,
+        display:'flex', justifyContent:'center',
+        zIndex:1, pointerEvents:'none',
+      }}>
+        <img
+          ref={dropRef}
+          src="/drop.png"
+          alt=""
+          style={{
+            width: 'min(200px, 52vw)',
+            height: 'auto',
+            mixBlendMode: 'screen',
+            opacity: 0,
+            transformOrigin: '50% 15%',
+            willChange: 'transform, opacity',
+            display: 'block',
+          }}
+        />
+      </div>
+
+      {/* ── LAYER 1: Ribbons (ribbons.png, screen blend) ── */}
+      <img
+        ref={ribbonsRef}
+        src="/ribbons.png"
+        alt=""
+        style={{
+          position: 'fixed',
+          top: '15%', left: '50%',
+          transform: 'translateX(-50%)',
+          width: '110vw',
+          height: 'auto',
+          mixBlendMode: 'screen',
+          opacity: 0,
+          zIndex: 1,
+          pointerEvents: 'none',
+          willChange: 'opacity',
+        }}
+      />
+
+      {/* ── LAYER 2: Impact flash ── */}
+      <div
+        ref={flashRef}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 2,
+          background: 'radial-gradient(circle at 50% 52%, rgba(255,215,240,1) 0%, rgba(255,200,230,0.5) 30%, transparent 60%)',
+          pointerEvents: 'none', opacity: 0,
+        }}
+      />
+
+      {/* ── LAYER 3: Scrollable content ── */}
+      <div style={{ position:'relative', height:'600vh', zIndex:3 }}>
 
         {/* HERO — sticky inside 200vh */}
         <div style={{ height:'200vh' }}>
-          <section style={{
+          <section ref={heroRef} style={{
             height:'100svh', minHeight:'600px',
             position:'sticky', top:0, zIndex:2,
             display:'flex', flexDirection:'column',
             alignItems:'center', justifyContent:'center',
             overflow:'hidden',
-            opacity: heroOp,
-            transition:'opacity 0.08s linear',
-            pointerEvents: heroOp < 0.05 ? 'none' : 'auto',
           }}>
-            {/* Soft glow blob */}
+            {/* Soft accent glow */}
             <div style={{
               position:'absolute', width:'280px', height:'280px',
               borderRadius:'50%',
@@ -346,7 +316,7 @@ export default function LandingPage() {
               pointerEvents:'none', zIndex:1,
             }} />
 
-            {/* Floating nail-design cards */}
+            {/* Floating nail cards */}
             {designs.slice(0, cardConfigs.length).map((d, i) => {
               const cfg = cardConfigs[i]
               const ps  = {}
@@ -355,15 +325,12 @@ export default function LandingPage() {
               if (cfg.left)   ps.left   = cfg.left
               return (
                 <div key={d.id} className="lq-float-card" style={{
-                  ...ps,
-                  width: cfg.size,
-                  height: cfg.size * 1.18,
+                  ...ps, width:cfg.size, height:cfg.size*1.18,
                   animation:`${cfg.anim} ${cfg.dur} ease-in-out ${cfg.delay} infinite`,
                   zIndex:0,
                 }}>
                   {d.image_url && (
-                    <img
-                      src={d.image_url} alt=""
+                    <img src={d.image_url} alt=""
                       style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}}
                       onLoad={e => e.currentTarget.classList.add('img-loaded')}
                     />
@@ -379,7 +346,6 @@ export default function LandingPage() {
               alignItems:'center', textAlign:'center',
               padding:'0 32px',
             }}>
-              {/* Beta badge */}
               <div style={{
                 display:'inline-flex', alignItems:'center', gap:'7px',
                 background:'rgba(212,160,192,0.1)', border:'0.5px solid rgba(212,160,192,0.25)',
@@ -390,7 +356,6 @@ export default function LandingPage() {
                 <span style={{color:'var(--accent)',fontSize:'11px',fontWeight:'500',letterSpacing:'0.07em',textTransform:'uppercase'}}>Beta</span>
               </div>
 
-              {/* Wordmark */}
               <h1 style={{
                 fontSize:'clamp(72px, 22vw, 96px)', fontWeight:'500',
                 color:'var(--text-primary)', letterSpacing:'-0.045em',
@@ -398,7 +363,6 @@ export default function LandingPage() {
                 animation:'fadeUp 0.6s ease 0.2s both',
               }}>Laque</h1>
 
-              {/* Tagline */}
               <p style={{
                 fontSize:'16px', color:'var(--text-secondary)',
                 lineHeight:'1.55', marginBottom:'30px', maxWidth:'260px',
@@ -408,7 +372,6 @@ export default function LandingPage() {
                 <span style={{color:'var(--text-primary)',fontWeight:'500'}}>fully specced.</span>
               </p>
 
-              {/* CTAs */}
               <div style={{
                 display:'flex', gap:'10px', flexWrap:'wrap', justifyContent:'center',
                 animation:'fadeUp 0.6s ease 0.48s both',
@@ -437,15 +400,12 @@ export default function LandingPage() {
 
         {/* FEATURES — sticky inside 200vh */}
         <div style={{ height:'200vh' }}>
-          <section style={{
+          <section ref={featRef} style={{
             height:'100svh', minHeight:'580px',
             position:'sticky', top:0, zIndex:2,
             display:'flex', flexDirection:'column',
-            justifyContent:'center',
-            padding:'0 24px',
-            opacity: featOp,
-            transition:'opacity 0.08s linear',
-            pointerEvents: featOp < 0.05 ? 'none' : 'auto',
+            justifyContent:'center', padding:'0 24px',
+            opacity:0,
           }}>
             <p style={{color:'var(--accent)',fontSize:'11px',fontWeight:'500',letterSpacing:'0.09em',textTransform:'uppercase',marginBottom:'20px'}}>
               Why Laque
@@ -470,25 +430,21 @@ export default function LandingPage() {
 
         {/* CREATOR — sticky inside 200vh */}
         <div style={{ height:'200vh' }}>
-          <section style={{
+          <section ref={creatRef} style={{
             height:'100svh', minHeight:'580px',
             position:'sticky', top:0, zIndex:2,
             display:'flex', flexDirection:'column',
             justifyContent:'center',
             padding:'48px 24px 52px',
             overflow:'hidden',
-            opacity: creatOp,
-            transition:'opacity 0.08s linear',
-            pointerEvents: creatOp < 0.05 ? 'none' : 'auto',
+            opacity:0,
           }}>
-            {/* Tint overlay */}
             <div style={{
               position:'absolute', inset:0,
               background:'linear-gradient(160deg, rgba(212,160,192,0.06) 0%, rgba(212,160,192,0.02) 60%, transparent 100%)',
               borderTop:'0.5px solid rgba(212,160,192,0.20)',
               pointerEvents:'none', zIndex:0,
             }} />
-            {/* Floating orb */}
             <div style={{
               position:'absolute', top:'-60px', right:'-80px',
               width:'240px', height:'240px', borderRadius:'50%',
@@ -542,12 +498,12 @@ export default function LandingPage() {
 
       </div>{/* end 600vh */}
 
-      {/* FINAL CTA — opaque, after scrollytelling ends */}
+      {/* FINAL CTA */}
       <section style={{
         padding:'40px 24px 56px', textAlign:'center',
         borderTop:'0.5px solid var(--border)',
         background:'var(--bg-primary)',
-        position:'relative', zIndex:2,
+        position:'relative', zIndex:3,
       }}>
         <p style={{color:'var(--text-primary)',fontSize:'22px',fontWeight:'500',letterSpacing:'-0.02em',lineHeight:'1.3',marginBottom:'10px'}}>
           Ready to find your next set?
