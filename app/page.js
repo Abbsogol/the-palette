@@ -4,11 +4,24 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
+// ─── ASSET CONFIG ─────────────────────────────────────────────────────────────
+// When transparent WebP assets are ready:
+//   1. Replace paths below with the new WebP filenames
+//   2. Set REMOVE_BG = false
+//   3. Remove mixBlendMode from ropesEl / dropEl inline styles (marked below)
+const DROPLET_SRC = '/drop.png'     // → '/droplet.webp' (transparent bg)
+const ROPES_SRC   = '/ribbons.png'  // → '/ropes.webp'   (transparent bg)
+const REMOVE_BG   = true            // JS bg-removal; disable when using transparent WebPs
+// ─────────────────────────────────────────────────────────────────────────────
+
+const IMPACT_Y = 0.52  // impact point: 52% from viewport top
+
 export default function LandingPage() {
-  const canvasRef  = useRef(null)   // starfield only
-  const dropRef    = useRef(null)   // drop.png image
-  const ribbonsRef = useRef(null)   // ribbons.png image
-  const flashRef   = useRef(null)   // impact flash
+  const wrapperRef = useRef(null)   // 600vh scroll trigger
+  const starRef    = useRef(null)   // starfield canvas (fixed, z:0)
+  const splashRef  = useRef(null)   // splash canvas  (fixed, full-screen, z:1)
+  const dropRef    = useRef(null)   // droplet image  (fixed, z:1)
+  const ropesRef   = useRef(null)   // ropes/ribbons  (fixed, z:1, grows from impact)
   const heroRef    = useRef(null)
   const featRef    = useRef(null)
   const creatRef   = useRef(null)
@@ -25,136 +38,295 @@ export default function LandingPage() {
 
   /* ── animation engine ── */
   useEffect(() => {
-    const canvas  = canvasRef.current
-    const dropEl  = dropRef.current
-    const ribEl   = ribbonsRef.current
-    const flashEl = flashRef.current
-    const heroEl  = heroRef.current
-    const featEl  = featRef.current
-    const creatEl = creatRef.current
-    if (!canvas) return
+    const starCvs   = starRef.current
+    const splashCvs = splashRef.current
+    const dropEl    = dropRef.current
+    const ropesEl   = ropesRef.current
+    const heroEl    = heroRef.current
+    const featEl    = featRef.current
+    const creatEl   = creatRef.current
+    if (!starCvs || !splashCvs) return
 
-    const ctx = canvas.getContext('2d')
+    const starCtx   = starCvs.getContext('2d')
+    const splashCtx = splashCvs.getContext('2d')
     const cl  = (v, a, b) => Math.max(a, Math.min(b, v))
     const map = (v, a, b, c, d) => c + (d - c) * cl((v - a) / (b - a), 0, 1)
-    const rng = (v, a, b) => cl((v - a) / (b - a), 0, 1)
-    let pts = [], raf
 
-    /* — starfield — */
-    function initCanvas() {
-      canvas.width  = window.innerWidth
-      canvas.height = window.innerHeight
+    let pts = [], starRaf, blobUrls = []
+
+    // ── Resize: size both canvases + rebuild star particles ───────────────
+    function resize() {
+      const w = window.innerWidth, h = window.innerHeight
+      starCvs.width    = w;  starCvs.height    = h
+      splashCvs.width  = w;  splashCvs.height  = h
       pts = Array.from({ length: 130 }, () => ({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
+        x: Math.random() * w,   y: Math.random() * h,
         r: Math.random() * 1.5 + 0.3,
         a: Math.random() * 0.52 + 0.10,
         t: Math.random() * Math.PI * 2,
-        spd: Math.random() * 0.003 + 0.001,
+        s: Math.random() * 0.003 + 0.001,
         pink: Math.random() > 0.82,
       }))
     }
 
+    // ── Starfield (rAF loop) ───────────────────────────────────────────────
     function drawStars() {
-      const w = canvas.width, h = canvas.height
-      ctx.fillStyle = '#0b0909'; ctx.fillRect(0, 0, w, h)
-      const bg = ctx.createLinearGradient(0, 0, 0, h)
-      bg.addColorStop(0, 'rgba(38,8,28,0.55)'); bg.addColorStop(1, 'rgba(8,4,14,0.50)')
-      ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h)
-      ;[[w*.55,h*.18,w*.32,'90,32,70',0.08],[w*1.42,h*.74,w*.26,'65,20,96',0.06]]
-        .forEach(([ox,oy,or_,col,oa]) => {
-          const g = ctx.createRadialGradient(ox,oy,0,ox,oy,or_)
-          g.addColorStop(0,`rgba(${col},${oa})`); g.addColorStop(1,`rgba(${col},0)`)
-          ctx.fillStyle=g; ctx.beginPath(); ctx.arc(ox,oy,or_,0,Math.PI*2); ctx.fill()
+      const w = starCvs.width, h = starCvs.height
+      starCtx.fillStyle = '#0b0909'
+      starCtx.fillRect(0, 0, w, h)
+      const bg = starCtx.createLinearGradient(0, 0, 0, h)
+      bg.addColorStop(0, 'rgba(38,8,28,0.55)')
+      bg.addColorStop(1, 'rgba(8,4,14,0.50)')
+      starCtx.fillStyle = bg
+      starCtx.fillRect(0, 0, w, h)
+      ;[[w * .55, h * .18, w * .32, '90,32,70', 0.08],
+        [w * 1.42, h * .74, w * .26, '65,20,96', 0.06]]
+        .forEach(([ox, oy, or_, col, oa]) => {
+          const g = starCtx.createRadialGradient(ox, oy, 0, ox, oy, or_)
+          g.addColorStop(0, `rgba(${col},${oa})`)
+          g.addColorStop(1, `rgba(${col},0)`)
+          starCtx.fillStyle = g
+          starCtx.beginPath(); starCtx.arc(ox, oy, or_, 0, Math.PI * 2); starCtx.fill()
         })
       pts.forEach(p => {
-        p.t += p.spd
+        p.t += p.s
         const a = p.a * (0.52 + 0.48 * Math.sin(p.t))
-        ctx.fillStyle = p.pink ? `rgba(212,160,192,${a})` : `rgba(255,255,255,${a})`
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill()
+        starCtx.fillStyle = p.pink ? `rgba(212,160,192,${a})` : `rgba(255,255,255,${a})`
+        starCtx.beginPath(); starCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2); starCtx.fill()
       })
-      raf = requestAnimationFrame(drawStars)
+      starRaf = requestAnimationFrame(drawStars)
     }
 
-    /* — scroll-driven DOM updates (no React state → no re-renders) — */
-    function updateAnim() {
-      const maxS = document.documentElement.scrollHeight - window.innerHeight
-      if (maxS <= 0) return
-      const p = cl(window.scrollY / maxS, 0, 1)
-      const h = window.innerHeight
+    // ── JS Background removal (temporary until transparent WebPs) ─────────
+    // Samples the top-left corner as background reference, removes similar pixels.
+    // threshLow=clear pixels; threshHigh=feathered edge. Safe for dark-bg images.
+    async function stripBg(originalSrc) {
+      const tmp = new Image()
+      await new Promise(res => { tmp.onload = res; tmp.src = originalSrc })
+      const c = document.createElement('canvas')
+      c.width  = tmp.naturalWidth  || tmp.width  || 500
+      c.height = tmp.naturalHeight || tmp.height || 600
+      const cx = c.getContext('2d')
+      cx.drawImage(tmp, 0, 0)
+      const id = cx.getImageData(0, 0, c.width, c.height)
+      const d  = id.data
+      const [bgR, bgG, bgB] = [d[0], d[1], d[2]]
+      for (let i = 0; i < d.length; i += 4) {
+        const dist = Math.hypot(d[i] - bgR, d[i + 1] - bgG, d[i + 2] - bgB)
+        if (dist < 28) {
+          d[i + 3] = 0
+        } else if (dist < 62) {
+          d[i + 3] = Math.round(d[i + 3] * (dist - 28) / 34)
+        }
+      }
+      cx.putImageData(id, 0, 0)
+      const blob = await new Promise(r => c.toBlob(r))
+      const url  = URL.createObjectURL(blob)
+      blobUrls.push(url)
+      return url
+    }
 
-      const IMP = 0.52
+    if (REMOVE_BG && dropEl) {
+      stripBg(DROPLET_SRC).then(url => { dropEl.src = url })
+    }
 
-      /* drop.png: falls from above, stretches, fades on impact */
-      const dropY  = map(p, 0.04, IMP, -300, h * 0.40)
-      const scaleY = map(p, 0.34, IMP, 1.0, 1.95)
-      const scaleX = 1 / Math.sqrt(scaleY)
-      const dropOp = p < IMP
-        ? map(p, 0.11, 0.22, 0, 1)   // appears as hero fades (13-18%), fully visible by 22%
-        : map(p, IMP, IMP + 0.06, 1, 0)
+    // ── Splash: canvas-drawn burst, fully scroll-driven (p = 0→1) ─────────
+    // Centered exactly at the impact point (50% x, IMPACT_Y y).
+    function drawSplash(p) {
+      const w = splashCvs.width, h = splashCvs.height
+      splashCtx.clearRect(0, 0, w, h)
+      if (p <= 0 || p >= 1) return
+
+      const cx    = w * 0.5
+      const cy    = h * IMPACT_Y
+      const maxR  = Math.min(w, h) * 0.30
+      // Opacity: ramps up 0→0.3 then fades 0.3→1
+      const op    = p < 0.3 ? p / 0.3 : Math.max(0, (1 - p) / 0.7)
+
+      // Expanding fill ring from impact center
+      const r = maxR * p
+      const rg = splashCtx.createRadialGradient(cx, cy, r * 0.45, cx, cy, r)
+      rg.addColorStop(0, `rgba(212,160,192,${op * 0.50})`)
+      rg.addColorStop(1, `rgba(212,160,192,0)`)
+      splashCtx.beginPath(); splashCtx.arc(cx, cy, r, 0, Math.PI * 2)
+      splashCtx.fillStyle = rg; splashCtx.fill()
+
+      // Inner bright flash at centre
+      const fr = maxR * 0.20 * (1 - p)
+      if (fr > 1) {
+        const fg = splashCtx.createRadialGradient(cx, cy, 0, cx, cy, fr)
+        fg.addColorStop(0,   `rgba(255,240,252,${op * 0.95})`)
+        fg.addColorStop(0.5, `rgba(212,160,192,${op * 0.55})`)
+        fg.addColorStop(1,   `rgba(212,160,192,0)`)
+        splashCtx.beginPath(); splashCtx.arc(cx, cy, fr, 0, Math.PI * 2)
+        splashCtx.fillStyle = fg; splashCtx.fill()
+      }
+
+      // 8 droplet particles bursting outward from centre
+      for (let i = 0; i < 8; i++) {
+        const angle = (i / 8) * Math.PI * 2 - Math.PI * 0.5
+        const dist  = maxR * 0.68 * p
+        const pr    = Math.max(0, 5.5 * (1 - p * 1.35))
+        if (pr < 0.5) continue
+        splashCtx.beginPath()
+        splashCtx.arc(cx + Math.cos(angle) * dist, cy + Math.sin(angle) * dist, pr, 0, Math.PI * 2)
+        splashCtx.fillStyle = `rgba(255,222,245,${op * 0.82})`
+        splashCtx.fill()
+      }
+
+      // Secondary trailing ring
+      if (p > 0.18) {
+        const r2 = maxR * (p - 0.18) * 0.72
+        splashCtx.beginPath(); splashCtx.arc(cx, cy, r2, 0, Math.PI * 2)
+        splashCtx.strokeStyle = `rgba(212,160,192,${op * 0.24})`
+        splashCtx.lineWidth   = 2
+        splashCtx.stroke()
+      }
+    }
+
+    // ── Main scroll-progress update ────────────────────────────────────────
+    // Called by GSAP scrub onUpdate (or native fallback).
+    // p = 0 at top of page, 1 when wrapper bottom clears viewport.
+    function updateAll(p) {
+      const h    = window.innerHeight
+      const impY = h * IMPACT_Y
+      const dropH = dropEl ? (dropEl.offsetHeight || 240) : 240
+
+      // — DROPLET —
+      // transformOrigin: '50% 100%' (bottom-centre) → stretches UPWARD,
+      // bottom stays pinned at impY regardless of scaleY.
       if (dropEl) {
-        dropEl.style.opacity   = Math.max(0, dropOp)
-        dropEl.style.transform = `translateY(${dropY}px) scaleX(${scaleX}) scaleY(${scaleY})`
+        // dropY: bottom of element (= dropY + dropH) tracks impY
+        const dropY = map(p, 0, 0.50, -h * 0.60, impY - dropH)
+        const sY    = map(p, 0.30, 0.50, 1.0, 1.88)
+        const sX    = map(p, 0.30, 0.50, 1.0, 0.74)
+        // Opacity: fade in 0–12%, fade out at impact 50–58%
+        const op    = p < 0.50
+          ? map(p, 0, 0.12, 0, 1)
+          : map(p, 0.50, 0.58, 1, 0)
+        dropEl.style.opacity   = Math.max(0, op)
+        dropEl.style.transform = `translateX(-50%) translateY(${dropY}px) scaleX(${sX}) scaleY(${sY})`
       }
 
-      /* impact flash */
-      if (flashEl) {
-        const fa = (p > IMP && p < IMP + 0.042)
-          ? map(p, IMP, IMP + 0.042, 0.85, 0) : 0
-        flashEl.style.opacity = Math.max(0, fa)
+      // — SPLASH CANVAS —
+      // Active scroll 50%–65%; progress 0→1 within that window
+      drawSplash(map(p, 0.50, 0.65, 0, 1))
+
+      // — ROPES —
+      // Grows FROM the impact point (transform-origin = centre at 52vh).
+      // Starts at scale 0.14 (tiny dot at impact) → 1.06 (fills screen).
+      if (ropesEl) {
+        const rScale = map(p, 0.60, 0.82, 0.14, 1.06)
+        const rOp    = map(p, 0.60, 0.80, 0,    0.90)
+        ropesEl.style.opacity   = Math.max(0, rOp)
+        ropesEl.style.transform = `translate(-50%, -50%) scale(${Math.max(0.14, rScale)})`
       }
 
-      /* ribbons.png: fades in after impact */
-      if (ribEl) {
-        ribEl.style.opacity = Math.max(0, map(p, 0.60, 0.82, 0, 0.92))
-      }
-
-      /* sections */
+      // — HERO section —
       if (heroEl) {
-        heroEl.style.opacity      = 1 - rng(p, 0.13, 0.18)
-        heroEl.style.pointerEvents = +heroEl.style.opacity > 0.05 ? 'auto' : 'none'
+        const op = Math.max(0, 1 - map(p, 0.13, 0.18, 0, 1))
+        heroEl.style.opacity      = op
+        heroEl.style.pointerEvents = op > 0.05 ? 'auto' : 'none'
       }
+      // — FEATURES section —
       if (featEl) {
-        featEl.style.opacity      = rng(p, 0.33, 0.36) * (1 - rng(p, 0.47, 0.51))
-        featEl.style.pointerEvents = +featEl.style.opacity > 0.05 ? 'auto' : 'none'
+        const fIn  = map(p, 0.33, 0.36, 0, 1)
+        const fOut = map(p, 0.47, 0.51, 0, 1)
+        const op   = Math.max(0, fIn * (1 - fOut))
+        featEl.style.opacity      = op
+        featEl.style.pointerEvents = op > 0.05 ? 'auto' : 'none'
       }
+      // — CREATOR section —
       if (creatEl) {
-        creatEl.style.opacity      = rng(p, 0.66, 0.70)
-        creatEl.style.pointerEvents = +creatEl.style.opacity > 0.05 ? 'auto' : 'none'
+        const op = Math.max(0, map(p, 0.66, 0.70, 0, 1))
+        creatEl.style.opacity      = op
+        creatEl.style.pointerEvents = op > 0.05 ? 'auto' : 'none'
       }
     }
 
-    initCanvas()
-    window.addEventListener('resize', initCanvas)
-    window.addEventListener('scroll', updateAnim, { passive: true })
-    raf = requestAnimationFrame(drawStars)
-    updateAnim()
+    // ── GSAP ScrollTrigger (loaded via CDN, no package.json change needed) ─
+    // Falls back to native scroll + lerp if CDN is unavailable.
+    let stCleanup = null
+
+    ;(async () => {
+      try {
+        const [gsapMod, stMod] = await Promise.all([
+          import('https://esm.sh/gsap@3.12.5'),
+          import('https://esm.sh/gsap@3.12.5/ScrollTrigger'),
+        ])
+        const gsap          = gsapMod.gsap  || gsapMod.default
+        const ScrollTrigger = stMod.ScrollTrigger || stMod.default
+        gsap.registerPlugin(ScrollTrigger)
+
+        const wrapper = wrapperRef.current
+        if (!wrapper) return
+
+        const st = ScrollTrigger.create({
+          trigger: wrapper,
+          start:   'top top',
+          end:     'bottom bottom',
+          scrub:   1.2,           // 1.2s lag = buttery smooth feel
+          onUpdate: self => updateAll(self.progress),
+        })
+
+        stCleanup = () => {
+          st.kill()
+          ScrollTrigger.getAll().forEach(t => t.kill())
+        }
+      } catch {
+        // Native fallback: lerp replicates GSAP scrub smoothness
+        let target = 0, current = 0, fallbackRaf
+        const onScroll = () => {
+          const wrapper = wrapperRef.current
+          if (!wrapper) return
+          const end = wrapper.offsetTop + wrapper.offsetHeight - window.innerHeight
+          target = end > 0 ? Math.min(window.scrollY / end, 1) : 0
+        }
+        const tick = () => {
+          current += (target - current) * 0.08
+          updateAll(current)
+          fallbackRaf = requestAnimationFrame(tick)
+        }
+        window.addEventListener('scroll', onScroll, { passive: true })
+        tick()
+        stCleanup = () => {
+          window.removeEventListener('scroll', onScroll)
+          cancelAnimationFrame(fallbackRaf)
+        }
+      }
+    })()
+
+    resize()
+    window.addEventListener('resize', resize)
+    starRaf = requestAnimationFrame(drawStars)
+    updateAll(0)
 
     return () => {
-      cancelAnimationFrame(raf)
-      window.removeEventListener('resize', initCanvas)
-      window.removeEventListener('scroll', updateAnim)
+      cancelAnimationFrame(starRaf)
+      window.removeEventListener('resize', resize)
+      blobUrls.forEach(u => URL.revokeObjectURL(u))
+      if (stCleanup) stCleanup()
     }
   }, [])
 
-  /* ── card layout ── */
+  /* ── floating card layout (unchanged) ── */
   const cardConfigs = [
-    { top:'-4%',    left:'calc(50% - 232px)', anim:'fc7', dur:'5.2s', delay:'-0.6s', size:88 },
-    { top:'12%',    left:'calc(50% - 252px)', anim:'fc3', dur:'6.1s', delay:'-2.4s', size:84 },
-    { top:'34%',    left:'calc(50% - 258px)', anim:'fc1', dur:'5s',   delay:'0s',    size:92 },
-    { top:'56%',    left:'calc(50% - 244px)', anim:'fc5', dur:'4.8s', delay:'-3.5s', size:86 },
-    { bottom:'-2%', left:'calc(50% - 228px)', anim:'fc3', dur:'5.6s', delay:'-1.2s', size:82 },
-    { top:'20%',    left:'calc(50% - 172px)', anim:'fc8', dur:'7s',   delay:'-4s',   size:68 },
-    { top:'62%',    left:'calc(50% - 168px)', anim:'fc2', dur:'6.4s', delay:'-2s',   size:66 },
-    { top:'-3%',    left:'calc(50% + 128px)', anim:'fc4', dur:'5.4s', delay:'-1.5s', size:86 },
-    { top:'11%',    left:'calc(50% + 148px)', anim:'fc2', dur:'4.6s', delay:'-0.8s', size:80 },
-    { top:'33%',    left:'calc(50% + 154px)', anim:'fc6', dur:'5.8s', delay:'-3.2s', size:90 },
-    { top:'55%',    left:'calc(50% + 140px)', anim:'fc1', dur:'6.2s', delay:'-4.8s', size:84 },
-    { bottom:'-1%', left:'calc(50% + 118px)', anim:'fc5', dur:'5s',   delay:'-2.6s', size:78 },
-    { top:'16%',    left:'calc(50% + 82px)',  anim:'fc7', dur:'7.2s', delay:'-1s',   size:64 },
-    { top:'60%',    left:'calc(50% + 90px)',  anim:'fc3', dur:'6.8s', delay:'-3.8s', size:68 },
-    { top:'2%',     left:'calc(50% - 46px)',  anim:'fc8', dur:'5.6s', delay:'-1.7s', size:82 },
-    { bottom:'2%',  left:'calc(50% - 50px)',  anim:'fc4', dur:'6.3s', delay:'-3.1s', size:84 },
+    { top:'-4%',    left:'calc(50% - 232px)', anim:'fc7', dur:'5.2s', delay:'-0.6s',  size:88 },
+    { top:'12%',    left:'calc(50% - 252px)', anim:'fc3', dur:'6.1s', delay:'-2.4s',  size:84 },
+    { top:'34%',    left:'calc(50% - 258px)', anim:'fc1', dur:'5s',   delay:'0s',     size:92 },
+    { top:'56%',    left:'calc(50% - 244px)', anim:'fc5', dur:'4.8s', delay:'-3.5s',  size:86 },
+    { bottom:'-2%', left:'calc(50% - 228px)', anim:'fc3', dur:'5.6s', delay:'-1.2s',  size:82 },
+    { top:'20%',    left:'calc(50% - 172px)', anim:'fc8', dur:'7s',   delay:'-4s',    size:68 },
+    { top:'62%',    left:'calc(50% - 168px)', anim:'fc2', dur:'6.4s', delay:'-2s',    size:66 },
+    { top:'-3%',    left:'calc(50% + 128px)', anim:'fc4', dur:'5.4s', delay:'-1.5s',  size:86 },
+    { top:'11%',    left:'calc(50% + 148px)', anim:'fc2', dur:'4.6s', delay:'-0.8s',  size:80 },
+    { top:'33%',    left:'calc(50% + 154px)', anim:'fc6', dur:'5.8s', delay:'-3.2s',  size:90 },
+    { top:'55%',    left:'calc(50% + 140px)', anim:'fc1', dur:'6.2s', delay:'-4.8s',  size:84 },
+    { bottom:'-1%', left:'calc(50% + 118px)', anim:'fc5', dur:'5s',   delay:'-2.6s',  size:78 },
+    { top:'16%',    left:'calc(50% + 82px)',  anim:'fc7', dur:'7.2s', delay:'-1s',    size:64 },
+    { top:'60%',    left:'calc(50% + 90px)',  anim:'fc3', dur:'6.8s', delay:'-3.8s',  size:68 },
+    { top:'2%',     left:'calc(50% - 46px)',  anim:'fc8', dur:'5.6s', delay:'-1.7s',  size:82 },
+    { bottom:'2%',  left:'calc(50% - 50px)',  anim:'fc4', dur:'6.3s', delay:'-3.1s',  size:84 },
   ]
 
   return (
@@ -237,71 +409,81 @@ export default function LandingPage() {
         .lq-creator-row:hover{background:rgba(212,160,192,0.09);border-color:rgba(212,160,192,0.35);}
       `}</style>
 
-      {/* ── LAYER 0: Starfield canvas ── */}
-      <canvas ref={canvasRef} style={{
-        position:'fixed', top:0, left:0,
-        width:'100vw', height:'100vh',
-        zIndex:0, pointerEvents:'none', display:'block',
-      }} />
+      {/* ══ LAYER 0: Starfield canvas (cosmic bg) ══════════════════════════ */}
+      <canvas
+        ref={starRef}
+        style={{
+          position:'fixed', top:0, left:0,
+          width:'100vw', height:'100vh',
+          zIndex:0, pointerEvents:'none', display:'block',
+        }}
+      />
 
-      {/* ── LAYER 1: Falling drop (drop.png, screen blend removes bg) ── */}
-      <div style={{
-        position:'fixed', top:0, left:0, right:0,
-        display:'flex', justifyContent:'center',
-        zIndex:1, pointerEvents:'none',
-      }}>
-        <img
-          ref={dropRef}
-          src="/drop.png"
-          alt=""
-          style={{
-            width: 'min(200px, 52vw)',
-            height: 'auto',
-            mixBlendMode: 'screen',
-            filter: 'contrast(1.1) brightness(1.08)',
-            maskImage: 'radial-gradient(ellipse 70% 78% at 50% 48%, black 20%, rgba(0,0,0,0.88) 42%, rgba(0,0,0,0.35) 65%, transparent 82%)',
-            WebkitMaskImage: 'radial-gradient(ellipse 70% 78% at 50% 48%, black 20%, rgba(0,0,0,0.88) 42%, rgba(0,0,0,0.35) 65%, transparent 82%)',
-            opacity: 0,
-            transformOrigin: '50% 15%',
-            willChange: 'transform, opacity',
-            display: 'block',
-          }}
-        />
-      </div>
-
-      {/* ── LAYER 1: Ribbons (ribbons.png, screen blend) ── */}
+      {/* ══ LAYER 1a: Droplet ══════════════════════════════════════════════
+          - top:0 + translateY drives Y position frame-by-frame
+          - transformOrigin:'50% 100%' (bottom-centre) → stretches UPWARD,
+            bottom stays pinned at impact point
+          - REMOVE when using transparent WebP: mixBlendMode + filter        */}
       <img
-        ref={ribbonsRef}
-        src="/ribbons.png"
+        ref={dropRef}
+        src={DROPLET_SRC}
         alt=""
         style={{
-          position: 'fixed',
-          top: '15%', left: '50%',
-          transform: 'translateX(-50%)',
-          width: '110vw',
-          height: 'auto',
-          mixBlendMode: 'screen',
-          opacity: 0,
-          zIndex: 1,
-          pointerEvents: 'none',
-          willChange: 'opacity',
+          position:'fixed', top:0, left:'50%',
+          width:'min(220px, 55vw)', height:'auto',
+          opacity:0,
+          // ↓ remove these two lines when transparent WebP is ready
+          mixBlendMode:'screen',
+          filter:'brightness(1.10) contrast(1.05)',
+          // ↑
+          transformOrigin:'50% 100%',
+          zIndex:1, pointerEvents:'none',
+          willChange:'transform, opacity',
+          display:'block', maxWidth:'none',
         }}
       />
 
-      {/* ── LAYER 2: Impact flash ── */}
-      <div
-        ref={flashRef}
+      {/* ══ LAYER 1b: Splash canvas ════════════════════════════════════════
+          Full-screen transparent canvas; drawSplash() paints burst at impactY */}
+      <canvas
+        ref={splashRef}
         style={{
-          position: 'fixed', inset: 0, zIndex: 2,
-          background: 'radial-gradient(circle at 50% 52%, rgba(255,215,240,1) 0%, rgba(255,200,230,0.5) 30%, transparent 60%)',
-          pointerEvents: 'none', opacity: 0,
+          position:'fixed', top:0, left:0,
+          width:'100vw', height:'100vh',
+          zIndex:1, pointerEvents:'none', display:'block',
         }}
       />
 
-      {/* ── LAYER 3: Scrollable content ── */}
-      <div style={{ position:'relative', height:'600vh', zIndex:3 }}>
+      {/* ══ LAYER 1c: Ropes ════════════════════════════════════════════════
+          Centred on impact point (top:IMPACT_Y vh, left:50%).
+          translate(-50%,-50%) keeps centre at that point.
+          scale grows from 0.14 → 1.06 → ropes radiate outward from impact.
+          - REMOVE mixBlendMode when transparent WebP is ready              */}
+      <img
+        ref={ropesRef}
+        src={ROPES_SRC}
+        alt=""
+        style={{
+          position:'fixed',
+          top:`${IMPACT_Y * 100}vh`,
+          left:'50%',
+          width:'150vw', height:'auto',
+          opacity:0,
+          // ↓ remove when transparent WebP is ready
+          mixBlendMode:'screen',
+          // ↑
+          transformOrigin:'center center',
+          transform:'translate(-50%, -50%) scale(0.14)',
+          zIndex:1, pointerEvents:'none',
+          willChange:'transform, opacity',
+          display:'block', maxWidth:'none',
+        }}
+      />
 
-        {/* HERO — sticky inside 200vh */}
+      {/* ══ LAYER 3: Scrollable HTML sections (hero, features, creator) ════ */}
+      <div ref={wrapperRef} style={{ position:'relative', height:'600vh', zIndex:3 }}>
+
+        {/* HERO — sticky inside first 200vh */}
         <div style={{ height:'200vh' }}>
           <section ref={heroRef} style={{
             height:'100svh', minHeight:'600px',
@@ -310,16 +492,15 @@ export default function LandingPage() {
             alignItems:'center', justifyContent:'center',
             overflow:'hidden',
           }}>
-            {/* Soft accent glow */}
+            {/* Ambient accent glow */}
             <div style={{
-              position:'absolute', width:'280px', height:'280px',
-              borderRadius:'50%',
+              position:'absolute', width:'280px', height:'280px', borderRadius:'50%',
               background:'radial-gradient(circle, rgba(212,160,192,0.09) 0%, transparent 70%)',
               animation:'floatBlob 8s ease-in-out infinite',
               pointerEvents:'none', zIndex:1,
             }} />
 
-            {/* Floating nail cards */}
+            {/* Floating nail-design cards */}
             {designs.slice(0, cardConfigs.length).map((d, i) => {
               const cfg = cardConfigs[i]
               const ps  = {}
@@ -328,13 +509,14 @@ export default function LandingPage() {
               if (cfg.left)   ps.left   = cfg.left
               return (
                 <div key={d.id} className="lq-float-card" style={{
-                  ...ps, width:cfg.size, height:cfg.size*1.18,
+                  ...ps, width:cfg.size, height:cfg.size * 1.18,
                   animation:`${cfg.anim} ${cfg.dur} ease-in-out ${cfg.delay} infinite`,
                   zIndex:0,
                 }}>
                   {d.image_url && (
-                    <img src={d.image_url} alt=""
-                      style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}}
+                    <img
+                      src={d.image_url} alt=""
+                      style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}
                       onLoad={e => e.currentTarget.classList.add('img-loaded')}
                     />
                   )}
@@ -342,7 +524,7 @@ export default function LandingPage() {
               )
             })}
 
-            {/* Centre content */}
+            {/* Centre wordmark + CTA */}
             <div style={{
               position:'relative', zIndex:2,
               display:'flex', flexDirection:'column',
@@ -355,8 +537,8 @@ export default function LandingPage() {
                 borderRadius:'20px', padding:'4px 12px 4px 8px',
                 marginBottom:'20px', animation:'fadeUp 0.5s ease 0.1s both',
               }}>
-                <span style={{width:'6px',height:'6px',borderRadius:'50%',background:'var(--accent)',display:'inline-block'}} />
-                <span style={{color:'var(--accent)',fontSize:'11px',fontWeight:'500',letterSpacing:'0.07em',textTransform:'uppercase'}}>Beta</span>
+                <span style={{ width:'6px', height:'6px', borderRadius:'50%', background:'var(--accent)', display:'inline-block' }} />
+                <span style={{ color:'var(--accent)', fontSize:'11px', fontWeight:'500', letterSpacing:'0.07em', textTransform:'uppercase' }}>Beta</span>
               </div>
 
               <h1 style={{
@@ -372,7 +554,7 @@ export default function LandingPage() {
                 animation:'fadeUp 0.6s ease 0.35s both',
               }}>
                 Your next nail set,{' '}
-                <span style={{color:'var(--text-primary)',fontWeight:'500'}}>fully specced.</span>
+                <span style={{ color:'var(--text-primary)', fontWeight:'500' }}>fully specced.</span>
               </p>
 
               <div style={{
@@ -395,13 +577,13 @@ export default function LandingPage() {
               display:'flex', flexDirection:'column', alignItems:'center', gap:'6px',
               animation:'fadeUp 0.6s ease 0.9s both', zIndex:2,
             }}>
-              <span style={{color:'var(--text-secondary)',fontSize:'10px',letterSpacing:'0.1em',textTransform:'uppercase'}}>Scroll</span>
-              <div style={{width:'1px',height:'24px',background:'linear-gradient(to bottom, var(--text-secondary), transparent)'}} />
+              <span style={{ color:'var(--text-secondary)', fontSize:'10px', letterSpacing:'0.1em', textTransform:'uppercase' }}>Scroll</span>
+              <div style={{ width:'1px', height:'24px', background:'linear-gradient(to bottom, var(--text-secondary), transparent)' }} />
             </div>
           </section>
         </div>
 
-        {/* FEATURES — sticky inside 200vh */}
+        {/* FEATURES — sticky inside second 200vh */}
         <div style={{ height:'200vh' }}>
           <section ref={featRef} style={{
             height:'100svh', minHeight:'580px',
@@ -410,20 +592,20 @@ export default function LandingPage() {
             justifyContent:'center', padding:'0 24px',
             opacity:0,
           }}>
-            <p style={{color:'var(--accent)',fontSize:'11px',fontWeight:'500',letterSpacing:'0.09em',textTransform:'uppercase',marginBottom:'20px'}}>
+            <p style={{ color:'var(--accent)', fontSize:'11px', fontWeight:'500', letterSpacing:'0.09em', textTransform:'uppercase', marginBottom:'20px' }}>
               Why Laque
             </p>
-            <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
+            <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
               {[
-                {symbol:'✦', title:'Full colour specs', desc:'Every design comes with hex codes, gel brand & shade names, and finish type. No more vibes-only inspo.'},
-                {symbol:'◈', title:'Search & filter',   desc:'Filter by nail shape, length, technique, or occasion. From everyday to editorial.'},
-                {symbol:'◇', title:'Save & share',      desc:'Bookmark your favourites and share a direct link with your nail tech — no screenshotting required.'},
+                { symbol:'✦', title:'Full colour specs',  desc:'Every design comes with hex codes, gel brand & shade names, and finish type. No more vibes-only inspo.' },
+                { symbol:'◈', title:'Search & filter',    desc:'Filter by nail shape, length, technique, or occasion. From everyday to editorial.' },
+                { symbol:'◇', title:'Save & share',       desc:'Bookmark your favourites and share a direct link with your nail tech — no screenshotting required.' },
               ].map(f => (
                 <div key={f.title} className="lq-feature">
-                  <span style={{fontSize:'18px',color:'var(--accent)',lineHeight:'1',marginTop:'3px',flexShrink:0}}>{f.symbol}</span>
+                  <span style={{ fontSize:'18px', color:'var(--accent)', lineHeight:'1', marginTop:'3px', flexShrink:0 }}>{f.symbol}</span>
                   <div>
-                    <p style={{color:'var(--text-primary)',fontWeight:'500',fontSize:'15px',marginBottom:'5px'}}>{f.title}</p>
-                    <p style={{color:'var(--text-secondary)',fontSize:'13px',lineHeight:'1.65'}}>{f.desc}</p>
+                    <p style={{ color:'var(--text-primary)', fontWeight:'500', fontSize:'15px', marginBottom:'5px' }}>{f.title}</p>
+                    <p style={{ color:'var(--text-secondary)', fontSize:'13px', lineHeight:'1.65' }}>{f.desc}</p>
                   </div>
                 </div>
               ))}
@@ -431,7 +613,7 @@ export default function LandingPage() {
           </section>
         </div>
 
-        {/* CREATOR — sticky inside 200vh */}
+        {/* CREATOR — sticky inside third 200vh */}
         <div style={{ height:'200vh' }}>
           <section ref={creatRef} style={{
             height:'100svh', minHeight:'580px',
@@ -456,35 +638,35 @@ export default function LandingPage() {
               pointerEvents:'none', zIndex:0,
             }} />
 
-            <div style={{position:'relative',zIndex:1}}>
+            <div style={{ position:'relative', zIndex:1 }}>
               <div style={{
                 display:'inline-flex', alignItems:'center', gap:'7px',
                 background:'rgba(212,160,192,0.1)', border:'0.5px solid rgba(212,160,192,0.3)',
                 borderRadius:'20px', padding:'5px 12px 5px 8px',
                 width:'fit-content', marginBottom:'22px',
               }}>
-                <span style={{width:'5px',height:'5px',borderRadius:'50%',background:'var(--accent)',display:'inline-block',flexShrink:0}} />
-                <span style={{color:'var(--accent)',fontSize:'11px',fontWeight:'500',letterSpacing:'0.07em',textTransform:'uppercase'}}>For nail artists &amp; salons</span>
+                <span style={{ width:'5px', height:'5px', borderRadius:'50%', background:'var(--accent)', display:'inline-block', flexShrink:0 }} />
+                <span style={{ color:'var(--accent)', fontSize:'11px', fontWeight:'500', letterSpacing:'0.07em', textTransform:'uppercase' }}>For nail artists &amp; salons</span>
               </div>
 
-              <h2 style={{fontSize:'clamp(28px, 8vw, 38px)',fontWeight:'600',color:'var(--text-primary)',letterSpacing:'-0.03em',lineHeight:'1.15',marginBottom:'14px'}}>
+              <h2 style={{ fontSize:'clamp(28px, 8vw, 38px)', fontWeight:'600', color:'var(--text-primary)', letterSpacing:'-0.03em', lineHeight:'1.15', marginBottom:'14px' }}>
                 Publish your work.{' '}
-                <span style={{color:'var(--accent)'}}>Get discovered.</span>
+                <span style={{ color:'var(--accent)' }}>Get discovered.</span>
               </h2>
 
-              <p style={{fontSize:'15px',color:'var(--text-secondary)',lineHeight:'1.65',marginBottom:'28px',maxWidth:'310px'}}>
+              <p style={{ fontSize:'15px', color:'var(--text-secondary)', lineHeight:'1.65', marginBottom:'28px', maxWidth:'310px' }}>
                 Get a free creator profile, post your sets with full specs, and reach clients who are already browsing for their next look.
               </p>
 
-              <div style={{display:'flex',flexDirection:'column',gap:'8px',marginBottom:'32px'}}>
+              <div style={{ display:'flex', flexDirection:'column', gap:'8px', marginBottom:'32px' }}>
                 {[
-                  {icon:'◈', text:'Free public portfolio — your work, your page'},
-                  {icon:'✦', text:'Get found by clients browsing for inspo'},
-                  {icon:'◇', text:'Post designs with colour codes & technique notes'},
+                  { icon:'◈', text:'Free public portfolio — your work, your page' },
+                  { icon:'✦', text:'Get found by clients browsing for inspo' },
+                  { icon:'◇', text:'Post designs with colour codes & technique notes' },
                 ].map(item => (
                   <div key={item.text} className="lq-creator-row">
-                    <span style={{color:'var(--accent)',fontSize:'14px',flexShrink:0}}>{item.icon}</span>
-                    <span style={{color:'var(--text-primary)',fontSize:'13px',lineHeight:'1.45'}}>{item.text}</span>
+                    <span style={{ color:'var(--accent)', fontSize:'14px', flexShrink:0 }}>{item.icon}</span>
+                    <span style={{ color:'var(--text-primary)', fontSize:'13px', lineHeight:'1.45' }}>{item.text}</span>
                   </div>
                 ))}
               </div>
@@ -499,7 +681,7 @@ export default function LandingPage() {
           </section>
         </div>
 
-      </div>{/* end 600vh */}
+      </div>{/* end 600vh wrapper */}
 
       {/* FINAL CTA */}
       <section style={{
@@ -508,13 +690,13 @@ export default function LandingPage() {
         background:'var(--bg-primary)',
         position:'relative', zIndex:3,
       }}>
-        <p style={{color:'var(--text-primary)',fontSize:'22px',fontWeight:'500',letterSpacing:'-0.02em',lineHeight:'1.3',marginBottom:'10px'}}>
+        <p style={{ color:'var(--text-primary)', fontSize:'22px', fontWeight:'500', letterSpacing:'-0.02em', lineHeight:'1.3', marginBottom:'10px' }}>
           Ready to find your next set?
         </p>
-        <p style={{color:'var(--text-secondary)',fontSize:'14px',marginBottom:'28px',lineHeight:'1.6'}}>
+        <p style={{ color:'var(--text-secondary)', fontSize:'14px', marginBottom:'28px', lineHeight:'1.6' }}>
           Browse free. Save what you love.<br />Show your nail tech.
         </p>
-        <Link href="/feed" className="lq-cta-primary" style={{display:'inline-flex'}}>
+        <Link href="/feed" className="lq-cta-primary" style={{ display:'inline-flex' }}>
           Start exploring
           <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
             <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
