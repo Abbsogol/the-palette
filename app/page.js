@@ -13,7 +13,7 @@ export default function LandingPage() {
       .select('id, image_url')
       .eq('is_published', true)
       .order('created_at', { ascending: false })
-      .limit(14)
+      .limit(16)
       .then(({ data }) => setDesigns(data || []))
   }, [])
 
@@ -34,6 +34,9 @@ export default function LandingPage() {
     { bottom: '-1%', left: 'calc(50% + 118px)', rotate: '15deg',  anim: 'fc5', dur: '5s',   delay: '-2.6s', size: 78 },
     { top: '16%',    left: 'calc(50% + 82px)',  rotate: '5deg',   anim: 'fc7', dur: '7.2s', delay: '-1s',   size: 64 },
     { top: '60%',    left: 'calc(50% + 90px)',  rotate: '11deg',  anim: 'fc3', dur: '6.8s', delay: '-3.8s', size: 68 },
+    // top centre + bottom centre fill
+    { top: '2%',     left: 'calc(50% - 46px)',  rotate: '7deg',   anim: 'fc8', dur: '5.6s', delay: '-1.7s', size: 82 },
+    { bottom: '2%',  left: 'calc(50% - 50px)',  rotate: '-6deg',  anim: 'fc4', dur: '6.3s', delay: '-3.1s', size: 84 },
   ]
 
   return (
