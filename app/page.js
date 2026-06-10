@@ -13,32 +13,40 @@ export default function LandingPage() {
       .select('id, image_url')
       .eq('is_published', true)
       .order('created_at', { ascending: false })
-      .limit(8)
+      .limit(14)
       .then(({ data }) => setDesigns(data || []))
   }, [])
 
   const cardConfigs = [
-    // left cluster — positioned relative to centre
-    { top: '5%',     left: 'calc(50% - 228px)', rotate: '-18deg', anim: 'fc1', dur: '5s',   delay: '0s',    size: 90 },
-    { top: '31%',    left: 'calc(50% - 248px)', rotate: '-7deg',  anim: 'fc3', dur: '5.8s', delay: '-2.1s', size: 84 },
-    { bottom: '15%', left: 'calc(50% - 222px)', rotate: '-13deg', anim: 'fc5', dur: '4.6s', delay: '-1.4s', size: 88 },
-    { top: '57%',    left: 'calc(50% - 170px)', rotate: '-4deg',  anim: 'fc2', dur: '6.5s', delay: '-3s',   size: 70 },
+    // left cluster
+    { top: '-4%',    left: 'calc(50% - 232px)', rotate: '-20deg', anim: 'fc7', dur: '5.2s', delay: '-0.6s', size: 88 },
+    { top: '12%',    left: 'calc(50% - 252px)', rotate: '-10deg', anim: 'fc3', dur: '6.1s', delay: '-2.4s', size: 84 },
+    { top: '34%',    left: 'calc(50% - 258px)', rotate: '-16deg', anim: 'fc1', dur: '5s',   delay: '0s',    size: 92 },
+    { top: '56%',    left: 'calc(50% - 244px)', rotate: '-6deg',  anim: 'fc5', dur: '4.8s', delay: '-3.5s', size: 86 },
+    { bottom: '-2%', left: 'calc(50% - 228px)', rotate: '-14deg', anim: 'fc3', dur: '5.6s', delay: '-1.2s', size: 82 },
+    { top: '20%',    left: 'calc(50% - 172px)', rotate: '-4deg',  anim: 'fc8', dur: '7s',   delay: '-4s',   size: 68 },
+    { top: '62%',    left: 'calc(50% - 168px)', rotate: '-8deg',  anim: 'fc2', dur: '6.4s', delay: '-2s',   size: 66 },
     // right cluster
-    { top: '6%',     left: 'calc(50% + 126px)', rotate: '14deg',  anim: 'fc2', dur: '5.2s', delay: '-1.8s', size: 86 },
-    { top: '29%',    left: 'calc(50% + 146px)', rotate: '19deg',  anim: 'fc4', dur: '4.4s', delay: '-0.7s', size: 82 },
-    { bottom: '17%', left: 'calc(50% + 108px)', rotate: '11deg',  anim: 'fc6', dur: '6s',   delay: '-4.2s', size: 80 },
-    { top: '13%',    left: 'calc(50% + 86px)',  rotate: '5deg',   anim: 'fc1', dur: '7.5s', delay: '-2.8s', size: 68 },
+    { top: '-3%',    left: 'calc(50% + 128px)', rotate: '18deg',  anim: 'fc4', dur: '5.4s', delay: '-1.5s', size: 86 },
+    { top: '11%',    left: 'calc(50% + 148px)', rotate: '12deg',  anim: 'fc2', dur: '4.6s', delay: '-0.8s', size: 80 },
+    { top: '33%',    left: 'calc(50% + 154px)', rotate: '20deg',  anim: 'fc6', dur: '5.8s', delay: '-3.2s', size: 90 },
+    { top: '55%',    left: 'calc(50% + 140px)', rotate: '9deg',   anim: 'fc1', dur: '6.2s', delay: '-4.8s', size: 84 },
+    { bottom: '-1%', left: 'calc(50% + 118px)', rotate: '15deg',  anim: 'fc5', dur: '5s',   delay: '-2.6s', size: 78 },
+    { top: '16%',    left: 'calc(50% + 82px)',  rotate: '5deg',   anim: 'fc7', dur: '7.2s', delay: '-1s',   size: 64 },
+    { top: '60%',    left: 'calc(50% + 90px)',  rotate: '11deg',  anim: 'fc3', dur: '6.8s', delay: '-3.8s', size: 68 },
   ]
 
   return (
     <>
       <style>{`
-        @keyframes fc1 { 0%,100%{transform:rotate(-18deg) translateY(0) translateX(0)}    50%{transform:rotate(-18deg) translateY(-30px) translateX(5px)} }
-        @keyframes fc2 { 0%,100%{transform:rotate(14deg) translateY(0) translateX(0)}     50%{transform:rotate(14deg) translateY(-34px) translateX(-6px)} }
-        @keyframes fc3 { 0%,100%{transform:rotate(-7deg) translateY(0) translateX(0)}     50%{transform:rotate(-7deg) translateY(-26px) translateX(7px)} }
-        @keyframes fc4 { 0%,100%{transform:rotate(19deg) translateY(0) translateX(0)}     50%{transform:rotate(19deg) translateY(-32px) translateX(-5px)} }
-        @keyframes fc5 { 0%,100%{transform:rotate(-13deg) translateY(0) translateX(0)}    50%{transform:rotate(-13deg) translateY(-28px) translateX(6px)} }
-        @keyframes fc6 { 0%,100%{transform:rotate(11deg) translateY(0) translateX(0)}     50%{transform:rotate(11deg) translateY(-24px) translateX(-7px)} }
+        @keyframes fc1 { 0%,100%{transform:rotate(-18deg) translateY(0) translateX(0)}    50%{transform:rotate(-18deg) translateY(-42px) translateX(7px)} }
+        @keyframes fc2 { 0%,100%{transform:rotate(14deg) translateY(0) translateX(0)}     50%{transform:rotate(14deg) translateY(-46px) translateX(-8px)} }
+        @keyframes fc3 { 0%,100%{transform:rotate(-7deg) translateY(0) translateX(0)}     50%{transform:rotate(-7deg) translateY(-36px) translateX(9px)} }
+        @keyframes fc4 { 0%,100%{transform:rotate(19deg) translateY(0) translateX(0)}     50%{transform:rotate(19deg) translateY(-44px) translateX(-7px)} }
+        @keyframes fc5 { 0%,100%{transform:rotate(-13deg) translateY(0) translateX(0)}    50%{transform:rotate(-13deg) translateY(-38px) translateX(8px)} }
+        @keyframes fc6 { 0%,100%{transform:rotate(11deg) translateY(0) translateX(0)}     50%{transform:rotate(11deg) translateY(-40px) translateX(-9px)} }
+        @keyframes fc7 { 0%,100%{transform:rotate(-22deg) translateY(0) translateX(0)}    50%{transform:rotate(-22deg) translateY(-34px) translateX(6px)} }
+        @keyframes fc8 { 0%,100%{transform:rotate(8deg) translateY(0) translateX(0)}      50%{transform:rotate(8deg) translateY(-48px) translateX(-5px)} }
 
         @keyframes fadeUp {
           from { opacity: 0; transform: translateY(22px); }
