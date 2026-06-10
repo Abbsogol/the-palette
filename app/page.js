@@ -31,7 +31,7 @@ export default function LandingPage() {
       if (!ref.current) return
       const obs = new IntersectionObserver(
         ([e]) => { if (e.isIntersecting) setter(true) },
-        { threshold: 0.15 }
+        { threshold: 0, rootMargin: '0px 0px -60px 0px' }
       )
       obs.observe(ref.current)
       return () => obs.disconnect()
@@ -65,6 +65,17 @@ export default function LandingPage() {
         @keyframes fadeUp {
           from { opacity:0; transform:translateY(24px); }
           to   { opacity:1; transform:translateY(0); }
+        }
+        @keyframes heroPan {
+          0%   { transform: scale(1.06) translate(0%, 0%); }
+          33%  { transform: scale(1.1)  translate(-1%, -0.5%); }
+          66%  { transform: scale(1.08) translate(0.8%, -1%); }
+          100% { transform: scale(1.06) translate(0%, 0%); }
+        }
+        @keyframes ribbonsDrift {
+          0%   { transform: scale(1.04) translate(0%, 0%); }
+          50%  { transform: scale(1.08) translate(-1%, 1%); }
+          100% { transform: scale(1.04) translate(0%, 0%); }
         }
         @keyframes pulseGlow {
           0%,100% { box-shadow:0 0 0 0 rgba(212,160,192,0.4); }
@@ -154,12 +165,12 @@ export default function LandingPage() {
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
       }}>
-        {/* cosmic background with parallax */}
+        {/* cosmic background — slow cinematic pan */}
         <div style={{
-          position: 'absolute', inset: '-10%',
+          position: 'absolute', inset: '-8%',
           backgroundImage: 'url(/hero-cosmic.png)',
           backgroundSize: 'cover', backgroundPosition: 'center',
-          transform: `translateY(${scrollY * 0.25}px)`,
+          animation: 'heroPan 18s ease-in-out infinite',
           willChange: 'transform',
         }} />
         {/* dark overlay */}
@@ -261,21 +272,23 @@ export default function LandingPage() {
             }} />
           )}
 
-          {/* the drop */}
+          {/* the drop — blend mode removes black bg, only glow shows */}
           <div style={{
-            position:'relative', zIndex:2,
+            position:'absolute', inset:0, zIndex:2,
+            display:'flex', alignItems:'center', justifyContent:'center',
             transform:`translateY(${dropY}px) scale(${dropScale})`,
             opacity: dropOpacity,
             willChange:'transform, opacity',
-            transition:'transform .02s linear, opacity .02s linear',
           }}>
             <img
               src="/drop.png"
               alt=""
               style={{
-                width:'180px', height:'auto',
+                width:'100%', height:'100%',
+                objectFit:'cover',
                 display:'block',
-                filter:'drop-shadow(0 0 40px rgba(212,160,192,0.35))',
+                mixBlendMode:'screen',
+                filter:'drop-shadow(0 0 60px rgba(212,160,192,0.5))',
               }}
             />
           </div>
@@ -290,14 +303,15 @@ export default function LandingPage() {
           position:'relative', overflow:'hidden',
         }}
       >
-        {/* ribbons bleed from transition */}
+        {/* ribbons background */}
         <div style={{
-          position:'absolute', inset:0,
+          position:'absolute', inset:'-6%',
           backgroundImage:'url(/ribbons.png)',
           backgroundSize:'cover', backgroundPosition:'center',
-          opacity:.18,
+          opacity:.28,
+          animation:'ribbonsDrift 22s ease-in-out infinite',
         }} />
-        <div style={{ position:'absolute', inset:0, background:'rgba(20,20,20,0.82)' }} />
+        <div style={{ position:'absolute', inset:0, background:'rgba(20,20,20,0.72)' }} />
 
         <div style={{ position:'relative', zIndex:1 }}>
           <p style={{
@@ -350,7 +364,7 @@ export default function LandingPage() {
           position:'absolute', inset:0,
           backgroundImage:'url(/vortex.png)',
           backgroundSize:'cover', backgroundPosition:'center',
-          opacity: creatorVisible ? 0.22 : 0,
+          opacity: creatorVisible ? 0.35 : 0,
           transition:'opacity 1.2s ease',
         }} />
         <div style={{ position:'absolute', inset:0, background:'rgba(20,20,20,0.78)' }} />
