@@ -5,10 +5,10 @@ import Link from 'next/link'
 
 export default function LandingPage() {
   const [scrollY, setScrollY]               = useState(0)
-  const [dropVisible, setDropVisible]       = useState(false)
   const [featuresVisible, setFeaturesVisible] = useState(false)
   const [creatorVisible, setCreatorVisible]   = useState(false)
   const transitionRef = useRef(null)
+  const dropVideoRef  = useRef(null)
   const featuresRef   = useRef(null)
   const creatorRef    = useRef(null)
 
@@ -19,19 +19,34 @@ export default function LandingPage() {
   }, [])
 
   useEffect(() => {
+    // Play/pause drop video on scroll into view
+    if (transitionRef.current && dropVideoRef.current) {
+      const obs = new IntersectionObserver(
+        ([e]) => {
+          if (e.isIntersecting) {
+            dropVideoRef.current?.play()
+          } else {
+            dropVideoRef.current?.pause()
+            dropVideoRef.current && (dropVideoRef.current.currentTime = 0)
+          }
+        },
+        { threshold: 0.1 }
+      )
+      obs.observe(transitionRef.current)
+    }
+
     const observe = (ref, setter) => {
       if (!ref.current) return
       const obs = new IntersectionObserver(
         ([e]) => { if (e.isIntersecting) setter(true) },
-        { threshold: 0.15 }
+        { threshold: 0.1 }
       )
       obs.observe(ref.current)
       return () => obs.disconnect()
     }
-    const c0 = observe(transitionRef, setDropVisible)
-    const c1 = observe(featuresRef,   setFeaturesVisible)
-    const c2 = observe(creatorRef,    setCreatorVisible)
-    return () => { c0?.(); c1?.(); c2?.() }
+    const c1 = observe(featuresRef, setFeaturesVisible)
+    const c2 = observe(creatorRef,  setCreatorVisible)
+    return () => { c1?.(); c2?.() }
   }, [])
 
 
@@ -213,38 +228,33 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── DROP TRANSITION ── */}
+      {/* ── DROP TRANSITION VIDEO ── */}
       <section
         ref={transitionRef}
         style={{
-          height:'80vh', minHeight:'400px',
-          display:'flex', alignItems:'center', justifyContent:'center',
-          background:'var(--bg-primary)',
-          overflow:'hidden', position:'relative',
+          height:'100vh',
+          position:'relative', overflow:'hidden',
+          background:'#000',
         }}
       >
-        {/* subtle pink glow behind drop */}
-        <div style={{
-          position:'absolute', width:'340px', height:'340px', borderRadius:'50%',
-          background:'radial-gradient(circle, rgba(212,160,192,0.14) 0%, transparent 70%)',
-          opacity: dropVisible ? 1 : 0,
-          transition:'opacity 1.2s ease 0.4s',
-          pointerEvents:'none',
-        }} />
-        <img
-          src="/drop.png"
-          alt=""
+        <video
+          ref={dropVideoRef}
+          src="/drop.mp4"
+          muted
+          playsInline
+          preload="auto"
           style={{
-            width:'min(72vw, 340px)', height:'auto',
-            display:'block',
-            mixBlendMode:'screen',
-            filter:'brightness(1.3) drop-shadow(0 0 52px rgba(212,160,192,0.6))',
-            transform: dropVisible ? 'translateY(0) scale(1)' : 'translateY(-220px) scale(0.7)',
-            opacity: dropVisible ? 1 : 0,
-            transition:'transform 1.3s cubic-bezier(0.22,1,0.36,1), opacity 0.9s ease',
-            willChange:'transform,opacity',
+            position:'absolute', inset:0,
+            width:'100%', height:'100%',
+            objectFit:'cover',
+            objectPosition:'center',
           }}
         />
+        {/* top fade — blends into hero above */}
+        <div style={{
+          position:'absolute', inset:0, pointerEvents:'none',
+          background:'linear-gradient(to bottom, var(--bg-primary) 0%, transparent 18%, transparent 82%, var(--bg-primary) 100%)',
+        }} />
       </section>
 
       {/* ── FEATURES (ribbons as background-image on the section itself) ── */}
