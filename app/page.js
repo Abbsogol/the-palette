@@ -89,6 +89,17 @@ export default function LandingPage() {
           border-color: var(--accent);
           transform: translateY(-1px);
         }
+        .lq-feature {
+          background: var(--bg-card);
+          border: 0.5px solid var(--border);
+          border-radius: 16px;
+          padding: 20px;
+          display: flex;
+          gap: 16px;
+          align-items: flex-start;
+          transition: border-color 0.2s ease, transform 0.2s ease;
+        }
+        .lq-feature:hover { border-color: var(--accent); transform: translateY(-2px); }
         .lq-creator-row {
           display: flex;
           align-items: center;
@@ -112,24 +123,6 @@ export default function LandingPage() {
           color: var(--text-secondary);
           white-space: nowrap;
           font-family: 'DM Sans', sans-serif;
-        }
-        .lq-glass-badge {
-          position: absolute;
-          background: rgba(20,20,20,0.82);
-          backdrop-filter: blur(10px);
-          -webkit-backdrop-filter: blur(10px);
-          border: 0.5px solid rgba(255,255,255,0.08);
-          border-radius: 12px;
-          padding: 9px 13px;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-        .lq-feature-img {
-          width: 100%;
-          height: 100%;
-          object-fit: contain;
-          display: block;
         }
       `}</style>
 
@@ -226,98 +219,26 @@ export default function LandingPage() {
         </div>
       )}
 
-      {/* ── EDITORIAL FEATURES ── */}
-      <section>
-
-        {/* 01 — Fully specced */}
-        <div style={{ padding: '56px 24px 48px', borderBottom: '0.5px solid var(--border)' }}>
-          <p style={{ fontSize: '11px', color: 'var(--text-secondary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '18px', fontFamily: "'DM Sans', sans-serif" }}>01</p>
-          <h2 style={{ fontSize: 'clamp(28px, 8vw, 36px)', fontWeight: '600', color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: '1.12', marginBottom: '24px' }}>
-            Every design,<br />fully specced.
-          </h2>
-
-          {designs[0]?.image_url && (
-            <div style={{ position: 'relative', marginBottom: '20px' }}>
-              <div style={{ borderRadius: '18px', overflow: 'hidden', border: '0.5px solid var(--border)', background: 'var(--bg-card)', aspectRatio: '4 / 3' }}>
-                <img src={designs[0].image_url} alt="" className="lq-feature-img" />
-              </div>
-              <div className="lq-glass-badge" style={{ bottom: '14px', left: '14px' }}>
-                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
-                <span style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500', fontFamily: "'DM Sans', sans-serif" }}>Hex · Brand · Finish</span>
+      {/* ── FEATURES ── */}
+      <section style={{ padding: '52px 24px 40px' }}>
+        <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.09em', textTransform: 'uppercase', marginBottom: '20px' }}>
+          Why Laque
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {[
+            { symbol: '✦', title: 'Full colour specs', desc: 'Every design comes with hex codes, gel brand & shade names, and finish type. No more vibes-only inspo.' },
+            { symbol: '◈', title: 'Search & filter', desc: 'Filter by nail shape, length, technique, or occasion. From everyday to editorial.' },
+            { symbol: '◇', title: 'Save & share', desc: 'Bookmark your favourites and share a direct link with your nail tech — no screenshotting required.' },
+          ].map(f => (
+            <div key={f.title} className="lq-feature">
+              <span style={{ fontSize: '18px', color: 'var(--accent)', lineHeight: '1', marginTop: '3px', flexShrink: 0 }}>{f.symbol}</span>
+              <div>
+                <p style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '15px', marginBottom: '5px' }}>{f.title}</p>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: '1.65' }}>{f.desc}</p>
               </div>
             </div>
-          )}
-
-          <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: '1.7', maxWidth: '300px' }}>
-            Gel brand, shade name, finish type — all included. No more screenshot guesswork.
-          </p>
+          ))}
         </div>
-
-        {/* 02 — Search & filter */}
-        <div style={{ padding: '56px 24px 48px', borderBottom: '0.5px solid var(--border)' }}>
-          <p style={{ fontSize: '11px', color: 'var(--text-secondary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '18px', fontFamily: "'DM Sans', sans-serif" }}>02</p>
-          <h2 style={{ fontSize: 'clamp(28px, 8vw, 36px)', fontWeight: '600', color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: '1.12', marginBottom: '24px' }}>
-            Find exactly<br />your vibe.
-          </h2>
-
-          <div style={{ marginBottom: '20px' }}>
-            {/* Active filter chips */}
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
-              {['Dark', 'Minimal', 'Glam', 'Y2K', 'Bridal'].map((tag, i) => (
-                <span key={tag} style={{
-                  background: i === 2 ? 'var(--accent)' : 'var(--bg-card)',
-                  color: i === 2 ? '#2C0A1E' : 'var(--text-secondary)',
-                  border: i === 2 ? 'none' : '0.5px solid var(--border)',
-                  borderRadius: '20px', padding: '7px 14px',
-                  fontSize: '13px', fontWeight: i === 2 ? '600' : '400',
-                  fontFamily: "'DM Sans', sans-serif",
-                }}>{tag}</span>
-              ))}
-            </div>
-
-            {/* 2-col mini grid */}
-            {designs.length >= 3 && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                {designs.slice(1, 3).map(d => (
-                  <div key={d.id} style={{ borderRadius: '14px', overflow: 'hidden', border: '0.5px solid var(--border)', background: 'var(--bg-card)', aspectRatio: '1 / 1' }}>
-                    {d.image_url && <img src={d.image_url} alt="" className="lq-feature-img" />}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: '1.7', maxWidth: '300px' }}>
-            Filter by shape, length, technique, or occasion. From everyday to editorial.
-          </p>
-        </div>
-
-        {/* 03 — Save & share */}
-        <div style={{ padding: '56px 24px 48px' }}>
-          <p style={{ fontSize: '11px', color: 'var(--text-secondary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '18px', fontFamily: "'DM Sans', sans-serif" }}>03</p>
-          <h2 style={{ fontSize: 'clamp(28px, 8vw, 36px)', fontWeight: '600', color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: '1.12', marginBottom: '24px' }}>
-            Save it. Share it.<br />Show up ready.
-          </h2>
-
-          {designs[3]?.image_url && (
-            <div style={{ position: 'relative', marginBottom: '20px' }}>
-              <div style={{ borderRadius: '18px', overflow: 'hidden', border: '0.5px solid var(--border)', background: 'var(--bg-card)', aspectRatio: '4 / 3' }}>
-                <img src={designs[3].image_url} alt="" className="lq-feature-img" />
-              </div>
-              <div className="lq-glass-badge" style={{ top: '14px', right: '14px' }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="var(--accent)" stroke="none">
-                  <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
-                </svg>
-                <span style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500', fontFamily: "'DM Sans', sans-serif" }}>Saved</span>
-              </div>
-            </div>
-          )}
-
-          <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: '1.7', maxWidth: '300px' }}>
-            Bookmark your favourites and send a direct link to your nail tech — no screenshotting required.
-          </p>
-        </div>
-
       </section>
 
       {/* ── CREATOR / NAIL TECH ── */}
