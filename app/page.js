@@ -685,7 +685,7 @@ export default function LandingPage() {
           fontSize: 'clamp(22px, 6vw, 28px)', fontWeight: '600',
           color: 'var(--text-primary)', letterSpacing: '-0.03em',
           textAlign: 'center', marginBottom: '8px',
-        }}>Simple, honest pricing</h2>
+        }}>Pick your plan</h2>
         <p style={{
           color: 'var(--text-secondary)', fontSize: '13px',
           textAlign: 'center', marginBottom: '28px', lineHeight: '1.5',
