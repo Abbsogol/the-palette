@@ -180,19 +180,19 @@ export default function LandingPage() {
       scrollP = p
 
       if (heroEl) {
-        const op = Math.max(0, 1 - map(p, 0.13, 0.18, 0, 1))
+        const op = Math.max(0, 1 - map(p, 0.18, 0.25, 0, 1))
         heroEl.style.opacity       = op
         heroEl.style.pointerEvents = op > 0.05 ? 'auto' : 'none'
       }
       if (featEl) {
-        const fIn  = map(p, 0.33, 0.36, 0, 1)
-        const fOut = map(p, 0.47, 0.51, 0, 1)
+        const fIn  = map(p, 0.24, 0.30, 0, 1)
+        const fOut = map(p, 0.54, 0.60, 0, 1)
         const op   = Math.max(0, fIn * (1 - fOut))
         featEl.style.opacity       = op
         featEl.style.pointerEvents = op > 0.05 ? 'auto' : 'none'
       }
       if (creatEl) {
-        const op = Math.max(0, map(p, 0.66, 0.70, 0, 1))
+        const op = Math.max(0, map(p, 0.62, 0.68, 0, 1))
         creatEl.style.opacity       = op
         creatEl.style.pointerEvents = op > 0.05 ? 'auto' : 'none'
       }
@@ -372,10 +372,10 @@ export default function LandingPage() {
       />
 
       {/* ══ Scrollable HTML sections ══════════════════════════════════════════ */}
-      <div ref={wrapperRef} style={{ position:'relative', height:'600vh', zIndex:3 }}>
+      <div ref={wrapperRef} style={{ position:'relative', height:'420vh', zIndex:3 }}>
 
-        {/* HERO — sticky inside first 200vh */}
-        <div style={{ height:'200vh' }}>
+        {/* HERO — sticky inside first 140vh */}
+        <div style={{ height:'140vh' }}>
           <section ref={heroRef} style={{
             height:'100svh', minHeight:'600px',
             position:'sticky', top:0, zIndex:2,
@@ -474,8 +474,8 @@ export default function LandingPage() {
           </section>
         </div>
 
-        {/* FEATURES — sticky inside second 200vh */}
-        <div style={{ height:'200vh' }}>
+        {/* FEATURES — sticky inside second 140vh */}
+        <div style={{ height:'140vh' }}>
           <section ref={featRef} style={{
             height:'100svh', minHeight:'580px',
             position:'sticky', top:0, zIndex:2,
@@ -504,8 +504,8 @@ export default function LandingPage() {
           </section>
         </div>
 
-        {/* CREATOR — sticky inside third 200vh */}
-        <div style={{ height:'200vh' }}>
+        {/* CREATOR — sticky inside third 140vh */}
+        <div style={{ height:'140vh' }}>
           <section ref={creatRef} style={{
             height:'100svh', minHeight:'580px',
             position:'sticky', top:0, zIndex:2,
