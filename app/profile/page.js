@@ -445,11 +445,37 @@ export default function ProfilePage() {
         </Link>
 
         <div>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>My Designs</p>
+          {/* My Designs header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase' }}>My Designs</p>
+            {(() => {
+              const used    = profile?.weekly_uploads || 0
+              const isPro   = profile?.is_pro || false
+              const left    = isPro ? null : Math.max(0, 5 - used)
+              const atLimit = !isPro && used >= 5
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {!isPro && (
+                    <p style={{ color: atLimit ? '#e57373' : 'var(--text-secondary)', fontSize: '11px' }}>
+                      {atLimit ? 'Limit reached' : `${left} upload${left === 1 ? '' : 's'} left`}
+                    </p>
+                  )}
+                  {!atLimit && (
+                    <Link href="/upload" style={{ background: 'var(--accent)', color: '#2C0A1E', borderRadius: '20px', padding: '6px 14px', fontSize: '12px', fontWeight: '600', textDecoration: 'none' }}>
+                      + Add
+                    </Link>
+                  )}
+                </div>
+              )
+            })()}
+          </div>
+
           {myDesigns.length === 0 ? (
-            <div style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '24px', border: '0.5px solid var(--border)', textAlign: 'center' }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '4px' }}>No designs published yet</p>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Design upload coming in the next update</p>
+            <div style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '28px 20px', border: '0.5px solid var(--border)', textAlign: 'center' }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '8px' }}>No designs yet</p>
+              <Link href="/upload" style={{ color: 'var(--accent)', fontSize: '13px', textDecoration: 'none', fontWeight: '500' }}>
+                Publish your first design →
+              </Link>
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
