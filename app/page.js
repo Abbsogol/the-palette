@@ -4,24 +4,9 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
-// ─── ASSET CONFIG ─────────────────────────────────────────────────────────────
-// When transparent WebP assets are ready:
-//   1. Replace paths below with the new WebP filenames
-//   2. Set REMOVE_BG = false
-//   3. Remove mixBlendMode from ropesEl / dropEl inline styles (marked below)
-const DROPLET_SRC = '/droplet.png'  // transparent PNG (bg removed)
-const ROPES_SRC   = '/ribbons.png'  // → '/ropes.webp' when transparent version ready
-const REMOVE_BG   = false           // droplet is already transparent; ropes still uses screen blend
-// ─────────────────────────────────────────────────────────────────────────────
-
-const IMPACT_Y = 0.52  // impact point: 52% from viewport top
-
 export default function LandingPage() {
   const wrapperRef = useRef(null)   // 600vh scroll trigger
-  const starRef    = useRef(null)   // starfield canvas (fixed, z:0)
-  const splashRef  = useRef(null)   // splash canvas  (fixed, full-screen, z:1)
-  const dropRef    = useRef(null)   // droplet image  (fixed, z:1)
-  const ropesRef   = useRef(null)   // ropes/ribbons  (fixed, z:1, grows from impact)
+  const canvasRef  = useRef(null)   // single canvas: stars + particle drift
   const heroRef    = useRef(null)
   const featRef    = useRef(null)
   const creatRef   = useRef(null)
@@ -36,223 +21,184 @@ export default function LandingPage() {
       .then(({ data }) => setDesigns(data || []))
   }, [])
 
-  /* ── animation engine ── */
+  /* ── particle drift engine ── */
   useEffect(() => {
-    const starCvs   = starRef.current
-    const splashCvs = splashRef.current
-    const dropEl    = dropRef.current
-    const ropesEl   = ropesRef.current
-    const heroEl    = heroRef.current
-    const featEl    = featRef.current
-    const creatEl   = creatRef.current
-    if (!starCvs || !splashCvs) return
+    const canvas  = canvasRef.current
+    const heroEl  = heroRef.current
+    const featEl  = featRef.current
+    const creatEl = creatRef.current
+    if (!canvas) return
 
-    const starCtx   = starCvs.getContext('2d')
-    const splashCtx = splashCvs.getContext('2d')
+    const ctx = canvas.getContext('2d')
     const cl  = (v, a, b) => Math.max(a, Math.min(b, v))
     const map = (v, a, b, c, d) => c + (d - c) * cl((v - a) / (b - a), 0, 1)
 
-    let pts = [], starRaf, blobUrls = []
+    let stars = [], drifters = [], raf
+    let scrollP = 0  // 0–1, updated by GSAP / fallback
 
-    // ── Resize: size both canvases + rebuild star particles ───────────────
-    function resize() {
-      const w = window.innerWidth, h = window.innerHeight
-      starCvs.width    = w;  starCvs.height    = h
-      splashCvs.width  = w;  splashCvs.height  = h
-      pts = Array.from({ length: 130 }, () => ({
-        x: Math.random() * w,   y: Math.random() * h,
-        r: Math.random() * 1.5 + 0.3,
+    // ── Brand colour palette ──────────────────────────────────────────────────
+    const DRIFT_COLS = [
+      [212, 160, 192],  // Laque signature mauve
+      [200, 125, 162],  // deeper rose
+      [240, 205, 222],  // blush highlight
+      [220, 175, 155],  // rose gold
+      [255, 215, 230],  // pale petal
+      [170,  90, 128],  // deep plum rose
+    ]
+
+    // ── Build particle arrays (called on resize too) ──────────────────────────
+    function initParticles() {
+      const W = canvas.width, H = canvas.height
+
+      // Static twinkling stars (white + occasional pink)
+      stars = Array.from({ length: 100 }, () => ({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: Math.random() * 1.4 + 0.25,
         a: Math.random() * 0.52 + 0.10,
         t: Math.random() * Math.PI * 2,
         s: Math.random() * 0.003 + 0.001,
         pink: Math.random() > 0.82,
       }))
+
+      // Drifting brand-colour particles
+      drifters = Array.from({ length: 160 }, () => {
+        const col = DRIFT_COLS[Math.floor(Math.random() * DRIFT_COLS.length)]
+        return {
+          x:   Math.random() * W,
+          y:   Math.random() * H,
+          r:   Math.random() * 2.0 + 0.55,
+          maxA: Math.random() * 0.50 + 0.18,
+          vy:  -(Math.random() * 0.35 + 0.08),   // upward drift
+          vx:  (Math.random() - 0.5) * 0.12,
+          tw:  Math.random() * Math.PI * 2,       // twinkle phase
+          ts:  Math.random() * 0.014 + 0.004,     // twinkle speed
+          wx:  Math.random() * Math.PI * 2,       // sinusoidal x phase
+          ws:  Math.random() * 0.007 + 0.002,
+          col,
+          sparkTimer: Math.random() * 200 + 60,
+          sparking: false, sparkA: 0,
+        }
+      })
     }
 
-    // ── Starfield (rAF loop) ───────────────────────────────────────────────
-    function drawStars() {
-      const w = starCvs.width, h = starCvs.height
-      starCtx.fillStyle = '#0b0909'
-      starCtx.fillRect(0, 0, w, h)
-      const bg = starCtx.createLinearGradient(0, 0, 0, h)
+    // ── Resize handler ────────────────────────────────────────────────────────
+    function resize() {
+      canvas.width  = window.innerWidth
+      canvas.height = window.innerHeight
+      initParticles()
+    }
+
+    // ── Draw everything on one canvas ─────────────────────────────────────────
+    function draw() {
+      const W = canvas.width, H = canvas.height
+
+      // Dark cosmic background
+      ctx.fillStyle = '#0b0909'
+      ctx.fillRect(0, 0, W, H)
+      const bg = ctx.createLinearGradient(0, 0, 0, H)
       bg.addColorStop(0, 'rgba(38,8,28,0.55)')
       bg.addColorStop(1, 'rgba(8,4,14,0.50)')
-      starCtx.fillStyle = bg
-      starCtx.fillRect(0, 0, w, h)
-      ;[[w * .55, h * .18, w * .32, '90,32,70', 0.08],
-        [w * 1.42, h * .74, w * .26, '65,20,96', 0.06]]
+      ctx.fillStyle = bg
+      ctx.fillRect(0, 0, W, H)
+
+      // Nebula glows
+      ;[[W * .55, H * .18, W * .32, '90,32,70', 0.08],
+        [W * 1.42, H * .74, W * .26, '65,20,96', 0.06]]
         .forEach(([ox, oy, or_, col, oa]) => {
-          const g = starCtx.createRadialGradient(ox, oy, 0, ox, oy, or_)
+          const g = ctx.createRadialGradient(ox, oy, 0, ox, oy, or_)
           g.addColorStop(0, `rgba(${col},${oa})`)
           g.addColorStop(1, `rgba(${col},0)`)
-          starCtx.fillStyle = g
-          starCtx.beginPath(); starCtx.arc(ox, oy, or_, 0, Math.PI * 2); starCtx.fill()
+          ctx.fillStyle = g
+          ctx.beginPath(); ctx.arc(ox, oy, or_, 0, Math.PI * 2); ctx.fill()
         })
-      pts.forEach(p => {
-        p.t += p.s
-        const a = p.a * (0.52 + 0.48 * Math.sin(p.t))
-        starCtx.fillStyle = p.pink ? `rgba(212,160,192,${a})` : `rgba(255,255,255,${a})`
-        starCtx.beginPath(); starCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2); starCtx.fill()
+
+      // — Static twinkling stars —
+      stars.forEach(s => {
+        s.t += s.s
+        const a = s.a * (0.52 + 0.48 * Math.sin(s.t))
+        ctx.fillStyle = s.pink ? `rgba(212,160,192,${a})` : `rgba(255,255,255,${a})`
+        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill()
       })
-      starRaf = requestAnimationFrame(drawStars)
-    }
 
-    // ── JS Background removal ──────────────────────────────────────────────
-    // Samples top-left corner as bg reference; removes pixels within threshold.
-    // lo = hard-remove distance, hi = feathered edge distance.
-    async function stripBg(originalSrc, lo = 28, hi = 62) {
-      const tmp = new Image()
-      await new Promise(res => { tmp.onload = res; tmp.src = originalSrc })
-      const c = document.createElement('canvas')
-      c.width  = tmp.naturalWidth  || tmp.width  || 500
-      c.height = tmp.naturalHeight || tmp.height || 600
-      const cx = c.getContext('2d')
-      cx.drawImage(tmp, 0, 0)
-      const id = cx.getImageData(0, 0, c.width, c.height)
-      const d  = id.data
-      const [bgR, bgG, bgB] = [d[0], d[1], d[2]]
-      for (let i = 0; i < d.length; i += 4) {
-        const dist = Math.hypot(d[i] - bgR, d[i + 1] - bgG, d[i + 2] - bgB)
-        if (dist < lo) {
-          d[i + 3] = 0
-        } else if (dist < hi) {
-          d[i + 3] = Math.round(d[i + 3] * (dist - lo) / (hi - lo))
+      // — Drifting brand particles —
+      // scrollP speeds them up as user scrolls (parallax feel)
+      const spMult = 1 + scrollP * 1.4
+
+      drifters.forEach(p => {
+        // Move
+        p.tw += p.ts
+        p.wx += p.ws
+        p.x  += p.vx + Math.sin(p.wx) * 0.45
+        p.y  += p.vy * spMult
+
+        // Wrap vertically — respawn at bottom edge
+        if (p.y < -6) { p.y = H + 6; p.x = Math.random() * W }
+        if (p.x < -14) p.x = W + 14
+        if (p.x > W + 14) p.x = -14
+
+        // Twinkle alpha
+        let a = p.maxA * (0.3 + 0.7 * Math.sin(p.tw))
+        a = Math.max(0, a)
+
+        // Occasional sparkle flash
+        if (!p.sparking) {
+          if (--p.sparkTimer <= 0) {
+            p.sparking = true
+            p.sparkA = 0
+            p.sparkTimer = 150 + Math.random() * 320
+          }
+        } else {
+          p.sparkA += p.sparkA < 0.5 ? 0.10 : -0.07
+          if (p.sparkA <= 0) { p.sparking = false; p.sparkA = 0 }
+          a = Math.max(a, p.sparkA * p.maxA * 1.9)
         }
-      }
-      cx.putImageData(id, 0, 0)
-      const blob = await new Promise(r => c.toBlob(r))
-      const url  = URL.createObjectURL(blob)
-      blobUrls.push(url)
-      return url
+        a = Math.min(1, a)
+
+        const [r, g, b] = p.col
+
+        // Soft glow halo on medium-to-large particles
+        if (p.r > 1.3) {
+          ctx.beginPath()
+          ctx.arc(p.x, p.y, p.r * 2.8, 0, Math.PI * 2)
+          ctx.fillStyle = `rgba(${r},${g},${b},${(a * 0.13).toFixed(3)})`
+          ctx.fill()
+        }
+
+        // Core dot
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
+        ctx.fillStyle = `rgba(${r},${g},${b},${a.toFixed(3)})`
+        ctx.fill()
+      })
+
+      raf = requestAnimationFrame(draw)
     }
 
-    // Droplet already has transparent bg — no removal needed
-    if (REMOVE_BG && dropEl) {
-      stripBg(DROPLET_SRC).then(url => { dropEl.src = url })
-    }
-    // Ropes (ribbons.png) has a solid mauve background — always strip it
-    // Conservative thresholds (18/42) to preserve ribbon detail near bg tone
-    if (ropesEl) {
-      stripBg(ROPES_SRC, 18, 42).then(url => { ropesEl.src = url })
-    }
+    // ── Section fades (driven by scroll progress) ─────────────────────────────
+    function updateSections(p) {
+      scrollP = p
 
-    // ── Splash: canvas-drawn burst, fully scroll-driven (p = 0→1) ─────────
-    // Centered exactly at the impact point (50% x, IMPACT_Y y).
-    function drawSplash(p) {
-      const w = splashCvs.width, h = splashCvs.height
-      splashCtx.clearRect(0, 0, w, h)
-      if (p <= 0 || p >= 1) return
-
-      const cx    = w * 0.5
-      const cy    = h * IMPACT_Y
-      const maxR  = Math.min(w, h) * 0.30
-      // Opacity: ramps up 0→0.3 then fades 0.3→1
-      const op    = p < 0.3 ? p / 0.3 : Math.max(0, (1 - p) / 0.7)
-
-      // Expanding fill ring from impact center
-      const r = maxR * p
-      const rg = splashCtx.createRadialGradient(cx, cy, r * 0.45, cx, cy, r)
-      rg.addColorStop(0, `rgba(212,160,192,${op * 0.50})`)
-      rg.addColorStop(1, `rgba(212,160,192,0)`)
-      splashCtx.beginPath(); splashCtx.arc(cx, cy, r, 0, Math.PI * 2)
-      splashCtx.fillStyle = rg; splashCtx.fill()
-
-      // Inner bright flash at centre
-      const fr = maxR * 0.20 * (1 - p)
-      if (fr > 1) {
-        const fg = splashCtx.createRadialGradient(cx, cy, 0, cx, cy, fr)
-        fg.addColorStop(0,   `rgba(255,240,252,${op * 0.95})`)
-        fg.addColorStop(0.5, `rgba(212,160,192,${op * 0.55})`)
-        fg.addColorStop(1,   `rgba(212,160,192,0)`)
-        splashCtx.beginPath(); splashCtx.arc(cx, cy, fr, 0, Math.PI * 2)
-        splashCtx.fillStyle = fg; splashCtx.fill()
-      }
-
-      // 8 droplet particles bursting outward from centre
-      for (let i = 0; i < 8; i++) {
-        const angle = (i / 8) * Math.PI * 2 - Math.PI * 0.5
-        const dist  = maxR * 0.68 * p
-        const pr    = Math.max(0, 5.5 * (1 - p * 1.35))
-        if (pr < 0.5) continue
-        splashCtx.beginPath()
-        splashCtx.arc(cx + Math.cos(angle) * dist, cy + Math.sin(angle) * dist, pr, 0, Math.PI * 2)
-        splashCtx.fillStyle = `rgba(255,222,245,${op * 0.82})`
-        splashCtx.fill()
-      }
-
-      // Secondary trailing ring
-      if (p > 0.18) {
-        const r2 = maxR * (p - 0.18) * 0.72
-        splashCtx.beginPath(); splashCtx.arc(cx, cy, r2, 0, Math.PI * 2)
-        splashCtx.strokeStyle = `rgba(212,160,192,${op * 0.24})`
-        splashCtx.lineWidth   = 2
-        splashCtx.stroke()
-      }
-    }
-
-    // ── Main scroll-progress update ────────────────────────────────────────
-    // Called by GSAP scrub onUpdate (or native fallback).
-    // p = 0 at top of page, 1 when wrapper bottom clears viewport.
-    function updateAll(p) {
-      const h    = window.innerHeight
-      const impY = h * IMPACT_Y
-      const dropH = dropEl ? (dropEl.offsetHeight || 240) : 240
-
-      // — DROPLET —
-      // transformOrigin: '50% 100%' (bottom-centre) → stretches UPWARD,
-      // bottom stays pinned at impY regardless of scaleY.
-      if (dropEl) {
-        // dropY: bottom of element (= dropY + dropH) tracks impY
-        const dropY = map(p, 0, 0.50, -h * 0.60, impY - dropH)
-        const sY    = map(p, 0.30, 0.50, 1.0, 1.88)
-        const sX    = map(p, 0.30, 0.50, 1.0, 0.74)
-        // Opacity: fade in 0–12%, fade out at impact 50–58%
-        const op    = p < 0.50
-          ? map(p, 0, 0.12, 0, 1)
-          : map(p, 0.50, 0.58, 1, 0)
-        dropEl.style.opacity   = Math.max(0, op)
-        dropEl.style.transform = `translateX(-50%) translateY(${dropY}px) scaleX(${sX}) scaleY(${sY})`
-      }
-
-      // — SPLASH CANVAS —
-      // Active scroll 50%–65%; progress 0→1 within that window
-      drawSplash(map(p, 0.50, 0.65, 0, 1))
-
-      // — ROPES —
-      // Grows FROM the impact point (transform-origin = centre at 52vh).
-      // Starts at scale 0.14 (tiny dot at impact) → 1.06 (fills screen).
-      // Max opacity 0.68 so the dark cosmic bg always shows through.
-      if (ropesEl) {
-        const rScale = map(p, 0.60, 0.82, 0.14, 1.06)
-        const rOp    = map(p, 0.60, 0.82, 0,    0.68)
-        ropesEl.style.opacity   = Math.max(0, rOp)
-        ropesEl.style.transform = `translate(-50%, -50%) scale(${Math.max(0.14, rScale)})`
-      }
-
-      // — HERO section —
       if (heroEl) {
         const op = Math.max(0, 1 - map(p, 0.13, 0.18, 0, 1))
-        heroEl.style.opacity      = op
+        heroEl.style.opacity       = op
         heroEl.style.pointerEvents = op > 0.05 ? 'auto' : 'none'
       }
-      // — FEATURES section —
       if (featEl) {
         const fIn  = map(p, 0.33, 0.36, 0, 1)
         const fOut = map(p, 0.47, 0.51, 0, 1)
         const op   = Math.max(0, fIn * (1 - fOut))
-        featEl.style.opacity      = op
+        featEl.style.opacity       = op
         featEl.style.pointerEvents = op > 0.05 ? 'auto' : 'none'
       }
-      // — CREATOR section —
       if (creatEl) {
         const op = Math.max(0, map(p, 0.66, 0.70, 0, 1))
-        creatEl.style.opacity      = op
+        creatEl.style.opacity       = op
         creatEl.style.pointerEvents = op > 0.05 ? 'auto' : 'none'
       }
     }
 
-    // ── GSAP ScrollTrigger (loaded via CDN, no package.json change needed) ─
-    // Falls back to native scroll + lerp if CDN is unavailable.
+    // ── GSAP ScrollTrigger (CDN, no package.json change needed) ───────────────
     let stCleanup = null
 
     ;(async () => {
@@ -272,8 +218,8 @@ export default function LandingPage() {
           trigger: wrapper,
           start:   'top top',
           end:     'bottom bottom',
-          scrub:   1.2,           // 1.2s lag = buttery smooth feel
-          onUpdate: self => updateAll(self.progress),
+          scrub:   1.2,
+          onUpdate: self => updateSections(self.progress),
         })
 
         stCleanup = () => {
@@ -291,7 +237,7 @@ export default function LandingPage() {
         }
         const tick = () => {
           current += (target - current) * 0.08
-          updateAll(current)
+          updateSections(current)
           fallbackRaf = requestAnimationFrame(tick)
         }
         window.addEventListener('scroll', onScroll, { passive: true })
@@ -305,18 +251,17 @@ export default function LandingPage() {
 
     resize()
     window.addEventListener('resize', resize)
-    starRaf = requestAnimationFrame(drawStars)
-    updateAll(0)
+    raf = requestAnimationFrame(draw)
+    updateSections(0)
 
     return () => {
-      cancelAnimationFrame(starRaf)
+      cancelAnimationFrame(raf)
       window.removeEventListener('resize', resize)
-      blobUrls.forEach(u => URL.revokeObjectURL(u))
       if (stCleanup) stCleanup()
     }
   }, [])
 
-  /* ── floating card layout (unchanged) ── */
+  /* ── floating card layout ── */
   const cardConfigs = [
     { top:'-4%',    left:'calc(50% - 232px)', anim:'fc7', dur:'5.2s', delay:'-0.6s',  size:88 },
     { top:'12%',    left:'calc(50% - 252px)', anim:'fc3', dur:'6.1s', delay:'-2.4s',  size:84 },
@@ -416,9 +361,9 @@ export default function LandingPage() {
         .lq-creator-row:hover{background:rgba(212,160,192,0.09);border-color:rgba(212,160,192,0.35);}
       `}</style>
 
-      {/* ══ LAYER 0: Starfield canvas (cosmic bg) ══════════════════════════ */}
+      {/* ══ CANVAS: cosmic starfield + particle drift (fixed, behind everything) */}
       <canvas
-        ref={starRef}
+        ref={canvasRef}
         style={{
           position:'fixed', top:0, left:0,
           width:'100vw', height:'100vh',
@@ -426,64 +371,7 @@ export default function LandingPage() {
         }}
       />
 
-      {/* ══ LAYER 1a: Droplet ══════════════════════════════════════════════
-          - top:0 + translateY drives Y position frame-by-frame
-          - transformOrigin:'50% 100%' (bottom-centre) → stretches UPWARD,
-            bottom stays pinned at impact point
-          - REMOVE when using transparent WebP: mixBlendMode + filter        */}
-      <img
-        ref={dropRef}
-        src={DROPLET_SRC}
-        alt=""
-        style={{
-          position:'fixed', top:0, left:'50%',
-          width:'min(220px, 55vw)', height:'auto',
-          opacity:0,
-          transformOrigin:'50% 100%',
-          zIndex:1, pointerEvents:'none',
-          willChange:'transform, opacity',
-          display:'block', maxWidth:'none',
-        }}
-      />
-
-      {/* ══ LAYER 1b: Splash canvas ════════════════════════════════════════
-          Full-screen transparent canvas; drawSplash() paints burst at impactY */}
-      <canvas
-        ref={splashRef}
-        style={{
-          position:'fixed', top:0, left:0,
-          width:'100vw', height:'100vh',
-          zIndex:1, pointerEvents:'none', display:'block',
-        }}
-      />
-
-      {/* ══ LAYER 1c: Ropes ════════════════════════════════════════════════
-          Centred on impact point (top:IMPACT_Y vh, left:50%).
-          translate(-50%,-50%) keeps centre at that point.
-          scale grows from 0.14 → 1.06 → ropes radiate outward from impact.
-          - REMOVE mixBlendMode when transparent WebP is ready              */}
-      <img
-        ref={ropesRef}
-        src={ROPES_SRC}
-        alt=""
-        style={{
-          position:'fixed',
-          top:`${IMPACT_Y * 100}vh`,
-          left:'50%',
-          width:'150vw', height:'auto',
-          opacity:0,
-          // ↓ remove when transparent WebP is ready
-          mixBlendMode:'screen',
-          // ↑
-          transformOrigin:'center center',
-          transform:'translate(-50%, -50%) scale(0.14)',
-          zIndex:1, pointerEvents:'none',
-          willChange:'transform, opacity',
-          display:'block', maxWidth:'none',
-        }}
-      />
-
-      {/* ══ LAYER 3: Scrollable HTML sections (hero, features, creator) ════ */}
+      {/* ══ Scrollable HTML sections ══════════════════════════════════════════ */}
       <div ref={wrapperRef} style={{ position:'relative', height:'600vh', zIndex:3 }}>
 
         {/* HERO — sticky inside first 200vh */}
@@ -627,7 +515,6 @@ export default function LandingPage() {
             overflow:'hidden',
             opacity:0,
           }}>
-            {/* Dark scrim so text stays readable over the ropes background */}
             <div style={{
               position:'absolute', inset:0,
               background:'linear-gradient(to bottom, rgba(11,9,9,0.72) 0%, rgba(11,9,9,0.55) 100%)',
