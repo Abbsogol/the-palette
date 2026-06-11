@@ -4,37 +4,81 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
+// ── Card texture grid layout (5 cols × 7 rows = 35 slots) ─────────────────────
+const ROTS = [-14, 9, -6, 13, -10, 7, -12, 16, -4, 11]
+const TEXTURE_GRID = Array.from({ length: 35 }, (_, i) => {
+  const col = i % 5
+  const row = Math.floor(i / 5)
+  return {
+    left:   `${col * 20 + 0.5}vw`,
+    top:    `${row * 13.5 + (col % 2 === 0 ? 0 : 6.5)}vh`,
+    rotate: ROTS[i % ROTS.length],
+    w:      80,
+  }
+})
+
 export default function LandingPage() {
-  const wrapperRef = useRef(null)   // 600vh scroll trigger
-  const canvasRef  = useRef(null)   // single canvas: stars + particle drift
-  const heroRef    = useRef(null)
-  const featRef    = useRef(null)
-  const creatRef   = useRef(null)
+  const wrapperRef  = useRef(null)  // 420vh scroll trigger
+  const canvasRef   = useRef(null)  // cosmic bg + particle drift
+  const textureRef  = useRef(null)  // card mosaic texture layer
+  const heroRef     = useRef(null)
+  const featRef     = useRef(null)
+  const creatRef    = useRef(null)
   const [designs, setDesigns] = useState([])
 
-  /* ── load designs ── */
+  /* ── load designs (32 for texture variety) ── */
   useEffect(() => {
     supabase.from('designs').select('id, image_url')
       .eq('is_published', true)
       .order('created_at', { ascending: false })
-      .limit(16)
+      .limit(32)
       .then(({ data }) => setDesigns(data || []))
   }, [])
 
-  /* ── particle drift engine ── */
+  /* ── animation engine ── */
   useEffect(() => {
-    const canvas  = canvasRef.current
-    const heroEl  = heroRef.current
-    const featEl  = featRef.current
-    const creatEl = creatRef.current
+    const canvas     = canvasRef.current
+    const textureEl  = textureRef.current
+    const heroEl     = heroRef.current
+    const featEl     = featRef.current
+    const creatEl    = creatRef.current
     if (!canvas) return
 
     const ctx = canvas.getContext('2d')
     const cl  = (v, a, b) => Math.max(a, Math.min(b, v))
     const map = (v, a, b, c, d) => c + (d - c) * cl((v - a) / (b - a), 0, 1)
+    const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * cl(t, 0, 1)))
 
     let stars = [], drifters = [], raf
     let scrollP = 0  // 0–1, updated by GSAP / fallback
+
+    // ── B: Colour palette per section ────────────────────────────────────────
+    // Each entry: [topRGB, botRGB, nebulaRGB, nebulaRGB2]
+    const PAL = {
+      hero:     { t:[38,8,28],   b:[8,4,14],   n1:[90,32,70],  n2:[65,20,96]  },
+      features: { t:[55,14,32],  b:[20,6,16],  n1:[110,28,55], n2:[75,18,55]  },
+      creator:  { t:[42,8,38],   b:[15,4,24],  n1:[80,18,75],  n2:[55,12,90]  },
+    }
+
+    function getPal(p) {
+      if (p < 0.42) {
+        const t = map(p, 0.20, 0.42, 0, 1)
+        return {
+          t:  mix(PAL.hero.t, PAL.features.t, t),
+          b:  mix(PAL.hero.b, PAL.features.b, t),
+          n1: mix(PAL.hero.n1, PAL.features.n1, t),
+          n2: mix(PAL.hero.n2, PAL.features.n2, t),
+        }
+      } else {
+        const t = map(p, 0.57, 0.75, 0, 1)
+        return {
+          t:  mix(PAL.features.t, PAL.creator.t, t),
+          b:  mix(PAL.features.b, PAL.creator.b, t),
+          n1: mix(PAL.features.n1, PAL.creator.n1, t),
+          n2: mix(PAL.features.n2, PAL.creator.n2, t),
+        }
+      }
+    }
 
     // ── Brand colour palette ──────────────────────────────────────────────────
     const DRIFT_COLS = [
@@ -92,23 +136,24 @@ export default function LandingPage() {
     // ── Draw everything on one canvas ─────────────────────────────────────────
     function draw() {
       const W = canvas.width, H = canvas.height
+      const pal = getPal(scrollP)
 
-      // Dark cosmic background
+      // Dark cosmic background with colour wash (Idea B)
       ctx.fillStyle = '#0b0909'
       ctx.fillRect(0, 0, W, H)
       const bg = ctx.createLinearGradient(0, 0, 0, H)
-      bg.addColorStop(0, 'rgba(38,8,28,0.55)')
-      bg.addColorStop(1, 'rgba(8,4,14,0.50)')
+      bg.addColorStop(0, `rgba(${pal.t.join(',')},0.60)`)
+      bg.addColorStop(1, `rgba(${pal.b.join(',')},0.55)`)
       ctx.fillStyle = bg
       ctx.fillRect(0, 0, W, H)
 
-      // Nebula glows
-      ;[[W * .55, H * .18, W * .32, '90,32,70', 0.08],
-        [W * 1.42, H * .74, W * .26, '65,20,96', 0.06]]
+      // Nebula glows — colours shift with scroll
+      ;[[W * .55, H * .18, W * .34, pal.n1, 0.09],
+        [W * 1.42, H * .74, W * .28, pal.n2, 0.07]]
         .forEach(([ox, oy, or_, col, oa]) => {
           const g = ctx.createRadialGradient(ox, oy, 0, ox, oy, or_)
-          g.addColorStop(0, `rgba(${col},${oa})`)
-          g.addColorStop(1, `rgba(${col},0)`)
+          g.addColorStop(0, `rgba(${col.join(',')},${oa})`)
+          g.addColorStop(1, `rgba(${col.join(',')},0)`)
           ctx.fillStyle = g
           ctx.beginPath(); ctx.arc(ox, oy, or_, 0, Math.PI * 2); ctx.fill()
         })
@@ -178,6 +223,12 @@ export default function LandingPage() {
     // ── Section fades (driven by scroll progress) ─────────────────────────────
     function updateSections(p) {
       scrollP = p
+
+      // C: Texture layer — very subtle at hero, slightly stronger mid+late scroll
+      if (textureEl) {
+        const op = 0.08 + map(p, 0.20, 0.70, 0, 0.06)
+        textureEl.style.opacity = op
+      }
 
       if (heroEl) {
         const op = Math.max(0, 1 - map(p, 0.18, 0.25, 0, 1))
@@ -361,7 +412,7 @@ export default function LandingPage() {
         .lq-creator-row:hover{background:rgba(212,160,192,0.09);border-color:rgba(212,160,192,0.35);}
       `}</style>
 
-      {/* ══ CANVAS: cosmic starfield + particle drift (fixed, behind everything) */}
+      {/* ══ CANVAS: cosmic starfield + particle drift + colour wash ══════════ */}
       <canvas
         ref={canvasRef}
         style={{
@@ -370,6 +421,43 @@ export default function LandingPage() {
           zIndex:0, pointerEvents:'none', display:'block',
         }}
       />
+
+      {/* ══ CARD TEXTURE: nail design mosaic watermark (Idea C) ═══════════════
+          Fixed grid of nail cards at low opacity — feels like a moodboard bg.
+          Opacity rises slightly from 0.08 → 0.14 as user scrolls.            */}
+      <div
+        ref={textureRef}
+        style={{
+          position:'fixed', top:0, left:0,
+          width:'100vw', height:'100vh',
+          zIndex:1, pointerEvents:'none',
+          overflow:'hidden', opacity:0.08,
+          transition:'opacity 0.8s ease',
+        }}
+      >
+        {TEXTURE_GRID.map((pos, i) => {
+          const d = designs[i % Math.max(designs.length, 1)]
+          if (!d?.image_url) return null
+          return (
+            <img
+              key={i}
+              src={d.image_url}
+              alt=""
+              style={{
+                position:'absolute',
+                left: pos.left,
+                top: pos.top,
+                width: pos.w,
+                height: pos.w * 1.22,
+                objectFit:'cover',
+                borderRadius:'7px',
+                transform:`rotate(${pos.rotate}deg)`,
+                display:'block',
+              }}
+            />
+          )
+        })}
+      </div>
 
       {/* ══ Scrollable HTML sections ══════════════════════════════════════════ */}
       <div ref={wrapperRef} style={{ position:'relative', height:'420vh', zIndex:3 }}>
@@ -392,7 +480,7 @@ export default function LandingPage() {
             }} />
 
             {/* Floating nail-design cards */}
-            {designs.slice(0, cardConfigs.length).map((d, i) => {
+            {designs.slice(0, Math.min(cardConfigs.length, 16)).map((d, i) => {
               const cfg = cardConfigs[i]
               const ps  = {}
               if (cfg.top)    ps.top    = cfg.top
