@@ -9,9 +9,9 @@ import { supabase } from '@/lib/supabase'
 //   1. Replace paths below with the new WebP filenames
 //   2. Set REMOVE_BG = false
 //   3. Remove mixBlendMode from ropesEl / dropEl inline styles (marked below)
-const DROPLET_SRC = '/drop.png'     // → '/droplet.webp' (transparent bg)
-const ROPES_SRC   = '/ribbons.png'  // → '/ropes.webp'   (transparent bg)
-const REMOVE_BG   = true            // JS bg-removal; disable when using transparent WebPs
+const DROPLET_SRC = '/droplet.png'  // transparent PNG (bg removed)
+const ROPES_SRC   = '/ribbons.png'  // → '/ropes.webp' when transparent version ready
+const REMOVE_BG   = false           // droplet is already transparent; ropes still uses screen blend
 // ─────────────────────────────────────────────────────────────────────────────
 
 const IMPACT_Y = 0.52  // impact point: 52% from viewport top
@@ -432,10 +432,6 @@ export default function LandingPage() {
           position:'fixed', top:0, left:'50%',
           width:'min(220px, 55vw)', height:'auto',
           opacity:0,
-          // ↓ remove these two lines when transparent WebP is ready
-          mixBlendMode:'screen',
-          filter:'brightness(1.10) contrast(1.05)',
-          // ↑
           transformOrigin:'50% 100%',
           zIndex:1, pointerEvents:'none',
           willChange:'transform, opacity',
