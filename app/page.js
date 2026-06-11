@@ -97,10 +97,10 @@ export default function LandingPage() {
       starRaf = requestAnimationFrame(drawStars)
     }
 
-    // ── JS Background removal (temporary until transparent WebPs) ─────────
-    // Samples the top-left corner as background reference, removes similar pixels.
-    // threshLow=clear pixels; threshHigh=feathered edge. Safe for dark-bg images.
-    async function stripBg(originalSrc) {
+    // ── JS Background removal ──────────────────────────────────────────────
+    // Samples top-left corner as bg reference; removes pixels within threshold.
+    // lo = hard-remove distance, hi = feathered edge distance.
+    async function stripBg(originalSrc, lo = 28, hi = 62) {
       const tmp = new Image()
       await new Promise(res => { tmp.onload = res; tmp.src = originalSrc })
       const c = document.createElement('canvas')
@@ -113,10 +113,10 @@ export default function LandingPage() {
       const [bgR, bgG, bgB] = [d[0], d[1], d[2]]
       for (let i = 0; i < d.length; i += 4) {
         const dist = Math.hypot(d[i] - bgR, d[i + 1] - bgG, d[i + 2] - bgB)
-        if (dist < 28) {
+        if (dist < lo) {
           d[i + 3] = 0
-        } else if (dist < 62) {
-          d[i + 3] = Math.round(d[i + 3] * (dist - 28) / 34)
+        } else if (dist < hi) {
+          d[i + 3] = Math.round(d[i + 3] * (dist - lo) / (hi - lo))
         }
       }
       cx.putImageData(id, 0, 0)
@@ -126,8 +126,14 @@ export default function LandingPage() {
       return url
     }
 
+    // Droplet already has transparent bg — no removal needed
     if (REMOVE_BG && dropEl) {
       stripBg(DROPLET_SRC).then(url => { dropEl.src = url })
+    }
+    // Ropes (ribbons.png) has a solid mauve background — always strip it
+    // Conservative thresholds (18/42) to preserve ribbon detail near bg tone
+    if (ropesEl) {
+      stripBg(ROPES_SRC, 18, 42).then(url => { ropesEl.src = url })
     }
 
     // ── Splash: canvas-drawn burst, fully scroll-driven (p = 0→1) ─────────
@@ -215,9 +221,10 @@ export default function LandingPage() {
       // — ROPES —
       // Grows FROM the impact point (transform-origin = centre at 52vh).
       // Starts at scale 0.14 (tiny dot at impact) → 1.06 (fills screen).
+      // Max opacity 0.68 so the dark cosmic bg always shows through.
       if (ropesEl) {
         const rScale = map(p, 0.60, 0.82, 0.14, 1.06)
-        const rOp    = map(p, 0.60, 0.80, 0,    0.90)
+        const rOp    = map(p, 0.60, 0.82, 0,    0.68)
         ropesEl.style.opacity   = Math.max(0, rOp)
         ropesEl.style.transform = `translate(-50%, -50%) scale(${Math.max(0.14, rScale)})`
       }
@@ -620,6 +627,12 @@ export default function LandingPage() {
             overflow:'hidden',
             opacity:0,
           }}>
+            {/* Dark scrim so text stays readable over the ropes background */}
+            <div style={{
+              position:'absolute', inset:0,
+              background:'linear-gradient(to bottom, rgba(11,9,9,0.72) 0%, rgba(11,9,9,0.55) 100%)',
+              pointerEvents:'none', zIndex:0,
+            }} />
             <div style={{
               position:'absolute', inset:0,
               background:'linear-gradient(160deg, rgba(212,160,192,0.06) 0%, rgba(212,160,192,0.02) 60%, transparent 100%)',
