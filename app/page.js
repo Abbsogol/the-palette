@@ -636,12 +636,12 @@ export default function LandingPage() {
                 fontSize: '14px', color: 'var(--text-secondary)',
                 lineHeight: '1.65', marginBottom: '24px', maxWidth: '300px',
               }}>
-                Free creator profile. Post your sets with full specs. Reach clients already browsing for their next look.
+                Post your sets with full specs. Reach clients already browsing for their next look.
               </p>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '28px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
                 {[
-                  'Free public portfolio — your work, your page',
+                  'Public portfolio — your work, your page',
                   'Get found by clients browsing for inspo',
                   'Post with colour codes & technique notes',
                 ].map(text => (
@@ -652,8 +652,13 @@ export default function LandingPage() {
                 ))}
               </div>
 
+              {/* Pricing hint */}
+              <p style={{ color:'var(--text-secondary)', fontSize:'12px', marginBottom:'20px', opacity:0.7 }}>
+                5 uploads/week free · <span style={{ color:'var(--accent)' }}>Pro from $15/mo</span>
+              </p>
+
               <Link href="/profile" className="lq-cta-creator">
-                Create a creator account
+                Join as a creator
                 <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                   <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
@@ -663,6 +668,100 @@ export default function LandingPage() {
         </div>
 
       </div>{/* end 420vh wrapper */}
+
+      {/* ════ PRICING SECTION ════ */}
+      <section style={{
+        padding: '52px 24px 56px',
+        background: 'var(--bg-primary)',
+        position: 'relative', zIndex: 3,
+        borderTop: '0.5px solid var(--border)',
+      }}>
+        <p style={{
+          color: 'var(--accent)', fontSize: '11px', fontWeight: '500',
+          letterSpacing: '0.09em', textTransform: 'uppercase',
+          marginBottom: '10px', textAlign: 'center',
+        }}>Pricing</p>
+        <h2 style={{
+          fontSize: 'clamp(22px, 6vw, 28px)', fontWeight: '600',
+          color: 'var(--text-primary)', letterSpacing: '-0.03em',
+          textAlign: 'center', marginBottom: '8px',
+        }}>Simple, honest pricing</h2>
+        <p style={{
+          color: 'var(--text-secondary)', fontSize: '13px',
+          textAlign: 'center', marginBottom: '28px', lineHeight: '1.5',
+        }}>Free for everyone. Pro for creators who want more.</p>
+
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+
+          {/* ── Free card ── */}
+          <div style={{
+            flex: 1,
+            background: 'var(--bg-card)',
+            border: '0.5px solid var(--border)',
+            borderRadius: '16px', padding: '20px 16px',
+          }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '10px' }}>Free</p>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '3px', marginBottom: '16px' }}>
+              <span style={{ color: 'var(--text-primary)', fontSize: '30px', fontWeight: '600', letterSpacing: '-0.04em', lineHeight: 1 }}>$0</span>
+              <span style={{ color: 'var(--text-secondary)', fontSize: '12px', marginBottom: '3px' }}>/ forever</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
+              {[
+                'Browse all designs',
+                'Unlimited saves',
+                'Named collections',
+                'Search & filter',
+                'Share designs',
+                '5 uploads / week',
+              ].map(f => (
+                <div key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: '7px' }}>
+                  <span style={{ color: 'var(--accent)', fontSize: '12px', marginTop: '1px', flexShrink: 0 }}>✓</span>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '12px', lineHeight: '1.4' }}>{f}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Pro Creator card ── */}
+          <div style={{
+            flex: 1,
+            background: 'linear-gradient(145deg, rgba(212,160,192,0.10) 0%, rgba(212,160,192,0.03) 100%)',
+            border: '1px solid rgba(212,160,192,0.35)',
+            borderRadius: '16px', padding: '20px 16px',
+            position: 'relative',
+          }}>
+            {/* Coming soon badge */}
+            <div style={{
+              position: 'absolute', top: '-11px', left: '50%', transform: 'translateX(-50%)',
+              background: 'var(--accent)', color: '#2C0A1E',
+              fontSize: '9px', fontWeight: '700', letterSpacing: '0.08em', textTransform: 'uppercase',
+              padding: '3px 10px', borderRadius: '20px', whiteSpace: 'nowrap',
+            }}>Coming soon</div>
+
+            <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '10px' }}>Pro Creator</p>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '3px', marginBottom: '16px' }}>
+              <span style={{ color: 'var(--text-primary)', fontSize: '30px', fontWeight: '600', letterSpacing: '-0.04em', lineHeight: 1 }}>$15</span>
+              <span style={{ color: 'var(--text-secondary)', fontSize: '12px', marginBottom: '3px' }}>/ month</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
+              {[
+                'Everything in Free',
+                'Unlimited uploads',
+                'Featured in discovery',
+                'Analytics per design',
+                '"Show My Nail Tech" card',
+                'Early feature access',
+              ].map(f => (
+                <div key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: '7px' }}>
+                  <span style={{ color: 'var(--accent)', fontSize: '12px', marginTop: '1px', flexShrink: 0 }}>✓</span>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '12px', lineHeight: '1.4' }}>{f}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+      </section>
 
       {/* ════ FINAL CTA ════ */}
       <section style={{
