@@ -64,6 +64,19 @@ export default function Home() {
     load()
   }, [])
 
+  // Restore scroll after navigating back
+  useEffect(() => {
+    if (!loading) {
+      const saved = sessionStorage.getItem('feed-scroll')
+      if (saved) {
+        setTimeout(() => {
+          window.scrollTo(0, parseInt(saved))
+          sessionStorage.removeItem('feed-scroll')
+        }, 50)
+      }
+    }
+  }, [loading])
+
   const openStories = (userId) => {
     // Get all stories for this user, ordered oldest→newest so we can page through
     supabase.from('stories')
@@ -310,7 +323,8 @@ export default function Home() {
             {filtered.map((design) => (
               <Link
                 key={design.id}
-                href={`/design/${design.id}?from=%2F`}
+                href={`/design/${design.id}?from=%2Ffeed`}
+                onClick={() => sessionStorage.setItem('feed-scroll', window.scrollY.toString())}
                 style={{
                   background: 'var(--bg-card)', borderRadius: '12px',
                   border: '0.5px solid var(--border)', overflow: 'hidden',
