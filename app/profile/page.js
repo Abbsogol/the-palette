@@ -5,38 +5,150 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import CropModal from '@/components/CropModal'
 
+// ── Option lists ───────────────────────────────────────────────────────────
+const SHAPES     = ['Almond','Square','Coffin','Round','Oval','Stiletto','Squoval','Ballerina']
+const LENGTHS    = ['Short','Medium','Long','Extra Long']
+const COLORS     = ['Pink','Red','Nude','White','Black','Purple','Blue','Green','Yellow','Orange','Glitter','Chrome','Multicolor']
+const FINISHES   = ['Glossy','Matte','Chrome','Glitter','Jelly','Pearl','Cat-eye','Velvet','Satin','Mirror']
+const TECHNIQUES = ['French','Ombré','BIAB','Gel-X','Airbrush','3D','Aura','Chrome','Cat-eye','Marble','Nail art']
+const OCCASIONS  = ['Everyday','Bridal','Party','Work','Vacation','Eid','Birthday','Holiday','Christmas','Summer','Winter']
+const BUDGETS    = ['Under $50','$50–$100','$100–$150','$150+']
+const CONTACTS   = ['App notification','SMS','Email','WhatsApp','Phone call']
+const SENSITIVITIES = ['Acrylic','Gel','Acetone','Glue','BIAB','Primer','UV light']
+
+// ── Profile completion score ───────────────────────────────────────────────
+const calcCompletion = (p, u) => {
+  if (!p || !u) return 0
+  const checks = [
+    !!p.display_name,
+    !!p.avatar_url,
+    !!p.phone_number,
+    !!p.location,
+    !!p.bio,
+    !!p.preferred_contact,
+    !!p.nail_shape,
+    !!p.nail_length,
+    !!(p.nail_colors?.length),
+    !!(p.nail_finishes?.length),
+    !!(p.nail_techniques?.length),
+    !!(p.occasions?.length),
+    !!p.budget_range,
+    !!(p.allergies || p.product_sensitivities?.length),
+    !!p.booking_area,
+  ]
+  return Math.round((checks.filter(Boolean).length / checks.length) * 100)
+}
+
+// ── Section header with chevron ────────────────────────────────────────────
+function SectionHeader({ title, expanded, onToggle, pct }) {
+  return (
+    <button onClick={onToggle} style={{
+      width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      padding: '14px 16px', background: 'none', border: 'none', cursor: 'pointer',
+      borderBottom: expanded ? '0.5px solid var(--border)' : 'none',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <span style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500', fontFamily: "'DM Sans', sans-serif" }}>{title}</span>
+        {pct !== undefined && (
+          <span style={{
+            background: pct === 100 ? 'rgba(110,201,127,0.15)' : 'var(--bg-chip)',
+            color: pct === 100 ? '#6EC97F' : 'var(--text-secondary)',
+            fontSize: '11px', padding: '2px 8px', borderRadius: '20px',
+          }}>{pct}%</span>
+        )}
+      </div>
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
+        style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}>
+        <path d="M4 6L8 10L12 6" stroke="#888888" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    </button>
+  )
+}
+
+// ── Inline editable row ────────────────────────────────────────────────────
+function EditRow({ label, field, value, placeholder, multiline, onSave }) {
+  const [editing, setEditing] = useState(false)
+  const [input, setInput]     = useState('')
+  const [saving, setSaving]   = useState(false)
+
+  const start  = () => { setInput(value || ''); setEditing(true) }
+  const cancel = () => setEditing(false)
+  const save   = async () => {
+    setSaving(true)
+    await onSave(field, input)
+    setSaving(false)
+    setEditing(false)
+  }
+
+  return (
+    <div style={{ padding: '14px 16px' }}>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '6px' }}>{label}</p>
+      {editing ? (
+        <div style={{ display: 'flex', flexDirection: multiline ? 'column' : 'row', gap: '8px' }}>
+          {multiline ? (
+            <textarea value={input} onChange={e => setInput(e.target.value)} autoFocus placeholder={placeholder}
+              style={{ width: '100%', background: 'var(--bg-chip)', border: '0.5px solid var(--border)', borderRadius: '8px', padding: '8px 12px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none', resize: 'none', minHeight: '72px', boxSizing: 'border-box' }} />
+          ) : (
+            <input value={input} onChange={e => setInput(e.target.value)} autoFocus placeholder={placeholder}
+              style={{ flex: 1, background: 'var(--bg-chip)', border: '0.5px solid var(--border)', borderRadius: '8px', padding: '8px 12px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none' }} />
+          )}
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button onClick={save} disabled={saving}
+              style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '8px', padding: '8px 14px', fontSize: '13px', fontWeight: '500', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
+              {saving ? '...' : 'Save'}
+            </button>
+            <button onClick={cancel}
+              style={{ background: 'none', color: 'var(--text-secondary)', border: 'none', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>✕</button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <p style={{ color: value ? 'var(--text-primary)' : 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.5', flex: 1 }}>{value || placeholder || 'Not set'}</p>
+          <button onClick={start}
+            style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer', flexShrink: 0, marginLeft: '8px' }}>Edit</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Input styles helper ────────────────────────────────────────────────────
+const inp = { background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px 16px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none' }
+const btn = (active) => ({ background: active ? 'var(--accent)' : 'var(--bg-chip)', color: active ? '#2C0A1E' : 'var(--text-secondary)', border: active ? 'none' : '0.5px solid var(--border)', borderRadius: '20px', padding: '6px 14px', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", fontWeight: active ? '500' : '400', cursor: 'pointer' })
+
+// ── Main component ─────────────────────────────────────────────────────────
 export default function ProfilePage() {
-  const [user, setUser] = useState(null)
+  const [user, setUser]       = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  // Auth form state
-  const [mode, setMode] = useState('login') // login | signup | choose-type | forgot
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [displayName, setDisplayName] = useState('')
-  const [chosenType, setChosenType] = useState(null)
-  const [error, setError] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [resetMode, setResetMode] = useState(false)
-  const [newPassword, setNewPassword] = useState('')
-  const [resetDone, setResetDone] = useState(false)
-  const [uploadingAvatar, setUploadingAvatar] = useState(false)
-  const [cropFile, setCropFile] = useState(null)   // file waiting to be cropped
-  const [forgotSent, setForgotSent] = useState(false)
+  // Auth state
+  const [mode, setMode]                   = useState('login')
+  const [email, setEmail]                 = useState('')
+  const [password, setPassword]           = useState('')
+  const [displayName, setDisplayName]     = useState('')
+  const [chosenType, setChosenType]       = useState(null)
+  const [error, setError]                 = useState('')
+  const [submitting, setSubmitting]       = useState(false)
+  const [resetMode, setResetMode]         = useState(false)
+  const [newPassword, setNewPassword]     = useState('')
+  const [resetDone, setResetDone]         = useState(false)
+  const [forgotSent, setForgotSent]       = useState(false)
   const [needsAccountType, setNeedsAccountType] = useState(false)
 
-  // Profile edit state
-  const [savedCount, setSavedCount] = useState(0)
+  // Avatar
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [cropFile, setCropFile]               = useState(null)
+
+  // Counts
+  const [savedCount, setSavedCount]       = useState(0)
   const [followerCount, setFollowerCount] = useState(0)
   const [followingCount, setFollowingCount] = useState(0)
-  const [editingName, setEditingName] = useState(false)
-  const [nameInput, setNameInput] = useState('')
-  const [editingBio, setEditingBio] = useState(false)
-  const [bioInput, setBioInput] = useState('')
-  const [editingLocation, setEditingLocation] = useState(false)
-  const [locationInput, setLocationInput] = useState('')
-  const [myDesigns, setMyDesigns] = useState([])
+  const [myDesigns, setMyDesigns]         = useState([])
+
+  // Expandable sections
+  const [expanded, setExpanded] = useState({})
+  const toggle = (key) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }))
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -55,15 +167,15 @@ export default function ProfilePage() {
     setUser(u)
     const { data: prof } = await supabase.from('profiles').select('*').eq('id', u.id).single()
     setProfile(prof)
-    if (!prof?.account_type) { setNeedsAccountType(true) } else { setNeedsAccountType(false) }
-    const { count } = await supabase.from('saved_designs').select('*', { count: 'exact', head: true }).eq('user_id', u.id)
-    setSavedCount(count || 0)
-    const [{ count: followers }, { count: following }] = await Promise.all([
+    if (!prof?.account_type) setNeedsAccountType(true)
+    const { count: sc } = await supabase.from('saved_designs').select('*', { count: 'exact', head: true }).eq('user_id', u.id)
+    setSavedCount(sc || 0)
+    const [{ count: frs }, { count: fng }] = await Promise.all([
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', u.id),
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', u.id),
     ])
-    setFollowerCount(followers || 0)
-    setFollowingCount(following || 0)
+    setFollowerCount(frs || 0)
+    setFollowingCount(fng || 0)
     if (prof?.account_type === 'creator' || prof?.account_type === 'salon') {
       const { data: designs } = await supabase.from('designs').select('*').eq('created_by', u.id).order('created_at', { ascending: false })
       setMyDesigns(designs || [])
@@ -71,122 +183,131 @@ export default function ProfilePage() {
     setLoading(false)
   }
 
-  // Step 1: validate email + password + display name, then move to account type selection
-  const handleSignUpStep1 = async (e) => {
+  const saveField = async (field, value) => {
+    await supabase.from('profiles').update({ [field]: value }).eq('id', user.id)
+    setProfile(prev => ({ ...prev, [field]: value }))
+  }
+
+  const toggleChip = async (field, item, single) => {
+    const current = profile?.[field]
+    const next = single
+      ? (current === item ? null : item)
+      : (current || []).includes(item) ? (current).filter(i => i !== item) : [...(current || []), item]
+    await supabase.from('profiles').update({ [field]: next }).eq('id', user.id)
+    setProfile(prev => ({ ...prev, [field]: next }))
+  }
+
+  // ── Auth handlers ──────────────────────────────────────────────────────
+  const handleSignUpStep1 = (e) => {
     e.preventDefault()
     if (password.length < 6) { setError('Password must be at least 6 characters'); return }
     if (!displayName.trim()) { setError('Please enter a display name'); return }
-    setError('')
-    setMode('choose-type')
+    setError(''); setMode('choose-type')
   }
 
-  // Step 2: create account with chosen type + save display name
   const handleCreateAccount = async () => {
     if (!chosenType) return
-    setSubmitting(true)
-    setError('')
+    setSubmitting(true); setError('')
     const { data, error } = await supabase.auth.signUp({ email, password })
     if (error) { setError(error.message); setSubmitting(false); return }
     if (data.user) {
-      await supabase.from('profiles').upsert({
-        id: data.user.id,
-        account_type: chosenType,
-        display_name: displayName.trim(),
-      })
+      await supabase.from('profiles').upsert({ id: data.user.id, account_type: chosenType, display_name: displayName.trim() })
       await loadUserData(data.user)
     }
     setSubmitting(false)
   }
 
   const handleLogin = async (e) => {
-    e.preventDefault()
-    setError('')
-    setSubmitting(true)
+    e.preventDefault(); setError(''); setSubmitting(true)
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) setError(error.message)
     setSubmitting(false)
   }
 
   const handleForgotPassword = async (e) => {
-    e.preventDefault()
-    setError('')
-    setSubmitting(true)
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'https://laque.app/profile',
-    })
-    if (error) { setError(error.message) }
-    else { setForgotSent(true) }
+    e.preventDefault(); setError(''); setSubmitting(true)
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: 'https://laque.app/profile' })
+    if (error) setError(error.message)
+    else setForgotSent(true)
     setSubmitting(false)
   }
 
-  const handleBecomeCreator = async () => {
-    if (!confirm('Switch your account to a Creator account? You\'ll be able to publish designs and get a public profile.')) return
-    const { error } = await supabase.from('profiles').update({ account_type: 'creator' }).eq('id', user.id)
-    if (!error) setProfile(prev => ({ ...prev, account_type: 'creator' }))
-  }
-
-  const handleLogout = async () => { await supabase.auth.signOut() }
-
-  const handleDeleteAccount = async () => {
-    if (!confirm('Delete your account permanently? This cannot be undone.')) return
-    await supabase.rpc('delete_own_account')
-    await supabase.auth.signOut()
-  }
-
   const handleGoogleSignIn = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: 'https://laque.app/profile' }
-    })
+    await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: 'https://laque.app/profile' } })
   }
 
   const handleSetGoogleAccountType = async () => {
     if (!chosenType) return
     setSubmitting(true)
     const name = displayName.trim() || user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User'
-    await supabase.from('profiles').upsert({
-      id: user.id,
-      account_type: chosenType,
-      display_name: name,
-    })
+    await supabase.from('profiles').upsert({ id: user.id, account_type: chosenType, display_name: name })
     await loadUserData(user)
     setSubmitting(false)
   }
 
-  const saveField = async (field, value, setter) => {
-    await supabase.from('profiles').update({ [field]: value }).eq('id', user.id)
-    setProfile(prev => ({ ...prev, [field]: value }))
-    setter(false)
+  const handleBecomeCreator = async () => {
+    if (!confirm('Switch your account to a Creator account?')) return
+    await supabase.from('profiles').update({ account_type: 'creator' }).eq('id', user.id)
+    setProfile(prev => ({ ...prev, account_type: 'creator' }))
   }
 
   const handleSetNewPassword = async (e) => {
     e.preventDefault()
     if (newPassword.length < 6) { setError('Password must be at least 6 characters'); return }
-    setSubmitting(true)
-    setError('')
+    setSubmitting(true); setError('')
     const { error } = await supabase.auth.updateUser({ password: newPassword })
-    if (error) { setError(error.message) }
+    if (error) setError(error.message)
     else { setResetDone(true); setResetMode(false) }
     setSubmitting(false)
   }
 
+  const handleLogout       = async () => { await supabase.auth.signOut() }
+  const handleDeleteAccount = async () => {
+    if (!confirm('Delete your account permanently? This cannot be undone.')) return
+    await supabase.rpc('delete_own_account')
+    await supabase.auth.signOut()
+  }
 
-  // ─── PASSWORD RECOVERY (from email reset link) ───
+  const handleAvatarPick = (e) => {
+    const file = e.target.files[0]
+    if (file) setCropFile(file)
+    e.target.value = ''
+  }
+
+  const handleCroppedUpload = async (croppedFile) => {
+    setCropFile(null)
+    if (!user) return
+    setUploadingAvatar(true)
+    const path = `avatars/${user.id}/${Date.now()}.jpg`
+    const { error: uploadError } = await supabase.storage.from('designs').upload(path, croppedFile, { upsert: false })
+    if (uploadError) { alert('Upload failed: ' + uploadError.message); setUploadingAvatar(false); return }
+    const { data: { publicUrl } } = supabase.storage.from('designs').getPublicUrl(path)
+    const bustedUrl = `${publicUrl}?t=${Date.now()}`
+    await supabase.from('profiles').update({ avatar_url: bustedUrl }).eq('id', user.id)
+    setProfile(prev => ({ ...prev, avatar_url: bustedUrl }))
+    setUploadingAvatar(false)
+  }
+
+  const removeAvatar = async () => {
+    if (!confirm('Remove profile photo?')) return
+    await supabase.from('profiles').update({ avatar_url: null }).eq('id', user.id)
+    setProfile(prev => ({ ...prev, avatar_url: null }))
+  }
+
+  // ── Loading ────────────────────────────────────────────────────────────
+  if (loading) return <div style={{ padding: '24px 20px', color: 'var(--text-secondary)', fontSize: '14px' }}>Loading...</div>
+
+  // ── Password recovery ──────────────────────────────────────────────────
   if (resetMode) {
     return (
       <div style={{ padding: '24px 20px' }}>
-        <h1 style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '22px', letterSpacing: '-0.02em', marginBottom: '4px' }}>
-          Set new password
-        </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '32px' }}>
-          Choose a new password for your account
-        </p>
+        <h1 style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '22px', letterSpacing: '-0.02em', marginBottom: '4px' }}>Set new password</h1>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '32px' }}>Choose a new password for your account</p>
         <form onSubmit={handleSetNewPassword} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <input type="password" placeholder="New password (min 6 characters)" value={newPassword} onChange={e => setNewPassword(e.target.value)} required
-            style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px 16px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none' }} />
+          <input type="password" placeholder="New password (min 6 characters)" value={newPassword} onChange={e => setNewPassword(e.target.value)} required style={inp} />
           {error && <p style={{ color: '#E07070', fontSize: '13px' }}>{error}</p>}
           <button type="submit" disabled={submitting}
-            style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", fontWeight: '500', cursor: 'pointer', marginTop: '4px' }}>
+            style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", fontWeight: '500', cursor: 'pointer' }}>
             {submitting ? 'Saving...' : 'Save new password'}
           </button>
         </form>
@@ -194,150 +315,49 @@ export default function ProfilePage() {
     )
   }
 
-
-  const removeAvatar = async () => {
-    if (!confirm('Remove profile photo?')) return
-    const { error } = await supabase.from('profiles').update({ avatar_url: null }).eq('id', user.id)
-    if (!error) setProfile(prev => ({ ...prev, avatar_url: null }))
-  }
-
-  // Step 1: file chosen → open crop modal
-  const handleAvatarPick = (e) => {
-    const file = e.target.files[0]
-    if (file) setCropFile(file)
-    e.target.value = ''  // reset so picking same file again works
-  }
-
-  // Step 2: crop modal done → upload the cropped blob
-  const handleCroppedUpload = async (croppedFile) => {
-    setCropFile(null)
-    if (!user) return
-    setUploadingAvatar(true)
-    const path = `avatars/${user.id}/${Date.now()}.jpg`
-    const { error: uploadError } = await supabase.storage
-      .from('designs')
-      .upload(path, croppedFile, { upsert: false })
-    if (uploadError) {
-      alert('Upload failed: ' + uploadError.message)
-      setUploadingAvatar(false)
-      return
-    }
-    const { data: { publicUrl } } = supabase.storage.from('designs').getPublicUrl(path)
-    const bustedUrl = `${publicUrl}?t=${Date.now()}`
-    const { error: dbErr } = await supabase.from('profiles').update({ avatar_url: bustedUrl }).eq('id', user.id)
-    if (dbErr) {
-      alert('Could not save avatar: ' + dbErr.message)
-    } else {
-      setProfile(prev => ({ ...prev, avatar_url: bustedUrl }))
-    }
-    setUploadingAvatar(false)
-  }
-
-  if (loading) return <div style={{ padding: '24px 20px', color: 'var(--text-secondary)', fontSize: '14px' }}>Loading...</div>
-
-  // ─── FORGOT PASSWORD ───
+  // ── Forgot password ────────────────────────────────────────────────────
   if (!user && mode === 'forgot') {
     return (
       <div style={{ padding: '24px 20px' }}>
-        <h1 style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '22px', letterSpacing: '-0.02em', marginBottom: '4px' }}>
-          Reset password
-        </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '32px' }}>
-          We'll send a reset link to your email
-        </p>
+        <h1 style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '22px', letterSpacing: '-0.02em', marginBottom: '4px' }}>Reset password</h1>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '32px' }}>We'll send a reset link to your email</p>
         {forgotSent ? (
           <div style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '20px', border: '0.5px solid var(--border)', textAlign: 'center' }}>
             <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '500', marginBottom: '8px' }}>Check your email</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '20px' }}>We sent a password reset link to {email}</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '20px' }}>We sent a reset link to {email}</p>
             <button onClick={() => { setMode('login'); setForgotSent(false) }}
-              style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
-              Back to login
-            </button>
+              style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>Back to login</button>
           </div>
         ) : (
           <form onSubmit={handleForgotPassword} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required
-              style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px 16px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none' }} />
+            <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required style={inp} />
             {error && <p style={{ color: '#E07070', fontSize: '13px' }}>{error}</p>}
             <button type="submit" disabled={submitting}
-              style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", fontWeight: '500', cursor: 'pointer', marginTop: '4px' }}>
+              style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", fontWeight: '500', cursor: 'pointer' }}>
               {submitting ? 'Sending...' : 'Send reset link'}
             </button>
             <button type="button" onClick={() => { setMode('login'); setError('') }}
-              style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
-              ← Back to login
-            </button>
+              style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>← Back to login</button>
           </form>
         )}
       </div>
     )
   }
 
-  // ─── CHOOSE ACCOUNT TYPE ───
+  // ── Choose account type ────────────────────────────────────────────────
+  const accountTypes = [
+    { type: 'user',    label: 'Design Lover',           desc: 'Browse, save, and discover nail designs' },
+    { type: 'creator', label: 'Nail Artist / Nail Tech', desc: 'Publish your work and build your portfolio' },
+    { type: 'salon',   label: 'Salon Owner',             desc: "Showcase your salon's designs and manage your team" },
+  ]
+
   if (!user && mode === 'choose-type') {
     return (
       <div style={{ padding: '24px 20px' }}>
         <h1 style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '22px', letterSpacing: '-0.02em', marginBottom: '4px' }}>I am a...</h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '28px' }}>Choose how you'll use Laque</p>
-
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
-          {[
-            { type: 'user', label: 'Design lover', desc: 'Browse, save, and discover nail designs' },
-            { type: 'creator', label: 'Nail artist', desc: 'Publish your work and build your portfolio' },
-            { type: 'salon', label: 'Salon', desc: "Showcase your salon's designs and services" },
-          ].map(({ type, label, desc }) => (
-            <button
-              key={type}
-              onClick={() => setChosenType(type)}
-              style={{
-                background: chosenType === type ? 'var(--accent)' : 'var(--bg-card)',
-                border: chosenType === type ? 'none' : '0.5px solid var(--border)',
-                borderRadius: '12px', padding: '16px', textAlign: 'left',
-                cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
-              }}
-            >
-              <p style={{ color: chosenType === type ? '#2C0A1E' : 'var(--text-primary)', fontSize: '15px', fontWeight: '500', marginBottom: '4px' }}>{label}</p>
-              <p style={{ color: chosenType === type ? '#2C0A1E' : 'var(--text-secondary)', fontSize: '13px' }}>{desc}</p>
-            </button>
-          ))}
-        </div>
-
-        {error && <p style={{ color: '#E07070', fontSize: '13px', marginBottom: '12px' }}>{error}</p>}
-
-        <button
-          onClick={handleCreateAccount}
-          disabled={!chosenType || submitting}
-          style={{ width: '100%', background: chosenType ? 'var(--accent)' : 'var(--bg-chip)', color: chosenType ? '#2C0A1E' : 'var(--text-secondary)', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", fontWeight: '500', cursor: chosenType ? 'pointer' : 'default' }}
-        >
-          {submitting ? 'Creating account...' : 'Create account'}
-        </button>
-        <button onClick={() => setMode('signup')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer', display: 'block', margin: '12px auto 0' }}>← Back</button>
-      </div>
-    )
-  }
-
-  // ─── GOOGLE USER: pick account type on first sign-in ───
-  if (user && needsAccountType) {
-    const suggestedName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || ''
-    return (
-      <div style={{ padding: '24px 20px' }}>
-        <h1 style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '22px', letterSpacing: '-0.02em', marginBottom: '4px' }}>One more thing</h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '28px' }}>How will you use Laque?</p>
-
-        <input
-          type="text"
-          placeholder="Display name"
-          value={displayName || suggestedName}
-          onChange={e => setDisplayName(e.target.value)}
-          style={{ width: '100%', background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px 16px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none', marginBottom: '16px', boxSizing: 'border-box' }}
-        />
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
-          {[
-            { type: 'user', label: 'Design lover', desc: 'Browse, save, and discover nail designs' },
-            { type: 'creator', label: 'Nail artist', desc: 'Publish your work and build your portfolio' },
-            { type: 'salon', label: 'Salon', desc: "Showcase your salon's designs and services" },
-          ].map(({ type, label, desc }) => (
+          {accountTypes.map(({ type, label, desc }) => (
             <button key={type} onClick={() => setChosenType(type)}
               style={{ background: chosenType === type ? 'var(--accent)' : 'var(--bg-card)', border: chosenType === type ? 'none' : '0.5px solid var(--border)', borderRadius: '12px', padding: '16px', textAlign: 'left', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>
               <p style={{ color: chosenType === type ? '#2C0A1E' : 'var(--text-primary)', fontSize: '15px', fontWeight: '500', marginBottom: '4px' }}>{label}</p>
@@ -345,7 +365,34 @@ export default function ProfilePage() {
             </button>
           ))}
         </div>
+        {error && <p style={{ color: '#E07070', fontSize: '13px', marginBottom: '12px' }}>{error}</p>}
+        <button onClick={handleCreateAccount} disabled={!chosenType || submitting}
+          style={{ width: '100%', background: chosenType ? 'var(--accent)' : 'var(--bg-chip)', color: chosenType ? '#2C0A1E' : 'var(--text-secondary)', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", fontWeight: '500', cursor: chosenType ? 'pointer' : 'default' }}>
+          {submitting ? 'Creating account...' : 'Create account'}
+        </button>
+        <button onClick={() => setMode('signup')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer', display: 'block', margin: '12px auto 0' }}>← Back</button>
+      </div>
+    )
+  }
 
+  // ── Google user: pick account type ────────────────────────────────────
+  if (user && needsAccountType) {
+    const suggestedName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || ''
+    return (
+      <div style={{ padding: '24px 20px' }}>
+        <h1 style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '22px', letterSpacing: '-0.02em', marginBottom: '4px' }}>One more thing</h1>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '28px' }}>How will you use Laque?</p>
+        <input type="text" placeholder="Display name" value={displayName || suggestedName} onChange={e => setDisplayName(e.target.value)}
+          style={{ ...inp, width: '100%', marginBottom: '16px', boxSizing: 'border-box' }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+          {accountTypes.map(({ type, label, desc }) => (
+            <button key={type} onClick={() => setChosenType(type)}
+              style={{ background: chosenType === type ? 'var(--accent)' : 'var(--bg-card)', border: chosenType === type ? 'none' : '0.5px solid var(--border)', borderRadius: '12px', padding: '16px', textAlign: 'left', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>
+              <p style={{ color: chosenType === type ? '#2C0A1E' : 'var(--text-primary)', fontSize: '15px', fontWeight: '500', marginBottom: '4px' }}>{label}</p>
+              <p style={{ color: chosenType === type ? '#2C0A1E' : 'var(--text-secondary)', fontSize: '13px' }}>{desc}</p>
+            </button>
+          ))}
+        </div>
         <button onClick={handleSetGoogleAccountType} disabled={!chosenType || submitting}
           style={{ width: '100%', background: chosenType ? 'var(--accent)' : 'var(--bg-chip)', color: chosenType ? '#2C0A1E' : 'var(--text-secondary)', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", fontWeight: '500', cursor: chosenType ? 'pointer' : 'default' }}>
           {submitting ? 'Saving...' : 'Get started'}
@@ -354,7 +401,7 @@ export default function ProfilePage() {
     )
   }
 
-  // ─── LOGIN / SIGNUP FORM ───
+  // ── Login / Signup ─────────────────────────────────────────────────────
   if (!user) {
     return (
       <div style={{ padding: '24px 20px' }}>
@@ -366,31 +413,25 @@ export default function ProfilePage() {
         </p>
         <form onSubmit={mode === 'login' ? handleLogin : handleSignUpStep1} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {mode === 'signup' && (
-            <input type="text" placeholder="Display name" value={displayName} onChange={e => setDisplayName(e.target.value)} required
-              style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px 16px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none' }} />
+            <input type="text" placeholder="Display name" value={displayName} onChange={e => setDisplayName(e.target.value)} required style={inp} />
           )}
-          <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required
-            style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px 16px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none' }} />
-          <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required
-            style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px 16px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none' }} />
+          <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required style={inp} />
+          <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required style={inp} />
           {error && <p style={{ color: '#E07070', fontSize: '13px' }}>{error}</p>}
           <button type="submit" disabled={submitting}
             style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", fontWeight: '500', cursor: 'pointer', marginTop: '4px' }}>
             {submitting ? 'Loading...' : mode === 'login' ? 'Log in' : 'Continue →'}
           </button>
         </form>
-
         {mode === 'login' && (
           <div style={{ textAlign: 'center', marginTop: '12px' }}>
             <button onClick={() => { setMode('forgot'); setError('') }}
-              style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer', padding: 0 }}>
+              style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
               Forgot password?
             </button>
           </div>
         )}
-
-        {/* ── Google sign-in ── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '4px 0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '16px 0' }}>
           <div style={{ flex: 1, height: '0.5px', background: 'var(--border)' }} />
           <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>or</span>
           <div style={{ flex: 1, height: '0.5px', background: 'var(--border)' }} />
@@ -405,8 +446,7 @@ export default function ProfilePage() {
           </svg>
           Continue with Google
         </button>
-
-        <p style={{ color: 'var(--text-secondary)', fontSize: '13px', textAlign: 'center', marginTop: '8px' }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '13px', textAlign: 'center', marginTop: '16px' }}>
           {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
           <button onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError('') }}
             style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer', padding: 0 }}>
@@ -417,333 +457,378 @@ export default function ProfilePage() {
     )
   }
 
-  const isCreator = profile?.account_type === 'creator' || profile?.account_type === 'salon'
-
-  // ─── LOGGED IN: Creator / Salon Dashboard ───
-  if (isCreator) {
-    return (
-      <div style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <div>
-          <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>
-            {profile.account_type === 'salon' ? 'Salon' : 'Nail Artist'} · Creator
-          </p>
-          <h1 style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '22px', letterSpacing: '-0.02em' }}>
-            {profile.display_name || 'Your Dashboard'}
-          </h1>
-        </div>
-
-        <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', overflow: 'hidden' }}>
-          {[
-            { label: 'Display name', field: 'display_name', value: profile.display_name, editing: editingName, setEditing: setEditingName, input: nameInput, setInput: setNameInput },
-            { label: 'Bio', field: 'bio', value: profile.bio, editing: editingBio, setEditing: setEditingBio, input: bioInput, setInput: setBioInput },
-            { label: 'Location', field: 'location', value: profile.location, editing: editingLocation, setEditing: setEditingLocation, input: locationInput, setInput: setLocationInput },
-          ].map(({ label, field, value, editing, setEditing, input, setInput }, i) => (
-            <div key={field} style={{ padding: '14px 16px', borderTop: i === 0 ? 'none' : '0.5px solid var(--border)' }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>{label}</p>
-              {editing ? (
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <input value={input} onChange={e => setInput(e.target.value)} autoFocus
-                    style={{ flex: 1, background: 'var(--bg-chip)', border: '0.5px solid var(--border)', borderRadius: '8px', padding: '8px 12px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none' }} />
-                  <button onClick={() => saveField(field, input, setEditing)}
-                    style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '8px', padding: '8px 14px', fontSize: '13px', fontWeight: '500', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>Save</button>
-                  <button onClick={() => setEditing(false)} style={{ background: 'none', color: 'var(--text-secondary)', border: 'none', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>✕</button>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <p style={{ color: value ? 'var(--text-primary)' : 'var(--text-secondary)', fontSize: '14px' }}>{value || 'Not set'}</p>
-                  <button onClick={() => { setInput(value || ''); setEditing(true) }}
-                    style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>Edit</button>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-          <div style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '16px', border: '0.5px solid var(--border)', textAlign: 'center' }}>
-            <p style={{ color: 'var(--text-primary)', fontSize: '28px', fontWeight: '500' }}>{myDesigns.length}</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Published</p>
-          </div>
-          <div style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '16px', border: '0.5px solid var(--border)', textAlign: 'center' }}>
-            <p style={{ color: 'var(--text-primary)', fontSize: '28px', fontWeight: '500' }}>{savedCount}</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Saved</p>
-          </div>
-          <div style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '16px', border: '0.5px solid var(--border)', textAlign: 'center' }}>
-            <p style={{ color: 'var(--text-primary)', fontSize: '28px', fontWeight: '500' }}>{followerCount}</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Followers</p>
-          </div>
-          <div style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '16px', border: '0.5px solid var(--border)', textAlign: 'center' }}>
-            <p style={{ color: 'var(--text-primary)', fontSize: '28px', fontWeight: '500' }}>{followingCount}</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Following</p>
-          </div>
-        </div>
-
-        <Link href={`/creator/${user.id}`}
-          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', borderRadius: '12px', padding: '16px', border: '0.5px solid var(--border)', textDecoration: 'none' }}>
-          <div>
-            <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500', marginBottom: '2px' }}>View public profile</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>See how others see your page</p>
-          </div>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M6 4L10 8L6 12" stroke="#888888" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </Link>
-
-        <div>
-          {/* My Designs header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase' }}>My Designs</p>
-            {(() => {
-              const used    = profile?.weekly_uploads || 0
-              const isPro   = profile?.is_pro || false
-              const left    = isPro ? null : Math.max(0, 5 - used)
-              const atLimit = !isPro && used >= 5
-              return (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {!isPro && (
-                    <p style={{ color: atLimit ? '#e57373' : 'var(--text-secondary)', fontSize: '11px' }}>
-                      {atLimit ? 'Limit reached' : `${left} upload${left === 1 ? '' : 's'} left`}
-                    </p>
-                  )}
-                  {!atLimit && (
-                    <Link href="/upload" style={{ background: 'var(--accent)', color: '#2C0A1E', borderRadius: '20px', padding: '6px 14px', fontSize: '12px', fontWeight: '600', textDecoration: 'none' }}>
-                      + Add
-                    </Link>
-                  )}
-                </div>
-              )
-            })()}
-          </div>
-
-          {myDesigns.length === 0 ? (
-            <div style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '28px 20px', border: '0.5px solid var(--border)', textAlign: 'center' }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '8px' }}>No designs yet</p>
-              <Link href="/upload" style={{ color: 'var(--accent)', fontSize: '13px', textDecoration: 'none', fontWeight: '500' }}>
-                Publish your first design →
-              </Link>
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              {myDesigns.map(design => (
-                <Link key={design.id} href={`/design/${design.id}`}
-                  style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', overflow: 'hidden', textDecoration: 'none', display: 'block' }}>
-                  {design.image_url ? (
-                    <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden' }}>
-                      <img src={design.image_url} alt={design.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    </div>
-                  ) : <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--bg-chip)' }} />}
-                  <div style={{ padding: '10px 12px 12px' }}>
-                    <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500' }}>{design.title}</p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <button onClick={handleLogout}
-          style={{ width: '100%', background: 'none', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px', color: 'var(--text-secondary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", fontWeight: '500', cursor: 'pointer' }}>
-          Log out
-        </button>
-
-        <button onClick={handleDeleteAccount}
-          style={{ width: '100%', background: 'none', border: 'none', padding: '8px', color: '#8B3A3A', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
-          Delete account
-        </button>
-      </div>
-    )
-  }
-
-  // ─── LOGGED IN: Regular user profile ───
-  const initials = (profile?.display_name || user.email || '?').slice(0, 2).toUpperCase()
+  // ── LOGGED IN ──────────────────────────────────────────────────────────
+  const isCreator   = profile?.account_type === 'creator' || profile?.account_type === 'salon'
   const accountLabel = profile?.account_type === 'creator' ? 'Nail Artist' : profile?.account_type === 'salon' ? 'Salon' : 'Design Lover'
+  const initials    = (profile?.display_name || user.email || '?').slice(0, 2).toUpperCase()
+  const completion  = calcCompletion(profile, user)
+
+  // Per-section completion
+  const bookingPct = Math.round(([profile?.preferred_contact, profile?.booking_area].filter(Boolean).length / 2) * 100)
+  const stylePct   = Math.round(([profile?.nail_shape, profile?.nail_length, profile?.nail_colors?.length, profile?.nail_finishes?.length, profile?.budget_range].filter(Boolean).length / 5) * 100)
+  const healthPct  = (profile?.allergies || profile?.product_sensitivities?.length) ? 100 : 0
 
   return (
-    <div style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <div style={{ paddingBottom: '100px' }}>
 
-      {/* Crop modal — shown when user picks a photo */}
-      {cropFile && (
-        <CropModal
-          file={cropFile}
-          onCrop={handleCroppedUpload}
-          onCancel={() => setCropFile(null)}
-        />
-      )}
+      {cropFile && <CropModal file={cropFile} onCrop={handleCroppedUpload} onCancel={() => setCropFile(null)} />}
 
       {resetDone && (
-        <div style={{ background: 'var(--accent)', borderRadius: '12px', padding: '14px 16px' }}>
+        <div style={{ margin: '16px 20px 0', background: 'var(--accent)', borderRadius: '12px', padding: '14px 16px' }}>
           <p style={{ color: '#2C0A1E', fontSize: '14px', fontWeight: '500' }}>✓ Password updated successfully</p>
         </div>
       )}
 
-      {/* ── Profile header ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '4px 0' }}>
-        {/* Avatar */}
-        <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-          <label style={{ cursor: 'pointer' }}>
-            <input type="file" accept="image/*" onChange={handleAvatarPick} style={{ display: 'none' }} />
-            <div style={{
-              width: '72px', height: '72px', borderRadius: '50%',
-              background: profile?.avatar_url ? 'transparent' : 'var(--bg-chip)',
-              border: '0.5px solid var(--border)',
-              overflow: 'hidden', position: 'relative',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              {profile?.avatar_url ? (
-                <img src={profile.avatar_url} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                <span style={{ color: 'var(--text-secondary)', fontSize: '22px', fontWeight: '500' }}>{initials}</span>
-              )}
-              {uploadingAvatar && (
-                <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
-                  <span style={{ color: '#fff', fontSize: '11px' }}>...</span>
-                </div>
-              )}
-              {!uploadingAvatar && (
-                <div style={{
-                  position: 'absolute', bottom: 2, right: 2,
-                  width: '20px', height: '20px', borderRadius: '50%',
-                  background: 'var(--accent)', border: '1.5px solid var(--bg-primary)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
-                    <path d="M2 5.5C2 4.67 2.67 4 3.5 4H4.5L5.5 2.5H10.5L11.5 4H12.5C13.33 4 14 4.67 14 5.5V12C14 12.83 13.33 13.5 12.5 13.5H3.5C2.67 13.5 2 12.83 2 12V5.5Z" stroke="#2C0A1E" strokeWidth="1.3" strokeLinejoin="round"/>
-                    <circle cx="8" cy="8.5" r="2" stroke="#2C0A1E" strokeWidth="1.3"/>
-                  </svg>
-                </div>
-              )}
-            </div>
-          </label>
-          {profile?.avatar_url && !uploadingAvatar && (
-            <button onClick={removeAvatar} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '10px', cursor: 'pointer', padding: 0, textDecoration: 'underline', fontFamily: "'DM Sans', sans-serif" }}>
-              Remove
-            </button>
-          )}
+      {/* ── HEADER ─────────────────────────────────────────────────────── */}
+      <div style={{ padding: '28px 20px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', marginBottom: '16px' }}>
+          {/* Avatar */}
+          <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+            <label style={{ cursor: 'pointer' }}>
+              <input type="file" accept="image/*" onChange={handleAvatarPick} style={{ display: 'none' }} />
+              <div style={{ width: '76px', height: '76px', borderRadius: '50%', background: profile?.avatar_url ? 'transparent' : 'var(--bg-chip)', border: '0.5px solid var(--border)', overflow: 'hidden', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {profile?.avatar_url
+                  ? <img src={profile.avatar_url} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : <span style={{ color: 'var(--text-secondary)', fontSize: '24px', fontWeight: '500' }}>{initials}</span>
+                }
+                {uploadingAvatar && (
+                  <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
+                    <span style={{ color: '#fff', fontSize: '11px' }}>...</span>
+                  </div>
+                )}
+                {!uploadingAvatar && (
+                  <div style={{ position: 'absolute', bottom: 2, right: 2, width: '22px', height: '22px', borderRadius: '50%', background: 'var(--accent)', border: '1.5px solid var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+                      <path d="M2 5.5C2 4.67 2.67 4 3.5 4H4.5L5.5 2.5H10.5L11.5 4H12.5C13.33 4 14 4.67 14 5.5V12C14 12.83 13.33 13.5 12.5 13.5H3.5C2.67 13.5 2 12.83 2 12V5.5Z" stroke="#2C0A1E" strokeWidth="1.3" strokeLinejoin="round"/>
+                      <circle cx="8" cy="8.5" r="2" stroke="#2C0A1E" strokeWidth="1.3"/>
+                    </svg>
+                  </div>
+                )}
+              </div>
+            </label>
+            {profile?.avatar_url && !uploadingAvatar && (
+              <button onClick={removeAvatar} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '10px', cursor: 'pointer', padding: 0, textDecoration: 'underline', fontFamily: "'DM Sans', sans-serif" }}>Remove</button>
+            )}
+          </div>
+          {/* Name + badge + location */}
+          <div style={{ flex: 1, minWidth: 0, paddingTop: '4px' }}>
+            <h1 style={{ color: 'var(--text-primary)', fontWeight: '600', fontSize: '20px', letterSpacing: '-0.02em', marginBottom: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {profile?.display_name || 'Set your name'}
+            </h1>
+            <span style={{ background: 'var(--bg-chip)', color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', padding: '3px 10px', borderRadius: '20px' }}>
+              {accountLabel}
+            </span>
+            {profile?.location && (
+              <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '6px' }}>📍 {profile.location}</p>
+            )}
+          </div>
         </div>
-        {/* Name + badge */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h1 style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '20px', letterSpacing: '-0.02em', marginBottom: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {profile?.display_name || 'Set a name'}
-          </h1>
-          <span style={{
-            background: 'var(--bg-chip)', color: 'var(--text-secondary)',
-            fontSize: '11px', fontWeight: '500', padding: '3px 10px',
-            borderRadius: '20px', letterSpacing: '0.04em',
-          }}>
-            {accountLabel}
-          </span>
+        {/* Completion bar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Profile completion</p>
+          <p style={{ color: completion === 100 ? '#6EC97F' : 'var(--accent)', fontSize: '11px', fontWeight: '500' }}>{completion}%</p>
+        </div>
+        <div style={{ height: '4px', background: 'var(--bg-chip)', borderRadius: '2px', overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${completion}%`, background: completion === 100 ? '#6EC97F' : 'var(--accent)', borderRadius: '2px', transition: 'width 0.4s ease' }} />
         </div>
       </div>
 
-      {/* ── Editable fields ── */}
-      <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', overflow: 'hidden' }}>
-        {/* Display name */}
-        <div style={{ padding: '14px 16px', borderBottom: '0.5px solid var(--border)' }}>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>Display name</p>
-          {editingName ? (
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <input value={nameInput} onChange={e => setNameInput(e.target.value)} autoFocus
-                style={{ flex: 1, background: 'var(--bg-chip)', border: '0.5px solid var(--border)', borderRadius: '8px', padding: '8px 12px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none' }} />
-              <button onClick={() => saveField('display_name', nameInput, setEditingName)}
-                style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '8px', padding: '8px 14px', fontSize: '13px', fontWeight: '500', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>Save</button>
-              <button onClick={() => setEditingName(false)} style={{ background: 'none', color: 'var(--text-secondary)', border: 'none', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>✕</button>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <p style={{ color: profile?.display_name ? 'var(--text-primary)' : 'var(--text-secondary)', fontSize: '14px', fontWeight: '500' }}>{profile?.display_name || 'Not set'}</p>
-              <button onClick={() => { setNameInput(profile?.display_name || ''); setEditingName(true) }}
-                style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>Edit</button>
-            </div>
-          )}
+      {/* ── QUICK ACTIONS ──────────────────────────────────────────────── */}
+      <div style={{ padding: '0 20px 24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px' }}>
+          {[
+            { label: 'Saved', href: '/saved', available: true,
+              icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg> },
+            { label: 'Bookings', href: null, available: false,
+              icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> },
+            { label: 'Nail Lab', href: null, available: false,
+              icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg> },
+            { label: 'Mirror', href: null, available: false,
+              icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg> },
+            { label: 'Credits', href: null, available: false,
+              icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> },
+          ].map(({ label, href, icon, available }) => {
+            const card = (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', padding: '12px 4px', background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', position: 'relative', opacity: available ? 1 : 0.5 }}>
+                <span style={{ color: available ? 'var(--accent)' : 'var(--text-secondary)' }}>{icon}</span>
+                <span style={{ color: 'var(--text-secondary)', fontSize: '10px', fontFamily: "'DM Sans', sans-serif", textAlign: 'center' }}>{label}</span>
+                {!available && <span style={{ position: 'absolute', top: 3, right: 3, fontSize: '7px', color: 'var(--text-secondary)', background: 'var(--bg-chip)', padding: '1px 4px', borderRadius: '4px' }}>Soon</span>}
+              </div>
+            )
+            return available && href
+              ? <Link key={label} href={href} style={{ textDecoration: 'none' }}>{card}</Link>
+              : <div key={label}>{card}</div>
+          })}
         </div>
-        {/* Bio */}
-        <div style={{ padding: '14px 16px', borderBottom: '0.5px solid var(--border)' }}>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>Bio</p>
-          {editingBio ? (
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <input value={bioInput} onChange={e => setBioInput(e.target.value)} autoFocus placeholder="Tell us about yourself"
-                style={{ flex: 1, background: 'var(--bg-chip)', border: '0.5px solid var(--border)', borderRadius: '8px', padding: '8px 12px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none' }} />
-              <button onClick={() => saveField('bio', bioInput, setEditingBio)}
-                style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '8px', padding: '8px 14px', fontSize: '13px', fontWeight: '500', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>Save</button>
-              <button onClick={() => setEditingBio(false)} style={{ background: 'none', color: 'var(--text-secondary)', border: 'none', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>✕</button>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <p style={{ color: profile?.bio ? 'var(--text-primary)' : 'var(--text-secondary)', fontSize: '14px' }}>{profile?.bio || 'Not set'}</p>
-              <button onClick={() => { setBioInput(profile?.bio || ''); setEditingBio(true) }}
-                style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>Edit</button>
-            </div>
-          )}
+      </div>
+
+      {/* ── PERSONAL INFO ──────────────────────────────────────────────── */}
+      <div style={{ margin: '0 20px 12px', background: 'var(--bg-card)', borderRadius: '14px', border: '0.5px solid var(--border)', overflow: 'hidden' }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '14px 16px 10px' }}>Personal Info</p>
+        <div style={{ borderTop: '0.5px solid var(--border)' }}>
+          <EditRow label="Display name" field="display_name" value={profile?.display_name} placeholder="Your name" onSave={saveField} />
         </div>
-        {/* Email */}
-        <div style={{ padding: '14px 16px', borderBottom: '0.5px solid var(--border)' }}>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>Email</p>
+        <div style={{ borderTop: '0.5px solid var(--border)', padding: '14px 16px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '6px' }}>Email</p>
           <p style={{ color: 'var(--text-primary)', fontSize: '14px' }}>{user.email}</p>
         </div>
-        {/* Saved count */}
-        <Link href="/saved" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderTop: '0.5px solid var(--border)', textDecoration: 'none' }}>
-          <div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>Saved designs</p>
-            <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500' }}>{savedCount}</p>
-          </div>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4L10 8L6 12" stroke="#888888" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        </Link>
-        {/* Followers / Following */}
-        <div style={{ display: 'flex', borderTop: '0.5px solid var(--border)' }}>
-          <div style={{ flex: 1, padding: '14px 16px' }}>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>Followers</p>
-            <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500' }}>{followerCount}</p>
-          </div>
-          <div style={{ flex: 1, padding: '14px 16px', borderLeft: '0.5px solid var(--border)' }}>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>Following</p>
-            <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500' }}>{followingCount}</p>
-          </div>
+        <div style={{ borderTop: '0.5px solid var(--border)' }}>
+          <EditRow label="Phone number" field="phone_number" value={profile?.phone_number} placeholder="e.g. +971 50 123 4567" onSave={saveField} />
+        </div>
+        <div style={{ borderTop: '0.5px solid var(--border)' }}>
+          <EditRow label="Location" field="location" value={profile?.location} placeholder="Your city or area" onSave={saveField} />
+        </div>
+        <div style={{ borderTop: '0.5px solid var(--border)' }}>
+          <EditRow label="Bio" field="bio" value={profile?.bio} placeholder="Tell us about yourself" multiline onSave={saveField} />
         </div>
       </div>
 
-      <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', overflow: 'hidden' }}>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '14px 16px 8px' }}>Settings</p>
-        {['Dark / light mode', 'Change password', 'Notification preferences'].map((item) => (
-          <div key={item} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderTop: '0.5px solid var(--border)' }}>
-            <p style={{ color: 'var(--text-primary)', fontSize: '14px' }}>{item}</p>
-            <span style={{ background: 'var(--bg-chip)', color: 'var(--text-secondary)', fontSize: '10px', fontWeight: '500', padding: '3px 8px', borderRadius: '20px' }}>Soon</span>
-          </div>
-        ))}
+      {/* ── BOOKING PASSPORT ───────────────────────────────────────────── */}
+      <div style={{ margin: '0 20px 12px', background: 'var(--bg-card)', borderRadius: '14px', border: '0.5px solid var(--border)', overflow: 'hidden' }}>
+        <SectionHeader title="Booking Passport" expanded={expanded.booking} onToggle={() => toggle('booking')} pct={bookingPct} />
+        {expanded.booking && (
+          <>
+            <p style={{ padding: '10px 16px 14px', color: 'var(--text-secondary)', fontSize: '12px', lineHeight: '1.6', borderBottom: '0.5px solid var(--border)' }}>
+              Stored once, used for all your bookings. Salons know how to reach you.
+            </p>
+            <div style={{ padding: '14px 16px' }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '10px' }}>Preferred contact</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {CONTACTS.map(c => {
+                  const active = profile?.preferred_contact === c
+                  return (
+                    <button key={c} onClick={() => saveField('preferred_contact', active ? null : c)} style={btn(active)}>{c}</button>
+                  )
+                })}
+              </div>
+            </div>
+            <div style={{ borderTop: '0.5px solid var(--border)' }}>
+              <EditRow label="Preferred booking area" field="booking_area" value={profile?.booking_area} placeholder="e.g. Dubai Marina, JBR..." onSave={saveField} />
+            </div>
+            <div style={{ borderTop: '0.5px solid var(--border)' }}>
+              <EditRow label="Notes for salons" field="booking_notes" value={profile?.booking_notes} placeholder={`"I need removal first", "prefer quiet appointments"...`} multiline onSave={saveField} />
+            </div>
+          </>
+        )}
       </div>
 
-      {/* ── Become a Creator ── */}
-      {profile?.account_type === 'user' && (
-        <div style={{ background: 'linear-gradient(145deg, rgba(212,160,192,0.10), rgba(212,160,192,0.03))', border: '1px solid rgba(212,160,192,0.3)', borderRadius: '14px', padding: '18px 16px' }}>
+      {/* ── STYLE DNA ──────────────────────────────────────────────────── */}
+      <div style={{ margin: '0 20px 12px', background: 'var(--bg-card)', borderRadius: '14px', border: '0.5px solid var(--border)', overflow: 'hidden' }}>
+        <SectionHeader title="Style DNA" expanded={expanded.styleDNA} onToggle={() => toggle('styleDNA')} pct={stylePct} />
+        {expanded.styleDNA && (
+          <>
+            <p style={{ padding: '10px 16px 14px', color: 'var(--text-secondary)', fontSize: '12px', lineHeight: '1.6', borderBottom: '0.5px solid var(--border)' }}>
+              Your nail preferences. Personalises your feed, search, and Nail Lab results.
+            </p>
+            {[
+              { label: 'Nail shape',           field: 'nail_shape',       options: SHAPES,     single: true  },
+              { label: 'Nail length',           field: 'nail_length',      options: LENGTHS,    single: true  },
+              { label: 'Favourite colours',     field: 'nail_colors',      options: COLORS,     single: false },
+              { label: 'Favourite finishes',    field: 'nail_finishes',    options: FINISHES,   single: false },
+              { label: 'Favourite techniques',  field: 'nail_techniques',  options: TECHNIQUES, single: false },
+              { label: 'Occasions',             field: 'occasions',        options: OCCASIONS,  single: false },
+              { label: 'Budget range',          field: 'budget_range',     options: BUDGETS,    single: true  },
+            ].map(({ label, field, options, single }) => (
+              <div key={field} style={{ borderTop: '0.5px solid var(--border)' }}>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.06em', textTransform: 'uppercase', padding: '14px 16px 10px' }}>{label}</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '0 16px 14px' }}>
+                  {options.map(opt => {
+                    const active = single ? profile?.[field] === opt : (profile?.[field] || []).includes(opt)
+                    return (
+                      <button key={opt} onClick={() => toggleChip(field, opt, single)} style={btn(active)}>{opt}</button>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+
+      {/* ── NAIL HEALTH ────────────────────────────────────────────────── */}
+      <div style={{ margin: '0 20px 12px', background: 'var(--bg-card)', borderRadius: '14px', border: '0.5px solid var(--border)', overflow: 'hidden' }}>
+        <SectionHeader title="Nail Health" expanded={expanded.nailHealth} onToggle={() => toggle('nailHealth')} pct={healthPct} />
+        {expanded.nailHealth && (
+          <>
+            <p style={{ padding: '10px 16px 14px', color: 'var(--text-secondary)', fontSize: '12px', lineHeight: '1.6', borderBottom: '0.5px solid var(--border)' }}>
+              Shared with your nail tech when you make a booking.
+            </p>
+            <div>
+              <EditRow label="Allergies" field="allergies" value={profile?.allergies} placeholder='e.g. "Latex allergy"' onSave={saveField} />
+            </div>
+            <div style={{ borderTop: '0.5px solid var(--border)', padding: '14px 16px' }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '10px' }}>Product sensitivities</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {SENSITIVITIES.map(s => {
+                  const active = (profile?.product_sensitivities || []).includes(s)
+                  return (
+                    <button key={s} onClick={() => toggleChip('product_sensitivities', s, false)}
+                      style={{ ...btn(false), background: active ? 'rgba(224,112,112,0.15)' : 'var(--bg-chip)', color: active ? '#E07070' : 'var(--text-secondary)', border: active ? '0.5px solid rgba(224,112,112,0.4)' : '0.5px solid var(--border)' }}>
+                      {s}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            <div style={{ borderTop: '0.5px solid var(--border)', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <p style={{ color: 'var(--text-primary)', fontSize: '14px', marginBottom: '2px' }}>Removal needed</p>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>I need removal before a new set</p>
+              </div>
+              <button onClick={() => saveField('removal_needed', !profile?.removal_needed)}
+                style={{ width: '44px', height: '26px', borderRadius: '13px', background: profile?.removal_needed ? 'var(--accent)' : 'var(--bg-chip)', border: '0.5px solid var(--border)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '2px', left: profile?.removal_needed ? '20px' : '2px', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
+              </button>
+            </div>
+            <div style={{ borderTop: '0.5px solid var(--border)' }}>
+              <EditRow label="Nail condition notes" field="nail_condition" value={profile?.nail_condition} placeholder='e.g. "Weak nails", "Short nail bed"' onSave={saveField} />
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ── ACTIVITY STATS ─────────────────────────────────────────────── */}
+      <div style={{ margin: '0 20px 12px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+        <Link href="/saved" style={{ textDecoration: 'none', background: 'var(--bg-card)', borderRadius: '12px', padding: '16px 12px', border: '0.5px solid var(--border)', textAlign: 'center' }}>
+          <p style={{ color: 'var(--text-primary)', fontSize: '24px', fontWeight: '600' }}>{savedCount}</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '2px' }}>Saved</p>
+        </Link>
+        <div style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '16px 12px', border: '0.5px solid var(--border)', textAlign: 'center' }}>
+          <p style={{ color: 'var(--text-primary)', fontSize: '24px', fontWeight: '600' }}>{followerCount}</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '2px' }}>Followers</p>
+        </div>
+        <div style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '16px 12px', border: '0.5px solid var(--border)', textAlign: 'center' }}>
+          <p style={{ color: 'var(--text-primary)', fontSize: '24px', fontWeight: '600' }}>{followingCount}</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '2px' }}>Following</p>
+        </div>
+      </div>
+
+      {/* ── CREATOR SECTION ────────────────────────────────────────────── */}
+      {isCreator && (
+        <div style={{ margin: '0 20px 12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase' }}>My Designs</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              {(() => {
+                const used    = profile?.weekly_uploads || 0
+                const isPro   = profile?.is_pro || false
+                const left    = isPro ? null : Math.max(0, 5 - used)
+                const atLimit = !isPro && used >= 5
+                return (
+                  <>
+                    {!isPro && <p style={{ color: atLimit ? '#e57373' : 'var(--text-secondary)', fontSize: '11px' }}>{atLimit ? 'Limit reached' : `${left} left`}</p>}
+                    {!atLimit && <Link href="/upload" style={{ background: 'var(--accent)', color: '#2C0A1E', borderRadius: '20px', padding: '6px 14px', fontSize: '12px', fontWeight: '600', textDecoration: 'none' }}>+ Add</Link>}
+                  </>
+                )
+              })()}
+            </div>
+          </div>
+          <Link href={`/creator/${user.id}`}
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', borderRadius: '12px', padding: '14px 16px', border: '0.5px solid var(--border)', textDecoration: 'none', marginBottom: '10px' }}>
+            <div>
+              <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500', marginBottom: '2px' }}>View public profile</p>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>See how others see your page</p>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4L10 8L6 12" stroke="#888888" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </Link>
+          {myDesigns.length === 0 ? (
+            <div style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '28px 20px', border: '0.5px solid var(--border)', textAlign: 'center' }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '8px' }}>No designs yet</p>
+              <Link href="/upload" style={{ color: 'var(--accent)', fontSize: '13px', textDecoration: 'none', fontWeight: '500' }}>Publish your first design →</Link>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                {myDesigns.slice(0, 6).map(design => (
+                  <Link key={design.id} href={`/design/${design.id}`}
+                    style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', overflow: 'hidden', textDecoration: 'none' }}>
+                    {design.image_url
+                      ? <div style={{ width: '100%', aspectRatio: '1/1', overflow: 'hidden' }}><img src={design.image_url} alt={design.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></div>
+                      : <div style={{ width: '100%', aspectRatio: '1/1', background: 'var(--bg-chip)' }} />
+                    }
+                    <div style={{ padding: '10px 12px 12px' }}>
+                      <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500' }}>{design.title}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+              {myDesigns.length > 6 && (
+                <Link href={`/creator/${user.id}`} style={{ display: 'block', textAlign: 'center', color: 'var(--accent)', fontSize: '13px', textDecoration: 'none', marginTop: '12px' }}>
+                  View all {myDesigns.length} designs →
+                </Link>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── BECOME A CREATOR ───────────────────────────────────────────── */}
+      {!isCreator && (
+        <div style={{ margin: '0 20px 12px', background: 'linear-gradient(145deg, rgba(212,160,192,0.10), rgba(212,160,192,0.03))', border: '1px solid rgba(212,160,192,0.3)', borderRadius: '14px', padding: '18px 16px' }}>
           <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '8px' }}>For Nail Artists & Salons</p>
           <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', marginBottom: '6px' }}>Become a Creator</p>
           <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: '1.6', marginBottom: '14px' }}>Publish your designs, get a public profile, and reach clients discovering nail art on Laque.</p>
-          <button onClick={handleBecomeCreator} style={{
-            width: '100%', background: 'var(--accent)', color: '#2C0A1E',
-            border: 'none', borderRadius: '10px', padding: '12px',
-            fontSize: '14px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif",
-            cursor: 'pointer',
-          }}>
+          <button onClick={handleBecomeCreator}
+            style={{ width: '100%', background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '10px', padding: '12px', fontSize: '14px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
             Switch to Creator Account
           </button>
         </div>
       )}
 
-      <div style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '16px', border: '0.5px solid var(--border)' }}>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>About</p>
-        <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500', marginBottom: '4px' }}>Laque</p>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: '1.6' }}>A curated library of nail & beauty designs — each with full specs, colour codes, and technique details.</p>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '10px' }}>Version 0.1 · Beta</p>
+      {/* ── SETTINGS ───────────────────────────────────────────────────── */}
+      <div style={{ margin: '0 20px 12px', background: 'var(--bg-card)', borderRadius: '14px', border: '0.5px solid var(--border)', overflow: 'hidden' }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '14px 16px 10px' }}>Settings</p>
+        {[
+          { label: 'Notification preferences', desc: 'Appointments, salon updates, trend drops' },
+          { label: 'Privacy settings',         desc: 'Profile visibility, moodboard privacy' },
+          { label: 'Payment methods',           desc: 'Cards for credits and bookings' },
+          { label: 'Language & region',         desc: 'Language, currency, location' },
+          { label: 'Change password',           desc: null },
+        ].map((item) => (
+          <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderTop: '0.5px solid var(--border)' }}>
+            <div>
+              <p style={{ color: 'var(--text-primary)', fontSize: '14px', marginBottom: item.desc ? '2px' : 0 }}>{item.label}</p>
+              {item.desc && <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{item.desc}</p>}
+            </div>
+            <span style={{ background: 'var(--bg-chip)', color: 'var(--text-secondary)', fontSize: '10px', fontWeight: '500', padding: '3px 8px', borderRadius: '20px', flexShrink: 0 }}>Soon</span>
+          </div>
+        ))}
       </div>
 
-      <button onClick={handleLogout}
-        style={{ width: '100%', background: 'none', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px', color: 'var(--text-secondary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", fontWeight: '500', cursor: 'pointer' }}>
-        Log out
-      </button>
+      {/* ── SUPPORT ────────────────────────────────────────────────────── */}
+      <div style={{ margin: '0 20px 12px', background: 'var(--bg-card)', borderRadius: '14px', border: '0.5px solid var(--border)', overflow: 'hidden' }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '14px 16px 10px' }}>Support</p>
+        {[
+          { label: 'Help & Support',  desc: 'Get help with bookings, credits, account' },
+          { label: 'Terms & Privacy', desc: 'Terms of service and privacy policy' },
+        ].map((item) => (
+          <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderTop: '0.5px solid var(--border)' }}>
+            <div>
+              <p style={{ color: 'var(--text-primary)', fontSize: '14px', marginBottom: '2px' }}>{item.label}</p>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{item.desc}</p>
+            </div>
+            <span style={{ background: 'var(--bg-chip)', color: 'var(--text-secondary)', fontSize: '10px', fontWeight: '500', padding: '3px 8px', borderRadius: '20px', flexShrink: 0 }}>Soon</span>
+          </div>
+        ))}
+        <div style={{ padding: '14px 16px', borderTop: '0.5px solid var(--border)' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Laque · Version 0.2 · Beta</p>
+        </div>
+      </div>
 
-      <button onClick={handleDeleteAccount}
-        style={{ width: '100%', background: 'none', border: 'none', padding: '8px', color: '#8B3A3A', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
-        Delete account
-      </button>
+      {/* ── LOGOUT + DELETE ─────────────────────────────────────────────── */}
+      <div style={{ padding: '0 20px 8px' }}>
+        <button onClick={handleLogout}
+          style={{ width: '100%', background: 'none', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px', color: 'var(--text-secondary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", fontWeight: '500', cursor: 'pointer' }}>
+          Log out
+        </button>
+      </div>
+      <div style={{ padding: '0 20px 32px' }}>
+        <button onClick={handleDeleteAccount}
+          style={{ width: '100%', background: 'none', border: 'none', padding: '8px', color: '#8B3A3A', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
+          Delete account
+        </button>
+      </div>
+
     </div>
   )
 }
