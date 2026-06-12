@@ -5,6 +5,7 @@ import ImageCarousel from '@/components/ImageCarousel'
 import ColourSwatches from '@/components/ColourSwatches'
 import ShareButton from '@/components/ShareButton'
 import BackButton from '@/components/BackButton'
+import NailTechCard from '@/components/NailTechCard'
 
 export const dynamic = 'force-dynamic'
 
@@ -189,6 +190,11 @@ export default async function DesignPage({ params, searchParams }) {
             <ColourSwatches colours={colours} />
           </div>
         )}
+
+        {/* Show My Nail Tech — shareable spec card */}
+        <div style={{ marginBottom: '24px' }}>
+          <NailTechCard design={design} colours={colours || []} />
+        </div>
 
         {/* Tags — clickable, navigate to search filtered by tag */}
         {tags.length > 0 && (
