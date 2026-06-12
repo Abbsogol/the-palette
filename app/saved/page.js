@@ -17,6 +17,19 @@ export default function SavedPage() {
   const [addingTo, setAddingTo] = useState(null) // collection id being added to
   const [keyboardOffset, setKeyboardOffset] = useState(0)
 
+  // Restore scroll position after navigating back
+  useEffect(() => {
+    if (!loading) {
+      const saved = sessionStorage.getItem('saved-scroll')
+      if (saved) {
+        setTimeout(() => {
+          window.scrollTo(0, parseInt(saved))
+          sessionStorage.removeItem('saved-scroll')
+        }, 50)
+      }
+    }
+  }, [loading])
+
   // Lift sheet above keyboard on mobile
   useEffect(() => {
     if (typeof window === 'undefined' || !window.visualViewport) return
@@ -133,7 +146,7 @@ export default function SavedPage() {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             {collections.map(col => (
-              <Link key={col.id} href={`/collection/${col.id}`} style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', overflow: 'hidden', textDecoration: 'none', display: 'block', position: 'relative' }}>
+              <Link key={col.id} href={`/collection/${col.id}`} onClick={() => sessionStorage.setItem('saved-scroll', window.scrollY.toString())} style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', overflow: 'hidden', textDecoration: 'none', display: 'block', position: 'relative' }}>
                 <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--bg-chip)', overflow: 'hidden' }}>
                   {getCover(col) ? (
                     <img src={getCover(col)} alt={col.name} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
@@ -169,7 +182,7 @@ export default function SavedPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             {designs.map(design => (
               <div key={design.id} style={{ position: 'relative' }}>
-                <Link href={`/design/${design.id}`} style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', overflow: 'hidden', textDecoration: 'none', display: 'block' }}>
+                <Link href={`/design/${design.id}`} onClick={() => sessionStorage.setItem('saved-scroll', window.scrollY.toString())} style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', overflow: 'hidden', textDecoration: 'none', display: 'block' }}>
                   {design.image_url ? (
                     <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden' }}>
                       <img src={design.image_url} alt={design.title} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
