@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
@@ -15,6 +15,22 @@ export default function SavedPage() {
   const [newColName, setNewColName] = useState('')
   const [creatingCol, setCreatingCol] = useState(false)
   const [addingTo, setAddingTo] = useState(null) // collection id being added to
+  const [keyboardOffset, setKeyboardOffset] = useState(0)
+
+  // Lift sheet above keyboard on mobile
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return
+    const handler = () => {
+      const offset = Math.max(0, window.innerHeight - window.visualViewport.offsetTop - window.visualViewport.height)
+      setKeyboardOffset(offset)
+    }
+    window.visualViewport.addEventListener('resize', handler)
+    window.visualViewport.addEventListener('scroll', handler)
+    return () => {
+      window.visualViewport.removeEventListener('resize', handler)
+      window.visualViewport.removeEventListener('scroll', handler)
+    }
+  }, [])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -193,7 +209,12 @@ export default function SavedPage() {
         >
           <div
             onClick={e => e.stopPropagation()}
-            style={{ width: '100%', background: 'var(--bg-card)', borderRadius: '20px 20px 0 0', padding: '24px 20px 40px', maxHeight: '70vh', overflowY: 'auto' }}
+            style={{
+              width: '100%', background: 'var(--bg-card)', borderRadius: '20px 20px 0 0',
+              padding: '24px 20px 32px', maxHeight: '80vh', overflowY: 'auto',
+              transform: `translateY(-${keyboardOffset}px)`,
+              transition: 'transform 0.15s ease',
+            }}
           >
             <div style={{ width: '36px', height: '4px', background: 'var(--border)', borderRadius: '2px', margin: '0 auto 20px' }} />
             <p style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '500', marginBottom: '16px' }}>
@@ -234,7 +255,6 @@ export default function SavedPage() {
                 value={newColName}
                 onChange={e => setNewColName(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && createCollection()}
-                autoFocus
                 style={{ flex: 1, background: 'var(--bg-chip)', border: '0.5px solid var(--border)', borderRadius: '10px', padding: '12px 14px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none' }}
               />
               <button
