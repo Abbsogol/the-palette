@@ -193,6 +193,12 @@ export default function ProfilePage() {
   }
 
 
+  const removeAvatar = async () => {
+    if (!confirm('Remove profile photo?')) return
+    const { error } = await supabase.from('profiles').update({ avatar_url: null }).eq('id', user.id)
+    if (!error) setProfile(prev => ({ ...prev, avatar_url: null }))
+  }
+
   const handleAvatarUpload = async (e) => {
     const file = e.target.files[0]
     if (!file || !user) return
@@ -556,41 +562,47 @@ export default function ProfilePage() {
       {/* ── Profile header ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '4px 0' }}>
         {/* Avatar */}
-        <label style={{ cursor: 'pointer', flexShrink: 0 }}>
-          <input type="file" accept="image/*" onChange={handleAvatarUpload} style={{ display: 'none' }} />
-          <div style={{
-            width: '72px', height: '72px', borderRadius: '50%',
-            background: profile?.avatar_url ? 'transparent' : 'var(--bg-chip)',
-            border: '0.5px solid var(--border)',
-            overflow: 'hidden', position: 'relative',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            {profile?.avatar_url ? (
-              <img src={profile.avatar_url} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              <span style={{ color: 'var(--text-secondary)', fontSize: '22px', fontWeight: '500' }}>{initials}</span>
-            )}
-            {uploadingAvatar && (
-              <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
-                <span style={{ color: '#fff', fontSize: '11px' }}>...</span>
-              </div>
-            )}
-            {/* Small camera badge bottom-right */}
-            {!uploadingAvatar && (
-              <div style={{
-                position: 'absolute', bottom: 2, right: 2,
-                width: '20px', height: '20px', borderRadius: '50%',
-                background: 'var(--accent)', border: '1.5px solid var(--bg-primary)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
-                  <path d="M2 5.5C2 4.67 2.67 4 3.5 4H4.5L5.5 2.5H10.5L11.5 4H12.5C13.33 4 14 4.67 14 5.5V12C14 12.83 13.33 13.5 12.5 13.5H3.5C2.67 13.5 2 12.83 2 12V5.5Z" stroke="#2C0A1E" strokeWidth="1.3" strokeLinejoin="round"/>
-                  <circle cx="8" cy="8.5" r="2" stroke="#2C0A1E" strokeWidth="1.3"/>
-                </svg>
-              </div>
-            )}
-          </div>
-        </label>
+        <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+          <label style={{ cursor: 'pointer' }}>
+            <input type="file" accept="image/*" onChange={handleAvatarUpload} style={{ display: 'none' }} />
+            <div style={{
+              width: '72px', height: '72px', borderRadius: '50%',
+              background: profile?.avatar_url ? 'transparent' : 'var(--bg-chip)',
+              border: '0.5px solid var(--border)',
+              overflow: 'hidden', position: 'relative',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              {profile?.avatar_url ? (
+                <img src={profile.avatar_url} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <span style={{ color: 'var(--text-secondary)', fontSize: '22px', fontWeight: '500' }}>{initials}</span>
+              )}
+              {uploadingAvatar && (
+                <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
+                  <span style={{ color: '#fff', fontSize: '11px' }}>...</span>
+                </div>
+              )}
+              {!uploadingAvatar && (
+                <div style={{
+                  position: 'absolute', bottom: 2, right: 2,
+                  width: '20px', height: '20px', borderRadius: '50%',
+                  background: 'var(--accent)', border: '1.5px solid var(--bg-primary)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+                    <path d="M2 5.5C2 4.67 2.67 4 3.5 4H4.5L5.5 2.5H10.5L11.5 4H12.5C13.33 4 14 4.67 14 5.5V12C14 12.83 13.33 13.5 12.5 13.5H3.5C2.67 13.5 2 12.83 2 12V5.5Z" stroke="#2C0A1E" strokeWidth="1.3" strokeLinejoin="round"/>
+                    <circle cx="8" cy="8.5" r="2" stroke="#2C0A1E" strokeWidth="1.3"/>
+                  </svg>
+                </div>
+              )}
+            </div>
+          </label>
+          {profile?.avatar_url && !uploadingAvatar && (
+            <button onClick={removeAvatar} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '10px', cursor: 'pointer', padding: 0, textDecoration: 'underline', fontFamily: "'DM Sans', sans-serif" }}>
+              Remove
+            </button>
+          )}
+        </div>
         {/* Name + badge */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <h1 style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '20px', letterSpacing: '-0.02em', marginBottom: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

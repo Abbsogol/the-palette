@@ -179,11 +179,19 @@ export default function Home() {
         return (
           <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#000', overflow: 'hidden' }}>
 
-            {/* Full-bleed image */}
+            {/* Blurred background */}
+            <div style={{
+              position: 'absolute', inset: 0,
+              backgroundImage: `url(${story.image_url})`,
+              backgroundSize: 'cover', backgroundPosition: 'center',
+              filter: 'blur(18px) brightness(0.35)',
+              transform: 'scale(1.08)',
+            }} />
+            {/* Actual image — contained so nothing gets cropped */}
             <img
               src={story.image_url}
               alt="story"
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
             />
 
             {/* Top gradient */}
@@ -222,29 +230,32 @@ export default function Home() {
               onClick={nextStory} />
 
             {/* Bottom: caption + actions */}
-            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '12px 20px 44px', zIndex: 3 }}>
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '12px 20px 32px', zIndex: 3 }}>
               {story.caption && (
-                <p style={{ color: '#fff', fontSize: '14px', lineHeight: '1.5', marginBottom: '14px', textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
+                <p style={{ color: '#fff', fontSize: '14px', lineHeight: '1.5', marginBottom: '16px', textShadow: '0 1px 6px rgba(0,0,0,0.8)' }}>
                   {story.caption}
                 </p>
               )}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 {/* Heart */}
                 <button
                   onClick={toggleLike}
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '20px', padding: '8px 16px', color: '#fff', fontSize: '13px', fontWeight: '500', cursor: currentUser ? 'pointer' : 'default', backdropFilter: 'blur(4px)', fontFamily: "'DM Sans', sans-serif" }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.45)', border: '0.5px solid rgba(255,255,255,0.2)', borderRadius: '24px', padding: '10px 18px', color: '#fff', fontSize: '13px', fontWeight: '500', cursor: currentUser ? 'pointer' : 'default', backdropFilter: 'blur(8px)', fontFamily: "'DM Sans', sans-serif" }}
                 >
                   <svg width="16" height="16" viewBox="0 0 16 16" fill={liked ? '#D4A0C0' : 'none'}>
                     <path d="M8 13.5C8 13.5 1.5 9.5 1.5 5.5C1.5 3.5 3 2 5 2C6.2 2 7.2 2.6 8 3.5C8.8 2.6 9.8 2 11 2C13 2 14.5 3.5 14.5 5.5C14.5 9.5 8 13.5 8 13.5Z" stroke={liked ? '#D4A0C0' : '#fff'} strokeWidth="1.3" strokeLinejoin="round"/>
                   </svg>
-                  {likeCount > 0 ? likeCount : ''}
+                  {likeCount > 0 ? likeCount : 'Like'}
                 </button>
                 {/* Delete (own stories only) */}
                 {isOwn && (
                   <button
                     onClick={deleteStory}
-                    style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '20px', padding: '8px 16px', color: '#fff', fontSize: '13px', cursor: 'pointer', backdropFilter: 'blur(4px)', fontFamily: "'DM Sans', sans-serif" }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.45)', border: '0.5px solid rgba(255,255,255,0.2)', borderRadius: '24px', padding: '10px 18px', color: '#fff', fontSize: '13px', cursor: 'pointer', backdropFilter: 'blur(8px)', fontFamily: "'DM Sans', sans-serif" }}
                   >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                      <path d="M3 4h10M6 4V3h4v1M5 4v8a1 1 0 001 1h4a1 1 0 001-1V4" stroke="#fff" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
                     Delete
                   </button>
                 )}
