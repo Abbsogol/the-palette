@@ -133,6 +133,8 @@ export default function ProfilePage() {
   const [chosenType, setChosenType]       = useState(null)
   const [error, setError]                 = useState('')
   const [submitting, setSubmitting]       = useState(false)
+  const [termsAccepted, setTermsAccepted] = useState(false)
+  const [marketingConsent, setMarketingConsent] = useState(false)
   const [resetMode, setResetMode]         = useState(false)
   const [newPassword, setNewPassword]     = useState('')
   const [resetDone, setResetDone]         = useState(false)
@@ -207,6 +209,7 @@ export default function ProfilePage() {
     e.preventDefault()
     if (password.length < 6) { setError('Password must be at least 6 characters'); return }
     if (!displayName.trim()) { setError('Please enter a display name'); return }
+    if (!termsAccepted) { setError('Please accept the Terms & Privacy Policy to continue'); return }
     setError(''); setMode('choose-type')
   }
 
@@ -422,6 +425,24 @@ export default function ProfilePage() {
           )}
           <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required style={inp} />
           <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required style={inp} />
+          {mode === 'signup' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: '4px' }}>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
+                <input type="checkbox" checked={termsAccepted} onChange={e => setTermsAccepted(e.target.checked)}
+                  style={{ marginTop: '2px', accentColor: 'var(--accent)', flexShrink: 0 }} />
+                <span style={{ color: 'var(--text-secondary)', fontSize: '12px', lineHeight: '1.5' }}>
+                  I agree to the <span style={{ color: 'var(--accent)' }}>Terms of Service</span> and <span style={{ color: 'var(--accent)' }}>Privacy Policy</span>
+                </span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
+                <input type="checkbox" checked={marketingConsent} onChange={e => setMarketingConsent(e.target.checked)}
+                  style={{ marginTop: '2px', accentColor: 'var(--accent)', flexShrink: 0 }} />
+                <span style={{ color: 'var(--text-secondary)', fontSize: '12px', lineHeight: '1.5' }}>
+                  Send me updates on new designs, features, and nail trends (optional)
+                </span>
+              </label>
+            </div>
+          )}
           {error && <p style={{ color: '#E07070', fontSize: '13px' }}>{error}</p>}
           <button type="submit" disabled={submitting}
             style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", fontWeight: '500', cursor: 'pointer', marginTop: '4px' }}>

@@ -455,7 +455,7 @@ export default function LandingPage() {
                 animation: 'fadeUp 0.6s ease 0.35s both',
               }}>
                 Your next nail set,{' '}
-                <span style={{ color:'var(--text-primary)', fontWeight:'500' }}>fully specced.</span>
+                <span style={{ color:'var(--text-primary)', fontWeight:'500' }}>designed, tried on, and booked.</span>
               </p>
 
               <div style={{
@@ -463,12 +463,12 @@ export default function LandingPage() {
                 animation: 'fadeUp 0.6s ease 0.48s both',
               }}>
                 <Link href="/feed" className="lq-cta-primary">
-                  Explore designs
+                  Explore Designs
                   <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                     <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </Link>
-                <Link href="/profile" className="lq-cta-secondary">Sign up free</Link>
+                <Link href="/profile" className="lq-cta-secondary">Join as Creator</Link>
               </div>
             </div>
 
@@ -628,8 +628,8 @@ export default function LandingPage() {
                 color: 'var(--text-primary)', letterSpacing: '-0.03em',
                 lineHeight: '1.15', marginBottom: '14px',
               }}>
-                Publish your work.{' '}
-                <span style={{ color:'var(--accent)' }}>Get discovered.</span>
+                Turn your nail work{' '}
+                <span style={{ color:'var(--accent)' }}>into bookings.</span>
               </h2>
 
               <p style={{
@@ -641,9 +641,9 @@ export default function LandingPage() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
                 {[
-                  'Public portfolio — your work, your page',
-                  'Get found by clients browsing for inspo',
-                  'Post with colour codes & technique notes',
+                  'Post designs with full specs — colour codes, techniques, price',
+                  'Receive appointment requests from clients browsing your work',
+                  'Manage your portfolio, calendar, and client notes',
                 ].map(text => (
                   <div key={text} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <span style={{ width:'4px', height:'4px', borderRadius:'50%', background:'var(--accent)', flexShrink:0 }} />
@@ -763,21 +763,128 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ════ NAIL LAB TEASER ════ */}
+      <section style={{
+        padding: '52px 24px 56px',
+        background: 'var(--bg-primary)',
+        position: 'relative', zIndex: 3,
+        borderTop: '0.5px solid var(--border)',
+      }}>
+        <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'14px' }}>
+          <span style={{ fontSize:'20px', lineHeight:1 }}>✨</span>
+          <p style={{ color:'var(--accent)', fontSize:'11px', fontWeight:'500', letterSpacing:'0.09em', textTransform:'uppercase' }}>Nail Lab</p>
+        </div>
+        <h2 style={{ fontSize:'clamp(22px, 6vw, 28px)', fontWeight:'600', color:'var(--text-primary)', letterSpacing:'-0.03em', lineHeight:'1.2', marginBottom:'12px' }}>
+          Create your own nail design with Nail Lab
+        </h2>
+        <p style={{ color:'var(--text-secondary)', fontSize:'14px', lineHeight:'1.7', marginBottom:'20px', maxWidth:'320px' }}>
+          Use credits to generate custom nail designs by colour, mood, occasion, shape, length, and style. Save, share, or book your generated look.
+        </p>
+        <div style={{ display:'flex', flexDirection:'column', gap:'10px', marginBottom:'24px' }}>
+          {[
+            'Describe your vision — AI generates it instantly',
+            'Try the result in Nail Mirror before booking',
+            'Send the spec directly to your nail tech',
+          ].map(t => (
+            <div key={t} style={{ display:'flex', alignItems:'flex-start', gap:'10px' }}>
+              <span style={{ color:'var(--accent)', fontSize:'12px', marginTop:'2px', flexShrink:0 }}>✓</span>
+              <span style={{ color:'var(--text-primary)', fontSize:'13px', lineHeight:'1.5' }}>{t}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ display:'inline-flex', alignItems:'center', gap:'8px', background:'var(--bg-chip)', border:'0.5px solid var(--border)', borderRadius:'20px', padding:'8px 16px' }}>
+          <span style={{ width:'6px', height:'6px', borderRadius:'50%', background:'var(--accent)', flexShrink:0 }} />
+          <span style={{ color:'var(--text-secondary)', fontSize:'12px', fontWeight:'500' }}>Coming soon — join the waitlist at signup</span>
+        </div>
+      </section>
+
+      {/* ════ NAIL MIRROR TEASER ════ */}
+      <section style={{
+        padding: '52px 24px 56px',
+        background: 'var(--bg-card)',
+        position: 'relative', zIndex: 3,
+        borderTop: '0.5px solid var(--border)',
+      }}>
+        <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'14px' }}>
+          <span style={{ fontSize:'20px', lineHeight:1 }}>🪞</span>
+          <p style={{ color:'var(--accent)', fontSize:'11px', fontWeight:'500', letterSpacing:'0.09em', textTransform:'uppercase' }}>Nail Mirror</p>
+        </div>
+        <h2 style={{ fontSize:'clamp(22px, 6vw, 28px)', fontWeight:'600', color:'var(--text-primary)', letterSpacing:'-0.03em', lineHeight:'1.2', marginBottom:'12px' }}>
+          Try designs on your hand with Nail Mirror
+        </h2>
+        <p style={{ color:'var(--text-secondary)', fontSize:'14px', lineHeight:'1.7', marginBottom:'20px', maxWidth:'320px' }}>
+          Preview how any design looks on your actual hand before you save it or book your appointment. No guessing.
+        </p>
+        <div style={{ display:'flex', flexDirection:'column', gap:'10px', marginBottom:'24px' }}>
+          {[
+            'Point your camera at your hand — see the design in real time',
+            'Try multiple looks before committing to one',
+            'Works with any design in the Laque library',
+          ].map(t => (
+            <div key={t} style={{ display:'flex', alignItems:'flex-start', gap:'10px' }}>
+              <span style={{ color:'var(--accent)', fontSize:'12px', marginTop:'2px', flexShrink:0 }}>✓</span>
+              <span style={{ color:'var(--text-primary)', fontSize:'13px', lineHeight:'1.5' }}>{t}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ display:'inline-flex', alignItems:'center', gap:'8px', background:'var(--bg-chip)', border:'0.5px solid var(--border)', borderRadius:'20px', padding:'8px 16px' }}>
+          <span style={{ width:'6px', height:'6px', borderRadius:'50%', background:'var(--accent)', flexShrink:0 }} />
+          <span style={{ color:'var(--text-secondary)', fontSize:'12px', fontWeight:'500' }}>Coming soon — AR try-on for every design</span>
+        </div>
+      </section>
+
+      {/* ════ SALON SECTION ════ */}
+      <section style={{
+        padding: '52px 24px 56px',
+        background: 'var(--bg-primary)',
+        position: 'relative', zIndex: 3,
+        borderTop: '0.5px solid var(--border)',
+      }}>
+        <div style={{ display:'inline-flex', alignItems:'center', gap:'7px', background:'rgba(212,160,192,0.1)', border:'0.5px solid rgba(212,160,192,0.3)', borderRadius:'20px', padding:'5px 12px 5px 8px', marginBottom:'16px' }}>
+          <span style={{ width:'5px', height:'5px', borderRadius:'50%', background:'var(--accent)', display:'inline-block', flexShrink:0 }} />
+          <span style={{ color:'var(--accent)', fontSize:'11px', fontWeight:'500', letterSpacing:'0.07em', textTransform:'uppercase' }}>For salon owners</span>
+        </div>
+        <h2 style={{ fontSize:'clamp(22px, 6vw, 28px)', fontWeight:'600', color:'var(--text-primary)', letterSpacing:'-0.03em', lineHeight:'1.2', marginBottom:'12px' }}>
+          Manage your salon and nail techs in one place
+        </h2>
+        <p style={{ color:'var(--text-secondary)', fontSize:'14px', lineHeight:'1.7', marginBottom:'20px', maxWidth:'320px' }}>
+          Create nail tech profiles, manage team availability, receive appointments, and showcase your salon portfolio — all from one dashboard.
+        </p>
+        <div style={{ display:'flex', flexDirection:'column', gap:'10px', marginBottom:'24px' }}>
+          {[
+            'One salon page — multiple nail tech profiles under it',
+            'Team calendar: set availability per tech, block dates, manage slots',
+            'Clients discover and book your team directly through Laque',
+          ].map(t => (
+            <div key={t} style={{ display:'flex', alignItems:'flex-start', gap:'10px' }}>
+              <span style={{ color:'var(--accent)', fontSize:'12px', marginTop:'2px', flexShrink:0 }}>✓</span>
+              <span style={{ color:'var(--text-primary)', fontSize:'13px', lineHeight:'1.5' }}>{t}</span>
+            </div>
+          ))}
+        </div>
+        <Link href="/profile" className="lq-cta-creator">
+          Create salon page
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+            <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </Link>
+      </section>
+
       {/* ════ FINAL CTA ════ */}
       <section style={{
         padding: '40px 24px 56px', textAlign: 'center',
         borderTop: '0.5px solid var(--border)',
-        background: 'var(--bg-primary)',
+        background: 'var(--bg-card)',
         position: 'relative', zIndex: 3,
       }}>
         <p style={{ color:'var(--text-primary)', fontSize:'22px', fontWeight:'500', letterSpacing:'-0.02em', lineHeight:'1.3', marginBottom:'10px' }}>
-          Ready to find your next set?
+          Find your next nail look today
         </p>
         <p style={{ color:'var(--text-secondary)', fontSize:'14px', marginBottom:'28px', lineHeight:'1.6' }}>
-          Browse free. Save what you love.<br />Show your nail tech.
+          Browse free. Save what you love. Show your nail tech.
         </p>
         <Link href="/feed" className="lq-cta-primary" style={{ display:'inline-flex' }}>
-          Start exploring
+          Explore Designs
           <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
             <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
