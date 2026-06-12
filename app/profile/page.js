@@ -15,6 +15,7 @@ const OCCASIONS  = ['Everyday','Bridal','Party','Work','Vacation','Eid','Birthda
 const BUDGETS    = ['Under $50','$50–$100','$100–$150','$150+']
 const CONTACTS   = ['App notification','SMS','Email','WhatsApp','Phone call']
 const SENSITIVITIES = ['Acrylic','Gel','Acetone','Glue','BIAB','Primer','UV light']
+const UNDERTONES    = ['Warm','Cool','Neutral','Olive','Deep Warm','Deep Cool']
 
 // ── Profile completion score ───────────────────────────────────────────────
 const calcCompletion = (p, u) => {
@@ -684,6 +685,84 @@ export default function ProfilePage() {
               <EditRow label="Nail condition notes" field="nail_condition" value={profile?.nail_condition} placeholder='e.g. "Weak nails", "Short nail bed"' onSave={saveField} />
             </div>
           </>
+        )}
+      </div>
+
+      {/* ── AR PROFILE ─────────────────────────────────────────────────── */}
+      <div style={{ margin: '0 20px 12px', background: 'var(--bg-card)', borderRadius: '14px', border: '0.5px solid var(--border)', overflow: 'hidden' }}>
+        <SectionHeader title="Nail Canvas" expanded={expanded.arProfile} onToggle={() => toggle('arProfile')} />
+        {expanded.arProfile && (
+          <>
+            <p style={{ padding: '10px 16px 14px', color: 'var(--text-secondary)', fontSize: '12px', lineHeight: '1.6', borderBottom: '0.5px solid var(--border)' }}>
+              Used by Nail Mirror for accurate AR previews and better colour recommendations.
+            </p>
+            {/* Skin undertone */}
+            <div style={{ padding: '14px 16px', borderBottom: '0.5px solid var(--border)' }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '10px' }}>Skin undertone</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {UNDERTONES.map(u => {
+                  const active = profile?.skin_undertone === u
+                  return (
+                    <button key={u} onClick={() => saveField('skin_undertone', active ? null : u)} style={btn(active)}>{u}</button>
+                  )
+                })}
+              </div>
+            </div>
+            {/* Hand photo */}
+            <div style={{ padding: '14px 16px' }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '10px' }}>Hand photo</p>
+              {profile?.hand_photo_url ? (
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                  <img src={profile.hand_photo_url} alt="Hand" style={{ width: '140px', height: '100px', objectFit: 'cover', borderRadius: '10px', border: '0.5px solid var(--border)', display: 'block' }} />
+                  <button onClick={() => saveField('hand_photo_url', null)}
+                    style={{ position: 'absolute', top: '6px', right: '6px', width: '22px', height: '22px', borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                </div>
+              ) : (
+                <label style={{ cursor: 'pointer', display: 'inline-block' }}>
+                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async (e) => {
+                    const file = e.target.files[0]; if (!file) return
+                    const path = `hand-photos/${user.id}/${Date.now()}.jpg`
+                    const { error } = await supabase.storage.from('designs').upload(path, file, { upsert: false })
+                    if (error) { alert('Upload failed: ' + error.message); return }
+                    const { data: { publicUrl } } = supabase.storage.from('designs').getPublicUrl(path)
+                    await saveField('hand_photo_url', publicUrl)
+                    e.target.value = ''
+                  }} />
+                  <div style={{ width: '140px', height: '100px', background: 'var(--bg-chip)', borderRadius: '10px', border: '0.5px dashed var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Upload photo</span>
+                  </div>
+                </label>
+              )}
+              <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '8px', lineHeight: '1.5' }}>Optional — used for Nail Mirror AR previews</p>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ── CREDITS WALLET ─────────────────────────────────────────────── */}
+      <div style={{ margin: '0 20px 12px', background: 'var(--bg-card)', borderRadius: '14px', border: '0.5px solid var(--border)', overflow: 'hidden' }}>
+        <div style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>Design Credits</p>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+              <span style={{ color: 'var(--text-primary)', fontSize: '28px', fontWeight: '600', letterSpacing: '-0.03em' }}>{profile?.credit_balance ?? 0}</span>
+              <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>credits</span>
+            </div>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '4px' }}>Used for Nail Lab AI generations</p>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+            <span style={{ background: 'var(--bg-chip)', color: 'var(--text-secondary)', fontSize: '10px', fontWeight: '500', padding: '4px 10px', borderRadius: '20px' }}>Buy Credits — Soon</span>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.3" opacity="0.5">
+              <rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>
+            </svg>
+          </div>
+        </div>
+        {(profile?.credit_balance ?? 0) === 0 && (
+          <div style={{ borderTop: '0.5px solid var(--border)', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#E07070', flexShrink: 0 }} />
+            <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>No credits — you'll need credits to generate designs in Nail Lab</p>
+          </div>
         )}
       </div>
 
