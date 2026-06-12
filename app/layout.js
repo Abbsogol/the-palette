@@ -2,7 +2,7 @@ import './globals.css'
 import BottomNav from '@/components/BottomNav'
 import { Analytics } from '@vercel/analytics/react'
 
-const APP_URL = 'https://the-palette-one.vercel.app'
+const APP_URL = 'https://laque.app'
 
 export const metadata = {
   title: 'Laque',

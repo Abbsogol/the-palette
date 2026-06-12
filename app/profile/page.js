@@ -134,7 +134,7 @@ export default function ProfilePage() {
   const handleGoogleSignIn = async () => {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: 'https://the-palette-one.vercel.app/profile' }
+      options: { redirectTo: 'https://laque.app/profile' }
     })
   }
 
