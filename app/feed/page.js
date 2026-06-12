@@ -24,10 +24,15 @@ export default function Home() {
   const [loading, setLoading]         = useState(true)
 
   // Stories state
-  const [stories, setStories]         = useState([])   // [{user_id, display_name, avatar_url, latest_story}]
+  const [stories, setStories]         = useState([])
   const [currentUser, setCurrentUser] = useState(null)
-  const [viewingStories, setViewingStories] = useState(null) // array of story objects for the viewed user
+  const [viewingStories, setViewingStories] = useState(null)
   const [storyIndex, setStoryIndex]   = useState(0)
+  const [viewedUsers, setViewedUsers] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('viewed-stories') || '[]')) } catch { return new Set() }
+  })
+  const [storyLikes, setStoryLikes]   = useState(new Set())   // story IDs liked by current user
+  const [likeCounts, setLikeCounts]   = useState({})          // story_id → count
 
   useEffect(() => {
     const load = async () => {
@@ -77,16 +82,35 @@ export default function Home() {
     }
   }, [loading])
 
-  const openStories = (userId) => {
-    // Get all stories for this user, ordered oldest→newest so we can page through
-    supabase.from('stories')
+  const openStories = async (userId) => {
+    const { data } = await supabase.from('stories')
       .select('*, profiles(display_name, avatar_url)')
       .eq('user_id', userId)
       .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
       .order('created_at', { ascending: true })
-      .then(({ data }) => {
-        if (data?.length) { setViewingStories(data); setStoryIndex(0) }
-      })
+    if (!data?.length) return
+
+    // Mark as viewed
+    const next = new Set(viewedUsers)
+    next.add(userId)
+    setViewedUsers(next)
+    localStorage.setItem('viewed-stories', JSON.stringify([...next]))
+
+    // Load likes for these stories
+    const ids = data.map(s => s.id)
+    const [{ data: myLikes }, { data: counts }] = await Promise.all([
+      currentUser
+        ? supabase.from('story_likes').select('story_id').eq('user_id', currentUser.id).in('story_id', ids)
+        : Promise.resolve({ data: [] }),
+      supabase.from('story_likes').select('story_id').in('story_id', ids),
+    ])
+    setStoryLikes(new Set(myLikes?.map(l => l.story_id) || []))
+    const countMap = {}
+    counts?.forEach(l => { countMap[l.story_id] = (countMap[l.story_id] || 0) + 1 })
+    setLikeCounts(countMap)
+
+    setViewingStories(data)
+    setStoryIndex(0)
   }
 
   const closeStories = () => { setViewingStories(null); setStoryIndex(0) }
@@ -98,6 +122,33 @@ export default function Home() {
 
   const prevStory = () => {
     if (storyIndex > 0) setStoryIndex(i => i - 1)
+  }
+
+  const toggleLike = async (e) => {
+    e.stopPropagation()
+    if (!currentUser || !viewingStories) return
+    const storyId = viewingStories[storyIndex].id
+    const liked = storyLikes.has(storyId)
+    if (liked) {
+      await supabase.from('story_likes').delete().eq('story_id', storyId).eq('user_id', currentUser.id)
+      setStoryLikes(prev => { const s = new Set(prev); s.delete(storyId); return s })
+      setLikeCounts(prev => ({ ...prev, [storyId]: Math.max(0, (prev[storyId] || 1) - 1) }))
+    } else {
+      await supabase.from('story_likes').insert({ story_id: storyId, user_id: currentUser.id })
+      setStoryLikes(prev => new Set([...prev, storyId]))
+      setLikeCounts(prev => ({ ...prev, [storyId]: (prev[storyId] || 0) + 1 }))
+    }
+  }
+
+  const deleteStory = async (e) => {
+    e.stopPropagation()
+    if (!viewingStories) return
+    const story = viewingStories[storyIndex]
+    if (!confirm('Delete this story?')) return
+    await supabase.from('stories').delete().eq('id', story.id)
+    const remaining = viewingStories.filter((_, i) => i !== storyIndex)
+    if (remaining.length === 0) { closeStories(); setStories(prev => prev.filter(s => s.user_id !== story.user_id)) }
+    else { setViewingStories(remaining); setStoryIndex(Math.min(storyIndex, remaining.length - 1)) }
   }
 
   const filtered = designs
@@ -120,76 +171,88 @@ export default function Home() {
     <div style={{ paddingBottom: '24px' }}>
 
       {/* ── Full-screen story viewer overlay ──────────────────────────────────── */}
-      {viewingStories && (
-        <div
-          onClick={nextStory}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 9999,
-            background: '#000',
-            display: 'flex', flexDirection: 'column',
-          }}
-        >
-          {/* Progress bars */}
-          <div style={{ display: 'flex', gap: '4px', padding: '12px 12px 0', position: 'relative', zIndex: 2 }}>
-            {viewingStories.map((_, i) => (
-              <div key={i} style={{ flex: 1, height: '2px', borderRadius: '2px', background: i <= storyIndex ? '#fff' : 'rgba(255,255,255,0.3)' }} />
-            ))}
-          </div>
+      {viewingStories && (() => {
+        const story = viewingStories[storyIndex]
+        const isOwn = story.user_id === currentUser?.id
+        const liked = storyLikes.has(story.id)
+        const likeCount = likeCounts[story.id] || 0
+        return (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#000', overflow: 'hidden' }}>
 
-          {/* Top bar */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', position: 'relative', zIndex: 2 }}
-            onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#333', overflow: 'hidden', border: '1.5px solid #D4A0C0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                {viewingStories[storyIndex].profiles?.avatar_url ? (
-                  <img src={viewingStories[storyIndex].profiles.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  <span style={{ color: '#D4A0C0', fontSize: '14px', fontWeight: '500' }}>
-                    {(viewingStories[storyIndex].profiles?.display_name || '?')[0].toUpperCase()}
-                  </span>
-                )}
-              </div>
-              <div>
-                <p style={{ color: '#fff', fontSize: '14px', fontWeight: '500', lineHeight: 1 }}>
-                  {viewingStories[storyIndex].profiles?.display_name || 'User'}
-                </p>
-                <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '11px', marginTop: '2px' }}>
-                  {timeAgo(viewingStories[storyIndex].created_at)}
-                </p>
-              </div>
-            </div>
-            <button onClick={closeStories}
-              style={{ background: 'none', border: 'none', color: '#fff', fontSize: '22px', cursor: 'pointer', lineHeight: 1, padding: '4px' }}>
-              ✕
-            </button>
-          </div>
-
-          {/* Image */}
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+            {/* Full-bleed image */}
             <img
-              src={viewingStories[storyIndex].image_url}
+              src={story.image_url}
               alt="story"
-              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
             />
 
-            {/* Tap zones: left = prev, right = next */}
-            <div style={{ position: 'absolute', left: 0, top: 0, width: '35%', height: '100%', cursor: 'pointer' }}
-              onClick={e => { e.stopPropagation(); prevStory() }} />
-            <div style={{ position: 'absolute', right: 0, top: 0, width: '65%', height: '100%', cursor: 'pointer' }}
-              onClick={e => { e.stopPropagation(); nextStory() }} />
-          </div>
+            {/* Top gradient */}
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '140px', background: 'linear-gradient(to bottom, rgba(0,0,0,0.55), transparent)', zIndex: 1, pointerEvents: 'none' }} />
+            {/* Bottom gradient */}
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '180px', background: 'linear-gradient(to top, rgba(0,0,0,0.72), transparent)', zIndex: 1, pointerEvents: 'none' }} />
 
-          {/* Caption */}
-          {viewingStories[storyIndex].caption && (
-            <div style={{ padding: '12px 20px 24px', position: 'relative', zIndex: 2 }}
-              onClick={e => e.stopPropagation()}>
-              <p style={{ color: '#fff', fontSize: '14px', lineHeight: '1.5' }}>
-                {viewingStories[storyIndex].caption}
-              </p>
+            {/* Progress bars */}
+            <div style={{ position: 'absolute', top: 14, left: 12, right: 12, display: 'flex', gap: '4px', zIndex: 3 }}>
+              {viewingStories.map((_, i) => (
+                <div key={i} style={{ flex: 1, height: '2px', borderRadius: '2px', background: i <= storyIndex ? '#fff' : 'rgba(255,255,255,0.35)' }} />
+              ))}
             </div>
-          )}
-        </div>
-      )}
+
+            {/* Top bar */}
+            <div style={{ position: 'absolute', top: 30, left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', zIndex: 3 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#333', overflow: 'hidden', border: '1.5px solid #D4A0C0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  {story.profiles?.avatar_url
+                    ? <img src={story.profiles.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <span style={{ color: '#D4A0C0', fontSize: '14px', fontWeight: '500' }}>{(story.profiles?.display_name || '?')[0].toUpperCase()}</span>
+                  }
+                </div>
+                <div>
+                  <p style={{ color: '#fff', fontSize: '14px', fontWeight: '500', lineHeight: 1 }}>{story.profiles?.display_name || 'User'}</p>
+                  <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '11px', marginTop: '3px' }}>{timeAgo(story.created_at)}</p>
+                </div>
+              </div>
+              <button onClick={closeStories} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '22px', cursor: 'pointer', lineHeight: 1, padding: '4px' }}>✕</button>
+            </div>
+
+            {/* Tap zones (upper 75% only so bottom actions are tappable) */}
+            <div style={{ position: 'absolute', left: 0, top: 0, width: '35%', height: '75%', zIndex: 2, cursor: 'pointer' }}
+              onClick={prevStory} />
+            <div style={{ position: 'absolute', right: 0, top: 0, width: '65%', height: '75%', zIndex: 2, cursor: 'pointer' }}
+              onClick={nextStory} />
+
+            {/* Bottom: caption + actions */}
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '12px 20px 44px', zIndex: 3 }}>
+              {story.caption && (
+                <p style={{ color: '#fff', fontSize: '14px', lineHeight: '1.5', marginBottom: '14px', textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
+                  {story.caption}
+                </p>
+              )}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                {/* Heart */}
+                <button
+                  onClick={toggleLike}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '20px', padding: '8px 16px', color: '#fff', fontSize: '13px', fontWeight: '500', cursor: currentUser ? 'pointer' : 'default', backdropFilter: 'blur(4px)', fontFamily: "'DM Sans', sans-serif" }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill={liked ? '#D4A0C0' : 'none'}>
+                    <path d="M8 13.5C8 13.5 1.5 9.5 1.5 5.5C1.5 3.5 3 2 5 2C6.2 2 7.2 2.6 8 3.5C8.8 2.6 9.8 2 11 2C13 2 14.5 3.5 14.5 5.5C14.5 9.5 8 13.5 8 13.5Z" stroke={liked ? '#D4A0C0' : '#fff'} strokeWidth="1.3" strokeLinejoin="round"/>
+                  </svg>
+                  {likeCount > 0 ? likeCount : ''}
+                </button>
+                {/* Delete (own stories only) */}
+                {isOwn && (
+                  <button
+                    onClick={deleteStory}
+                    style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '20px', padding: '8px 16px', color: '#fff', fontSize: '13px', cursor: 'pointer', backdropFilter: 'blur(4px)', fontFamily: "'DM Sans', sans-serif" }}
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Header */}
       <div style={{ padding: '24px 20px 0', marginBottom: '16px' }}>
@@ -230,6 +293,7 @@ export default function Home() {
             const name = story.profiles?.display_name || 'User'
             const avatar = story.profiles?.avatar_url
             const isMe = story.user_id === currentUser?.id
+            const viewed = viewedUsers.has(story.user_id)
             return (
               <button
                 key={story.user_id}
@@ -239,7 +303,9 @@ export default function Home() {
                 <div style={{
                   width: '60px', height: '60px', borderRadius: '50%',
                   padding: '2px',
-                  background: 'linear-gradient(135deg, #D4A0C0 0%, #9B5E8A 100%)',
+                  background: viewed
+                    ? 'var(--border)'
+                    : 'linear-gradient(135deg, #D4A0C0 0%, #9B5E8A 100%)',
                 }}>
                   <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'var(--bg-primary)', padding: '2px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'var(--bg-chip)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
