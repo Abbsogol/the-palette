@@ -179,19 +179,11 @@ export default function Home() {
         return (
           <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#000', overflow: 'hidden' }}>
 
-            {/* Blurred background */}
-            <div style={{
-              position: 'absolute', inset: 0,
-              backgroundImage: `url(${story.image_url})`,
-              backgroundSize: 'cover', backgroundPosition: 'center',
-              filter: 'blur(18px) brightness(0.35)',
-              transform: 'scale(1.08)',
-            }} />
-            {/* Actual image — contained so nothing gets cropped */}
+            {/* Full-bleed image like Instagram */}
             <img
               src={story.image_url}
               alt="story"
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
             />
 
             {/* Top gradient */}
