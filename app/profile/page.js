@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import CropModal from '@/components/CropModal'
@@ -119,6 +120,7 @@ const btn = (active) => ({ background: active ? 'var(--accent)' : 'var(--bg-chip
 
 // ── Main component ─────────────────────────────────────────────────────────
 export default function ProfilePage() {
+  const router = useRouter()
   const [user, setUser]       = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -168,6 +170,8 @@ export default function ProfilePage() {
     setUser(u)
     const { data: prof } = await supabase.from('profiles').select('*').eq('id', u.id).single()
     setProfile(prof)
+    // New users (onboarding_complete === false explicitly) → send to onboarding
+    if (prof?.onboarding_complete === false) { router.push('/onboarding'); return }
     if (!prof?.account_type) setNeedsAccountType(true)
     const { count: sc } = await supabase.from('saved_designs').select('*', { count: 'exact', head: true }).eq('user_id', u.id)
     setSavedCount(sc || 0)

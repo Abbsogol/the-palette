@@ -48,7 +48,7 @@ export default function BottomNav() {
   const pathname = usePathname()
 
   // Hide on full-screen flows
-  if (pathname === '/story/new') return null
+  if (pathname === '/story/new' || pathname === '/onboarding') return null
 
   return (
     <nav style={{
