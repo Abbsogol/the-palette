@@ -5,10 +5,45 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
 const FILTERS = {
+  vibe: ['dark & moody', 'minimal & clean', 'floral', 'coastal & summer', 'y2k & retro', 'pastel & soft', 'bridal & wedding', 'korean style', 'abstract & art', 'celestial', 'autumn & winter', 'boho & earthy', 'french tip', 'gothic soft', 'academia'],
+  color: ['black', 'white & nude', 'pink & mauve', 'red & berry', 'purple & lilac', 'blue & teal', 'green & sage', 'brown & caramel', 'gold & chrome', 'glitter & multi'],
+  shape: ['stiletto', 'almond', 'square', 'round', 'coffin', 'oval', 'ballerina', 'squoval', 'flare'],
+  length: ['short', 'medium', 'long', 'extra long'],
   occasion: ['everyday', 'night out', 'editorial', 'statement', 'wedding', 'bridal', 'party', 'birthday', 'office', 'date night', 'festival', 'holiday', 'vacation', 'new year\'s', 'christmas', 'halloween', 'valentine\'s', 'summer', 'autumn', 'winter', 'spring'],
   technique: ['gel', 'acrylic', 'dip powder', 'polygel', 'hard gel', 'biab', 'nail polish', 'press-on', 'chrome powder', 'cat eye', '3d gel', 'nail art', 'stamping', 'ombre', 'glitter', 'foil', 'airbrush'],
-  shape: ['stiletto', 'almond', 'square', 'round', 'coffin', 'oval', 'ballerina', 'squoval'],
-  length: ['short', 'medium', 'long', 'extra long'],
+}
+
+// Maps vibe filter values → category keywords to match against
+const VIBE_MAP = {
+  'dark & moody':      ['dark', 'gothic', 'noir', 'academia', 'vampire'],
+  'minimal & clean':   ['minimal', 'clean', 'nude', 'sheer', 'glass'],
+  'floral':            ['floral', 'flower', 'blossom', 'garden', 'petal'],
+  'coastal & summer':  ['coastal', 'summer', 'sea', 'ocean', 'beach', 'mermaid'],
+  'y2k & retro':       ['y2k', 'retro', 'nostalgia', 'polaroid', 'kodak', 'film'],
+  'pastel & soft':     ['pastel', 'cute', 'baby', 'soft', 'cotton'],
+  'bridal & wedding':  ['bridal', 'wedding', 'bride', 'ivory'],
+  'korean style':      ['korean'],
+  'abstract & art':    ['abstract', 'art', 'ink', 'aura', 'neon'],
+  'celestial':         ['celestial', 'galaxy', 'moon', 'star', 'aurora'],
+  'autumn & winter':   ['autumn', 'winter', 'fall', 'warm nostalgia', 'boho', 'earthy'],
+  'boho & earthy':     ['boho', 'earthy', 'terracotta', 'desert', 'sage'],
+  'french tip':        ['french', 'tip', 'milk glass'],
+  'gothic soft':       ['gothic soft', 'ghost', 'soft ruin', 'velvet rot', 'moon ritual'],
+  'academia':          ['academia', 'dead poets', 'leather', 'ink bleed'],
+}
+
+// Maps color filter → search terms for colour_name in design_colours table
+const COLOR_MAP = {
+  'black':            ['black', 'noir', 'ebony', 'onyx', 'obsidian'],
+  'white & nude':     ['white', 'nude', 'ivory', 'cream', 'milk', 'sheer', 'vanilla', 'champagne', 'pearl'],
+  'pink & mauve':     ['pink', 'mauve', 'rose', 'blush', 'petal', 'peach', 'coral', 'dusty'],
+  'red & berry':      ['red', 'berry', 'crimson', 'cherry', 'burgundy', 'wine', 'blood', 'cranberry'],
+  'purple & lilac':   ['purple', 'lilac', 'lavender', 'violet', 'plum', 'grape', 'amethyst'],
+  'blue & teal':      ['blue', 'teal', 'navy', 'cobalt', 'aqua', 'cyan', 'ocean', 'sapphire'],
+  'green & sage':     ['green', 'sage', 'mint', 'olive', 'moss', 'forest', 'emerald', 'matcha'],
+  'brown & caramel':  ['brown', 'caramel', 'tan', 'chocolate', 'espresso', 'coffee', 'terracotta', 'sienna'],
+  'gold & chrome':    ['gold', 'chrome', 'silver', 'metallic', 'mirror', 'foil', 'bronze', 'copper'],
+  'glitter & multi':  ['glitter', 'sparkle', 'iridescent', 'holographic', 'rainbow', 'multi', 'neon'],
 }
 
 export default function SearchPage() {
@@ -41,10 +76,38 @@ export default function SearchPage() {
       if (query.trim()) {
         q = q.ilike('title', `%${query.trim()}%`)
       }
-      if (activeFilters.occasion) q = q.ilike('occasion', `%${activeFilters.occasion}%`)
-      if (activeFilters.technique) q = q.ilike('technique', `%${activeFilters.technique}%`)
+
+      // Vibe filter — OR across category keywords
+      if (activeFilters.vibe) {
+        const keywords = VIBE_MAP[activeFilters.vibe] || []
+        const orParts = keywords.map(kw => `category.ilike.%${kw}%`)
+        if (orParts.length) q = q.or(orParts.join(','))
+      }
+
+      // Color filter — find design IDs that have a matching colour entry
+      if (activeFilters.color) {
+        const terms = COLOR_MAP[activeFilters.color] || []
+        const colorOrParts = terms.map(t => `colour_name.ilike.%${t}%`)
+        if (colorOrParts.length) {
+          const { data: colorRows } = await supabase
+            .from('design_colours')
+            .select('design_id')
+            .or(colorOrParts.join(','))
+          const colorDesignIds = [...new Set(colorRows?.map(r => r.design_id) || [])]
+          if (colorDesignIds.length > 0) {
+            q = q.in('id', colorDesignIds)
+          } else {
+            setDesigns([])
+            setLoading(false)
+            return
+          }
+        }
+      }
+
       if (activeFilters.shape) q = q.eq('shape', activeFilters.shape)
       if (activeFilters.length) q = q.eq('length', activeFilters.length)
+      if (activeFilters.occasion) q = q.ilike('occasion', `%${activeFilters.occasion}%`)
+      if (activeFilters.technique) q = q.ilike('technique', `%${activeFilters.technique}%`)
 
       // Tag filter: look up tag ID then filter designs by it
       if (tagFilter) {
@@ -170,7 +233,7 @@ export default function SearchPage() {
             >
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', textTransform: 'capitalize' }}>
-                  {category}
+                  {category === 'vibe' ? 'Vibe / Style' : category === 'color' ? 'Color' : category}
                 </span>
                 {activeFilters[category] && (
                   <span style={{ background: 'var(--accent)', color: '#2C0A1E', fontSize: '10px', fontWeight: '600', padding: '2px 8px', borderRadius: '20px', textTransform: 'capitalize' }}>
