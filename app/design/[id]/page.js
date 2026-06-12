@@ -4,6 +4,7 @@ import SaveButton from '@/components/SaveButton'
 import ImageCarousel from '@/components/ImageCarousel'
 import ColourSwatches from '@/components/ColourSwatches'
 import ShareButton from '@/components/ShareButton'
+import BackButton from '@/components/BackButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -133,16 +134,7 @@ export default async function DesignPage({ params }) {
 
       {/* Back + Save */}
       <div style={{ padding: '16px 20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Link href="/" style={{
-          display: 'inline-flex', alignItems: 'center', gap: '6px',
-          color: 'var(--text-secondary)', textDecoration: 'none',
-          fontSize: '13px', fontWeight: '500',
-        }}>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          Back
-        </Link>
+        <BackButton />
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <ShareButton title={design.title} />
           <SaveButton designId={design.id} />
