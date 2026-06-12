@@ -218,28 +218,38 @@ export default async function DesignPage({ params, searchParams }) {
 
       {/* Shop this look — hidden for now */}
 
-      {/* Related designs */}
+      {/* Similar Looks */}
       {related.length > 0 && (
         <div style={{ marginTop: '8px', borderTop: '0.5px solid var(--border)', padding: '24px 20px 0' }}>
-          <p style={sectionLabel}>You might also like</p>
-          <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          <p style={sectionLabel}>Similar Looks</p>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '10px',
+          }}>
             {related.map((r) => (
-              <Link key={r.id} href={`/design/${r.id}`} style={{
-                flexShrink: 0, width: '140px',
+              <Link key={r.id} href={`/design/${r.id}?from=${encodeURIComponent(`/design/${id}`)}`} style={{
                 background: 'var(--bg-card)', borderRadius: '12px',
                 border: '0.5px solid var(--border)', overflow: 'hidden',
                 textDecoration: 'none', display: 'block',
               }}>
                 {r.image_url ? (
-                  <div style={{ width: '140px', height: '140px', overflow: 'hidden' }}>
+                  <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden' }}>
                     <img src={r.image_url} alt={r.title}
                       style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
                   </div>
                 ) : (
-                  <div style={{ width: '140px', height: '140px', background: 'var(--bg-chip)' }} />
+                  <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--bg-chip)' }} />
                 )}
                 <div style={{ padding: '8px 10px 10px' }}>
-                  <p style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500', lineHeight: '1.3' }}>{r.title}</p>
+                  <p style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500', lineHeight: '1.3', marginBottom: '4px' }}>
+                    {r.title}
+                  </p>
+                  {(r.shape || r.category) && (
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: 0 }}>
+                      {[r.shape, r.category].filter(Boolean).join(' · ')}
+                    </p>
+                  )}
                 </div>
               </Link>
             ))}
