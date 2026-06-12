@@ -131,12 +131,17 @@ export default function SavedPage() {
       <div style={{ marginBottom: '32px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <p style={sectionLabel}>Boards</p>
-          <button
-            onClick={() => setModalDesign('new')}
-            style={{ background: 'var(--bg-chip)', border: '0.5px solid var(--border)', borderRadius: '20px', padding: '5px 14px', color: 'var(--text-secondary)', fontSize: '12px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}
-          >
-            + New board
-          </button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <Link href="/moodboards" style={{ color: 'var(--accent)', fontSize: '12px', fontWeight: '500', textDecoration: 'none' }}>
+              My Boards →
+            </Link>
+            <button
+              onClick={() => setModalDesign('new')}
+              style={{ background: 'var(--bg-chip)', border: '0.5px solid var(--border)', borderRadius: '20px', padding: '5px 14px', color: 'var(--text-secondary)', fontSize: '12px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}
+            >
+              + New board
+            </button>
+          </div>
         </div>
 
         {collections.length === 0 ? (

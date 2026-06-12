@@ -6,6 +6,7 @@ import ColourSwatches from '@/components/ColourSwatches'
 import ShareButton from '@/components/ShareButton'
 import BackButton from '@/components/BackButton'
 import NailTechCard from '@/components/NailTechCard'
+import SaveToBoard from '@/components/SaveToBoard'
 
 export const dynamic = 'force-dynamic'
 
@@ -149,6 +150,7 @@ export default async function DesignPage({ params, searchParams }) {
         </Link>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <ShareButton title={design.title} />
+          <SaveToBoard designId={design.id} designImageUrl={design.image_url} />
           <SaveButton designId={design.id} />
         </div>
       </div>
