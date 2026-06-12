@@ -8,8 +8,10 @@ import BackButton from '@/components/BackButton'
 
 export const dynamic = 'force-dynamic'
 
-export default async function DesignPage({ params }) {
+export default async function DesignPage({ params, searchParams }) {
   const { id } = await params
+  const { from } = await searchParams || {}
+  const backHref = from ? decodeURIComponent(from) : '/'
 
   const { data: design } = await supabase
     .from('designs')
@@ -134,7 +136,16 @@ export default async function DesignPage({ params }) {
 
       {/* Back + Save */}
       <div style={{ padding: '16px 20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <BackButton />
+        <Link href={backHref} style={{
+          display: 'inline-flex', alignItems: 'center', gap: '6px',
+          color: 'var(--text-secondary)', textDecoration: 'none',
+          fontSize: '13px', fontWeight: '500',
+        }}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Back
+        </Link>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <ShareButton title={design.title} />
           <SaveButton designId={design.id} />

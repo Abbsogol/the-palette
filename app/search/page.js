@@ -299,7 +299,7 @@ export default function SearchPage() {
             {designs.map(design => (
               <Link
                 key={design.id}
-                href={`/design/${design.id}`}
+                href={`/design/${design.id}?from=%2Fsearch`}
                 style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', overflow: 'hidden', textDecoration: 'none', display: 'block' }}
               >
                 {design.image_url ? (

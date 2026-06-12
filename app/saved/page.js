@@ -182,7 +182,7 @@ export default function SavedPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             {designs.map(design => (
               <div key={design.id} style={{ position: 'relative' }}>
-                <Link href={`/design/${design.id}`} onClick={() => sessionStorage.setItem('saved-scroll', window.scrollY.toString())} style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', overflow: 'hidden', textDecoration: 'none', display: 'block' }}>
+                <Link href={`/design/${design.id}?from=%2Fsaved`} onClick={() => sessionStorage.setItem('saved-scroll', window.scrollY.toString())} style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', overflow: 'hidden', textDecoration: 'none', display: 'block' }}>
                   {design.image_url ? (
                     <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden' }}>
                       <img src={design.image_url} alt={design.title} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />

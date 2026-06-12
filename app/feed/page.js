@@ -310,7 +310,7 @@ export default function Home() {
             {filtered.map((design) => (
               <Link
                 key={design.id}
-                href={`/design/${design.id}`}
+                href={`/design/${design.id}?from=%2F`}
                 style={{
                   background: 'var(--bg-card)', borderRadius: '12px',
                   border: '0.5px solid var(--border)', overflow: 'hidden',
