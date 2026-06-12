@@ -26,6 +26,8 @@ export default function ProfilePage() {
 
   // Profile edit state
   const [savedCount, setSavedCount] = useState(0)
+  const [followerCount, setFollowerCount] = useState(0)
+  const [followingCount, setFollowingCount] = useState(0)
   const [editingName, setEditingName] = useState(false)
   const [nameInput, setNameInput] = useState('')
   const [editingBio, setEditingBio] = useState(false)
@@ -54,6 +56,12 @@ export default function ProfilePage() {
     if (!prof?.account_type) { setNeedsAccountType(true) } else { setNeedsAccountType(false) }
     const { count } = await supabase.from('saved_designs').select('*', { count: 'exact', head: true }).eq('user_id', u.id)
     setSavedCount(count || 0)
+    const [{ count: followers }, { count: following }] = await Promise.all([
+      supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', u.id),
+      supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', u.id),
+    ])
+    setFollowerCount(followers || 0)
+    setFollowingCount(following || 0)
     if (prof?.account_type === 'creator' || prof?.account_type === 'salon') {
       const { data: designs } = await supabase.from('designs').select('*').eq('created_by', u.id).order('created_at', { ascending: false })
       setMyDesigns(designs || [])
@@ -435,7 +443,15 @@ export default function ProfilePage() {
           </div>
           <div style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '16px', border: '0.5px solid var(--border)', textAlign: 'center' }}>
             <p style={{ color: 'var(--text-primary)', fontSize: '28px', fontWeight: '500' }}>{savedCount}</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Saved designs</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Saved</p>
+          </div>
+          <div style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '16px', border: '0.5px solid var(--border)', textAlign: 'center' }}>
+            <p style={{ color: 'var(--text-primary)', fontSize: '28px', fontWeight: '500' }}>{followerCount}</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Followers</p>
+          </div>
+          <div style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '16px', border: '0.5px solid var(--border)', textAlign: 'center' }}>
+            <p style={{ color: 'var(--text-primary)', fontSize: '28px', fontWeight: '500' }}>{followingCount}</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Following</p>
           </div>
         </div>
 
@@ -620,13 +636,24 @@ export default function ProfilePage() {
           <p style={{ color: 'var(--text-primary)', fontSize: '14px' }}>{user.email}</p>
         </div>
         {/* Saved count */}
-        <Link href="/saved" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', textDecoration: 'none' }}>
+        <Link href="/saved" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderTop: '0.5px solid var(--border)', textDecoration: 'none' }}>
           <div>
             <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>Saved designs</p>
             <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500' }}>{savedCount}</p>
           </div>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4L10 8L6 12" stroke="#888888" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </Link>
+        {/* Followers / Following */}
+        <div style={{ display: 'flex', borderTop: '0.5px solid var(--border)' }}>
+          <div style={{ flex: 1, padding: '14px 16px' }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>Followers</p>
+            <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500' }}>{followerCount}</p>
+          </div>
+          <div style={{ flex: 1, padding: '14px 16px', borderLeft: '0.5px solid var(--border)' }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>Following</p>
+            <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500' }}>{followingCount}</p>
+          </div>
+        </div>
       </div>
 
       <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', overflow: 'hidden' }}>
