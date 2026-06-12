@@ -198,11 +198,10 @@ export default function ProfilePage() {
     if (!file || !user) return
     setUploadingAvatar(true)
     const ext = file.name.split('.').pop().toLowerCase()
-    // Always overwrite at the same path so old image is replaced
-    const path = `avatars/${user.id}/avatar.${ext}`
+    const path = `avatars/${user.id}/${Date.now()}.${ext}`
     const { error: uploadError } = await supabase.storage
       .from('designs')
-      .upload(path, file, { upsert: true })
+      .upload(path, file, { upsert: false })
     if (uploadError) {
       alert('Upload failed: ' + uploadError.message)
       setUploadingAvatar(false)
