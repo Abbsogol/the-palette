@@ -197,15 +197,25 @@ export default function ProfilePage() {
     const file = e.target.files[0]
     if (!file || !user) return
     setUploadingAvatar(true)
-    const ext = file.name.split('.').pop()
-    const path = `avatars/${user.id}.${ext}`
+    const ext = file.name.split('.').pop().toLowerCase()
+    // Always overwrite at the same path so old image is replaced
+    const path = `avatars/${user.id}/avatar.${ext}`
     const { error: uploadError } = await supabase.storage
       .from('designs')
       .upload(path, file, { upsert: true })
-    if (!uploadError) {
-      const { data: { publicUrl } } = supabase.storage.from('designs').getPublicUrl(path)
-      await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id)
-      setProfile(prev => ({ ...prev, avatar_url: publicUrl }))
+    if (uploadError) {
+      alert('Upload failed: ' + uploadError.message)
+      setUploadingAvatar(false)
+      return
+    }
+    const { data: { publicUrl } } = supabase.storage.from('designs').getPublicUrl(path)
+    // Cache-bust so the browser shows the new image immediately
+    const bustedUrl = `${publicUrl}?t=${Date.now()}`
+    const { error: dbErr } = await supabase.from('profiles').update({ avatar_url: bustedUrl }).eq('id', user.id)
+    if (dbErr) {
+      alert('Could not save avatar: ' + dbErr.message)
+    } else {
+      setProfile(prev => ({ ...prev, avatar_url: bustedUrl }))
     }
     setUploadingAvatar(false)
   }
@@ -562,17 +572,24 @@ export default function ProfilePage() {
               <span style={{ color: 'var(--text-secondary)', fontSize: '22px', fontWeight: '500' }}>{initials}</span>
             )}
             {uploadingAvatar && (
-              <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
                 <span style={{ color: '#fff', fontSize: '11px' }}>...</span>
               </div>
             )}
-            {/* Edit overlay */}
-            <div style={{
-              position: 'absolute', bottom: 0, left: 0, right: 0,
-              background: 'rgba(0,0,0,0.45)', padding: '4px 0', textAlign: 'center',
-            }}>
-              <span style={{ color: '#fff', fontSize: '9px', fontWeight: '500' }}>EDIT</span>
-            </div>
+            {/* Small camera badge bottom-right */}
+            {!uploadingAvatar && (
+              <div style={{
+                position: 'absolute', bottom: 2, right: 2,
+                width: '20px', height: '20px', borderRadius: '50%',
+                background: 'var(--accent)', border: '1.5px solid var(--bg-primary)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+                  <path d="M2 5.5C2 4.67 2.67 4 3.5 4H4.5L5.5 2.5H10.5L11.5 4H12.5C13.33 4 14 4.67 14 5.5V12C14 12.83 13.33 13.5 12.5 13.5H3.5C2.67 13.5 2 12.83 2 12V5.5Z" stroke="#2C0A1E" strokeWidth="1.3" strokeLinejoin="round"/>
+                  <circle cx="8" cy="8.5" r="2" stroke="#2C0A1E" strokeWidth="1.3"/>
+                </svg>
+              </div>
+            )}
           </div>
         </label>
         {/* Name + badge */}
