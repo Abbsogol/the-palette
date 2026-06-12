@@ -102,11 +102,17 @@ export default function ProfilePage() {
     setError('')
     setSubmitting(true)
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'https://the-palette-one.vercel.app/profile',
+      redirectTo: 'https://laque.app/profile',
     })
     if (error) { setError(error.message) }
     else { setForgotSent(true) }
     setSubmitting(false)
+  }
+
+  const handleBecomeCreator = async () => {
+    if (!confirm('Switch your account to a Creator account? You\'ll be able to publish designs and get a public profile.')) return
+    const { error } = await supabase.from('profiles').update({ account_type: 'creator' }).eq('id', user.id)
+    if (!error) setProfile(prev => ({ ...prev, account_type: 'creator' }))
   }
 
   const handleLogout = async () => { await supabase.auth.signOut() }
@@ -632,6 +638,23 @@ export default function ProfilePage() {
           </div>
         ))}
       </div>
+
+      {/* ── Become a Creator ── */}
+      {profile?.account_type === 'user' && (
+        <div style={{ background: 'linear-gradient(145deg, rgba(212,160,192,0.10), rgba(212,160,192,0.03))', border: '1px solid rgba(212,160,192,0.3)', borderRadius: '14px', padding: '18px 16px' }}>
+          <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '8px' }}>For Nail Artists & Salons</p>
+          <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', marginBottom: '6px' }}>Become a Creator</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: '1.6', marginBottom: '14px' }}>Publish your designs, get a public profile, and reach clients discovering nail art on Laque.</p>
+          <button onClick={handleBecomeCreator} style={{
+            width: '100%', background: 'var(--accent)', color: '#2C0A1E',
+            border: 'none', borderRadius: '10px', padding: '12px',
+            fontSize: '14px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif",
+            cursor: 'pointer',
+          }}>
+            Switch to Creator Account
+          </button>
+        </div>
+      )}
 
       <div style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '16px', border: '0.5px solid var(--border)' }}>
         <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>About</p>
