@@ -2,13 +2,14 @@
 
 import { useState, useRef, useEffect } from 'react'
 
-const CROP_SIZE = 280
+const CROP_SIZE = 320   // circle diameter in px
 
 export default function CropModal({ file, onCrop, onCancel }) {
-  const [src, setSrc]       = useState(null)
+  const [src, setSrc]         = useState(null)
   const [natural, setNatural] = useState({ w: 1, h: 1 })
-  const [pos, setPos]       = useState({ x: 0, y: 0 })
-  const [zoom, setZoom]     = useState(1)
+  const [pos, setPos]         = useState({ x: 0, y: 0 })
+  const [zoom, setZoom]       = useState(1)
+  const [ready, setReady]     = useState(false)
   const dragging  = useRef(false)
   const lastPos   = useRef({ x: 0, y: 0 })
   const lastDist  = useRef(null)
@@ -20,12 +21,15 @@ export default function CropModal({ file, onCrop, onCancel }) {
     objUrl.current = url
     setSrc(url)
     const img = new window.Image()
-    img.onload = () => setNatural({ w: img.naturalWidth, h: img.naturalHeight })
+    img.onload = () => {
+      setNatural({ w: img.naturalWidth, h: img.naturalHeight })
+      setReady(true)
+    }
     img.src = url
     return () => URL.revokeObjectURL(url)
   }, [file])
 
-  // At zoom=1 → shorter edge = CROP_SIZE
+  // Image geometry — at zoom=1 the shorter edge fills CROP_SIZE
   const r     = natural.w / natural.h
   const baseW = r >= 1 ? CROP_SIZE * r : CROP_SIZE
   const baseH = r >= 1 ? CROP_SIZE     : CROP_SIZE / r
@@ -34,12 +38,12 @@ export default function CropModal({ file, onCrop, onCancel }) {
   const imgLeft = CROP_SIZE / 2 + pos.x - dw / 2
   const imgTop  = CROP_SIZE / 2 + pos.y - dh / 2
 
-  // ── Touch handlers ────────────────────────────────────────────────────────
+  // ── Touch ─────────────────────────────────────────────────────────────────
   const onTouchStart = (e) => {
     e.preventDefault()
     if (e.touches.length === 1) {
-      lastPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
       dragging.current = true
+      lastPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
     } else if (e.touches.length === 2) {
       const dx = e.touches[0].clientX - e.touches[1].clientX
       const dy = e.touches[0].clientY - e.touches[1].clientY
@@ -58,14 +62,14 @@ export default function CropModal({ file, onCrop, onCancel }) {
       const dx = e.touches[0].clientX - e.touches[1].clientX
       const dy = e.touches[0].clientY - e.touches[1].clientY
       const dist = Math.sqrt(dx * dx + dy * dy)
-      setZoom(z => Math.max(0.5, Math.min(5, z * (dist / lastDist.current))))
+      setZoom(z => Math.max(0.5, Math.min(6, z * (dist / lastDist.current))))
       lastDist.current = dist
     }
   }
 
   const onTouchEnd = () => { dragging.current = false; lastDist.current = null }
 
-  // ── Mouse handlers ────────────────────────────────────────────────────────
+  // ── Mouse ─────────────────────────────────────────────────────────────────
   const onMouseDown = (e) => { dragging.current = true; lastPos.current = { x: e.clientX, y: e.clientY } }
   const onMouseMove = (e) => {
     if (!dragging.current) return
@@ -74,7 +78,7 @@ export default function CropModal({ file, onCrop, onCancel }) {
   }
   const onMouseUp = () => { dragging.current = false }
 
-  // ── Crop & export ─────────────────────────────────────────────────────────
+  // ── Export ────────────────────────────────────────────────────────────────
   const handleCrop = () => {
     const OUTPUT = 400
     const canvas = document.createElement('canvas')
@@ -82,14 +86,12 @@ export default function CropModal({ file, onCrop, onCancel }) {
     canvas.height = OUTPUT
     const ctx = canvas.getContext('2d')
 
-    // Circular clip
     ctx.beginPath()
     ctx.arc(OUTPUT / 2, OUTPUT / 2, OUTPUT / 2, 0, Math.PI * 2)
     ctx.clip()
 
     const img = new window.Image()
     img.onload = () => {
-      // Source region in natural image pixels
       const sx = (-imgLeft / dw) * natural.w
       const sy = (-imgTop  / dh) * natural.h
       const sw = (CROP_SIZE / dw) * natural.w
@@ -103,34 +105,70 @@ export default function CropModal({ file, onCrop, onCancel }) {
   }
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 300,
-      background: '#0a0a0a',
-      display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'space-between',
-      padding: '52px 20px 56px',
-    }}>
-      <p style={{ color: '#fff', fontSize: '15px', fontWeight: '500', letterSpacing: '-0.01em', fontFamily: "'DM Sans', sans-serif" }}>
-        Drag & pinch to position
-      </p>
+    /*
+      The ENTIRE screen is the drag area — no more tiny circle hitbox.
+      The circle is visual-only (pointerEvents: none).
+      Events are captured on the outer full-screen div.
+    */
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 300,
+        background: '#080808',
+        touchAction: 'none',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        cursor: 'grab',
+        display: 'flex', flexDirection: 'column',
+      }}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onMouseDown={onMouseDown}
+      onMouseMove={onMouseMove}
+      onMouseUp={onMouseUp}
+      onMouseLeave={onMouseUp}
+    >
+      {/* ── Top bar ─────────────────────────────────────────────────── */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        padding: '52px 20px 0',
+        zIndex: 10,
+        pointerEvents: 'none',
+      }}>
+        <button
+          onClick={onCancel}
+          style={{
+            pointerEvents: 'auto',
+            background: 'none', border: 'none',
+            color: 'rgba(255,255,255,0.65)', fontSize: '15px',
+            cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
+            padding: '8px 0',
+          }}
+        >Cancel</button>
+        <p style={{
+          color: 'rgba(255,255,255,0.35)', fontSize: '12px',
+          fontFamily: "'DM Sans', sans-serif",
+          letterSpacing: '0.04em', textTransform: 'uppercase',
+          margin: 0,
+        }}>Drag anywhere · Pinch to zoom</p>
+        <div style={{ width: 56 }} />
+      </div>
 
-      {/* Crop circle */}
-      <div
-        style={{
-          position: 'relative', width: CROP_SIZE, height: CROP_SIZE,
-          borderRadius: '50%', overflow: 'hidden',
-          border: '2.5px solid rgba(212,160,192,0.8)',
-          cursor: 'grab', flexShrink: 0,
-          background: '#1a1a1a',
-        }}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-        onMouseDown={onMouseDown}
-        onMouseMove={onMouseMove}
-        onMouseUp={onMouseUp}
-        onMouseLeave={onMouseUp}
-      >
+      {/* ── Crop circle — visual only, no pointer events ─────────────── */}
+      <div style={{
+        position: 'absolute',
+        top: '50%', left: '50%',
+        transform: 'translate(-50%, -54%)',   // slightly above center to make room for controls
+        width: CROP_SIZE, height: CROP_SIZE,
+        borderRadius: '50%', overflow: 'hidden',
+        border: '2px solid rgba(255,255,255,0.5)',
+        background: '#1a1a1a',
+        pointerEvents: 'none',
+        zIndex: 2,
+        opacity: ready ? 1 : 0,
+        transition: 'opacity 0.2s',
+      }}>
         {src && (
           <img
             src={src}
@@ -145,24 +183,49 @@ export default function CropModal({ file, onCrop, onCancel }) {
         )}
       </div>
 
-      {/* Zoom */}
-      <div style={{ width: '100%', maxWidth: CROP_SIZE, display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
-        <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: '11px', letterSpacing: '0.07em', textTransform: 'uppercase', fontFamily: "'DM Sans', sans-serif" }}>Zoom</p>
-        <input
-          type="range" min="0.5" max="4" step="0.01" value={zoom}
-          onChange={e => setZoom(parseFloat(e.target.value))}
-          style={{ width: '100%', accentColor: '#D4A0C0' }}
-        />
-      </div>
+      {/* ── Bottom controls ──────────────────────────────────────────── */}
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0,
+        padding: '0 24px 52px',
+        zIndex: 10,
+        display: 'flex', flexDirection: 'column', gap: '18px',
+        pointerEvents: 'none',
+      }}>
+        {/* Zoom slider */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '10px',
+          pointerEvents: 'auto',
+        }}>
+          {/* Small magnifier */}
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none" style={{ flexShrink: 0 }}>
+            <circle cx="6.5" cy="6.5" r="5.5" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5"/>
+            <path d="M11 11L14 14" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+          <input
+            type="range" min="0.5" max="5" step="0.01" value={zoom}
+            onChange={e => setZoom(parseFloat(e.target.value))}
+            style={{ flex: 1, accentColor: '#D4A0C0' }}
+          />
+          {/* Large magnifier */}
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
+            <circle cx="9" cy="9" r="7" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5"/>
+            <path d="M14 14L18 18" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+        </div>
 
-      {/* Buttons */}
-      <div style={{ display: 'flex', gap: '12px', width: '100%', maxWidth: CROP_SIZE }}>
-        <button onClick={onCancel} style={{ flex: 1, background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '12px', padding: '14px', color: '#fff', fontSize: '15px', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>
-          Cancel
-        </button>
-        <button onClick={handleCrop} style={{ flex: 2, background: '#D4A0C0', border: 'none', borderRadius: '12px', padding: '14px', color: '#2C0A1E', fontSize: '15px', fontWeight: '600', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>
-          Use Photo
-        </button>
+        {/* Use Photo button */}
+        <button
+          onClick={handleCrop}
+          style={{
+            pointerEvents: 'auto',
+            background: '#D4A0C0',
+            border: 'none',
+            borderRadius: '16px', padding: '17px',
+            color: '#2C0A1E', fontSize: '16px', fontWeight: '700',
+            cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
+            letterSpacing: '-0.01em',
+          }}
+        >Use Photo</button>
       </div>
     </div>
   )
