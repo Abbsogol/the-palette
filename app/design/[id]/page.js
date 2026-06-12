@@ -41,22 +41,68 @@ export default async function DesignPage({ params }) {
     .order('sort_order', { ascending: true })
   const shopProducts = linkedProductRows?.map(row => row.products).filter(Boolean) || []
 
-  // Related designs — match by occasion or technique
-  const firstOccasion = design?.occasion?.split(',')[0]?.trim()
-  const firstTechnique = design?.technique?.split(',')[0]?.trim()
+  // Related designs — category first, then shape/occasion as tiebreaker
   let related = []
-  if (firstOccasion || firstTechnique) {
-    const orParts = []
-    if (firstOccasion) orParts.push(`occasion.ilike.%${firstOccasion}%`)
-    if (firstTechnique) orParts.push(`technique.ilike.%${firstTechnique}%`)
-    const { data: relatedData } = await supabase
-      .from('designs')
-      .select('id, title, image_url, shape, occasion')
-      .eq('is_published', true)
-      .neq('id', id)
-      .or(orParts.join(','))
-      .limit(6)
-    related = relatedData || []
+  if (design) {
+    const category  = design.category?.trim()
+    const shape     = design.shape?.trim()
+    const occasion  = design.occasion?.split(',')[0]?.trim()
+    const technique = design.technique?.split(',')[0]?.trim()
+
+    // 1. Same category (strongest signal — Dark stays Dark, Floral stays Floral)
+    let byCat = []
+    if (category) {
+      const { data } = await supabase
+        .from('designs')
+        .select('id, title, image_url, shape, occasion, category')
+        .eq('is_published', true)
+        .neq('id', id)
+        .ilike('category', `%${category.split('/')[0].trim()}%`)
+        .limit(8)
+      byCat = data || []
+    }
+
+    // 2. Same shape (secondary)
+    let byShape = []
+    if (shape && byCat.length < 4) {
+      const { data } = await supabase
+        .from('designs')
+        .select('id, title, image_url, shape, occasion, category')
+        .eq('is_published', true)
+        .neq('id', id)
+        .eq('shape', shape)
+        .limit(6)
+      byShape = data || []
+    }
+
+    // 3. Same occasion/technique (fallback)
+    let byOccasion = []
+    if (byCat.length < 4) {
+      const orParts = []
+      if (occasion)  orParts.push(`occasion.ilike.%${occasion}%`)
+      if (technique) orParts.push(`technique.ilike.%${technique}%`)
+      if (orParts.length) {
+        const { data } = await supabase
+          .from('designs')
+          .select('id, title, image_url, shape, occasion, category')
+          .eq('is_published', true)
+          .neq('id', id)
+          .or(orParts.join(','))
+          .limit(6)
+        byOccasion = data || []
+      }
+    }
+
+    // Merge: category first, then fill with shape/occasion, dedupe
+    const seen = new Set([id])
+    const merged = []
+    for (const d of [...byCat, ...byShape, ...byOccasion]) {
+      if (!seen.has(d.id) && merged.length < 6) {
+        seen.add(d.id)
+        merged.push(d)
+      }
+    }
+    related = merged
   }
 
   if (!design) {
