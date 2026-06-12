@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import CropModal from '@/components/CropModal'
 
 export default function ProfilePage() {
   const [user, setUser] = useState(null)
@@ -21,6 +22,7 @@ export default function ProfilePage() {
   const [newPassword, setNewPassword] = useState('')
   const [resetDone, setResetDone] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [cropFile, setCropFile] = useState(null)   // file waiting to be cropped
   const [forgotSent, setForgotSent] = useState(false)
   const [needsAccountType, setNeedsAccountType] = useState(false)
 
@@ -199,22 +201,28 @@ export default function ProfilePage() {
     if (!error) setProfile(prev => ({ ...prev, avatar_url: null }))
   }
 
-  const handleAvatarUpload = async (e) => {
+  // Step 1: file chosen → open crop modal
+  const handleAvatarPick = (e) => {
     const file = e.target.files[0]
-    if (!file || !user) return
+    if (file) setCropFile(file)
+    e.target.value = ''  // reset so picking same file again works
+  }
+
+  // Step 2: crop modal done → upload the cropped blob
+  const handleCroppedUpload = async (croppedFile) => {
+    setCropFile(null)
+    if (!user) return
     setUploadingAvatar(true)
-    const ext = file.name.split('.').pop().toLowerCase()
-    const path = `avatars/${user.id}/${Date.now()}.${ext}`
+    const path = `avatars/${user.id}/${Date.now()}.jpg`
     const { error: uploadError } = await supabase.storage
       .from('designs')
-      .upload(path, file, { upsert: false })
+      .upload(path, croppedFile, { upsert: false })
     if (uploadError) {
       alert('Upload failed: ' + uploadError.message)
       setUploadingAvatar(false)
       return
     }
     const { data: { publicUrl } } = supabase.storage.from('designs').getPublicUrl(path)
-    // Cache-bust so the browser shows the new image immediately
     const bustedUrl = `${publicUrl}?t=${Date.now()}`
     const { error: dbErr } = await supabase.from('profiles').update({ avatar_url: bustedUrl }).eq('id', user.id)
     if (dbErr) {
@@ -553,6 +561,15 @@ export default function ProfilePage() {
   return (
     <div style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
+      {/* Crop modal — shown when user picks a photo */}
+      {cropFile && (
+        <CropModal
+          file={cropFile}
+          onCrop={handleCroppedUpload}
+          onCancel={() => setCropFile(null)}
+        />
+      )}
+
       {resetDone && (
         <div style={{ background: 'var(--accent)', borderRadius: '12px', padding: '14px 16px' }}>
           <p style={{ color: '#2C0A1E', fontSize: '14px', fontWeight: '500' }}>✓ Password updated successfully</p>
@@ -564,7 +581,7 @@ export default function ProfilePage() {
         {/* Avatar */}
         <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
           <label style={{ cursor: 'pointer' }}>
-            <input type="file" accept="image/*" onChange={handleAvatarUpload} style={{ display: 'none' }} />
+            <input type="file" accept="image/*" onChange={handleAvatarPick} style={{ display: 'none' }} />
             <div style={{
               width: '72px', height: '72px', borderRadius: '50%',
               background: profile?.avatar_url ? 'transparent' : 'var(--bg-chip)',
