@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
-export default function SaveToBoard({ designId, designImageUrl }) {
+export default function SaveToBoard({ designId, designImageUrl, renderTrigger }) {
   const [open, setOpen] = useState(false)
   const [boards, setBoards] = useState([])
   const [saved, setSaved] = useState({}) // boardId → boolean
@@ -103,29 +103,35 @@ export default function SaveToBoard({ designId, designImageUrl }) {
 
   return (
     <>
-      {/* Bookmark button */}
-      <button
-        onClick={openSheet}
-        title="Save to board"
-        style={{
-          background: anyBoardSaved ? 'var(--accent)' : 'var(--bg-chip)',
-          border: 'none',
-          borderRadius: '10px',
-          width: '38px',
-          height: '38px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          color: anyBoardSaved ? '#141414' : 'var(--text-secondary)',
-          flexShrink: 0,
-          transition: 'background 0.2s, color 0.2s',
-        }}
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill={anyBoardSaved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
-        </svg>
-      </button>
+      {/* Trigger — custom or default bookmark button */}
+      {renderTrigger ? (
+        <span onClick={openSheet} style={{ display: 'contents', cursor: 'pointer' }}>
+          {renderTrigger({ anyBoardSaved })}
+        </span>
+      ) : (
+        <button
+          onClick={openSheet}
+          title="Save to board"
+          style={{
+            background: anyBoardSaved ? 'var(--accent)' : 'var(--bg-chip)',
+            border: 'none',
+            borderRadius: '10px',
+            width: '38px',
+            height: '38px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            color: anyBoardSaved ? '#141414' : 'var(--text-secondary)',
+            flexShrink: 0,
+            transition: 'background 0.2s, color 0.2s',
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill={anyBoardSaved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
+          </svg>
+        </button>
+      )}
 
       {/* Bottom sheet */}
       {open && (

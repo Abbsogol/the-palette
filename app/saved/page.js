@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import SaveToBoard from '@/components/SaveToBoard'
 
 export default function SavedPage() {
   const [user, setUser] = useState(null)
@@ -173,23 +174,43 @@ export default function SavedPage() {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             {designs.map(design => (
-              <Link
-                key={design.id}
-                href={`/design/${design.id}?from=%2Fsaved`}
-                onClick={() => sessionStorage.setItem('saved-scroll', window.scrollY.toString())}
-                style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', overflow: 'hidden', textDecoration: 'none', display: 'block' }}
-              >
-                {design.image_url ? (
-                  <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden' }}>
-                    <img src={design.image_url} alt={design.title} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+              <div key={design.id} style={{ position: 'relative' }}>
+                <Link
+                  href={`/design/${design.id}?from=%2Fsaved`}
+                  onClick={() => sessionStorage.setItem('saved-scroll', window.scrollY.toString())}
+                  style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', overflow: 'hidden', textDecoration: 'none', display: 'block' }}
+                >
+                  {design.image_url ? (
+                    <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden' }}>
+                      <img src={design.image_url} alt={design.title} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+                    </div>
+                  ) : (
+                    <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--bg-chip)' }} />
+                  )}
+                  <div style={{ padding: '8px 10px 36px' }}>
+                    <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500' }}>{design.title}</p>
                   </div>
-                ) : (
-                  <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--bg-chip)' }} />
-                )}
-                <div style={{ padding: '8px 10px 10px' }}>
-                  <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500' }}>{design.title}</p>
+                </Link>
+                {/* Save to board shortcut */}
+                <div style={{ position: 'absolute', bottom: '8px', right: '8px' }}>
+                  <SaveToBoard
+                    designId={design.id}
+                    designImageUrl={design.image_url}
+                    renderTrigger={() => (
+                      <div style={{
+                        background: 'var(--bg-chip)', border: '0.5px solid var(--border)',
+                        borderRadius: '20px', width: '28px', height: '28px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: 'pointer', color: 'var(--text-secondary)',
+                      }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                          <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/>
+                        </svg>
+                      </div>
+                    )}
+                  />
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         )}
