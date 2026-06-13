@@ -68,10 +68,11 @@ export default function SearchPage() {
   useEffect(() => {
     if (!query.trim()) { setPeople([]); return }
     const searchPeople = async () => {
+      const q = query.trim()
       const { data } = await supabase
         .from('profiles')
-        .select('id, display_name, avatar_url, account_type')
-        .or(`display_name.ilike.%${query.trim()}%,username.ilike.%${query.trim()}%`)
+        .select('id, display_name, username, avatar_url, account_type')
+        .or(`display_name.ilike.%${q}%,username.ilike.%${q}%`)
         .in('account_type', ['creator', 'salon'])
         .limit(5)
       setPeople(data || [])
@@ -335,9 +336,16 @@ export default function SearchPage() {
                           </span>
                       }
                     </div>
-                    <p style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500', textAlign: 'center', margin: 0, maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {person.display_name || 'Creator'}
-                    </p>
+                    <div style={{ textAlign: 'center' }}>
+                      <p style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500', margin: 0, maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {person.display_name || 'Creator'}
+                      </p>
+                      {person.username && (
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '10px', margin: '2px 0 0', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          @{person.username}
+                        </p>
+                      )}
+                    </div>
                     <span style={{
                       background: 'var(--bg-chip)', color: 'var(--accent)',
                       fontSize: '10px', fontWeight: '500', padding: '3px 8px',

@@ -114,6 +114,75 @@ function EditRow({ label, field, value, placeholder, multiline, onSave }) {
   )
 }
 
+// ── Username editable row (with format validation + unique error) ──────────
+function UsernameRow({ value, userId }) {
+  const [editing, setEditing] = useState(false)
+  const [input, setInput]     = useState('')
+  const [saving, setSaving]   = useState(false)
+  const [error, setError]     = useState('')
+  const [current, setCurrent] = useState(value || '')
+
+  const USERNAME_RE = /^[a-z0-9_.]{3,30}$/
+
+  const start  = () => { setInput(current || ''); setError(''); setEditing(true) }
+  const cancel = () => { setEditing(false); setError('') }
+
+  const save = async () => {
+    const val = input.trim().toLowerCase()
+    if (!val) { setError('Username cannot be empty'); return }
+    if (!USERNAME_RE.test(val)) { setError('3–30 chars, lowercase letters, numbers, _ and . only'); return }
+    setSaving(true); setError('')
+    const { error: dbErr } = await supabase.from('profiles').update({ username: val }).eq('id', userId)
+    setSaving(false)
+    if (dbErr) {
+      if (dbErr.message?.includes('unique') || dbErr.code === '23505') setError('Username already taken')
+      else setError(dbErr.message)
+      return
+    }
+    setCurrent(val); setEditing(false)
+  }
+
+  return (
+    <div style={{ padding: '14px 16px' }}>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '6px' }}>Username</p>
+      {editing ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', background: 'var(--bg-chip)', border: '0.5px solid var(--border)', borderRadius: '8px', padding: '8px 12px' }}>
+              <span style={{ color: 'var(--text-secondary)', fontSize: '14px', marginRight: '2px' }}>@</span>
+              <input
+                value={input}
+                onChange={e => { setInput(e.target.value.toLowerCase()); setError('') }}
+                autoFocus
+                placeholder="your_username"
+                maxLength={30}
+                style={{ flex: 1, background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none' }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={save} disabled={saving}
+                style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '8px', padding: '8px 14px', fontSize: '13px', fontWeight: '500', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
+                {saving ? '...' : 'Save'}
+              </button>
+              <button onClick={cancel}
+                style={{ background: 'none', color: 'var(--text-secondary)', border: 'none', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>✕</button>
+            </div>
+          </div>
+          {error && <p style={{ color: '#E05C5C', fontSize: '12px', margin: 0 }}>{error}</p>}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <p style={{ color: current ? 'var(--text-primary)' : 'var(--text-secondary)', fontSize: '14px', margin: 0 }}>
+            {current ? `@${current}` : 'Not set'}
+          </p>
+          <button onClick={start}
+            style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer', flexShrink: 0, marginLeft: '8px' }}>Edit</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Input styles helper ────────────────────────────────────────────────────
 const inp = { background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px 16px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none' }
 const btn = (active) => ({ background: active ? 'var(--accent)' : 'var(--bg-chip)', color: active ? '#2C0A1E' : 'var(--text-secondary)', border: active ? 'none' : '0.5px solid var(--border)', borderRadius: '20px', padding: '6px 14px', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", fontWeight: active ? '500' : '400', cursor: 'pointer' })
@@ -593,6 +662,9 @@ export default function ProfilePage() {
         <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '14px 16px 10px' }}>Personal Info</p>
         <div style={{ borderTop: '0.5px solid var(--border)' }}>
           <EditRow label="Display name" field="display_name" value={profile?.display_name} placeholder="Your name" onSave={saveField} />
+        </div>
+        <div style={{ borderTop: '0.5px solid var(--border)' }}>
+          <UsernameRow value={profile?.username} userId={user.id} />
         </div>
         <div style={{ borderTop: '0.5px solid var(--border)', padding: '14px 16px' }}>
           <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '6px' }}>Email</p>

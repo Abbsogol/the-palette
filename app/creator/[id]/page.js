@@ -118,6 +118,9 @@ export default function CreatorPage() {
             <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
               {profile.account_type === 'salon' ? 'Salon' : 'Nail Artist'}
             </p>
+            {profile.username && (
+              <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '2px' }}>@{profile.username}</p>
+            )}
           </div>
         </div>
 
