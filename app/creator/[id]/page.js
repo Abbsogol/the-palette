@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import ShareButton from '@/components/ShareButton'
 
 export default function CreatorPage() {
   const { id } = useParams()
@@ -15,6 +16,7 @@ export default function CreatorPage() {
   const [followingCount, setFollowingCount] = useState(0)
   const [loading, setLoading]         = useState(true)
   const [followLoading, setFollowLoading] = useState(false)
+  const [totalSaves, setTotalSaves] = useState(0)
 
   useEffect(() => {
     const load = async () => {
@@ -29,10 +31,13 @@ export default function CreatorPage() {
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', id),
       ])
 
+      const totalSaves = (d || []).reduce((sum, design) => sum + (design.saves_count || 0), 0)
+
       setProfile(prof)
       setDesigns(d || [])
       setFollowerCount(followers || 0)
       setFollowingCount(following || 0)
+      setTotalSaves(totalSaves)
 
       if (me) {
         const { data: followRow } = await supabase.from('follows')
@@ -75,14 +80,15 @@ export default function CreatorPage() {
   return (
     <div style={{ paddingBottom: '32px' }}>
 
-      {/* Back */}
-      <div style={{ padding: '16px 20px 0' }}>
+      {/* Back + Share */}
+      <div style={{ padding: '16px 20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '13px', fontWeight: '500' }}>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
           Back
         </Link>
+        <ShareButton title={profile?.display_name ? `${profile.display_name} on Laque` : 'Creator on Laque'} />
       </div>
 
       {/* Header */}
@@ -118,6 +124,20 @@ export default function CreatorPage() {
         {profile.bio && (
           <p style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.6', marginBottom: '12px' }}>{profile.bio}</p>
         )}
+
+        {/* Specialties chips */}
+        {profile.specialties?.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
+            {profile.specialties.map(s => (
+              <span key={s} style={{
+                background: 'var(--bg-chip)', color: 'var(--text-secondary)',
+                fontSize: '12px', fontWeight: '500', padding: '5px 10px',
+                borderRadius: '20px', textTransform: 'capitalize',
+              }}>{s}</span>
+            ))}
+          </div>
+        )}
+
         {profile.location && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '16px' }}>
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
@@ -128,7 +148,7 @@ export default function CreatorPage() {
           </div>
         )}
 
-        {/* Follow button — only for other users */}
+        {/* Follow button */}
         {!isOwnProfile && currentUser && (
           <button onClick={handleFollow} disabled={followLoading} style={{
             width: '100%', marginBottom: '16px',
@@ -141,8 +161,22 @@ export default function CreatorPage() {
             opacity: followLoading ? 0.7 : 1,
             transition: 'all 0.15s ease',
           }}>
-            {isFollowing ? 'Following' : 'Follow'}
+            {isFollowing ? '✓ Following' : 'Follow'}
           </button>
+        )}
+
+        {/* Guest follow prompt */}
+        {!isOwnProfile && !currentUser && (
+          <Link href="/profile" style={{
+            display: 'block', width: '100%', marginBottom: '16px',
+            background: 'var(--accent)', color: '#2C0A1E',
+            borderRadius: '12px', padding: '13px',
+            fontSize: '14px', fontWeight: '600',
+            fontFamily: "'DM Sans', sans-serif",
+            textAlign: 'center', textDecoration: 'none',
+          }}>
+            Sign in to follow
+          </Link>
         )}
 
         {/* Book CTA */}
@@ -163,19 +197,18 @@ export default function CreatorPage() {
         </div>
 
         {/* Stats */}
-        <div style={{ display: 'flex', gap: '24px', marginBottom: '24px' }}>
-          <div>
-            <p style={{ color: 'var(--text-primary)', fontSize: '18px', fontWeight: '500' }}>{designs.length}</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Designs</p>
-          </div>
-          <div>
-            <p style={{ color: 'var(--text-primary)', fontSize: '18px', fontWeight: '500' }}>{followerCount}</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Followers</p>
-          </div>
-          <div>
-            <p style={{ color: 'var(--text-primary)', fontSize: '18px', fontWeight: '500' }}>{followingCount}</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Following</p>
-          </div>
+        <div style={{ display: 'flex', gap: '20px', marginBottom: '24px', padding: '16px', background: 'var(--bg-card)', borderRadius: '14px', border: '0.5px solid var(--border)' }}>
+          {[
+            { value: designs.length, label: 'Designs' },
+            { value: followerCount, label: 'Followers' },
+            { value: followingCount, label: 'Following' },
+            { value: totalSaves, label: 'Saves' },
+          ].map(({ value, label }) => (
+            <div key={label} style={{ flex: 1, textAlign: 'center' }}>
+              <p style={{ color: 'var(--text-primary)', fontSize: '17px', fontWeight: '600', margin: '0 0 2px' }}>{value}</p>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: 0 }}>{label}</p>
+            </div>
+          ))}
         </div>
 
         {/* Designs grid */}
@@ -193,7 +226,17 @@ export default function CreatorPage() {
                   ) : <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--bg-chip)' }} />}
                   <div style={{ padding: '10px 12px 12px' }}>
                     <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', marginBottom: '4px' }}>{design.title}</p>
-                    <p style={{ color: 'var(--accent)', fontSize: '10px', fontWeight: '500', letterSpacing: '0.05em', textTransform: 'uppercase' }}>{design.shape} · {design.occasion}</p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <p style={{ color: 'var(--accent)', fontSize: '10px', fontWeight: '500', letterSpacing: '0.05em', textTransform: 'uppercase', margin: 0 }}>{[design.shape, design.occasion].filter(Boolean).join(' · ')}</p>
+                      {design.saves_count > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '3px', color: 'var(--text-secondary)' }}>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+                          </svg>
+                          <span style={{ fontSize: '10px' }}>{design.saves_count}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </Link>
               ))}
