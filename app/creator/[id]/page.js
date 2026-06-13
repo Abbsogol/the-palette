@@ -61,6 +61,10 @@ export default function CreatorPage() {
       await supabase.from('follows').insert({ follower_id: currentUser.id, following_id: id })
       setIsFollowing(true)
       setFollowerCount(c => c + 1)
+      // Notify — skip if following yourself
+      if (currentUser.id !== id) {
+        await supabase.from('notifications').insert({ user_id: id, actor_id: currentUser.id, type: 'follow' })
+      }
     }
     setFollowLoading(false)
   }

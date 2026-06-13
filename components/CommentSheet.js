@@ -35,6 +35,16 @@ export default function CommentSheet({ design, currentUser, onClose, onCommentAd
       .single()
     await supabase.rpc('increment_comments', { design_id: design.id })
     if (data) { setComments(prev => [...prev, data]); onCommentAdded?.() }
+    // Notify design owner (skip if commenting on own design)
+    if (design.created_by && design.created_by !== currentUser.id) {
+      await supabase.from('notifications').insert({
+        user_id: design.created_by,
+        actor_id: currentUser.id,
+        type: 'comment',
+        design_id: design.id,
+        comment_preview: body.trim().slice(0, 80),
+      })
+    }
     setBody('')
     setSubmitting(false)
   }

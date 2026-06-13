@@ -39,6 +39,7 @@ export default function FeedPage() {
 
   // Shared
   const [currentUser, setCurrentUser] = useState(null)
+  const [unreadCount, setUnreadCount] = useState(0)
 
   // Stories state
   const [stories, setStories]         = useState([])
@@ -54,7 +55,17 @@ export default function FeedPage() {
   useEffect(() => {
     const load = async () => {
       const { data: { session } } = await supabase.auth.getSession()
-      setCurrentUser(session?.user || null)
+      const u = session?.user || null
+      setCurrentUser(u)
+
+      if (u) {
+        const { count } = await supabase
+          .from('notifications')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', u.id)
+          .eq('read', false)
+        setUnreadCount(count || 0)
+      }
 
       const [{ data: curatedDesigns }, { data: rawStories }] = await Promise.all([
         supabase.from('designs').select('*').eq('is_published', true).eq('is_curated', true),
@@ -264,13 +275,34 @@ export default function FeedPage() {
       })()}
 
       {/* ── Header ────────────────────────────────────────────────────────── */}
-      <div style={{ padding: '24px 20px 0', marginBottom: '12px' }}>
-        <h1 style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '22px', letterSpacing: '-0.02em', marginBottom: '4px' }}>
-          Laque
-        </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
-          Nail & beauty design library
-        </p>
+      <div style={{ padding: '24px 20px 0', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <h1 style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '22px', letterSpacing: '-0.02em', marginBottom: '4px' }}>
+            Laque
+          </h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+            Nail & beauty design library
+          </p>
+        </div>
+        {currentUser && (
+          <Link href="/notifications" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '50%', background: 'var(--bg-card)', border: '0.5px solid var(--border)', textDecoration: 'none', marginTop: '4px', flexShrink: 0 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/>
+            </svg>
+            {unreadCount > 0 && (
+              <div style={{
+                position: 'absolute', top: '0px', right: '0px',
+                width: '16px', height: '16px', borderRadius: '50%',
+                background: 'var(--accent)', border: '2px solid var(--bg-primary)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <span style={{ color: '#2C0A1E', fontSize: '9px', fontWeight: '700', fontFamily: "'DM Sans', sans-serif", lineHeight: 1 }}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              </div>
+            )}
+          </Link>
+        )}
       </div>
 
       {/* ── Main tabs: Explore / Community ────────────────────────────────── */}

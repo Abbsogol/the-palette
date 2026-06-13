@@ -39,6 +39,9 @@ export default function CommunityCard({ design, currentUser }) {
       await supabase.rpc('increment_likes', { design_id: design.id })
       setLiked(true)
       setLikesCount(c => c + 1)
+      if (design.created_by && design.created_by !== currentUser.id) {
+        await supabase.from('notifications').insert({ user_id: design.created_by, actor_id: currentUser.id, type: 'like', design_id: design.id })
+      }
     }
     setLikeLoading(false)
   }
