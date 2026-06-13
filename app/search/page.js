@@ -47,6 +47,9 @@ const COLOR_MAP = {
 }
 
 export default function SearchPage() {
+  const [mainTab, setMainTab] = useState('designs')
+
+  // Designs tab state
   const [query, setQuery] = useState('')
   const [activeFilters, setActiveFilters] = useState({})
   const [tagFilter, setTagFilter] = useState(null)
@@ -54,6 +57,11 @@ export default function SearchPage() {
   const [people, setPeople] = useState([])
   const [loading, setLoading] = useState(false)
   const [openSection, setOpenSection] = useState(null)
+
+  // Salons tab state
+  const [salons, setSalons] = useState([])
+  const [salonsLoaded, setSalonsLoaded] = useState(false)
+  const [locationFilter, setLocationFilter] = useState('')
 
   // Read tag/query from URL on mount
   useEffect(() => {
@@ -163,6 +171,23 @@ export default function SearchPage() {
     fetch()
   }, [query, activeFilters, tagFilter])
 
+  const switchMainTab = async (tab) => {
+    setMainTab(tab)
+    if (tab === 'salons' && !salonsLoaded) {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, display_name, username, avatar_url, location, bio')
+        .eq('account_type', 'salon')
+        .order('display_name', { ascending: true })
+      setSalons(data || [])
+      setSalonsLoaded(true)
+    }
+  }
+
+  const filteredSalons = locationFilter.trim()
+    ? salons.filter(s => s.location?.toLowerCase().includes(locationFilter.trim().toLowerCase()) || s.display_name?.toLowerCase().includes(locationFilter.trim().toLowerCase()))
+    : salons
+
   const toggleFilter = (category, value) => {
     setActiveFilters(prev => ({
       ...prev,
@@ -189,6 +214,119 @@ export default function SearchPage() {
           Find designs, nail artists & salons
         </p>
       </div>
+
+      {/* Main tabs */}
+      <div style={{ display: 'flex', borderBottom: '0.5px solid var(--border)', marginBottom: '20px' }}>
+        {[['designs', 'Designs'], ['salons', 'Salons']].map(([val, label]) => (
+          <button
+            key={val}
+            onClick={() => switchMainTab(val)}
+            style={{
+              flex: 1, background: 'none', border: 'none',
+              borderBottom: mainTab === val ? '2px solid var(--accent)' : '2px solid transparent',
+              color: mainTab === val ? 'var(--text-primary)' : 'var(--text-secondary)',
+              fontSize: '14px', fontWeight: mainTab === val ? '600' : '400',
+              fontFamily: "'DM Sans', sans-serif",
+              padding: '10px 0', cursor: 'pointer',
+              transition: 'color 0.15s',
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── SALONS TAB ─────────────────────────────────────────────────────── */}
+      {mainTab === 'salons' && (
+        <div>
+          {/* Location filter */}
+          <div style={{ position: 'relative', marginBottom: '16px' }}>
+            <svg style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
+              width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M8 1.5C5.79 1.5 4 3.29 4 5.5C4 8.5 8 14.5 8 14.5C8 14.5 12 8.5 12 5.5C12 3.29 10.21 1.5 8 1.5Z" stroke="#888888" strokeWidth="1.3"/>
+              <circle cx="8" cy="5.5" r="1.5" stroke="#888888" strokeWidth="1.3"/>
+            </svg>
+            <input
+              type="text"
+              placeholder="Filter by city or area..."
+              value={locationFilter}
+              onChange={e => setLocationFilter(e.target.value)}
+              style={{
+                width: '100%', background: 'var(--bg-card)', border: '0.5px solid var(--border)',
+                borderRadius: '12px', padding: '12px 12px 12px 38px',
+                color: 'var(--text-primary)', fontSize: '14px',
+                fontFamily: "'DM Sans', sans-serif", outline: 'none', boxSizing: 'border-box',
+              }}
+            />
+          </div>
+
+          {!salonsLoaded ? (
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center', padding: '48px 0' }}>Loading...</p>
+          ) : filteredSalons.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '48px 0' }}>
+              <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '500', marginBottom: '8px' }}>
+                {locationFilter.trim() ? 'No salons found in that area' : 'No salons yet'}
+              </p>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+                {locationFilter.trim() ? 'Try a different city or area.' : 'Salons will appear here once they sign up.'}
+              </p>
+            </div>
+          ) : (
+            <div>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginBottom: '12px' }}>
+                {filteredSalons.length} salon{filteredSalons.length !== 1 ? 's' : ''}
+              </p>
+              {filteredSalons.map(salon => (
+                <Link
+                  key={salon.id}
+                  href={`/creator/${salon.id}`}
+                  style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 0', borderBottom: '0.5px solid var(--border)', textDecoration: 'none' }}
+                >
+                  <div style={{
+                    width: '52px', height: '52px', borderRadius: '50%',
+                    background: 'var(--bg-chip)', overflow: 'hidden', flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    border: '0.5px solid var(--border)',
+                  }}>
+                    {salon.avatar_url
+                      ? <img src={salon.avatar_url} alt={salon.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : <span style={{ color: 'var(--accent)', fontSize: '19px', fontWeight: '500' }}>
+                          {(salon.display_name || '?')[0].toUpperCase()}
+                        </span>
+                    }
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
+                      <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {salon.display_name || 'Salon'}
+                      </p>
+                      <span style={{ background: 'var(--bg-chip)', color: 'var(--accent)', fontSize: '9px', fontWeight: '600', padding: '2px 7px', borderRadius: '20px', letterSpacing: '0.04em', flexShrink: 0 }}>
+                        SALON
+                      </span>
+                    </div>
+                    {salon.location && (
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '0 0 2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        📍 {salon.location}
+                      </p>
+                    )}
+                    {salon.bio && (
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {salon.bio}
+                      </p>
+                    )}
+                  </div>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+                    <path d="M6 4L10 8L6 12" stroke="var(--text-secondary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── DESIGNS TAB ────────────────────────────────────────────────────── */}
+      {mainTab === 'designs' && <>
 
       {/* Active tag chip */}
       {tagFilter && (
@@ -398,6 +536,8 @@ export default function SearchPage() {
           )}
         </div>
       )}
+
+      </>}
 
     </div>
   )
