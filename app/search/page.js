@@ -51,6 +51,7 @@ export default function SearchPage() {
   const [activeFilters, setActiveFilters] = useState({})
   const [tagFilter, setTagFilter] = useState(null)
   const [designs, setDesigns] = useState([])
+  const [people, setPeople] = useState([])
   const [loading, setLoading] = useState(false)
   const [openSection, setOpenSection] = useState(null)
 
@@ -62,6 +63,21 @@ export default function SearchPage() {
     if (tag) setTagFilter(tag)
     if (q) setQuery(q)
   }, [])
+
+  // People search — runs in parallel when query is non-empty
+  useEffect(() => {
+    if (!query.trim()) { setPeople([]); return }
+    const searchPeople = async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, display_name, avatar_url, account_type')
+        .or(`display_name.ilike.%${query.trim()}%,username.ilike.%${query.trim()}%`)
+        .in('account_type', ['creator', 'salon'])
+        .limit(5)
+      setPeople(data || [])
+    }
+    searchPeople()
+  }, [query])
 
   useEffect(() => {
     const fetch = async () => {
@@ -169,7 +185,7 @@ export default function SearchPage() {
           Search
         </h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
-          Find designs by name or filter
+          Find designs, nail artists & salons
         </p>
       </div>
 
@@ -201,7 +217,7 @@ export default function SearchPage() {
         </svg>
         <input
           type="text"
-          placeholder="Search designs..."
+          placeholder="Search designs, nail artists, salons..."
           value={query}
           onChange={e => setQuery(e.target.value)}
           style={{
@@ -290,11 +306,54 @@ export default function SearchPage() {
         <p style={{ color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center', padding: '32px 0' }}>
           Loading...
         </p>
-      ) : designs.length > 0 ? (
+      ) : designs.length > 0 || people.length > 0 ? (
         <>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginBottom: '12px' }}>
+          {/* ── People results ── */}
+          {people.length > 0 && (
+            <div style={{ marginBottom: '20px' }}>
+              <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>
+                People
+              </p>
+              <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', scrollbarWidth: 'none' }}>
+                {people.map(person => (
+                  <Link key={person.id} href={`/creator/${person.id}`} style={{
+                    flexShrink: 0, textDecoration: 'none',
+                    background: 'var(--bg-card)', border: '0.5px solid var(--border)',
+                    borderRadius: '14px', padding: '12px 14px',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
+                    minWidth: '90px',
+                  }}>
+                    <div style={{
+                      width: '48px', height: '48px', borderRadius: '50%',
+                      background: 'var(--bg-chip)', overflow: 'hidden',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {person.avatar_url
+                        ? <img src={person.avatar_url} alt={person.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <span style={{ color: 'var(--accent)', fontSize: '18px', fontWeight: '500' }}>
+                            {(person.display_name || '?')[0].toUpperCase()}
+                          </span>
+                      }
+                    </div>
+                    <p style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500', textAlign: 'center', margin: 0, maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {person.display_name || 'Creator'}
+                    </p>
+                    <span style={{
+                      background: 'var(--bg-chip)', color: 'var(--accent)',
+                      fontSize: '10px', fontWeight: '500', padding: '3px 8px',
+                      borderRadius: '20px', letterSpacing: '0.04em',
+                    }}>
+                      {person.account_type === 'salon' ? 'Salon' : 'Nail Artist'}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {designs.length > 0 && <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginBottom: '12px' }}>
             {designs.length} design{designs.length !== 1 ? 's' : ''}
-          </p>
+          </p>}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             {designs.map(design => (
               <Link
