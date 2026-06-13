@@ -1,44 +1,67 @@
+'use client'
+import { useState, useEffect } from 'react'
+import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import ShareButton from '@/components/ShareButton'
 
-export const dynamic = 'force-dynamic'
+export default function MoodboardDetailPage() {
+  const { id } = useParams()
+  const [board, setBoard] = useState(null)
+  const [designs, setDesigns] = useState([])
+  const [creatorName, setCreatorName] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [notFound, setNotFound] = useState(false)
 
-export default async function MoodboardDetailPage({ params }) {
-  const { id } = await params
+  useEffect(() => {
+    if (!id) return
+    loadBoard()
+  }, [id])
 
-  // Load board
-  const { data: board } = await supabase
-    .from('moodboards')
-    .select('id, name, description, is_public, user_id')
-    .eq('id', id)
-    .single()
+  async function loadBoard() {
+    setLoading(true)
 
-  if (!board) {
-    return (
-      <div style={{ padding: '24px 20px', color: 'var(--text-secondary)' }}>
-        Board not found.
-      </div>
-    )
+    const { data: boardData } = await supabase
+      .from('moodboards')
+      .select('id, name, description, is_public, user_id')
+      .eq('id', id)
+      .single()
+
+    if (!boardData) {
+      setNotFound(true)
+      setLoading(false)
+      return
+    }
+
+    setBoard(boardData)
+
+    // Load designs
+    const { data: boardDesigns } = await supabase
+      .from('moodboard_designs')
+      .select('design_id, added_at, designs(id, title, image_url, shape, category)')
+      .eq('moodboard_id', id)
+      .order('added_at', { ascending: false })
+
+    setDesigns(boardDesigns?.map(r => r.designs).filter(Boolean) || [])
+
+    // Load creator name
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('display_name, username')
+      .eq('id', boardData.user_id)
+      .single()
+
+    setCreatorName(profile?.display_name || profile?.username || null)
+    setLoading(false)
   }
 
-  // Load designs in this board
-  const { data: boardDesigns } = await supabase
-    .from('moodboard_designs')
-    .select('design_id, added_at, designs(id, title, image_url, shape, category)')
-    .eq('moodboard_id', id)
-    .order('added_at', { ascending: false })
+  if (loading) {
+    return <div style={{ padding: '40px 20px', color: 'var(--text-secondary)', fontSize: '14px' }}>Loading...</div>
+  }
 
-  const designs = boardDesigns?.map(r => r.designs).filter(Boolean) || []
-
-  // Load creator name
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('display_name, username')
-    .eq('id', board.user_id)
-    .single()
-
-  const creatorName = profile?.display_name || profile?.username || null
+  if (notFound || !board) {
+    return <div style={{ padding: '24px 20px', color: 'var(--text-secondary)' }}>Board not found.</div>
+  }
 
   return (
     <div style={{ paddingBottom: '32px' }}>
