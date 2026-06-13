@@ -15,13 +15,17 @@ export default function MoodboardDetailPage() {
 
   useEffect(() => {
     if (!id) return
-    loadBoard()
+
+    // Wait for auth session to be ready before querying (RLS requires it)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      loadBoard()
+    })
   }, [id])
 
   async function loadBoard() {
     setLoading(true)
 
-    const { data: boardData } = await supabase
+    const { data: boardData, error } = await supabase
       .from('moodboards')
       .select('id, name, description, is_public, user_id')
       .eq('id', id)
@@ -35,7 +39,6 @@ export default function MoodboardDetailPage() {
 
     setBoard(boardData)
 
-    // Load designs
     const { data: boardDesigns } = await supabase
       .from('moodboard_designs')
       .select('design_id, added_at, designs(id, title, image_url, shape, category)')
@@ -44,7 +47,6 @@ export default function MoodboardDetailPage() {
 
     setDesigns(boardDesigns?.map(r => r.designs).filter(Boolean) || [])
 
-    // Load creator name
     const { data: profile } = await supabase
       .from('profiles')
       .select('display_name, username')
@@ -60,13 +62,16 @@ export default function MoodboardDetailPage() {
   }
 
   if (notFound || !board) {
-    return <div style={{ padding: '24px 20px', color: 'var(--text-secondary)' }}>Board not found.</div>
+    return (
+      <div style={{ padding: '24px 20px', textAlign: 'center', paddingTop: '60px' }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '15px', marginBottom: '16px' }}>Board not found.</p>
+        <Link href="/moodboards" style={{ color: 'var(--accent)', fontSize: '14px', textDecoration: 'none' }}>← Back to My Boards</Link>
+      </div>
+    )
   }
 
   return (
     <div style={{ paddingBottom: '32px' }}>
-
-      {/* Header */}
       <div style={{ padding: '16px 20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Link href="/moodboards" style={{
           display: 'inline-flex', alignItems: 'center', gap: '6px',
@@ -81,7 +86,6 @@ export default function MoodboardDetailPage() {
         {board.is_public && <ShareButton title={board.name} />}
       </div>
 
-      {/* Board title */}
       <div style={{ padding: '20px 20px 0' }}>
         <h1 style={{
           color: 'var(--text-primary)', fontSize: '24px',
@@ -94,18 +98,14 @@ export default function MoodboardDetailPage() {
             {designs.length} {designs.length === 1 ? 'design' : 'designs'}
           </span>
           {creatorName && (
-            <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-              · by {creatorName}
-            </span>
+            <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>· by {creatorName}</span>
           )}
           {board.is_public && (
             <span style={{
               background: 'rgba(212,160,192,0.15)', color: 'var(--accent)',
               fontSize: '11px', fontWeight: '600', letterSpacing: '0.06em',
               padding: '3px 8px', borderRadius: '6px', textTransform: 'uppercase',
-            }}>
-              Public
-            </span>
+            }}>Public</span>
           )}
         </div>
         {board.description && (
@@ -115,16 +115,11 @@ export default function MoodboardDetailPage() {
         )}
       </div>
 
-      {/* Designs grid */}
       <div style={{ padding: '20px 20px 0' }}>
         {designs.length === 0 ? (
           <div style={{ padding: '40px 0', textAlign: 'center' }}>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '8px' }}>
-              No designs in this board yet.
-            </p>
-            <Link href="/feed" style={{
-              color: 'var(--accent)', fontSize: '14px', textDecoration: 'none', fontWeight: '500',
-            }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '8px' }}>No designs yet.</p>
+            <Link href="/feed" style={{ color: 'var(--accent)', fontSize: '14px', textDecoration: 'none', fontWeight: '500' }}>
               Browse designs →
             </Link>
           </div>
@@ -137,11 +132,9 @@ export default function MoodboardDetailPage() {
                 textDecoration: 'none', display: 'block',
               }}>
                 <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', background: 'var(--bg-chip)' }}>
-                  {d.image_url ? (
+                  {d.image_url && (
                     <img src={d.image_url} alt={d.title}
                       style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
-                  ) : (
-                    <div style={{ width: '100%', height: '100%' }} />
                   )}
                 </div>
                 <div style={{ padding: '8px 10px 10px' }}>
