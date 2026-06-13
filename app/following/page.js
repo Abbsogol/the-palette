@@ -31,7 +31,7 @@ export default function FollowingPage() {
     if (ids.length > 0) {
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, display_name, avatar_url, account_type')
+        .select('id, display_name, avatar_url, account_type, is_verified')
         .in('id', ids)
       result = profiles?.map(p => ({ following_id: p.id, profiles: p })) || []
       result.sort((a, b) => ids.indexOf(a.following_id) - ids.indexOf(b.following_id))
@@ -109,9 +109,17 @@ export default function FollowingPage() {
                     }
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500', margin: '0 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {person.display_name || 'User'}
-                    </p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '3px', minWidth: 0 }}>
+                      <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {person.display_name || 'User'}
+                      </p>
+                      {person.is_verified && (
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+                          <circle cx="8" cy="8" r="7" fill="#D4A0C0"/>
+                          <path d="M5 8L7 10L11 6" stroke="#2C0A1E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      )}
+                    </div>
                     <span style={{
                       background: 'var(--bg-chip)', color: isCreator ? 'var(--accent)' : 'var(--text-secondary)',
                       fontSize: '10px', fontWeight: '500', padding: '2px 8px',

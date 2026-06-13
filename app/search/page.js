@@ -79,7 +79,7 @@ export default function SearchPage() {
       const q = query.trim()
       const { data } = await supabase
         .from('profiles')
-        .select('id, display_name, username, avatar_url, account_type')
+        .select('id, display_name, username, avatar_url, account_type, is_verified')
         .or(`display_name.ilike.%${q}%,username.ilike.%${q}%`)
         .in('account_type', ['creator', 'salon'])
         .limit(5)
@@ -475,9 +475,17 @@ export default function SearchPage() {
                       }
                     </div>
                     <div style={{ textAlign: 'center' }}>
-                      <p style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500', margin: 0, maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {person.display_name || 'Creator'}
-                      </p>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                        <p style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500', margin: 0, maxWidth: '70px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {person.display_name || 'Creator'}
+                        </p>
+                        {person.is_verified && (
+                          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+                            <circle cx="8" cy="8" r="7" fill="#D4A0C0"/>
+                            <path d="M5 8L7 10L11 6" stroke="#2C0A1E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
                       {person.username && (
                         <p style={{ color: 'var(--text-secondary)', fontSize: '10px', margin: '2px 0 0', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           @{person.username}

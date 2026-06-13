@@ -71,9 +71,17 @@ export default function CommunityCard({ design, currentUser }) {
             }
           </div>
           <div>
-            <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500', margin: 0, lineHeight: 1.2 }}>
-              {creatorName}
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500', margin: 0, lineHeight: 1.2 }}>
+                {creatorName}
+              </p>
+              {creator?.is_verified && (
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+                  <circle cx="8" cy="8" r="7" fill="#D4A0C0"/>
+                  <path d="M5 8L7 10L11 6" stroke="#2C0A1E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              )}
+            </div>
             <p style={{ color: 'var(--accent)', fontSize: '10px', fontWeight: '500', letterSpacing: '0.06em', textTransform: 'uppercase', margin: '2px 0 0' }}>
               {accountType === 'salon' ? 'Salon' : 'Nail Artist'}
             </p>
