@@ -18,7 +18,7 @@ const TAB_FILTER = {
 
 export default function Home() {
   const [designs, setDesigns]         = useState([])
-  const [saveCountMap, setSaveCountMap] = useState({})
+  // saveCountMap removed — now using designs.saves_count directly
   const [activeTab, setActiveTab]     = useState('All')
   const [sort, setSort]               = useState('newest')
   const [loading, setLoading]         = useState(true)
@@ -39,17 +39,13 @@ export default function Home() {
       const { data: { session } } = await supabase.auth.getSession()
       setCurrentUser(session?.user || null)
 
-      const [{ data: allDesigns }, { data: saves }, { data: rawStories }] = await Promise.all([
+      const [{ data: allDesigns }, { data: rawStories }] = await Promise.all([
         supabase.from('designs').select('*').eq('is_published', true),
-        supabase.from('saved_designs').select('design_id'),
         supabase.from('stories')
           .select('*, profiles(id, display_name, avatar_url)')
           .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
           .order('created_at', { ascending: false }),
       ])
-
-      const counts = {}
-      saves?.forEach(s => { counts[s.design_id] = (counts[s.design_id] || 0) + 1 })
 
       // Deduplicate stories by user — keep first (most recent) per user
       const seen = new Set()
@@ -62,7 +58,6 @@ export default function Home() {
       })
 
       setDesigns(allDesigns || [])
-      setSaveCountMap(counts)
       setStories(deduped)
       setLoading(false)
     }
@@ -154,7 +149,7 @@ export default function Home() {
   const filtered = designs
     .filter(TAB_FILTER[activeTab])
     .sort((a, b) => {
-      if (sort === 'most_saved') return (saveCountMap[b.id] || 0) - (saveCountMap[a.id] || 0)
+      if (sort === 'most_saved') return (b.saves_count || 0) - (a.saves_count || 0)
       return new Date(b.created_at) - new Date(a.created_at)
     })
 
@@ -382,6 +377,65 @@ export default function Home() {
           </button>
         ))}
       </div>
+
+      {/* ── Trending row ── */}
+      {(() => {
+        const trending = [...designs]
+          .filter(d => (d.saves_count || 0) > 0)
+          .sort((a, b) => (b.saves_count || 0) - (a.saves_count || 0))
+          .slice(0, 10)
+        if (trending.length === 0) return null
+        return (
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ padding: '0 20px 10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                Trending
+              </span>
+              <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>· Most saved right now</span>
+            </div>
+            <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', padding: '0 20px', scrollbarWidth: 'none' }}>
+              {trending.map((d, i) => (
+                <Link
+                  key={d.id}
+                  href={`/design/${d.id}?from=%2Ffeed`}
+                  onClick={() => sessionStorage.setItem('feed-scroll', window.scrollY.toString())}
+                  style={{ flexShrink: 0, width: '130px', textDecoration: 'none' }}
+                >
+                  <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '0.5px solid var(--border)', background: 'var(--bg-card)' }}>
+                    {d.image_url ? (
+                      <div style={{ width: '130px', height: '130px', overflow: 'hidden' }}>
+                        <img src={d.image_url} alt={d.title}
+                          style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+                      </div>
+                    ) : (
+                      <div style={{ width: '130px', height: '130px', background: 'var(--bg-chip)' }} />
+                    )}
+                    {/* Rank badge */}
+                    <div style={{
+                      position: 'absolute', top: '6px', left: '6px',
+                      background: i === 0 ? 'var(--accent)' : 'rgba(0,0,0,0.55)',
+                      color: i === 0 ? '#141414' : '#fff',
+                      fontSize: '10px', fontWeight: '700',
+                      width: '20px', height: '20px', borderRadius: '6px',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {i + 1}
+                    </div>
+                  </div>
+                  <div style={{ padding: '6px 2px 0' }}>
+                    <p style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500', lineHeight: '1.3', margin: '0 0 2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {d.title}
+                    </p>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: 0 }}>
+                      {d.saves_count} {d.saves_count === 1 ? 'save' : 'saves'}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Grid */}
       <div style={{ padding: '0 20px' }}>

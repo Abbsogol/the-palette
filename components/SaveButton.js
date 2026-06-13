@@ -1,78 +1,78 @@
 'use client'
-
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
 export default function SaveButton({ designId }) {
-  const [user, setUser] = useState(null)
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
-  const router = useRouter()
+  const [user, setUser] = useState(null)
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setUser(session?.user || null)
-      if (session?.user) {
-        const { data } = await supabase
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const u = session?.user || null
+      setUser(u)
+      if (u) {
+        supabase
           .from('saved_designs')
-          .select('id')
-          .eq('user_id', session.user.id)
+          .select('design_id')
+          .eq('user_id', u.id)
           .eq('design_id', designId)
-          .single()
-        setSaved(!!data)
+          .maybeSingle()
+          .then(({ data }) => {
+            setSaved(!!data)
+            setLoading(false)
+          })
+      } else {
+        setLoading(false)
       }
-      setLoading(false)
     })
   }, [designId])
 
-  const toggle = async () => {
+  async function toggle(e) {
+    e.preventDefault()
+    e.stopPropagation()
     if (!user) {
-      router.push('/profile')
+      window.location.href = '/profile'
       return
     }
-    if (saved) {
-      await supabase
-        .from('saved_designs')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('design_id', designId)
-      setSaved(false)
+    const next = !saved
+    setSaved(next)
+
+    if (next) {
+      await supabase.from('saved_designs').insert({ user_id: user.id, design_id: designId })
+      await supabase.rpc('increment_saves', { design_id: designId })
     } else {
-      await supabase
-        .from('saved_designs')
-        .insert({ user_id: user.id, design_id: designId })
-      setSaved(true)
+      await supabase.from('saved_designs').delete().eq('user_id', user.id).eq('design_id', designId)
+      await supabase.rpc('decrement_saves', { design_id: designId })
     }
   }
-
-  if (loading) return null
 
   return (
     <button
       onClick={toggle}
+      disabled={loading}
       title={saved ? 'Unsave' : 'Save'}
       style={{
-        background: saved ? 'var(--accent)' : 'var(--bg-chip)',
+        background: saved ? 'rgba(212,160,192,0.15)' : 'var(--bg-chip)',
         border: 'none',
-        borderRadius: '50%',
-        width: '44px',
-        height: '44px',
+        borderRadius: '10px',
+        width: '38px',
+        height: '38px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        cursor: 'pointer',
+        cursor: loading ? 'default' : 'pointer',
+        color: saved ? 'var(--accent)' : 'var(--text-secondary)',
         flexShrink: 0,
+        transition: 'background 0.2s, color 0.2s',
       }}
     >
-      <svg width="20" height="20" viewBox="0 0 20 20" fill={saved ? '#2C0A1E' : 'none'}>
-        <path
-          d="M10 17s-7-4.5-7-9a4 4 0 0 1 7-2.65A4 4 0 0 1 17 8c0 4.5-7 9-7 9z"
-          stroke={saved ? '#2C0A1E' : 'var(--text-secondary)'}
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+      <svg width="18" height="18" viewBox="0 0 24 24"
+        fill={saved ? 'currentColor' : 'none'}
+        stroke="currentColor" strokeWidth="1.8"
+        strokeLinecap="round" strokeLinejoin="round"
+      >
+        <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
       </svg>
     </button>
   )
