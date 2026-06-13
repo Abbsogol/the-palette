@@ -32,6 +32,11 @@ export default function FeedPage() {
   const [loadingCommunity, setLoadingCommunity] = useState(false)
   const [communityLoaded, setCommunityLoaded]   = useState(false)
 
+  // Following state
+  const [followingFeed, setFollowingFeed]         = useState([])
+  const [loadingFollowing, setLoadingFollowing]   = useState(false)
+  const [followingLoaded, setFollowingLoaded]     = useState(false)
+
   // Shared
   const [currentUser, setCurrentUser] = useState(null)
 
@@ -83,7 +88,7 @@ export default function FeedPage() {
     }
   }, [loadingExplore])
 
-  // ── Load community tab on first switch ───────────────────────────────────
+  // ── Load community / following tabs on first switch ─────────────────────
   const switchTab = async (tab) => {
     setMainTab(tab)
     if (tab === 'community' && !communityLoaded) {
@@ -97,6 +102,25 @@ export default function FeedPage() {
       setCommunity(data || [])
       setLoadingCommunity(false)
       setCommunityLoaded(true)
+    }
+    if (tab === 'following' && !followingLoaded && currentUser) {
+      setLoadingFollowing(true)
+      const { data: followRows } = await supabase
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', currentUser.id)
+      const ids = (followRows || []).map(r => r.following_id)
+      if (ids.length > 0) {
+        const { data } = await supabase
+          .from('designs')
+          .select('*, profiles(id, display_name, avatar_url, account_type)')
+          .in('created_by', ids)
+          .eq('is_published', true)
+          .order('created_at', { ascending: false })
+        setFollowingFeed(data || [])
+      }
+      setLoadingFollowing(false)
+      setFollowingLoaded(true)
     }
   }
 
@@ -254,7 +278,7 @@ export default function FeedPage() {
         display: 'flex', borderBottom: '0.5px solid var(--border)',
         padding: '0 20px', marginBottom: '0',
       }}>
-        {[['explore', 'Explore'], ['community', 'Community']].map(([val, label]) => (
+        {[['explore', 'Explore'], ['community', 'Community'], ['following', 'Following']].map(([val, label]) => (
           <button
             key={val}
             onClick={() => switchTab(val)}
@@ -448,6 +472,45 @@ export default function FeedPage() {
           ) : (
             <div>
               {community.map(design => (
+                <CommunityCard key={design.id} design={design} currentUser={currentUser} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* FOLLOWING TAB                                                       */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {mainTab === 'following' && (
+        <div>
+          {!currentUser ? (
+            <div style={{ padding: '48px 20px', textAlign: 'center' }}>
+              <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '500', marginBottom: '8px' }}>Sign in to see your feed</p>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: '1.6', marginBottom: '20px' }}>
+                Follow nail artists and salons to get their latest designs here.
+              </p>
+              <Link href="/profile" style={{ display: 'inline-block', background: 'var(--accent)', color: '#2C0A1E', borderRadius: '12px', padding: '12px 28px', fontSize: '14px', fontWeight: '600', textDecoration: 'none', fontFamily: "'DM Sans', sans-serif" }}>
+                Sign in
+              </Link>
+            </div>
+          ) : loadingFollowing ? (
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center', padding: '48px 0' }}>Loading...</p>
+          ) : followingFeed.length === 0 ? (
+            <div style={{ padding: '48px 20px', textAlign: 'center' }}>
+              <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '500', marginBottom: '8px' }}>
+                Your feed is empty
+              </p>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: '1.6', marginBottom: '20px' }}>
+                Follow nail artists and salons to see their latest designs here.
+              </p>
+              <Link href="/search" style={{ display: 'inline-block', background: 'var(--accent)', color: '#2C0A1E', borderRadius: '12px', padding: '12px 28px', fontSize: '14px', fontWeight: '600', textDecoration: 'none', fontFamily: "'DM Sans', sans-serif" }}>
+                Find creators
+              </Link>
+            </div>
+          ) : (
+            <div>
+              {followingFeed.map(design => (
                 <CommunityCard key={design.id} design={design} currentUser={currentUser} />
               ))}
             </div>

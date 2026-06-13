@@ -618,6 +618,20 @@ export default function ProfilePage() {
             )}
           </div>
         </div>
+        {/* Followers / Following stats */}
+        <div style={{ display: 'flex', gap: '20px', marginBottom: '16px' }}>
+          {[
+            { value: savedCount,     label: 'Saved',     href: '/saved'      },
+            { value: followerCount,  label: 'Followers', href: '/followers'  },
+            { value: followingCount, label: 'Following', href: '/following'  },
+          ].map(({ value, label, href }) => (
+            <Link key={label} href={href} style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+              <span style={{ color: 'var(--text-primary)', fontSize: '17px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif" }}>{value}</span>
+              <span style={{ color: 'var(--text-secondary)', fontSize: '11px', fontFamily: "'DM Sans', sans-serif" }}>{label}</span>
+            </Link>
+          ))}
+        </div>
+
         {/* Completion bar */}
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
           <p style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Profile completion</p>
