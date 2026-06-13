@@ -266,6 +266,22 @@ export default function SaveToBoard({ designId, designImageUrl, renderTrigger })
                 )}
               </>
             )}
+
+            {/* Done button */}
+            <div style={{ padding: '16px 20px 0' }}>
+              <button
+                onClick={() => setOpen(false)}
+                style={{
+                  width: '100%', padding: '14px',
+                  background: 'var(--bg-chip)', color: 'var(--text-primary)',
+                  border: '0.5px solid var(--border)', borderRadius: '12px',
+                  fontSize: '14px', fontWeight: '600',
+                  fontFamily: "'DM Sans', sans-serif", cursor: 'pointer',
+                }}
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}
