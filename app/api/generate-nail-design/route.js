@@ -69,14 +69,22 @@ NAIL DESIGN SPECS — apply these to every nail in the board:
 
 DESIGN NAME: Choose a name that is ${nameHint}. The subtitle should reflect the shape, length, or finish in 2–4 words.`
 
-    // Build OpenAI request — support reference images
+    // Build OpenAI request — gpt-image-1 always returns base64
     let requestBody
     if (referenceImageUrls && referenceImageUrls.length > 0) {
-      // Use responses API for multi-modal (text + images)
-      const imageInputs = referenceImageUrls.slice(0, 4).map(url => ({
-        type: 'input_image',
-        image_url: url,
-      }))
+      // Fetch reference images as base64 so OpenAI can read them
+      const imageInputs = await Promise.all(
+        referenceImageUrls.slice(0, 4).map(async (url) => {
+          const imgRes = await fetch(url)
+          const buffer = await imgRes.arrayBuffer()
+          const b64 = Buffer.from(buffer).toString('base64')
+          const mime = imgRes.headers.get('content-type') || 'image/jpeg'
+          return {
+            type: 'input_image',
+            image_url: `data:${mime};base64,${b64}`,
+          }
+        })
+      )
       requestBody = {
         model: 'gpt-image-1',
         input: [
@@ -84,24 +92,20 @@ DESIGN NAME: Choose a name that is ${nameHint}. The subtitle should reflect the 
             role: 'user',
             content: [
               ...imageInputs,
-              { type: 'input_text', text: prompt }
-            ]
-          }
+              { type: 'input_text', text: prompt },
+            ],
+          },
         ],
-        output_format: 'url',
       }
     } else {
-      // Standard image generation
       requestBody = {
         model: 'gpt-image-1',
         prompt,
         n: 1,
         size: '1024x1024',
-        output_format: 'url',
       }
     }
 
-    // Determine endpoint
     const endpoint = referenceImageUrls && referenceImageUrls.length > 0
       ? 'https://api.openai.com/v1/responses'
       : 'https://api.openai.com/v1/images/generations'
@@ -123,13 +127,29 @@ DESIGN NAME: Choose a name that is ${nameHint}. The subtitle should reflect the 
 
     const openaiData = await openaiRes.json()
 
-    // Extract image URL from either endpoint format
-    const imageUrl = openaiData?.data?.[0]?.url
+    // Extract base64 from either endpoint format
+    const b64 = openaiData?.data?.[0]?.b64_json
       || openaiData?.output?.find(o => o.type === 'image_generation_call')?.result
 
-    if (!imageUrl) {
+    if (!b64) {
       return Response.json({ error: 'No image returned', raw: openaiData }, { status: 500 })
     }
+
+    // Upload to Supabase Storage → get public URL
+    const fileName = `${userId}/${Date.now()}.png`
+    const imageBuffer = Buffer.from(b64, 'base64')
+    const { error: uploadError } = await supabase.storage
+      .from('nail-lab')
+      .upload(fileName, imageBuffer, { contentType: 'image/png', upsert: false })
+
+    if (uploadError) {
+      console.error('Storage upload error:', uploadError)
+      return Response.json({ error: 'Failed to save image', details: uploadError.message }, { status: 500 })
+    }
+
+    const { data: { publicUrl: imageUrl } } = supabase.storage
+      .from('nail-lab')
+      .getPublicUrl(fileName)
 
     // Deduct 1 credit
     await supabase.rpc('decrement_credits', { user_id: userId })
