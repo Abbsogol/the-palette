@@ -65,7 +65,7 @@ export async function POST(request) {
 
 TITLE AREA — top center: "✦ [DESIGN NAME] ✦" in large elegant serif font coloured to match the nails. Subtitle in small spaced caps directly below.
 
-LEFT SIDE — nail sets: Two rows of 5 floating photorealistic nails. "SET 1" label left of row one, "SET 2" label left of row two, small ✦ divider between rows. Nails float on the dark background with soft shadows. No panels, no boxes, no backgrounds behind nails. No hands. No fingers. No skin. Nails only.
+LEFT SIDE — nail sets: Exactly 2 horizontal rows of 5 nails each — no more, no less. "SET 1" label left of the first row, "SET 2" label left of the second row, small ✦ divider between them. Do not generate a third row, a fourth row, or any additional sets. Only SET 1 and SET 2. Nails float on the dark background with soft shadows. No panels, no boxes. No hands, no fingers, no skin — nails only.
 
 RIGHT SIDE — detail shots: Exactly 3 close-up macro shots, stacked vertically. Each inside a dark rounded rectangle frame that blends into the background — no light or white inside the frames. Each shot shows only the nail surface — texture, finish, art detail. Absolutely no skin, no fingers, no hands in any detail shot. Nail surface only. All 3 frames must be filled — no empty or black frames. Below each frame: one bold all-caps label + 2 lines small italic text.
 
@@ -92,7 +92,7 @@ DESIGN NAME: Choose a name that is ${nameHint}. Subtitle should reflect shape, l
       model: 'gpt-image-1',
       prompt,
       n: 1,
-      size: '1024x1024',
+      size: '1536x1024',
     }
 
     const openaiRes = await fetch('https://api.openai.com/v1/images/generations', {
