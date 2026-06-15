@@ -61,29 +61,38 @@ export async function POST(request) {
     }
     const nameHint = vibeNameHints[primaryVibe] || `reflecting the ${primaryVibe} aesthetic`
 
-    const prompt = `A professional nail design reference board. Dark warm charcoal background (#2A2828) throughout the entire image — no white areas anywhere, no light backgrounds, no panels, no frames with white inside.
+    const prompt = `A professional nail design reference board on a dark warm charcoal background (#2A2828). The entire image is dark — no white areas, no light panels, no bright backgrounds anywhere.
 
-LAYOUT:
-Top center: title text "✦ [DESIGN NAME] ✦" in large elegant serif font coloured to match the nail palette, with subtitle "[DESIGN SUBTITLE]" in small spaced caps directly below it.
-Left side — nail sets: exactly TWO single rows of nails. First row (top): 5 nails side by side, labeled "✦ SET 1" to the left. Second row (bottom): 5 nails side by side, labeled "✦ SET 2" to the left. Small ✦ divider between the two rows. That is 10 nails total — 5 in the top row, 5 in the bottom row. Do NOT stack nails within a row. Do NOT create more than 2 rows. Nails float directly on the dark background with soft drop shadows beneath them. No white panels, no boxes, no backgrounds behind the nails. No hands, no fingers, no skin — nails only, floating.
-Right side — detail shots: 3 vertically stacked close-up macro shots of the nail surface inside dark rounded rectangle frames. The frames blend into the dark charcoal background — no white, no light colour inside the frames. No hands, no fingers, no skin in any detail shot — nail surface texture only. Below each frame: one bold all-caps label + 2 lines of small italic descriptive text.
-Bottom center: small decorative monogram or logo mark.
-QUALITY: Photorealistic. Editorial luxury nail lookbook aesthetic. 4K. Clean professional layout. No decorative borders around the whole image. No drop shadows on the overall board.
+TITLE AREA — top center: "✦ [DESIGN NAME] ✦" in large elegant serif font coloured to match the nails. Subtitle in small spaced caps directly below.
 
-NAIL DESIGN SPECS — apply these to every nail in the board:
+LEFT SIDE — nail sets: Two rows of 5 floating photorealistic nails. "SET 1" label left of row one, "SET 2" label left of row two, small ✦ divider between rows. Nails float on the dark background with soft shadows. No panels, no boxes, no backgrounds behind nails. No hands. No fingers. No skin. Nails only.
+
+RIGHT SIDE — detail shots: Exactly 3 close-up macro shots, stacked vertically. Each inside a dark rounded rectangle frame that blends into the background — no light or white inside the frames. Each shot shows only the nail surface — texture, finish, art detail. Absolutely no skin, no fingers, no hands in any detail shot. Nail surface only. All 3 frames must be filled — no empty or black frames. Below each frame: one bold all-caps label + 2 lines small italic text.
+
+BOTTOM CENTER: small decorative monogram.
+
+CRITICAL RULES:
+* No skin, no fingers, no hands anywhere in the image — not in the nail rows, not in the detail shots
+* All 3 detail frames must contain actual nail surface close-ups — never leave a frame empty or black
+* The entire composition must fit within the image — nothing cut off at edges or bottom
+* Dark background throughout — #2A2828 — no white, no cream, no light anywhere
+
+Photorealistic. Editorial luxury lookbook. 4K. Clean layout.
+
+NAIL DESIGN SPECS — apply to every nail:
 - Shape: ${shape}
 - Length: ${length}
 - Vibe / aesthetic: ${vibeList}
 - Colours: ${colorList}${occasionNote}${customNote}${refNote}
 
-DESIGN NAME: Choose a name that is ${nameHint}. The subtitle should reflect the shape, length, or finish in 2–4 words.`
+DESIGN NAME: Choose a name that is ${nameHint}. Subtitle should reflect shape, length or finish in 2–4 words.`
 
     // Always use standard images/generations — gpt-image-1 returns base64
     const requestBody = {
       model: 'gpt-image-1',
       prompt,
       n: 1,
-      size: '1024x1536',
+      size: '1024x1024',
     }
 
     const openaiRes = await fetch('https://api.openai.com/v1/images/generations', {

@@ -219,7 +219,7 @@ export default function NailLabPage() {
             <img
               src={result.imageUrl}
               alt="Generated nail design"
-              style={{ width: '100%', display: 'block' }}
+              style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'contain' }}
             />
           </div>
           <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
