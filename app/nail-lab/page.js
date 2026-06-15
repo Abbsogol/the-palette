@@ -67,12 +67,12 @@ export default function NailLabPage() {
   const [loadingUser, setLoadingUser] = useState(true)
 
   // Builder state
-  const [vibe, setVibe] = useState('')
+  const [vibes, setVibes] = useState([])
   const [shape, setShape] = useState('')
   const [length, setLength] = useState('')
   const [colors, setColors] = useState([])
   const [customHex, setCustomHex] = useState('')
-  const [occasion, setOccasion] = useState('')
+  const [occasions, setOccasions] = useState([])
   const [customText, setCustomText] = useState('')
 
   // Reference designs
@@ -138,7 +138,10 @@ export default function NailLabPage() {
     }
   }
 
-  const canGenerate = vibe && shape && length && currentUser && credits >= 1 && !generating
+  const toggleVibe = (v) => setVibes(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v])
+  const toggleOccasion = (o) => setOccasions(prev => prev.includes(o) ? prev.filter(x => x !== o) : [...prev, o])
+
+  const canGenerate = vibes.length > 0 && shape && length && currentUser && credits >= 1 && !generating
 
   const generate = async () => {
     if (!canGenerate) return
@@ -151,11 +154,11 @@ export default function NailLabPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: currentUser.id,
-          vibe,
+          vibe: vibes,
           shape,
           length,
           colors,
-          occasion: occasion || null,
+          occasion: occasions,
           customText: customText || null,
           referenceImageUrls: refDesigns.map(d => d.image_url).filter(Boolean),
         }),
@@ -220,7 +223,7 @@ export default function NailLabPage() {
             />
           </div>
           <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-            {[vibe, shape, length, occasion].filter(Boolean).map(tag => (
+            {[...vibes, shape, length, ...occasions].filter(Boolean).map(tag => (
               <span key={tag} style={{ background: 'var(--bg-chip)', color: 'var(--text-secondary)', borderRadius: '12px', padding: '4px 10px', fontSize: '11px', fontFamily: "'DM Sans', sans-serif" }}>{tag}</span>
             ))}
           </div>
@@ -304,7 +307,7 @@ export default function NailLabPage() {
         </div>
       )}
 
-      <div style={{ paddingBottom: '120px' }}>
+      <div style={{ paddingBottom: '180px' }}>
         {/* Header */}
         <div style={{ padding: '24px 20px 20px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <div>
@@ -326,9 +329,10 @@ export default function NailLabPage() {
 
         {/* ── VIBE ── */}
         <Section title="Vibe" required>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '-4px 0 10px' }}>Pick one or more</p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
             {VIBES.map(v => (
-              <Chip key={v} label={v} active={vibe === v} onClick={() => setVibe(vibe === v ? '' : v)} />
+              <Chip key={v} label={v} active={vibes.includes(v)} onClick={() => toggleVibe(v)} />
             ))}
           </div>
         </Section>
@@ -432,7 +436,7 @@ export default function NailLabPage() {
         <Section title="Occasion" required={false}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
             {OCCASIONS.map(o => (
-              <Chip key={o} label={o} active={occasion === o} onClick={() => setOccasion(occasion === o ? '' : o)} />
+              <Chip key={o} label={o} active={occasions.includes(o)} onClick={() => toggleOccasion(o)} />
             ))}
           </div>
         </Section>
@@ -496,10 +500,10 @@ export default function NailLabPage() {
         )}
       </div>
 
-      {/* ── FIXED GENERATE BUTTON ── */}
-      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '480px', padding: '12px 20px 32px', background: 'var(--bg-primary)', borderTop: '0.5px solid var(--border)', zIndex: 100 }}>
-        {!vibe || !shape || !length ? (
-          <p style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: '12px', margin: '0 0 10px' }}>
+      {/* ── FIXED GENERATE BUTTON — sits above BottomNav (~72px tall) ── */}
+      <div style={{ position: 'fixed', bottom: '72px', left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '480px', padding: '10px 20px 12px', background: 'var(--bg-primary)', borderTop: '0.5px solid var(--border)', zIndex: 99 }}>
+        {vibes.length === 0 || !shape || !length ? (
+          <p style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: '12px', margin: '0 0 8px' }}>
             Select vibe, shape & length to generate
           </p>
         ) : null}

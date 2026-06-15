@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
+export const maxDuration = 60 // allow up to 60s for gpt-image-1
+
 export async function POST(request) {
   try {
     const body = await request.json()
@@ -31,11 +33,18 @@ export async function POST(request) {
     }
 
     // Build prompt
+    const vibeList = Array.isArray(vibe) ? vibe.join(' + ') : vibe
     const colorList = colors && colors.length > 0 ? colors.join(', ') : 'tones that suit the vibe'
-    const occasionNote = occasion ? ` Suited for ${occasion}.` : ''
+    const occasionNote = occasion && occasion.length > 0
+      ? ` Suited for ${Array.isArray(occasion) ? occasion.join(' or ') : occasion}.`
+      : ''
     const customNote = customText ? ` Additional details: ${customText}.` : ''
+    const refNote = referenceImageUrls && referenceImageUrls.length > 0
+      ? ` Take inspiration from the reference nail designs provided — adopt their aesthetic, finish, and mood.`
+      : ''
 
-    // Design name hint based on vibe
+    // Design name hint based on primary vibe
+    const primaryVibe = Array.isArray(vibe) ? vibe[0] : vibe
     const vibeNameHints = {
       'Minimal': 'clean, understated (e.g. "Bare Silk", "Still Water", "Clean Slate")',
       'Moody': 'dark and atmospheric (e.g. "Velvet Noir", "Storm Glass", "Dusk Hour")',
@@ -50,7 +59,7 @@ export async function POST(request) {
       'Edgy': 'sharp and striking (e.g. "Razor Edge", "Chrome Spike", "Ink Black")',
       'Clean Girl': 'polished and natural (e.g. "Your Nails But Better", "Glazed Skin", "Soft Sheer")',
     }
-    const nameHint = vibeNameHints[vibe] || `reflecting the ${vibe} aesthetic`
+    const nameHint = vibeNameHints[primaryVibe] || `reflecting the ${primaryVibe} aesthetic`
 
     const prompt = `A professional nail design reference board. Dark warm charcoal background (#2A2828) throughout the entire image — no white areas anywhere, no light backgrounds, no panels, no frames with white inside.
 
@@ -64,53 +73,20 @@ QUALITY: Photorealistic. Editorial luxury nail lookbook aesthetic. 4K. Clean pro
 NAIL DESIGN SPECS — apply these to every nail in the board:
 - Shape: ${shape}
 - Length: ${length}
-- Vibe / aesthetic: ${vibe}
-- Colours: ${colorList}${occasionNote}${customNote}
+- Vibe / aesthetic: ${vibeList}
+- Colours: ${colorList}${occasionNote}${customNote}${refNote}
 
 DESIGN NAME: Choose a name that is ${nameHint}. The subtitle should reflect the shape, length, or finish in 2–4 words.`
 
-    // Build OpenAI request — gpt-image-1 always returns base64
-    let requestBody
-    if (referenceImageUrls && referenceImageUrls.length > 0) {
-      // Fetch reference images as base64 so OpenAI can read them
-      const imageInputs = await Promise.all(
-        referenceImageUrls.slice(0, 4).map(async (url) => {
-          const imgRes = await fetch(url)
-          const buffer = await imgRes.arrayBuffer()
-          const b64 = Buffer.from(buffer).toString('base64')
-          const mime = imgRes.headers.get('content-type') || 'image/jpeg'
-          return {
-            type: 'input_image',
-            image_url: `data:${mime};base64,${b64}`,
-          }
-        })
-      )
-      requestBody = {
-        model: 'gpt-image-1',
-        input: [
-          {
-            role: 'user',
-            content: [
-              ...imageInputs,
-              { type: 'input_text', text: prompt },
-            ],
-          },
-        ],
-      }
-    } else {
-      requestBody = {
-        model: 'gpt-image-1',
-        prompt,
-        n: 1,
-        size: '1024x1024',
-      }
+    // Always use standard images/generations — gpt-image-1 returns base64
+    const requestBody = {
+      model: 'gpt-image-1',
+      prompt,
+      n: 1,
+      size: '1024x1024',
     }
 
-    const endpoint = referenceImageUrls && referenceImageUrls.length > 0
-      ? 'https://api.openai.com/v1/responses'
-      : 'https://api.openai.com/v1/images/generations'
-
-    const openaiRes = await fetch(endpoint, {
+    const openaiRes = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
@@ -127,9 +103,8 @@ DESIGN NAME: Choose a name that is ${nameHint}. The subtitle should reflect the 
 
     const openaiData = await openaiRes.json()
 
-    // Extract base64 from either endpoint format
+    // Extract base64 — gpt-image-1 always returns b64_json
     const b64 = openaiData?.data?.[0]?.b64_json
-      || openaiData?.output?.find(o => o.type === 'image_generation_call')?.result
 
     if (!b64) {
       return Response.json({ error: 'No image returned', raw: openaiData }, { status: 500 })
