@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
@@ -9,19 +9,189 @@ const LENGTHS = ['Short', 'Medium', 'Long', 'Extra Long']
 const OCCASIONS = ['Everyday', 'Date Night', 'Wedding', 'Work', 'Festival', 'Birthday', 'Holiday', 'Party']
 
 const PRESET_COLORS = [
+  // Nudes & naturals
+  { hex: '#F5EDE3', label: 'Bone' },
+  { hex: '#F0DCC8', label: 'Almond' },
+  { hex: '#E8C4A0', label: 'Peach Nude' },
+  { hex: '#C9A882', label: 'Caramel' },
+  { hex: '#A67C5B', label: 'Tawny' },
+  { hex: '#7B5240', label: 'Mocha' },
+  // Pinks
+  { hex: '#FFD6E0', label: 'Baby Pink' },
+  { hex: '#F5A8C0', label: 'Blush' },
+  { hex: '#F07098', label: 'Rose' },
+  { hex: '#E83875', label: 'Hot Pink' },
+  { hex: '#C8006A', label: 'Fuchsia' },
+  // Reds
+  { hex: '#E84040', label: 'Red' },
+  { hex: '#C02020', label: 'Cherry' },
+  { hex: '#7A0020', label: 'Burgundy' },
+  // Purples
+  { hex: '#D8C8F0', label: 'Lavender' },
+  { hex: '#B094D8', label: 'Lilac' },
+  { hex: '#7D4FBF', label: 'Violet' },
+  { hex: '#4B0082', label: 'Deep Grape' },
+  // Blues
+  { hex: '#C8D8F0', label: 'Ice Blue' },
+  { hex: '#6890D8', label: 'Periwinkle' },
+  { hex: '#1450A8', label: 'Cobalt' },
+  { hex: '#0A2050', label: 'Navy' },
+  // Greens
+  { hex: '#B0C8A8', label: 'Sage' },
+  { hex: '#70C890', label: 'Mint' },
+  { hex: '#2D7040', label: 'Forest' },
+  { hex: '#6B7040', label: 'Olive' },
+  // Metallics
+  { hex: '#D4AF37', label: 'Gold' },
+  { hex: '#C0C0C0', label: 'Silver' },
+  { hex: '#C48B8B', label: 'Rose Gold' },
+  // Darks & neutrals
+  { hex: '#2A2828', label: 'Charcoal' },
   { hex: '#141414', label: 'Black' },
   { hex: '#FFFFFF', label: 'White' },
-  { hex: '#D4A0C0', label: 'Blush' },
-  { hex: '#9B5E8A', label: 'Mauve' },
-  { hex: '#E8D5D5', label: 'Nude' },
-  { hex: '#C4A882', label: 'Caramel' },
-  { hex: '#8B7355', label: 'Brown' },
-  { hex: '#E8C4B8', label: 'Peach' },
-  { hex: '#A8B5C4', label: 'Blue' },
-  { hex: '#B5C4A8', label: 'Sage' },
-  { hex: '#C4A8C0', label: 'Lilac' },
-  { hex: '#F5E6C8', label: 'Cream' },
 ]
+
+// Color section category labels (for display separators)
+const COLOR_CATEGORIES = [
+  { label: 'Nudes', start: 0, count: 6 },
+  { label: 'Pinks', start: 6, count: 5 },
+  { label: 'Reds', start: 11, count: 3 },
+  { label: 'Purples', start: 14, count: 4 },
+  { label: 'Blues', start: 18, count: 4 },
+  { label: 'Greens', start: 22, count: 4 },
+  { label: 'Metallics', start: 26, count: 3 },
+  { label: 'Darks', start: 29, count: 3 },
+]
+
+function hsvToHex(h, s, v) {
+  s /= 100; v /= 100;
+  const k = (n) => (n + h / 60) % 6;
+  const f = (n) => v * (1 - s * Math.max(0, Math.min(k(n), 4 - k(n), 1)));
+  const r = Math.round(f(5) * 255);
+  const g = Math.round(f(3) * 255);
+  const b = Math.round(f(1) * 255);
+  return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+
+function ColorPicker({ onAdd, disabled }) {
+  const [hue, setHue] = useState(320)
+  const [sv, setSV] = useState({ s: 60, v: 85 })
+  const canvasRef = useRef(null)
+  const dragging = useRef(false)
+
+  const currentHex = hsvToHex(hue, sv.s, sv.v)
+
+  // Draw SV canvas whenever hue changes
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    const w = canvas.width
+    const h = canvas.height
+    // Left→right: white to hue
+    const gradH = ctx.createLinearGradient(0, 0, w, 0)
+    gradH.addColorStop(0, 'white')
+    gradH.addColorStop(1, `hsl(${hue}, 100%, 50%)`)
+    ctx.fillStyle = gradH
+    ctx.fillRect(0, 0, w, h)
+    // Top→bottom: transparent to black
+    const gradV = ctx.createLinearGradient(0, 0, 0, h)
+    gradV.addColorStop(0, 'rgba(0,0,0,0)')
+    gradV.addColorStop(1, 'rgba(0,0,0,1)')
+    ctx.fillStyle = gradV
+    ctx.fillRect(0, 0, w, h)
+  }, [hue])
+
+  const pickFromEvent = useCallback((e) => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const rect = canvas.getBoundingClientRect()
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY
+    const x = Math.max(0, Math.min(clientX - rect.left, rect.width))
+    const y = Math.max(0, Math.min(clientY - rect.top, rect.height))
+    setSV({
+      s: Math.round((x / rect.width) * 100),
+      v: Math.round((1 - y / rect.height) * 100),
+    })
+  }, [])
+
+  // Determine checkmark color based on brightness
+  const isLight = sv.v > 70 && sv.s < 30
+  const checkColor = isLight ? '#141414' : '#ffffff'
+
+  return (
+    <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '14px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      {/* SV canvas */}
+      <div style={{ position: 'relative', borderRadius: '10px', overflow: 'hidden', touchAction: 'none', userSelect: 'none' }}>
+        <canvas
+          ref={canvasRef}
+          width={320}
+          height={160}
+          style={{ width: '100%', height: '150px', display: 'block', borderRadius: '10px', cursor: 'crosshair' }}
+          onMouseDown={(e) => { dragging.current = true; pickFromEvent(e) }}
+          onMouseMove={(e) => { if (dragging.current) pickFromEvent(e) }}
+          onMouseUp={() => { dragging.current = false }}
+          onMouseLeave={() => { dragging.current = false }}
+          onTouchStart={(e) => { e.preventDefault(); dragging.current = true; pickFromEvent(e) }}
+          onTouchMove={(e) => { e.preventDefault(); pickFromEvent(e) }}
+          onTouchEnd={() => { dragging.current = false }}
+        />
+        {/* Crosshair cursor */}
+        <div style={{
+          position: 'absolute',
+          left: `${sv.s}%`,
+          top: `${100 - sv.v}%`,
+          transform: 'translate(-50%, -50%)',
+          width: '16px', height: '16px',
+          borderRadius: '50%',
+          border: '2px solid white',
+          boxShadow: '0 0 0 1.5px rgba(0,0,0,0.5)',
+          pointerEvents: 'none',
+          background: currentHex,
+        }} />
+      </div>
+
+      {/* Hue slider */}
+      <div>
+        <style>{`
+          .hue-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 16px; border-radius: 8px; outline: none; cursor: pointer; background: linear-gradient(to right, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%); border: none; }
+          .hue-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border-radius: 50%; background: white; border: 2px solid rgba(0,0,0,0.3); box-shadow: 0 1px 4px rgba(0,0,0,0.3); cursor: pointer; }
+          .hue-slider::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: white; border: 2px solid rgba(0,0,0,0.3); cursor: pointer; }
+        `}</style>
+        <input
+          type="range" min="0" max="360"
+          value={hue}
+          onChange={e => setHue(Number(e.target.value))}
+          className="hue-slider"
+        />
+      </div>
+
+      {/* Preview + hex + Add */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: currentHex, border: '1.5px solid var(--border)', flexShrink: 0, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.08)' }} />
+        <div style={{ flex: 1 }}>
+          <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'monospace', margin: '0 0 2px', letterSpacing: '0.04em' }}>{currentHex.toUpperCase()}</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: 0 }}>H {hue}° · S {sv.s}% · B {sv.v}%</p>
+        </div>
+        <button
+          onClick={() => onAdd(currentHex)}
+          disabled={disabled}
+          style={{
+            background: disabled ? 'var(--bg-chip)' : 'var(--accent)',
+            color: disabled ? 'var(--text-secondary)' : '#2C0A1E',
+            border: 'none', borderRadius: '10px',
+            padding: '10px 20px', fontSize: '13px', fontWeight: '600',
+            cursor: disabled ? 'not-allowed' : 'pointer',
+            fontFamily: "'DM Sans', sans-serif", flexShrink: 0,
+          }}
+        >
+          Add
+        </button>
+      </div>
+    </div>
+  )
+}
 
 function Section({ title, required, children }) {
   return (
@@ -72,6 +242,7 @@ export default function NailLabPage() {
   const [length, setLength] = useState('')
   const [colors, setColors] = useState([])
   const [customHex, setCustomHex] = useState('')
+  const [showPicker, setShowPicker] = useState(false)
   const [occasions, setOccasions] = useState([])
   const [customText, setCustomText] = useState('')
 
@@ -135,6 +306,12 @@ export default function NailLabPage() {
     if (/^#[0-9A-Fa-f]{6}$/.test(h) && !colors.includes(h) && colors.length < 4) {
       setColors(prev => [...prev, h])
       setCustomHex('')
+    }
+  }
+
+  const addFromPicker = (hex) => {
+    if (!colors.includes(hex) && colors.length < 4) {
+      setColors(prev => [...prev, hex])
     }
   }
 
@@ -357,73 +534,88 @@ export default function NailLabPage() {
 
         {/* ── COLORS ── */}
         <Section title="Colours" required={false}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
-            {PRESET_COLORS.map(({ hex, label }) => {
-              const active = colors.includes(hex)
-              return (
-                <button key={hex} onClick={() => toggleColor(hex)}
-                  style={{
-                    width: '36px', height: '36px', borderRadius: '50%',
-                    background: hex,
-                    border: active ? '3px solid var(--accent)' : '1.5px solid var(--border)',
-                    cursor: 'pointer', padding: 0, position: 'relative',
-                    boxShadow: hex === '#FFFFFF' ? 'inset 0 0 0 1px var(--border)' : 'none',
-                    transition: 'border 0.15s',
-                  }}
-                  title={label}
-                >
-                  {active && (
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                        <polyline points="2 7 5.5 10.5 12 3.5" stroke={['#FFFFFF', '#F5E6C8', '#E8D5D5', '#E8C4B8'].includes(hex) ? '#141414' : '#fff'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </div>
-                  )}
-                </button>
-              )
-            })}
-          </div>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '-4px 0 10px' }}>Pick up to 4 · tap to select, tap again to remove</p>
 
-          {/* Custom hex input */}
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <div style={{ position: 'relative', flex: 1 }}>
-              <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', fontSize: '13px' }}>#</span>
-              <input
-                value={customHex.replace('#', '')}
-                onChange={e => setCustomHex(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && addCustomHex()}
-                placeholder="Custom hex (e.g. FF6B8A)"
-                maxLength={6}
-                style={{
-                  width: '100%', padding: '10px 12px 10px 24px',
-                  background: 'var(--bg-card)', border: '0.5px solid var(--border)',
-                  borderRadius: '10px', color: 'var(--text-primary)',
-                  fontSize: '13px', fontFamily: "'DM Sans', sans-serif",
-                  outline: 'none', boxSizing: 'border-box',
-                }}
-              />
+          {/* Preset swatches by category */}
+          {COLOR_CATEGORIES.map(({ label, start, count }) => (
+            <div key={label} style={{ marginBottom: '10px' }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '10px', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 6px', fontFamily: "'DM Sans', sans-serif" }}>{label}</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {PRESET_COLORS.slice(start, start + count).map(({ hex, label: colorLabel }) => {
+                  const active = colors.includes(hex)
+                  const isLightSwatch = ['#F5EDE3','#F0DCC8','#E8C4A0','#FFD6E0','#F5A8C0','#D8C8F0','#C8D8F0','#C0C0C0','#FFFFFF'].includes(hex)
+                  return (
+                    <button key={hex} onClick={() => toggleColor(hex)}
+                      style={{
+                        width: '36px', height: '36px', borderRadius: '50%',
+                        background: hex,
+                        border: active ? '3px solid var(--accent)' : '1.5px solid var(--border)',
+                        cursor: 'pointer', padding: 0, position: 'relative',
+                        boxShadow: isLightSwatch ? 'inset 0 0 0 1px rgba(0,0,0,0.1)' : 'none',
+                        transition: 'border 0.15s, transform 0.1s',
+                        transform: active ? 'scale(1.1)' : 'scale(1)',
+                      }}
+                      title={colorLabel}
+                    >
+                      {active && (
+                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                            <polyline points="2 7 5.5 10.5 12 3.5" stroke={isLightSwatch ? '#141414' : '#fff'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
-            <button onClick={addCustomHex}
-              style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '10px', padding: '10px 14px', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", whiteSpace: 'nowrap' }}
-            >
-              Add
-            </button>
-          </div>
+          ))}
+
+          {/* Custom picker toggle */}
+          <button
+            onClick={() => setShowPicker(p => !p)}
+            style={{
+              width: '100%', background: showPicker ? 'var(--bg-chip)' : 'var(--bg-card)',
+              border: '0.5px solid var(--border)', borderRadius: '10px',
+              padding: '10px 14px', marginTop: '4px',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px',
+              fontFamily: "'DM Sans', sans-serif',",
+            }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {/* colour wheel icon */}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 2a10 10 0 0 1 0 20"/>
+                <path d="M12 12 L12 2"/>
+                <path d="M12 12 L19.07 16.5"/>
+                <path d="M12 12 L4.93 16.5"/>
+              </svg>
+              Custom colour picker
+            </span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              {showPicker ? <polyline points="18 15 12 9 6 15"/> : <polyline points="6 9 12 15 18 9"/>}
+            </svg>
+          </button>
+
+          {showPicker && (
+            <div style={{ marginTop: '10px' }}>
+              <ColorPicker onAdd={addFromPicker} disabled={colors.length >= 4} />
+            </div>
+          )}
 
           {/* Selected colors row */}
           {colors.length > 0 && (
-            <div style={{ display: 'flex', gap: '8px', marginTop: '10px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ color: 'var(--text-secondary)', fontSize: '12px', marginRight: '2px' }}>Selected:</span>
               {colors.map(hex => (
                 <button key={hex} onClick={() => toggleColor(hex)}
-                  style={{ width: '28px', height: '28px', borderRadius: '50%', background: hex, border: '1.5px solid var(--border)', cursor: 'pointer', padding: 0, position: 'relative', flexShrink: 0, boxShadow: hex === '#FFFFFF' ? 'inset 0 0 0 1px var(--border)' : 'none' }}
-                  title="Remove"
+                  style={{ width: '32px', height: '32px', borderRadius: '50%', background: hex, border: '2px solid var(--accent)', cursor: 'pointer', padding: 0, position: 'relative', flexShrink: 0, boxShadow: hex === '#FFFFFF' ? 'inset 0 0 0 1px var(--border)' : 'none' }}
+                  title="Tap to remove"
                 >
-                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.25)', borderRadius: '50%', opacity: 0 }}
-                    onMouseEnter={e => e.currentTarget.style.opacity = '1'}
-                    onMouseLeave={e => e.currentTarget.style.opacity = '0'}
-                  >
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><line x1="2" y1="2" x2="8" y2="8" stroke="#fff" strokeWidth="1.5"/><line x1="8" y1="2" x2="2" y2="8" stroke="#fff" strokeWidth="1.5"/></svg>
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)', borderRadius: '50%' }}>
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><line x1="2.5" y1="2.5" x2="7.5" y2="7.5" stroke="#fff" strokeWidth="1.5"/><line x1="7.5" y1="2.5" x2="2.5" y2="7.5" stroke="#fff" strokeWidth="1.5"/></svg>
                   </div>
                 </button>
               ))}
