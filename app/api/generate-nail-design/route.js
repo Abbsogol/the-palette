@@ -31,34 +31,43 @@ export async function POST(request) {
     }
 
     // Build prompt
-    const colorList = colors && colors.length > 0 ? colors.join(', ') : 'neutral tones'
-    const occasionLine = occasion ? ` Perfect for ${occasion}.` : ''
-    const customLine = customText ? ` Additional details: ${customText}.` : ''
+    const colorList = colors && colors.length > 0 ? colors.join(', ') : 'tones that suit the vibe'
+    const occasionNote = occasion ? ` Suited for ${occasion}.` : ''
+    const customNote = customText ? ` Additional details: ${customText}.` : ''
 
-    const shapeDescriptions = {
-      'Almond': 'tapered sides with a rounded peak, elegant and elongating',
-      'Stiletto': 'dramatically tapered to a sharp point, bold and edgy',
-      'Coffin': 'tapered sides with a flat square tip, modern and statement-making',
-      'Square': 'straight sides with a flat square tip, clean and classic',
-      'Oval': 'rounded sides and tip, soft and feminine',
-      'Squoval': 'straight sides with softly rounded corners, practical yet polished',
+    // Design name hint based on vibe
+    const vibeNameHints = {
+      'Minimal': 'clean, understated (e.g. "Bare Silk", "Still Water", "Clean Slate")',
+      'Moody': 'dark and atmospheric (e.g. "Velvet Noir", "Storm Glass", "Dusk Hour")',
+      'Dark': 'bold and dramatic (e.g. "Midnight Lacquer", "Black Onyx", "Shadow Run")',
+      'Coastal': 'fresh and watery (e.g. "Salt & Stone", "Sea Glass", "Pearl Tide")',
+      'Glam': 'luxurious and shiny (e.g. "Gold Rush", "Chrome Queen", "Mirror Gloss")',
+      'Y2K': 'playful and nostalgic (e.g. "Cherry Pop", "Cyber Pink", "2000 Shimmer")',
+      'Bridal': 'soft and romantic (e.g. "Ivory Veil", "Blush Bloom", "White Petal")',
+      'Abstract': 'artistic and unexpected (e.g. "Ink Drop", "Paint Theory", "Colour Study")',
+      'Floral': 'delicate and botanical (e.g. "Rose Sketch", "Petal Press", "Garden Edit")',
+      'Pastel': 'soft and dreamy (e.g. "Cotton Cloud", "Lilac Air", "Pale Blush")',
+      'Edgy': 'sharp and striking (e.g. "Razor Edge", "Chrome Spike", "Ink Black")',
+      'Clean Girl': 'polished and natural (e.g. "Your Nails But Better", "Glazed Skin", "Soft Sheer")',
     }
+    const nameHint = vibeNameHints[vibe] || `reflecting the ${vibe} aesthetic`
 
-    const shapeDesc = shapeDescriptions[shape] || shape
+    const prompt = `A professional nail design reference board. Dark warm charcoal background (#2A2828) throughout the entire image — no white areas anywhere, no light backgrounds, no panels, no frames with white inside.
 
-    const prompt = `Create a professional nail design board in the exact Laque studio format:
+LAYOUT:
+Top center: title text "✦ [DESIGN NAME] ✦" in large elegant serif font coloured to match the nail palette, with subtitle "[DESIGN SUBTITLE]" in small spaced caps directly below it.
+Left side — nail sets: two horizontal rows of 5 photorealistic nails each. Label "✦ SET 1" in small text at the left of the first row, "✦ SET 2" at the left of the second row, small ✦ divider between the two rows. Nails float directly on the dark background with soft drop shadows beneath them. No white panels, no boxes, no backgrounds behind the nails. No hands, no fingers, no skin — nails only, floating.
+Right side — detail shots: 3 vertically stacked close-up macro shots of the nail surface inside dark rounded rectangle frames. The frames blend into the dark charcoal background — no white, no light colour inside the frames. No hands, no fingers, no skin in any detail shot — nail surface texture only. Below each frame: one bold all-caps label + 2 lines of small italic descriptive text.
+Bottom center: small decorative monogram or logo mark.
+QUALITY: Photorealistic. Editorial luxury nail lookbook aesthetic. 4K. Clean professional layout. No decorative borders around the whole image. No drop shadows on the overall board.
 
-LAYOUT: Dark background (#141414 near-black). Two rows of nail images. Left side: 4 full nails shown straight on (2 top, 2 bottom). Right side: 3-4 smaller inset detail/macro shots showing texture and finish up close. Design name in elegant thin sans-serif font at top.
-
-NAIL DESIGN SPECS:
-- Shape: ${shape} (${shapeDesc})
+NAIL DESIGN SPECS — apply these to every nail in the board:
+- Shape: ${shape}
 - Length: ${length}
-- Vibe: ${vibe}
-- Colors: ${colorList}${occasionLine}${customLine}
+- Vibe / aesthetic: ${vibe}
+- Colours: ${colorList}${occasionNote}${customNote}
 
-STYLE: Editorial, moody, and high-end — like a luxury nail salon lookbook. Nails should look photorealistic with accurate light reflection, depth, and texture. No hands, just nails on a dark surface or floating. Composition should feel intentional and curated.
-
-Design name at top should reflect the vibe in 1-3 words (e.g. "Velvet Noir", "Cherry Glass", "Salt & Stone").`
+DESIGN NAME: Choose a name that is ${nameHint}. The subtitle should reflect the shape, length, or finish in 2–4 words.`
 
     // Build OpenAI request — support reference images
     let requestBody
