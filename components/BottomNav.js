@@ -24,6 +24,16 @@ const tabs = [
     ),
   },
   {
+    href: '/nail-lab',
+    label: 'Lab',
+    icon: (active) => (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 3h6M10 3v6l-4 8a1 1 0 00.9 1.5h10.2a1 1 0 00.9-1.5L14 9V3" />
+        <line x1="6.5" y1="14" x2="17.5" y2="14" />
+      </svg>
+    ),
+  },
+  {
     href: '/saved',
     label: 'Saved',
     icon: (active) => (
