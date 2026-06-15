@@ -65,7 +65,7 @@ export async function POST(request) {
 
 LAYOUT:
 Top center: title text "✦ [DESIGN NAME] ✦" in large elegant serif font coloured to match the nail palette, with subtitle "[DESIGN SUBTITLE]" in small spaced caps directly below it.
-Left side — nail sets: two horizontal rows of 5 photorealistic nails each. Label "✦ SET 1" in small text at the left of the first row, "✦ SET 2" at the left of the second row, small ✦ divider between the two rows. Nails float directly on the dark background with soft drop shadows beneath them. No white panels, no boxes, no backgrounds behind the nails. No hands, no fingers, no skin — nails only, floating.
+Left side — nail sets: exactly TWO single rows of nails. First row (top): 5 nails side by side, labeled "✦ SET 1" to the left. Second row (bottom): 5 nails side by side, labeled "✦ SET 2" to the left. Small ✦ divider between the two rows. That is 10 nails total — 5 in the top row, 5 in the bottom row. Do NOT stack nails within a row. Do NOT create more than 2 rows. Nails float directly on the dark background with soft drop shadows beneath them. No white panels, no boxes, no backgrounds behind the nails. No hands, no fingers, no skin — nails only, floating.
 Right side — detail shots: 3 vertically stacked close-up macro shots of the nail surface inside dark rounded rectangle frames. The frames blend into the dark charcoal background — no white, no light colour inside the frames. No hands, no fingers, no skin in any detail shot — nail surface texture only. Below each frame: one bold all-caps label + 2 lines of small italic descriptive text.
 Bottom center: small decorative monogram or logo mark.
 QUALITY: Photorealistic. Editorial luxury nail lookbook aesthetic. 4K. Clean professional layout. No decorative borders around the whole image. No drop shadows on the overall board.
@@ -83,7 +83,7 @@ DESIGN NAME: Choose a name that is ${nameHint}. The subtitle should reflect the 
       model: 'gpt-image-1',
       prompt,
       n: 1,
-      size: '1024x1024',
+      size: '1024x1536',
     }
 
     const openaiRes = await fetch('https://api.openai.com/v1/images/generations', {
