@@ -61,22 +61,17 @@ export async function POST(request) {
     }
     const nameHint = vibeNameHints[primaryVibe] || `reflecting the ${primaryVibe} aesthetic`
 
-    const prompt = `A professional nail design reference board on a dark warm charcoal background (#2A2828). The entire image is dark — no white areas, no light panels, no bright backgrounds anywhere.
-
+    const prompt = `A professional nail design reference board. Dark warm charcoal background (\`#2A2828\`) throughout the entire image — no white areas anywhere, no light backgrounds, no panels, no frames with white inside.
 TITLE AREA — top center: "✦ [DESIGN NAME] ✦" in large elegant serif font coloured to match the nails. Subtitle in small spaced caps directly below.
-
-LEFT SIDE — nail sets: Exactly 2 horizontal rows of 5 nails each — no more, no less. "SET 1" label left of the first row, "SET 2" label left of the second row, small ✦ divider between them. Do not generate a third row, a fourth row, or any additional sets. Only SET 1 and SET 2. Nails float on the dark background with soft shadows. No panels, no boxes. No hands, no fingers, no skin — nails only.
-
+LEFT SIDE — nail sets:Exactly 10 nails total on the left panel. Split into 2 rows of 5. "SET 1" label left of the first row of 5 nails. "SET 2" label left of the second row of 5 nails. Small ✦ divider between the two rows. The left panel contains 10 nails and nothing else. No third row. No additional nails below SET 2. Stop at 10.
 RIGHT SIDE — detail shots: Exactly 3 close-up macro shots, stacked vertically. Each inside a dark rounded rectangle frame that blends into the background — no light or white inside the frames. Each shot shows only the nail surface — texture, finish, art detail. Absolutely no skin, no fingers, no hands in any detail shot. Nail surface only. All 3 frames must be filled — no empty or black frames. Below each frame: one bold all-caps label + 2 lines small italic text.
-
 BOTTOM CENTER: small decorative monogram.
-
 CRITICAL RULES:
+
 * No skin, no fingers, no hands anywhere in the image — not in the nail rows, not in the detail shots
 * All 3 detail frames must contain actual nail surface close-ups — never leave a frame empty or black
 * The entire composition must fit within the image — nothing cut off at edges or bottom
-* Dark background throughout — #2A2828 — no white, no cream, no light anywhere
-
+* Dark background throughout — \`#2A2828\` — no white, no cream, no light anywhere
 Photorealistic. Editorial luxury lookbook. 4K. Clean layout.
 
 NAIL DESIGN SPECS — apply to every nail:
