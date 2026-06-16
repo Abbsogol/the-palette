@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import SaveToBoard from '@/components/SaveToBoard'
 
 const VIBES = ['Minimal', 'Moody', 'Dark', 'Coastal', 'Glam', 'Y2K', 'Bridal', 'Abstract', 'Floral', 'Pastel', 'Edgy', 'Clean Girl']
 const SHAPES = ['Almond', 'Stiletto', 'Coffin', 'Square', 'Oval', 'Squoval']
@@ -256,6 +257,16 @@ export default function NailLabPage() {
   const [result, setResult] = useState(null)
   const [genError, setGenError] = useState(null)
 
+  // Result screen actions
+  const [freeRegenUsed, setFreeRegenUsed] = useState(false)
+  const [publishedDesignId, setPublishedDesignId] = useState(null)
+  const [publishStatus, setPublishStatus] = useState(null) // null | 'draft' | 'published'
+  const [showNailTechSheet, setShowNailTechSheet] = useState(false)
+  const [showPublishSheet, setShowPublishSheet] = useState(false)
+  const [publishing, setPublishing] = useState(false)
+  const [showSaveBoard, setShowSaveBoard] = useState(false)
+  const [savingToBoard, setSavingToBoard] = useState(false)
+
   useEffect(() => {
     const load = async () => {
       const { data: { session } } = await supabase.auth.getSession()
@@ -320,36 +331,122 @@ export default function NailLabPage() {
 
   const canGenerate = vibes.length > 0 && shape && length && currentUser && credits >= 1 && !generating
 
-  const generate = async () => {
-    if (!canGenerate) return
+  const callGenerateAPI = async (freeRegen = false) => {
     setGenerating(true)
     setGenError(null)
-    setResult(null)
     try {
       const res = await fetch('/api/generate-nail-design', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: currentUser.id,
-          vibe: vibes,
-          shape,
-          length,
-          colors,
+          vibe: vibes, shape, length, colors,
           occasion: occasions,
           customText: customText || null,
           referenceImageUrls: refDesigns.map(d => d.image_url).filter(Boolean),
+          freeRegen,
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Generation failed')
       setResult(data)
-      setCredits(data.creditsRemaining)
+      if (!freeRegen) setCredits(data.creditsRemaining)
+      setPublishedDesignId(null)
+      setPublishStatus(null)
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (e) {
       setGenError(e.message)
     } finally {
       setGenerating(false)
     }
+  }
+
+  const generate = async () => {
+    if (!canGenerate) return
+    setResult(null)
+    setFreeRegenUsed(false)
+    await callGenerateAPI(false)
+  }
+
+  const regen = async (free = false) => {
+    if (generating) return
+    if (free && freeRegenUsed) return
+    if (!free && credits < 1) return
+    if (free) setFreeRegenUsed(true)
+    await callGenerateAPI(free)
+  }
+
+  const ensureDesignId = async () => {
+    if (publishedDesignId) return publishedDesignId
+    try {
+      const { data, error } = await supabase
+        .from('designs')
+        .insert({
+          title: vibes.join(' + '),
+          image_url: result.imageUrl,
+          shape,
+          length,
+          is_published: false,
+          is_curated: false,
+          created_by: currentUser.id,
+        })
+        .select('id')
+        .single()
+      if (data?.id) {
+        setPublishedDesignId(data.id)
+        setPublishStatus('draft')
+        return data.id
+      }
+    } catch (e) {
+      console.error('ensureDesignId error:', e)
+    }
+    return null
+  }
+
+  const publishDesign = async (asDraft) => {
+    setPublishing(true)
+    try {
+      if (publishedDesignId) {
+        await supabase
+          .from('designs')
+          .update({ is_published: !asDraft })
+          .eq('id', publishedDesignId)
+        setPublishStatus(asDraft ? 'draft' : 'published')
+      } else {
+        const { data } = await supabase
+          .from('designs')
+          .insert({
+            title: vibes.join(' + '),
+            image_url: result.imageUrl,
+            shape,
+            length,
+            is_published: !asDraft,
+            is_curated: false,
+            created_by: currentUser.id,
+          })
+          .select('id')
+          .single()
+        if (data?.id) {
+          setPublishedDesignId(data.id)
+          setPublishStatus(asDraft ? 'draft' : 'published')
+        }
+      }
+    } catch (e) {
+      console.error('publishDesign error:', e)
+    } finally {
+      setPublishing(false)
+      setShowPublishSheet(false)
+    }
+  }
+
+  const resetResult = () => {
+    setResult(null)
+    setPublishedDesignId(null)
+    setPublishStatus(null)
+    setFreeRegenUsed(false)
+    setShowSaveBoard(false)
+    setShowNailTechSheet(false)
+    setShowPublishSheet(false)
   }
 
   // ── LOADING ───────────────────────────────────────────────────────────────
@@ -380,50 +477,224 @@ export default function NailLabPage() {
   // ── RESULT VIEW ───────────────────────────────────────────────────────────
   if (result) {
     return (
-      <div style={{ paddingBottom: '100px' }}>
-        {/* Header */}
+      <div style={{ paddingBottom: '120px' }}>
+
+        {/* ── NAIL TECH SHEET ── */}
+        {showNailTechSheet && (
+          <div onClick={() => setShowNailTechSheet(false)}
+            style={{ position: 'fixed', inset: 0, zIndex: 400, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', background: 'rgba(0,0,0,0.7)' }}
+          >
+            <div onClick={e => e.stopPropagation()}
+              style={{ background: 'var(--bg-primary)', borderRadius: '20px 20px 0 0', padding: '0 0 48px', maxHeight: '80vh', overflowY: 'auto' }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 4px' }}>
+                <div style={{ width: '36px', height: '4px', background: 'var(--border)', borderRadius: '2px' }} />
+              </div>
+              <div style={{ padding: '12px 20px 16px', borderBottom: '0.5px solid var(--border)' }}>
+                <p style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '600', margin: 0, fontFamily: "'DM Sans', sans-serif" }}>Design Specs</p>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '3px 0 0' }}>Share this with your nail tech</p>
+              </div>
+              <div style={{ padding: '8px 20px' }}>
+                {[
+                  { label: 'Vibe', value: vibes.join(', ') },
+                  { label: 'Shape', value: shape },
+                  { label: 'Length', value: length },
+                  occasions.length > 0 ? { label: 'Occasion', value: occasions.join(', ') } : null,
+                  customText ? { label: 'Notes', value: customText } : null,
+                ].filter(Boolean).map(({ label, value }) => (
+                  <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '13px 0', borderBottom: '0.5px solid var(--border)' }}>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", flexShrink: 0 }}>{label}</span>
+                    <span style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', fontFamily: "'DM Sans', sans-serif", textAlign: 'right', maxWidth: '220px' }}>{value}</span>
+                  </div>
+                ))}
+                {colors.length > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 0', borderBottom: '0.5px solid var(--border)' }}>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif" }}>Colours</span>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {colors.map(hex => (
+                        <div key={hex} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                          <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: hex, border: '1px solid var(--border)' }} />
+                          <span style={{ color: 'var(--text-secondary)', fontSize: '9px', fontFamily: 'monospace' }}>{hex.toUpperCase()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div style={{ padding: '8px 20px 0' }}>
+                <button
+                  onClick={() => {
+                    const specs = [`Vibe: ${vibes.join(', ')}`, `Shape: ${shape}`, `Length: ${length}`, colors.length > 0 && `Colours: ${colors.join(', ')}`, occasions.length > 0 && `Occasion: ${occasions.join(', ')}`, customText && `Notes: ${customText}`].filter(Boolean).join('\n')
+                    navigator.clipboard?.writeText(specs)
+                    setShowNailTechSheet(false)
+                  }}
+                  style={{ width: '100%', background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}
+                >
+                  Copy specs
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── PUBLISH SHEET ── */}
+        {showPublishSheet && (
+          <div onClick={() => setShowPublishSheet(false)}
+            style={{ position: 'fixed', inset: 0, zIndex: 400, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', background: 'rgba(0,0,0,0.7)' }}
+          >
+            <div onClick={e => e.stopPropagation()}
+              style={{ background: 'var(--bg-primary)', borderRadius: '20px 20px 0 0', padding: '0 20px 48px' }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 4px' }}>
+                <div style={{ width: '36px', height: '4px', background: 'var(--border)', borderRadius: '2px' }} />
+              </div>
+              <p style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '600', margin: '12px 0 4px', fontFamily: "'DM Sans', sans-serif" }}>Save or publish</p>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '0 0 20px' }}>Where do you want this design to live?</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <button onClick={() => publishDesign(true)} disabled={publishing}
+                  style={{ width: '100%', background: publishStatus === 'draft' ? 'rgba(212,160,192,0.08)' : 'var(--bg-card)', border: publishStatus === 'draft' ? '1.5px solid var(--accent)' : '0.5px solid var(--border)', borderRadius: '14px', padding: '16px 18px', textAlign: 'left', cursor: 'pointer' }}
+                >
+                  <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '600', margin: '0 0 3px', fontFamily: "'DM Sans', sans-serif" }}>Save as Draft {publishStatus === 'draft' && '✓'}</p>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: 0 }}>Saved to your profile · only you can see it</p>
+                </button>
+                <button onClick={() => publishDesign(false)} disabled={publishing}
+                  style={{ width: '100%', background: publishStatus === 'published' ? 'rgba(212,160,192,0.08)' : 'var(--bg-card)', border: publishStatus === 'published' ? '1.5px solid var(--accent)' : '0.5px solid var(--border)', borderRadius: '14px', padding: '16px 18px', textAlign: 'left', cursor: 'pointer' }}
+                >
+                  <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '600', margin: '0 0 3px', fontFamily: "'DM Sans', sans-serif" }}>Publish to Laque {publishStatus === 'published' && '✓'}</p>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: 0 }}>Goes live on the feed — everyone can see it</p>
+                </button>
+              </div>
+              {publishing && <p style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: '13px', marginTop: '14px' }}>Saving...</p>}
+            </div>
+          </div>
+        )}
+
+        {/* SaveToBoard — controlled externally */}
+        {publishedDesignId && (
+          <SaveToBoard
+            designId={publishedDesignId}
+            designImageUrl={result.imageUrl}
+            externalOpen={showSaveBoard}
+            onClose={() => setShowSaveBoard(false)}
+            renderTrigger={null}
+          />
+        )}
+
+        {/* ── HEADER ── */}
         <div style={{ padding: '20px 20px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <button onClick={() => setResult(null)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '14px', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", padding: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><polyline points="15 18 9 12 15 6" /></svg>
+          <button onClick={resetResult}
+            style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '14px', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", padding: 0, display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><polyline points="15 18 9 12 15 6"/></svg>
             Back
           </button>
-          <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{result.creditsRemaining} credit{result.creditsRemaining !== 1 ? 's' : ''} left</span>
+          <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{credits} credit{credits !== 1 ? 's' : ''} left</span>
         </div>
 
-        {/* Result image */}
-        <div style={{ padding: '0 20px', marginBottom: '20px' }}>
+        {/* ── IMAGE ── */}
+        <div style={{ padding: '0 20px', marginBottom: '16px' }}>
           <div style={{ borderRadius: '16px', overflow: 'hidden', border: '0.5px solid var(--border)', background: 'var(--bg-card)' }}>
-            <img
-              src={result.imageUrl}
-              alt="Generated nail design"
-              style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'contain' }}
-            />
+            <img src={result.imageUrl} alt="Generated nail design" style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'contain' }} />
           </div>
-          <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+          <div style={{ marginTop: '10px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
             {[...vibes, shape, length, ...occasions].filter(Boolean).map(tag => (
               <span key={tag} style={{ background: 'var(--bg-chip)', color: 'var(--text-secondary)', borderRadius: '12px', padding: '4px 10px', fontSize: '11px', fontFamily: "'DM Sans', sans-serif" }}>{tag}</span>
             ))}
+            {publishStatus && (
+              <span style={{ background: publishStatus === 'published' ? 'rgba(212,160,192,0.15)' : 'var(--bg-chip)', color: publishStatus === 'published' ? 'var(--accent)' : 'var(--text-secondary)', borderRadius: '12px', padding: '4px 10px', fontSize: '11px', fontFamily: "'DM Sans', sans-serif", border: publishStatus === 'published' ? '0.5px solid var(--accent)' : 'none' }}>
+                {publishStatus === 'published' ? '✦ Published' : 'Draft'}
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Action buttons — Session 3 will expand these */}
-        <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {/* ── 4 ICON ACTION BUTTONS ── */}
+        <div style={{ padding: '0 20px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px', marginBottom: '16px' }}>
+          {/* Save to Board */}
           <button
-            onClick={() => { setResult(null); window.scrollTo({ top: 0 }) }}
-            style={{ width: '100%', background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '14px', padding: '15px', fontSize: '15px', fontWeight: '600', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}
+            onClick={async () => { setSavingToBoard(true); const id = await ensureDesignId(); setSavingToBoard(false); if (id) setShowSaveBoard(true) }}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '14px', padding: '14px 8px', cursor: 'pointer' }}
           >
-            Generate again
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
+            </svg>
+            <span style={{ color: 'var(--text-secondary)', fontSize: '10px', fontFamily: "'DM Sans', sans-serif" }}>{savingToBoard ? '...' : 'Board'}</span>
           </button>
+
+          {/* Share */}
           <button
-            onClick={() => setResult(null)}
-            style={{ width: '100%', background: 'var(--bg-card)', color: 'var(--text-primary)', border: '0.5px solid var(--border)', borderRadius: '14px', padding: '15px', fontSize: '15px', fontWeight: '500', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}
+            onClick={() => { if (navigator.share) { navigator.share({ title: `${vibes.join(' + ')} nails · Laque`, url: result.imageUrl }) } else { navigator.clipboard?.writeText(result.imageUrl) } }}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '14px', padding: '14px 8px', cursor: 'pointer' }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+            <span style={{ color: 'var(--text-secondary)', fontSize: '10px', fontFamily: "'DM Sans', sans-serif" }}>Share</span>
+          </button>
+
+          {/* Nail Tech specs */}
+          <button
+            onClick={() => setShowNailTechSheet(true)}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '14px', padding: '14px 8px', cursor: 'pointer' }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+            </svg>
+            <span style={{ color: 'var(--text-secondary)', fontSize: '10px', fontFamily: "'DM Sans', sans-serif" }}>Nail Tech</span>
+          </button>
+
+          {/* Save / Publish */}
+          <button
+            onClick={() => setShowPublishSheet(true)}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', background: publishStatus ? 'rgba(212,160,192,0.08)' : 'var(--bg-card)', border: publishStatus ? '0.5px solid var(--accent)' : '0.5px solid var(--border)', borderRadius: '14px', padding: '14px 8px', cursor: 'pointer' }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={publishStatus ? 'var(--accent)' : 'var(--text-primary)'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <span style={{ color: publishStatus ? 'var(--accent)' : 'var(--text-secondary)', fontSize: '10px', fontFamily: "'DM Sans', sans-serif" }}>
+              {publishStatus === 'published' ? 'Published' : publishStatus === 'draft' ? 'Draft' : 'Save'}
+            </span>
+          </button>
+        </div>
+
+        {/* ── REGEN BUTTONS ── */}
+        <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {!freeRegenUsed ? (
+            <button onClick={() => regen(true)} disabled={generating}
+              style={{ width: '100%', background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '14px', padding: '15px', fontSize: '15px', fontWeight: '600', cursor: generating ? 'not-allowed' : 'pointer', fontFamily: "'DM Sans', sans-serif", display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
+            >
+              {generating ? 'Generating...' : <><span>Regenerate</span><span style={{ background: '#2C0A1E', color: 'var(--accent)', fontSize: '10px', fontWeight: '700', borderRadius: '8px', padding: '2px 8px', letterSpacing: '0.06em' }}>FREE</span></>}
+            </button>
+          ) : (
+            <button onClick={() => regen(false)} disabled={generating || credits < 1}
+              style={{ width: '100%', background: credits >= 1 ? 'var(--accent)' : 'var(--bg-card)', color: credits >= 1 ? '#2C0A1E' : 'var(--text-secondary)', border: credits >= 1 ? 'none' : '0.5px solid var(--border)', borderRadius: '14px', padding: '15px', fontSize: '15px', fontWeight: '600', cursor: generating || credits < 1 ? 'not-allowed' : 'pointer', fontFamily: "'DM Sans', sans-serif" }}
+            >
+              {generating ? 'Generating...' : credits < 1 ? 'No credits left' : 'Regenerate · 1 credit'}
+            </button>
+          )}
+          <button onClick={() => { resetResult(); window.scrollTo({ top: 0 }) }}
+            style={{ width: '100%', background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '14px', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", padding: '8px' }}
           >
             Start over
           </button>
         </div>
-        <p style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: '12px', marginTop: '16px', padding: '0 20px' }}>
-          Save, share & regen options coming soon ✦
-        </p>
+
+        {/* Error */}
+        {genError && (
+          <div style={{ margin: '12px 20px 0', background: 'rgba(255,80,80,0.08)', border: '0.5px solid rgba(255,80,80,0.3)', borderRadius: '10px', padding: '12px 14px' }}>
+            <p style={{ color: '#ff6b6b', fontSize: '13px', margin: 0, fontFamily: "'DM Sans', sans-serif" }}>{genError}</p>
+          </div>
+        )}
+
+        {/* Regen loading overlay */}
+        {generating && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(20,20,20,0.92)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '20px' }}>
+            <div style={{ width: '48px', height: '48px', borderRadius: '50%', border: '2px solid var(--border)', borderTop: '2px solid var(--accent)', animation: 'spin 0.8s linear infinite' }} />
+            <p style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '500', margin: 0, fontFamily: "'DM Sans', sans-serif" }}>Regenerating your design</p>
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          </div>
+        )}
       </div>
     )
   }

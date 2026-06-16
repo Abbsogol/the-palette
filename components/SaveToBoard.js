@@ -2,8 +2,13 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
-export default function SaveToBoard({ designId, designImageUrl, renderTrigger }) {
-  const [open, setOpen] = useState(false)
+export default function SaveToBoard({ designId, designImageUrl, renderTrigger, externalOpen, onClose }) {
+  const [internalOpen, setInternalOpen] = useState(false)
+  const open = externalOpen !== undefined ? externalOpen : internalOpen
+  const setOpen = (v) => {
+    if (externalOpen !== undefined) { if (!v && onClose) onClose() }
+    else setInternalOpen(v)
+  }
   const [boards, setBoards] = useState([])
   const [saved, setSaved] = useState({}) // boardId → boolean
   const [loading, setLoading] = useState(false)

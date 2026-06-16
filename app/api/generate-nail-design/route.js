@@ -5,7 +5,7 @@ export const maxDuration = 60 // allow up to 60s for gpt-image-1
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { vibe, shape, length, colors, occasion, customText, referenceImageUrls, userId } = body
+    const { vibe, shape, length, colors, occasion, customText, referenceImageUrls, userId, freeRegen } = body
 
     if (!userId || !vibe || !shape || !length) {
       return Response.json({ error: 'Missing required fields' }, { status: 400 })
@@ -17,7 +17,7 @@ export async function POST(request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY
     )
 
-    // Check credit balance
+    // Check credit balance (skip for free regen)
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('credit_balance')
@@ -28,7 +28,7 @@ export async function POST(request) {
       return Response.json({ error: 'User not found' }, { status: 404 })
     }
 
-    if (profile.credit_balance < 1) {
+    if (!freeRegen && profile.credit_balance < 1) {
       return Response.json({ error: 'Insufficient credits' }, { status: 402 })
     }
 
@@ -130,8 +130,10 @@ DESIGN NAME: Choose a name that is ${nameHint}. Subtitle should reflect shape, l
       .from('nail-lab')
       .getPublicUrl(fileName)
 
-    // Deduct 1 credit
-    await supabase.rpc('decrement_credits', { user_id: userId })
+    // Deduct 1 credit (skip for free regen)
+    if (!freeRegen) {
+      await supabase.rpc('decrement_credits', { user_id: userId })
+    }
 
     // Save generation record
     const { data: generation } = await supabase
@@ -155,7 +157,7 @@ DESIGN NAME: Choose a name that is ${nameHint}. Subtitle should reflect shape, l
     return Response.json({
       imageUrl,
       generationId: generation?.id || null,
-      creditsRemaining: profile.credit_balance - 1,
+      creditsRemaining: freeRegen ? profile.credit_balance : profile.credit_balance - 1,
     })
 
   } catch (err) {
