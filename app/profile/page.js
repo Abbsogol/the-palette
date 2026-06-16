@@ -650,11 +650,11 @@ export default function ProfilePage() {
               icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg> },
             { label: 'Bookings', href: null, available: false,
               icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> },
-            { label: 'Nail Lab', href: null, available: false,
-              icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg> },
+            { label: 'Nail Lab', href: '/nail-lab', available: true,
+              icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 3h6M10 3v6l-4 8a1 1 0 00.9 1.5h10.2a1 1 0 00.9-1.5L14 9V3"/><line x1="6.5" y1="14" x2="17.5" y2="14"/></svg> },
             { label: 'Mirror', href: null, available: false,
               icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg> },
-            { label: 'Credits', href: null, available: false,
+            { label: 'Credits', href: '/nail-lab', available: true,
               icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> },
           ].map(({ label, href, icon, available }) => {
             const card = (
@@ -853,28 +853,36 @@ export default function ProfilePage() {
 
       {/* ── CREDITS WALLET ─────────────────────────────────────────────── */}
       <div style={{ margin: '0 20px 12px', background: 'var(--bg-card)', borderRadius: '14px', border: '0.5px solid var(--border)', overflow: 'hidden' }}>
-        <div style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {/* Balance row */}
+        <div style={{ padding: '16px 16px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>Design Credits</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>Nail Lab Credits</p>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-              <span style={{ color: 'var(--text-primary)', fontSize: '28px', fontWeight: '600', letterSpacing: '-0.03em' }}>{profile?.credit_balance ?? 0}</span>
-              <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>credits</span>
+              <span style={{ color: (profile?.credit_balance ?? 0) > 0 ? 'var(--accent)' : '#E07070', fontSize: '32px', fontWeight: '600', letterSpacing: '-0.03em', lineHeight: 1 }}>{profile?.credit_balance ?? 0}</span>
+              <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>credit{(profile?.credit_balance ?? 0) !== 1 ? 's' : ''} remaining</span>
             </div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '4px' }}>Used for Nail Lab AI generations</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '5px' }}>1 credit = 1 AI generation in Nail Lab</p>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-            <span style={{ background: 'var(--bg-chip)', color: 'var(--text-secondary)', fontSize: '10px', fontWeight: '500', padding: '4px 10px', borderRadius: '20px' }}>Buy Credits — Soon</span>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.3" opacity="0.5">
-              <rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>
-            </svg>
-          </div>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.3" opacity="0.4" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 3h6M10 3v6l-4 8a1 1 0 00.9 1.5h10.2a1 1 0 00.9-1.5L14 9V3"/><line x1="6.5" y1="14" x2="17.5" y2="14"/>
+          </svg>
         </div>
-        {(profile?.credit_balance ?? 0) === 0 && (
-          <div style={{ borderTop: '0.5px solid var(--border)', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#E07070', flexShrink: 0 }} />
-            <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>No credits — you'll need credits to generate designs in Nail Lab</p>
-          </div>
-        )}
+
+        {/* Action row */}
+        <div style={{ borderTop: '0.5px solid var(--border)', padding: '12px 16px', display: 'flex', gap: '8px' }}>
+          <Link href="/nail-lab" style={{ flex: 1, background: 'var(--accent)', color: '#2C0A1E', borderRadius: '10px', padding: '10px', fontSize: '13px', fontWeight: '600', textDecoration: 'none', textAlign: 'center', fontFamily: "'DM Sans', sans-serif" }}>
+            Go to Nail Lab
+          </Link>
+          <Link href="/nail-lab/history" style={{ flex: 1, background: 'var(--bg-primary)', border: '0.5px solid var(--border)', color: 'var(--text-primary)', borderRadius: '10px', padding: '10px', fontSize: '13px', fontWeight: '500', textDecoration: 'none', textAlign: 'center', fontFamily: "'DM Sans', sans-serif" }}>
+            My Generations
+          </Link>
+        </div>
+
+        {/* Buy credits CTA */}
+        <div style={{ borderTop: '0.5px solid var(--border)', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: 0 }}>Need more credits?</p>
+          <span style={{ background: 'var(--bg-chip)', color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', padding: '4px 10px', borderRadius: '20px', fontFamily: "'DM Sans', sans-serif" }}>Buy Credits — Soon ✦</span>
+        </div>
       </div>
 
       {/* ── ACTIVITY STATS ─────────────────────────────────────────────── */}

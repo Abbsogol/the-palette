@@ -760,7 +760,10 @@ export default function NailLabPage() {
         <div style={{ padding: '24px 20px 20px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <div>
             <h1 style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: '500', letterSpacing: '-0.02em', margin: '0 0 4px' }}>Nail Lab</h1>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0 }}>Generate a custom design with AI</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0 }}>Generate a custom design with AI</p>
+              <Link href="/nail-lab/history" style={{ color: 'var(--accent)', fontSize: '12px', textDecoration: 'none', fontFamily: "'DM Sans', sans-serif", fontWeight: '500' }}>History</Link>
+            </div>
           </div>
           <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '8px 14px', textAlign: 'center', flexShrink: 0 }}>
             <p style={{ color: 'var(--accent)', fontSize: '18px', fontWeight: '600', margin: 0, fontFamily: "'DM Sans', sans-serif", lineHeight: 1 }}>{credits ?? '—'}</p>
