@@ -881,7 +881,7 @@ export default function ProfilePage() {
         {/* Buy credits CTA */}
         <div style={{ borderTop: '0.5px solid var(--border)', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: 0 }}>Need more credits?</p>
-          <span style={{ background: 'var(--bg-chip)', color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', padding: '4px 10px', borderRadius: '20px', fontFamily: "'DM Sans', sans-serif" }}>Buy Credits — Soon ✦</span>
+          <Link href="/buy-credits" style={{ background: 'var(--accent)', color: '#2C0A1E', fontSize: '11px', fontWeight: '600', padding: '5px 12px', borderRadius: '20px', fontFamily: "'DM Sans', sans-serif", textDecoration: 'none' }}>Buy Credits ✦</Link>
         </div>
       </div>
 
