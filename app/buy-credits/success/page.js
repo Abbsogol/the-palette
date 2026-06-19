@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
@@ -10,14 +10,13 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 )
 
-export default function BuyCreditsSuccessPage() {
+function SuccessContent() {
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('session_id')
   const [creditBalance, setCreditBalance] = useState(null)
 
   useEffect(() => {
     const getBalance = async () => {
-      // Wait a moment for webhook to process
       await new Promise(r => setTimeout(r, 2000))
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
@@ -43,8 +42,6 @@ export default function BuyCreditsSuccessPage() {
       padding: '40px 24px',
       textAlign: 'center',
     }}>
-
-      {/* Success icon */}
       <div style={{
         width: '72px', height: '72px', borderRadius: '50%',
         background: 'rgba(212,160,192,0.15)',
@@ -74,9 +71,7 @@ export default function BuyCreditsSuccessPage() {
           marginBottom: '32px',
         }}>
           <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 4px' }}>New balance</p>
-          <p style={{ color: 'var(--accent)', fontSize: '36px', fontWeight: '700', margin: 0, letterSpacing: '-0.03em' }}>
-            {creditBalance}
-          </p>
+          <p style={{ color: 'var(--accent)', fontSize: '36px', fontWeight: '700', margin: 0, letterSpacing: '-0.03em' }}>{creditBalance}</p>
           <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '2px 0 0' }}>credits</p>
         </div>
       )}
@@ -96,13 +91,21 @@ export default function BuyCreditsSuccessPage() {
         Open Nail Lab
       </Link>
 
-      <Link href="/profile" style={{
-        color: 'var(--text-secondary)',
-        fontSize: '13px',
-        textDecoration: 'none',
-      }}>
+      <Link href="/profile" style={{ color: 'var(--text-secondary)', fontSize: '13px', textDecoration: 'none' }}>
         Back to profile
       </Link>
     </div>
+  )
+}
+
+export default function BuyCreditsSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: 'var(--text-secondary)', fontFamily: "'DM Sans', sans-serif" }}>Loading…</p>
+      </div>
+    }>
+      <SuccessContent />
+    </Suspense>
   )
 }
