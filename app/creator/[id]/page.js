@@ -189,22 +189,19 @@ export default function CreatorPage() {
           </Link>
         )}
 
-        {/* Book CTA */}
-        <div style={{ marginBottom: '20px' }}>
-          <button style={{
-            width: '100%', background: isOwnProfile || !currentUser ? 'var(--accent)' : 'var(--bg-card)',
-            color: isOwnProfile || !currentUser ? '#2C0A1E' : 'var(--text-secondary)',
-            border: isOwnProfile || !currentUser ? 'none' : '0.5px solid var(--border)',
-            borderRadius: '12px', padding: '13px',
-            fontSize: '14px', fontWeight: '500', fontFamily: "'DM Sans', sans-serif",
-            cursor: 'default', letterSpacing: '0.01em',
-          }}>
-            Book an appointment
-          </button>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '11px', textAlign: 'center', marginTop: '6px' }}>
-            Booking coming soon — contact via Instagram or DM
-          </p>
-        </div>
+        {/* Book CTA — only show if creator has services */}
+        {services.length > 0 && !isOwnProfile && (
+          <div style={{ marginBottom: '20px' }}>
+            <button style={{
+              width: '100%', background: 'var(--accent)', color: '#2C0A1E',
+              border: 'none', borderRadius: '12px', padding: '13px',
+              fontSize: '14px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif",
+              cursor: 'pointer', letterSpacing: '0.01em',
+            }}>
+              Book an appointment ✦
+            </button>
+          </div>
+        )}
 
         {/* Stats */}
         <div style={{ display: 'flex', gap: '20px', marginBottom: '24px', padding: '16px', background: 'var(--bg-card)', borderRadius: '14px', border: '0.5px solid var(--border)' }}>
