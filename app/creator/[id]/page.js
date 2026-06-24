@@ -17,6 +17,7 @@ export default function CreatorPage() {
   const [loading, setLoading]         = useState(true)
   const [followLoading, setFollowLoading] = useState(false)
   const [totalSaves, setTotalSaves] = useState(0)
+  const [services, setServices] = useState([])
 
   useEffect(() => {
     const load = async () => {
@@ -24,17 +25,19 @@ export default function CreatorPage() {
       const me = session?.user || null
       setCurrentUser(me)
 
-      const [{ data: prof }, { data: d }, { count: followers }, { count: following }] = await Promise.all([
+      const [{ data: prof }, { data: d }, { count: followers }, { count: following }, { data: svcs }] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', id).single(),
         supabase.from('designs').select('*').eq('created_by', id).eq('is_published', true).order('created_at', { ascending: false }),
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', id),
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', id),
+        supabase.from('services').select('*').eq('creator_id', id).eq('is_active', true).order('created_at', { ascending: true }),
       ])
 
       const totalSaves = (d || []).reduce((sum, design) => sum + (design.saves_count || 0), 0)
 
       setProfile(prof)
       setDesigns(d || [])
+      setServices(svcs || [])
       setFollowerCount(followers || 0)
       setFollowingCount(following || 0)
       setTotalSaves(totalSaves)
@@ -217,6 +220,31 @@ export default function CreatorPage() {
             </div>
           ))}
         </div>
+
+        {/* Services */}
+        {services.length > 0 && (
+          <div style={{ marginBottom: '24px' }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '12px' }}>Services</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {services.map(service => (
+                <div key={service.id} style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '600', margin: '0 0 2px' }}>{service.name}</p>
+                    {service.description && (
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '0 0 6px', lineHeight: '1.4' }}>{service.description}</p>
+                    )}
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>
+                      {service.duration_minutes < 60 ? `${service.duration_minutes} min` : service.duration_minutes % 60 === 0 ? `${service.duration_minutes / 60} hr` : `${Math.floor(service.duration_minutes / 60)} hr ${service.duration_minutes % 60} min`}
+                    </span>
+                  </div>
+                  <span style={{ color: 'var(--accent)', fontSize: '14px', fontWeight: '600', marginLeft: '12px', whiteSpace: 'nowrap' }}>
+                    {service.price > 0 ? `AED ${service.price}` : 'Free'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Designs grid */}
         {designs.length > 0 ? (
