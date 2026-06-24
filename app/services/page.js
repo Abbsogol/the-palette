@@ -35,9 +35,9 @@ function ServiceSheet({ service, onSave, onClose }) {
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 100 }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)' }} />
-      <div style={{ position: 'relative', background: 'var(--bg-card)', borderRadius: '20px 20px 0 0', padding: '24px 20px 40px', fontFamily: "'DM Sans', sans-serif", maxHeight: '90dvh', overflowY: 'auto' }}>
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 101, background: 'var(--bg-card)', borderRadius: '20px 20px 0 0', padding: '24px 20px 40px', fontFamily: "'DM Sans', sans-serif", maxHeight: '88dvh', overflowY: 'auto' }}>
         <div style={{ width: '36px', height: '4px', borderRadius: '2px', background: 'var(--border)', margin: '0 auto 20px' }} />
         <h2 style={{ color: 'var(--text-primary)', fontSize: '17px', fontWeight: '600', margin: '0 0 20px' }}>
           {service ? 'Edit service' : 'Add service'}
