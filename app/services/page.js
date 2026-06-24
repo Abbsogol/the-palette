@@ -37,69 +37,84 @@ function ServiceSheet({ service, onSave, onClose }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 100 }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)' }} />
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 101, background: 'var(--bg-card)', borderRadius: '20px 20px 0 0', padding: '24px 20px 40px', fontFamily: "'DM Sans', sans-serif", maxHeight: '88dvh', overflowY: 'auto' }}>
-        <div style={{ width: '36px', height: '4px', borderRadius: '2px', background: 'var(--border)', margin: '0 auto 20px' }} />
-        <h2 style={{ color: 'var(--text-primary)', fontSize: '17px', fontWeight: '600', margin: '0 0 20px' }}>
-          {service ? 'Edit service' : 'Add service'}
-        </h2>
-
-        {/* Name */}
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Service name</label>
-          <input
-            value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder="e.g. Full Set Acrylics"
-            style={{ width: '100%', background: 'var(--bg-primary)', border: '0.5px solid var(--border)', borderRadius: '10px', padding: '12px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none', boxSizing: 'border-box' }}
-          />
+      <div style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 101,
+        background: 'var(--bg-card)', borderRadius: '20px 20px 0 0',
+        fontFamily: "'DM Sans', sans-serif",
+        maxHeight: '90dvh',
+        display: 'flex', flexDirection: 'column'
+      }}>
+        {/* Fixed header */}
+        <div style={{ padding: '16px 20px 0', flexShrink: 0 }}>
+          <div style={{ width: '36px', height: '4px', borderRadius: '2px', background: 'var(--border)', margin: '0 auto 16px' }} />
+          <h2 style={{ color: 'var(--text-primary)', fontSize: '17px', fontWeight: '600', margin: '0 0 16px' }}>
+            {service ? 'Edit service' : 'Add service'}
+          </h2>
         </div>
 
-        {/* Description */}
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Description <span style={{ opacity: 0.5 }}>(optional)</span></label>
-          <textarea
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-            placeholder="What's included..."
-            rows={2}
-            style={{ width: '100%', background: 'var(--bg-primary)', border: '0.5px solid var(--border)', borderRadius: '10px', padding: '12px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none', resize: 'none', boxSizing: 'border-box' }}
-          />
-        </div>
-
-        {/* Duration + Price row */}
-        <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
-          <div style={{ flex: 1 }}>
-            <label style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Duration</label>
-            <select
-              value={duration}
-              onChange={e => setDuration(parseInt(e.target.value))}
-              style={{ width: '100%', background: 'var(--bg-primary)', border: '0.5px solid var(--border)', borderRadius: '10px', padding: '12px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none' }}
-            >
-              {DURATION_OPTIONS.map(o => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </div>
-          <div style={{ flex: 1 }}>
-            <label style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Price (AED)</label>
+        {/* Scrollable fields */}
+        <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', flex: 1, padding: '0 20px' }}>
+          {/* Name */}
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Service name</label>
             <input
-              type="number"
-              value={price}
-              onChange={e => setPrice(e.target.value)}
-              placeholder="0"
-              min="0"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="e.g. Full Set Acrylics"
               style={{ width: '100%', background: 'var(--bg-primary)', border: '0.5px solid var(--border)', borderRadius: '10px', padding: '12px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none', boxSizing: 'border-box' }}
             />
           </div>
+
+          {/* Description */}
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Description <span style={{ opacity: 0.5 }}>(optional)</span></label>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="What's included..."
+              rows={2}
+              style={{ width: '100%', background: 'var(--bg-primary)', border: '0.5px solid var(--border)', borderRadius: '10px', padding: '12px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none', resize: 'none', boxSizing: 'border-box' }}
+            />
+          </div>
+
+          {/* Duration + Price row */}
+          <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Duration</label>
+              <select
+                value={duration}
+                onChange={e => setDuration(parseInt(e.target.value))}
+                style={{ width: '100%', background: 'var(--bg-primary)', border: '0.5px solid var(--border)', borderRadius: '10px', padding: '12px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none' }}
+              >
+                {DURATION_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Price (AED)</label>
+              <input
+                type="number"
+                value={price}
+                onChange={e => setPrice(e.target.value)}
+                placeholder="0"
+                min="0"
+                style={{ width: '100%', background: 'var(--bg-primary)', border: '0.5px solid var(--border)', borderRadius: '10px', padding: '12px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none', boxSizing: 'border-box' }}
+              />
+            </div>
+          </div>
         </div>
 
-        <button
-          onClick={handleSave}
-          disabled={!name.trim() || saving}
-          style={{ width: '100%', background: name.trim() ? 'var(--accent)' : 'var(--bg-chip)', color: name.trim() ? '#2C0A1E' : 'var(--text-secondary)', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '15px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif", cursor: name.trim() ? 'pointer' : 'not-allowed' }}
-        >
-          {saving ? 'Saving…' : service ? 'Save changes' : 'Add service'}
-        </button>
+        {/* Fixed footer button */}
+        <div style={{ padding: '12px 20px', paddingBottom: 'max(20px, env(safe-area-inset-bottom))', flexShrink: 0 }}>
+          <button
+            onClick={handleSave}
+            disabled={!name.trim() || saving}
+            style={{ width: '100%', background: name.trim() ? 'var(--accent)' : 'var(--bg-chip)', color: name.trim() ? '#2C0A1E' : 'var(--text-secondary)', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '15px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif", cursor: name.trim() ? 'pointer' : 'not-allowed' }}
+          >
+            {saving ? 'Saving…' : service ? 'Save changes' : 'Add service'}
+          </button>
+        </div>
       </div>
     </div>
   )
