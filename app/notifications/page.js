@@ -26,6 +26,7 @@ const notifText = (n) => {
   if (n.type === 'booking_request')     return `${name} sent you a booking request`
   if (n.type === 'booking_confirmed')   return `${name} confirmed your appointment`
   if (n.type === 'booking_declined')    return `${name} declined your booking request`
+  if (n.type === 'new_message')         return `${name} sent you a message`
   return ''
 }
 
@@ -33,6 +34,7 @@ const notifHref = (n) => {
   if (n.type === 'follow')                                    return `/creator/${n.actor_id}`
   if (n.type === 'booking_request')                           return `/bookings`
   if (n.type === 'booking_confirmed' || n.type === 'booking_declined') return `/appointments`
+  if (n.type === 'new_message')         return `/messages`
   if (n.design_id)                                            return `/design/${n.design_id}`
   return '#'
 }

@@ -1,6 +1,13 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+)
 
 const tabs = [
   {
@@ -34,11 +41,11 @@ const tabs = [
     ),
   },
   {
-    href: '/saved',
-    label: 'Saved',
+    href: '/messages',
+    label: 'Messages',
     icon: (active) => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" fill={active ? 'currentColor' : 'none'} />
       </svg>
     ),
   },
@@ -56,9 +63,35 @@ const tabs = [
 
 export default function BottomNav() {
   const pathname = usePathname()
+  const [unreadMessages, setUnreadMessages] = useState(0)
+
+  useEffect(() => {
+    const fetchUnread = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: convs } = await supabase
+        .from('conversations')
+        .select('id')
+        .or(`client_id.eq.${user.id},creator_id.eq.${user.id}`)
+
+      if (!convs || convs.length === 0) return
+
+      const convIds = convs.map(c => c.id)
+      const { count } = await supabase
+        .from('messages')
+        .select('*', { count: 'exact', head: true })
+        .in('conversation_id', convIds)
+        .eq('is_read', false)
+        .neq('sender_id', user.id)
+
+      setUnreadMessages(count || 0)
+    }
+    fetchUnread()
+  }, [pathname])
 
   // Hide on full-screen flows
-  if (pathname === '/story/new' || pathname === '/onboarding') return null
+  if (pathname === '/story/new' || pathname === '/onboarding' || pathname?.startsWith('/messages/')) return null
 
   return (
     <nav style={{
@@ -78,6 +111,7 @@ export default function BottomNav() {
     }}>
       {tabs.map((tab) => {
         const isActive = pathname === tab.href || (tab.href === '/feed' && pathname === '/')
+        const isMessages = tab.href === '/messages'
         return (
           <Link
             key={tab.href}
@@ -94,9 +128,22 @@ export default function BottomNav() {
               fontWeight: '500',
               letterSpacing: '0.02em',
               minWidth: '48px',
+              position: 'relative',
             }}
           >
             {tab.icon(isActive)}
+            {isMessages && unreadMessages > 0 && (
+              <div style={{
+                position: 'absolute', top: '-2px', right: '4px',
+                width: '16px', height: '16px', borderRadius: '50%',
+                background: 'var(--accent)', display: 'flex',
+                alignItems: 'center', justifyContent: 'center',
+              }}>
+                <span style={{ color: '#2C0A1E', fontSize: '9px', fontWeight: '700' }}>
+                  {unreadMessages > 9 ? '9+' : unreadMessages}
+                </span>
+              </div>
+            )}
             <span>{tab.label}</span>
           </Link>
         )

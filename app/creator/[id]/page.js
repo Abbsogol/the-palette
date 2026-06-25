@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import ShareButton from '@/components/ShareButton'
 
 export default function CreatorPage() {
   const { id } = useParams()
+  const router = useRouter()
   const [profile, setProfile]         = useState(null)
   const [designs, setDesigns]         = useState([])
   const [currentUser, setCurrentUser] = useState(null)
@@ -18,6 +19,7 @@ export default function CreatorPage() {
   const [followLoading, setFollowLoading] = useState(false)
   const [totalSaves, setTotalSaves] = useState(0)
   const [services, setServices] = useState([])
+  const [messagingLoading, setMessagingLoading] = useState(false)
   const [availability, setAvailability] = useState([])
 
   const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -82,6 +84,33 @@ export default function CreatorPage() {
       }
     }
     setFollowLoading(false)
+  }
+
+  const handleMessage = async () => {
+    if (!currentUser) { router.push('/login'); return }
+    setMessagingLoading(true)
+    // Find existing conversation or create one
+    // current user is always the client, creator is `id`
+    const clientId  = currentUser.id
+    const creatorId = id
+    const { data: existing } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('client_id', clientId)
+      .eq('creator_id', creatorId)
+      .single()
+
+    if (existing) {
+      router.push(`/messages/${existing.id}`)
+    } else {
+      const { data: created } = await supabase
+        .from('conversations')
+        .insert({ client_id: clientId, creator_id: creatorId })
+        .select('id')
+        .single()
+      router.push(`/messages/${created.id}`)
+    }
+    setMessagingLoading(false)
   }
 
   if (loading) return (
@@ -201,15 +230,42 @@ export default function CreatorPage() {
           </Link>
         )}
 
-        {/* Book CTA — only show if creator has services */}
-        {services.length > 0 && !isOwnProfile && (
+        {/* CTA buttons — Book + Message */}
+        {!isOwnProfile && currentUser && (
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+            {services.length > 0 && (
+              <Link href={`/book/${id}`} style={{
+                flex: 1, display: 'block', background: 'var(--accent)', color: '#2C0A1E',
+                border: 'none', borderRadius: '12px', padding: '13px',
+                fontSize: '14px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif",
+                cursor: 'pointer', textDecoration: 'none', textAlign: 'center', boxSizing: 'border-box',
+              }}>
+                Book ✦
+              </Link>
+            )}
+            <button
+              onClick={handleMessage}
+              disabled={messagingLoading}
+              style={{
+                flex: services.length > 0 ? '0 0 auto' : 1,
+                background: 'var(--bg-card)', color: 'var(--text-primary)',
+                border: '0.5px solid var(--border)', borderRadius: '12px', padding: '13px 20px',
+                fontSize: '14px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif",
+                cursor: 'pointer', whiteSpace: 'nowrap',
+              }}
+            >
+              {messagingLoading ? '…' : 'Message'}
+            </button>
+          </div>
+        )}
+        {/* Book only — logged out */}
+        {services.length > 0 && !isOwnProfile && !currentUser && (
           <div style={{ marginBottom: '20px' }}>
             <Link href={`/book/${id}`} style={{
               display: 'block', width: '100%', background: 'var(--accent)', color: '#2C0A1E',
               border: 'none', borderRadius: '12px', padding: '13px',
               fontSize: '14px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif",
-              cursor: 'pointer', letterSpacing: '0.01em', textDecoration: 'none', textAlign: 'center',
-              boxSizing: 'border-box',
+              textDecoration: 'none', textAlign: 'center', boxSizing: 'border-box',
             }}>
               Book an appointment ✦
             </Link>
