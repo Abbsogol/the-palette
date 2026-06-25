@@ -27,6 +27,7 @@ function fmtDate(dateStr) {
 }
 
 function fmtDuration(mins) {
+  if (!mins) return ''
   if (mins < 60) return `${mins} min`
   const h = Math.floor(mins / 60), m = mins % 60
   return m > 0 ? `${h} hr ${m} min` : `${h} hr`
@@ -47,28 +48,27 @@ function StatusBadge({ status }) {
   )
 }
 
-function BookingCard({ booking, onAccept, onDecline, acting }) {
+function AppointmentCard({ booking }) {
   const [expanded, setExpanded] = useState(false)
-  const client = booking.client
+  const creator = booking.creator
   const service = booking.service
 
   return (
     <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '14px', overflow: 'hidden', marginBottom: '10px' }}>
-      {/* Main row */}
       <div onClick={() => setExpanded(!expanded)} style={{ padding: '14px 16px', cursor: 'pointer' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {/* Avatar */}
           <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--bg-chip)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {client?.avatar_url
-              ? <img src={client.avatar_url} alt={client.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : <span style={{ color: 'var(--accent)', fontSize: '16px', fontWeight: '600' }}>{(client?.display_name || '?')[0].toUpperCase()}</span>
+            {creator?.avatar_url
+              ? <img src={creator.avatar_url} alt={creator.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : <span style={{ color: 'var(--accent)', fontSize: '16px', fontWeight: '600' }}>{(creator?.display_name || '?')[0].toUpperCase()}</span>
             }
           </div>
           {/* Info */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '3px' }}>
               <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '600', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {client?.display_name || 'Client'}
+                {creator?.display_name || 'Artist'}
               </p>
               <StatusBadge status={booking.status} />
             </div>
@@ -85,10 +85,9 @@ function BookingCard({ booking, onAccept, onDecline, acting }) {
         </div>
       </div>
 
-      {/* Expanded details */}
       {expanded && (
         <div style={{ borderTop: '0.5px solid var(--border)', padding: '14px 16px', background: 'var(--bg-primary)' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: booking.notes ? '12px' : '0' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Service</span>
               <span style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500' }}>{service?.name}</span>
@@ -101,133 +100,71 @@ function BookingCard({ booking, onAccept, onDecline, acting }) {
               <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Price</span>
               <span style={{ color: 'var(--accent)', fontSize: '12px', fontWeight: '600' }}>{service?.price > 0 ? `AED ${service.price}` : 'Free'}</span>
             </div>
-            {client?.username && (
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Client</span>
-                <span style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500' }}>@{client.username}</span>
-              </div>
-            )}
           </div>
-
           {booking.notes && (
             <div style={{ background: 'var(--bg-chip)', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px' }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '10px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 4px' }}>Client note</p>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '10px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 4px' }}>Your note</p>
               <p style={{ color: 'var(--text-primary)', fontSize: '13px', margin: 0, lineHeight: '1.5' }}>{booking.notes}</p>
             </div>
           )}
-
-          {/* Accept / Decline — only for pending */}
-          {booking.status === 'pending' && (
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                onClick={() => onDecline(booking.id)}
-                disabled={acting === booking.id}
-                style={{ flex: 1, background: 'var(--bg-chip)', color: 'var(--text-secondary)', border: '0.5px solid var(--border)', borderRadius: '10px', padding: '10px', fontSize: '13px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}
-              >
-                Decline
-              </button>
-              <button
-                onClick={() => onAccept(booking.id)}
-                disabled={acting === booking.id}
-                style={{ flex: 2, background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '10px', padding: '10px', fontSize: '13px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}
-              >
-                {acting === booking.id ? 'Saving…' : 'Accept ✦'}
-              </button>
-            </div>
-          )}
+          <Link href={`/creator/${booking.creator_id}`} style={{ display: 'block', textAlign: 'center', color: 'var(--accent)', fontSize: '13px', fontWeight: '500', textDecoration: 'none', padding: '8px', background: 'rgba(212,160,192,0.08)', borderRadius: '8px' }}>
+            View artist profile →
+          </Link>
         </div>
       )}
     </div>
   )
 }
 
-export default function BookingsPage() {
+export default function AppointmentsPage() {
   const router = useRouter()
-  const [currentUser, setCurrentUser] = useState(null)
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState('requests')
-  const [acting, setActing] = useState(null) // booking id being accepted/declined
+  const [tab, setTab] = useState('upcoming')
 
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
-      const { data: profile } = await supabase.from('profiles').select('account_type').eq('id', user.id).single()
-      if (!profile || !['nail_artist', 'creator', 'salon'].includes(profile.account_type)) {
-        router.push('/profile'); return
-      }
-      setCurrentUser(user)
-      await loadBookings(user.id)
+
+      const { data } = await supabase
+        .from('bookings')
+        .select('*, service:services(*)')
+        .eq('client_id', user.id)
+        .order('booking_date', { ascending: true })
+        .order('start_time', { ascending: true })
+
+      if (!data) { setLoading(false); return }
+
+      // Fetch creator profiles
+      const creatorIds = [...new Set(data.map(b => b.creator_id))]
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, display_name, username, avatar_url')
+        .in('id', creatorIds)
+
+      const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
+      setBookings(data.map(b => ({ ...b, creator: profileMap[b.creator_id] || null })))
       setLoading(false)
     }
     init()
   }, [])
 
-  const loadBookings = async (userId) => {
-    const { data } = await supabase
-      .from('bookings')
-      .select('*, service:services(*)')
-      .eq('creator_id', userId)
-      .order('booking_date', { ascending: true })
-      .order('start_time', { ascending: true })
-
-    if (!data) { setBookings([]); return }
-
-    // Fetch client profiles
-    const clientIds = [...new Set(data.map(b => b.client_id))]
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, display_name, username, avatar_url')
-      .in('id', clientIds)
-
-    const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
-    setBookings(data.map(b => ({ ...b, client: profileMap[b.client_id] || null })))
-  }
-
-  const sendNotif = async (userId, actorId, type) => {
-    await supabase.from('notifications').insert({ user_id: userId, actor_id: actorId, type })
-  }
-
-  const handleAccept = async (bookingId) => {
-    setActing(bookingId)
-    const booking = bookings.find(b => b.id === bookingId)
-    await supabase.from('bookings').update({ status: 'confirmed' }).eq('id', bookingId)
-    await sendNotif(booking.client_id, currentUser.id, 'booking_confirmed')
-    await loadBookings(currentUser.id)
-    setActing(null)
-  }
-
-  const handleDecline = async (bookingId) => {
-    setActing(bookingId)
-    const booking = bookings.find(b => b.id === bookingId)
-    await supabase.from('bookings').update({ status: 'declined' }).eq('id', bookingId)
-    await sendNotif(booking.client_id, currentUser.id, 'booking_declined')
-    await loadBookings(currentUser.id)
-    setActing(null)
-  }
-
   const today = new Date().toISOString().split('T')[0]
 
-  const pending   = bookings.filter(b => b.status === 'pending')
-  const upcoming  = bookings.filter(b => b.status === 'confirmed' && b.booking_date >= today)
-  const past      = bookings.filter(b =>
-    b.status === 'declined' || b.status === 'cancelled' ||
-    (b.status === 'confirmed' && b.booking_date < today)
-  )
+  const upcoming = bookings.filter(b => (b.status === 'pending' || b.status === 'confirmed') && b.booking_date >= today)
+  const past     = bookings.filter(b => b.status === 'declined' || b.status === 'cancelled' || (b.status === 'confirmed' && b.booking_date < today))
 
   const tabs = [
-    { key: 'requests', label: 'Requests', count: pending.length },
     { key: 'upcoming', label: 'Upcoming', count: upcoming.length },
     { key: 'past',     label: 'Past',     count: past.length },
   ]
 
-  const activeList = tab === 'requests' ? pending : tab === 'upcoming' ? upcoming : past
+  const activeList = tab === 'upcoming' ? upcoming : past
 
   const emptyMessages = {
-    requests: { title: 'No pending requests', sub: 'New booking requests from clients will appear here.' },
-    upcoming: { title: 'No upcoming bookings', sub: 'Confirmed appointments will show here.' },
-    past:     { title: 'No past bookings', sub: 'Completed and cancelled bookings will show here.' },
+    upcoming: { title: 'No upcoming appointments', sub: 'Book an appointment with a nail artist or salon to get started.' },
+    past:     { title: 'No past appointments', sub: 'Your completed and cancelled bookings will appear here.' },
   }
 
   if (loading) return (
@@ -246,7 +183,7 @@ export default function BookingsPage() {
             <path d="M19 12H5M12 5l-7 7 7 7"/>
           </svg>
         </Link>
-        <h1 style={{ color: 'var(--text-primary)', fontSize: '17px', fontWeight: '600', margin: 0 }}>Bookings</h1>
+        <h1 style={{ color: 'var(--text-primary)', fontSize: '17px', fontWeight: '600', margin: 0 }}>My Appointments</h1>
       </div>
 
       {/* Tabs */}
@@ -266,7 +203,7 @@ export default function BookingsPage() {
           >
             {t.label}
             {t.count > 0 && (
-              <span style={{ marginLeft: '5px', background: t.key === 'requests' ? 'var(--accent)' : 'var(--bg-chip)', color: t.key === 'requests' ? '#2C0A1E' : 'var(--text-secondary)', fontSize: '10px', fontWeight: '700', padding: '1px 6px', borderRadius: '20px' }}>
+              <span style={{ marginLeft: '5px', background: 'var(--bg-chip)', color: 'var(--text-secondary)', fontSize: '10px', fontWeight: '700', padding: '1px 6px', borderRadius: '20px' }}>
                 {t.count}
               </span>
             )}
@@ -280,18 +217,15 @@ export default function BookingsPage() {
           <div style={{ textAlign: 'center', padding: '60px 0' }}>
             <div style={{ fontSize: '28px', marginBottom: '12px' }}>✦</div>
             <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '500', margin: '0 0 8px' }}>{emptyMessages[tab].title}</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>{emptyMessages[tab].sub}</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '0 0 24px' }}>{emptyMessages[tab].sub}</p>
+            {tab === 'upcoming' && (
+              <Link href="/search" style={{ background: 'var(--accent)', color: '#2C0A1E', borderRadius: '12px', padding: '11px 24px', fontSize: '14px', fontWeight: '600', textDecoration: 'none' }}>
+                Find an artist
+              </Link>
+            )}
           </div>
         ) : (
-          activeList.map(b => (
-            <BookingCard
-              key={b.id}
-              booking={b}
-              onAccept={handleAccept}
-              onDecline={handleDecline}
-              acting={acting}
-            />
-          ))
+          activeList.map(b => <AppointmentCard key={b.id} booking={b} />)
         )}
       </div>
     </div>

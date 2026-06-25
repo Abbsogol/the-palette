@@ -1046,6 +1046,25 @@ export default function ProfilePage() {
         </div>
       )}
 
+      {/* My Appointments — visible to all users */}
+      <div style={{ margin: '0 20px 14px' }}>
+        <Link href="/appointments" style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          background: 'var(--bg-card)', border: '0.5px solid var(--border)',
+          borderRadius: '12px', padding: '13px 16px', textDecoration: 'none',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01"/>
+            </svg>
+            <span style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500' }}>My Appointments</span>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M6 4l4 4-4 4" stroke="var(--text-secondary)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </Link>
+      </div>
+
       {/* ── SETTINGS ───────────────────────────────────────────────────── */}
       <div style={{ margin: '0 20px 12px', background: 'var(--bg-card)', borderRadius: '14px', border: '0.5px solid var(--border)', overflow: 'hidden' }}>
         <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '14px 16px 10px' }}>Settings</p>

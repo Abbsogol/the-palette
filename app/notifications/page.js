@@ -18,17 +18,22 @@ const timeAgo = (iso) => {
 
 const notifText = (n) => {
   const name = n.actor?.display_name || 'Someone'
-  if (n.type === 'follow') return `${name} followed you`
-  if (n.type === 'like')    return `${name} liked your design`
-  if (n.type === 'comment') return n.comment_preview
+  if (n.type === 'follow')              return `${name} followed you`
+  if (n.type === 'like')                return `${name} liked your design`
+  if (n.type === 'comment')             return n.comment_preview
     ? `${name} commented: "${n.comment_preview}"`
     : `${name} commented on your design`
+  if (n.type === 'booking_request')     return `${name} sent you a booking request`
+  if (n.type === 'booking_confirmed')   return `${name} confirmed your appointment`
+  if (n.type === 'booking_declined')    return `${name} declined your booking request`
   return ''
 }
 
 const notifHref = (n) => {
-  if (n.type === 'follow') return `/creator/${n.actor_id}`
-  if (n.design_id) return `/design/${n.design_id}`
+  if (n.type === 'follow')                                    return `/creator/${n.actor_id}`
+  if (n.type === 'booking_request')                           return `/bookings`
+  if (n.type === 'booking_confirmed' || n.type === 'booking_declined') return `/appointments`
+  if (n.design_id)                                            return `/design/${n.design_id}`
   return '#'
 }
 

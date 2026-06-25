@@ -142,6 +142,13 @@ export default function BookPage() {
       notes: note.trim() || null,
     })
 
+    // Notify the creator
+    await supabase.from('notifications').insert({
+      user_id: creatorId,
+      actor_id: currentUser.id,
+      type: 'booking_request',
+    })
+
     setSubmitting(false)
     setDone(true)
   }
