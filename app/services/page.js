@@ -26,6 +26,23 @@ function ServiceSheet({ service, onSave, onClose }) {
   const [duration, setDuration] = useState(service?.duration_minutes || 60)
   const [price, setPrice] = useState(service?.price ?? '')
   const [saving, setSaving] = useState(false)
+  const [keyboardOffset, setKeyboardOffset] = useState(0)
+
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const update = () => {
+      const offset = window.innerHeight - vv.height - vv.offsetTop
+      setKeyboardOffset(Math.max(0, offset))
+    }
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    update()
+    return () => {
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+    }
+  }, [])
 
   const handleSave = async () => {
     if (!name.trim()) return
@@ -38,11 +55,12 @@ function ServiceSheet({ service, onSave, onClose }) {
     <div style={{ position: 'fixed', inset: 0, zIndex: 100 }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)' }} />
       <div style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 101,
+        position: 'fixed', bottom: keyboardOffset, left: 0, right: 0, zIndex: 101,
         background: 'var(--bg-card)', borderRadius: '20px 20px 0 0',
         fontFamily: "'DM Sans', sans-serif",
         maxHeight: '90dvh',
-        display: 'flex', flexDirection: 'column'
+        display: 'flex', flexDirection: 'column',
+        transition: 'bottom 0.2s ease'
       }}>
         {/* Fixed header */}
         <div style={{ padding: '16px 20px 0', flexShrink: 0 }}>
