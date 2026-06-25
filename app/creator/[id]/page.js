@@ -204,14 +204,15 @@ export default function CreatorPage() {
         {/* Book CTA — only show if creator has services */}
         {services.length > 0 && !isOwnProfile && (
           <div style={{ marginBottom: '20px' }}>
-            <button style={{
-              width: '100%', background: 'var(--accent)', color: '#2C0A1E',
+            <Link href={`/book/${id}`} style={{
+              display: 'block', width: '100%', background: 'var(--accent)', color: '#2C0A1E',
               border: 'none', borderRadius: '12px', padding: '13px',
               fontSize: '14px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif",
-              cursor: 'pointer', letterSpacing: '0.01em',
+              cursor: 'pointer', letterSpacing: '0.01em', textDecoration: 'none', textAlign: 'center',
+              boxSizing: 'border-box',
             }}>
               Book an appointment ✦
-            </button>
+            </Link>
           </div>
         )}
 
