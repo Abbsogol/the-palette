@@ -18,6 +18,16 @@ export default function CreatorPage() {
   const [followLoading, setFollowLoading] = useState(false)
   const [totalSaves, setTotalSaves] = useState(0)
   const [services, setServices] = useState([])
+  const [availability, setAvailability] = useState([])
+
+  const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const fmt12 = (t) => {
+    if (!t) return ''
+    const [h, m] = t.slice(0, 5).split(':').map(Number)
+    const ampm = h < 12 ? 'am' : 'pm'
+    const h12 = h % 12 === 0 ? 12 : h % 12
+    return `${h12}${m > 0 ? `:${String(m).padStart(2,'0')}` : ''}${ampm}`
+  }
 
   useEffect(() => {
     const load = async () => {
@@ -25,12 +35,13 @@ export default function CreatorPage() {
       const me = session?.user || null
       setCurrentUser(me)
 
-      const [{ data: prof }, { data: d }, { count: followers }, { count: following }, { data: svcs }] = await Promise.all([
+      const [{ data: prof }, { data: d }, { count: followers }, { count: following }, { data: svcs }, { data: avail }] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', id).single(),
         supabase.from('designs').select('*').eq('created_by', id).eq('is_published', true).order('created_at', { ascending: false }),
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', id),
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', id),
         supabase.from('services').select('*').eq('creator_id', id).eq('is_active', true).order('created_at', { ascending: true }),
+        supabase.from('availability').select('*').eq('creator_id', id).eq('is_active', true).order('day_of_week', { ascending: true }),
       ])
 
       const totalSaves = (d || []).reduce((sum, design) => sum + (design.saves_count || 0), 0)
@@ -38,6 +49,7 @@ export default function CreatorPage() {
       setProfile(prof)
       setDesigns(d || [])
       setServices(svcs || [])
+      setAvailability(avail || [])
       setFollowerCount(followers || 0)
       setFollowingCount(following || 0)
       setTotalSaves(totalSaves)
@@ -236,6 +248,25 @@ export default function CreatorPage() {
                   </div>
                   <span style={{ color: 'var(--accent)', fontSize: '14px', fontWeight: '600', marginLeft: '12px', whiteSpace: 'nowrap' }}>
                     {service.price > 0 ? `AED ${service.price}` : 'Free'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Availability */}
+        {availability.length > 0 && (
+          <div style={{ marginBottom: '24px' }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '12px' }}>Availability</p>
+            <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {availability.map(a => (
+                <div key={a.day_of_week} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', width: '40px' }}>
+                    {DAY_NAMES[a.day_of_week]}
+                  </span>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+                    {fmt12(a.start_time)} – {fmt12(a.end_time)}
                   </span>
                 </div>
               ))}
