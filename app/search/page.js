@@ -81,7 +81,7 @@ export default function SearchPage() {
         .from('profiles')
         .select('id, display_name, username, avatar_url, account_type, is_verified')
         .or(`display_name.ilike.%${q}%,username.ilike.%${q}%`)
-        .in('account_type', ['creator', 'salon'])
+        .in('account_type', ['nail_artist', 'creator', 'salon'])
         .limit(5)
       setPeople(data || [])
     }
@@ -176,8 +176,8 @@ export default function SearchPage() {
     if (tab === 'salons' && !salonsLoaded) {
       const { data } = await supabase
         .from('profiles')
-        .select('id, display_name, username, avatar_url, location, bio')
-        .eq('account_type', 'salon')
+        .select('id, display_name, username, avatar_url, account_type, location, bio')
+        .in('account_type', ['nail_artist', 'creator', 'salon'])
         .order('display_name', { ascending: true })
       setSalons(data || [])
       setSalonsLoaded(true)
@@ -185,7 +185,11 @@ export default function SearchPage() {
   }
 
   const filteredSalons = locationFilter.trim()
-    ? salons.filter(s => s.location?.toLowerCase().includes(locationFilter.trim().toLowerCase()) || s.display_name?.toLowerCase().includes(locationFilter.trim().toLowerCase()))
+    ? salons.filter(s =>
+        s.location?.toLowerCase().includes(locationFilter.trim().toLowerCase()) ||
+        s.display_name?.toLowerCase().includes(locationFilter.trim().toLowerCase()) ||
+        s.username?.toLowerCase().includes(locationFilter.trim().toLowerCase())
+      )
     : salons
 
   const toggleFilter = (category, value) => {
@@ -217,7 +221,7 @@ export default function SearchPage() {
 
       {/* Main tabs */}
       <div style={{ display: 'flex', borderBottom: '0.5px solid var(--border)', marginBottom: '20px' }}>
-        {[['designs', 'Designs'], ['salons', 'Salons']].map(([val, label]) => (
+        {[['designs', 'Designs'], ['salons', 'Artists & Salons']].map(([val, label]) => (
           <button
             key={val}
             onClick={() => switchMainTab(val)}
@@ -248,7 +252,7 @@ export default function SearchPage() {
             </svg>
             <input
               type="text"
-              placeholder="Filter by city or area..."
+              placeholder="Search by name, @username or city..."
               value={locationFilter}
               onChange={e => setLocationFilter(e.target.value)}
               style={{
@@ -274,7 +278,7 @@ export default function SearchPage() {
           ) : (
             <div>
               <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginBottom: '12px' }}>
-                {filteredSalons.length} salon{filteredSalons.length !== 1 ? 's' : ''}
+                {filteredSalons.length} result{filteredSalons.length !== 1 ? 's' : ''}
               </p>
               {filteredSalons.map(salon => (
                 <Link
@@ -301,7 +305,7 @@ export default function SearchPage() {
                         {salon.display_name || 'Salon'}
                       </p>
                       <span style={{ background: 'var(--bg-chip)', color: 'var(--accent)', fontSize: '9px', fontWeight: '600', padding: '2px 7px', borderRadius: '20px', letterSpacing: '0.04em', flexShrink: 0 }}>
-                        SALON
+                        {salon.account_type === 'salon' ? 'SALON' : 'NAIL ARTIST'}
                       </span>
                     </div>
                     {salon.location && (
