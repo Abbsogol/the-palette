@@ -941,6 +941,24 @@ export default function ProfilePage() {
             </svg>
           </Link>
 
+          {/* Bookings link */}
+          <Link href="/bookings" style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            background: 'var(--bg-card)', border: '0.5px solid var(--border)',
+            borderRadius: '12px', padding: '13px 16px', textDecoration: 'none',
+            marginBottom: '14px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
+              </svg>
+              <span style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500' }}>Bookings</span>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M6 4l4 4-4 4" stroke="var(--text-secondary)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </Link>
+
           {/* Availability link */}
           <Link href="/availability" style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
