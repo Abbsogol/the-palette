@@ -52,10 +52,10 @@ function ServiceSheet({ service, onSave, onClose }) {
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 100 }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 999 }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)' }} />
       <div style={{
-        position: 'fixed', bottom: keyboardOffset, left: 0, right: 0, zIndex: 101,
+        position: 'fixed', bottom: Math.max(keyboardOffset, 60), left: 0, right: 0, zIndex: 1000,
         background: 'var(--bg-card)', borderRadius: '20px 20px 0 0',
         fontFamily: "'DM Sans', sans-serif",
         maxHeight: '90dvh',
