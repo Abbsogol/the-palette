@@ -1046,6 +1046,29 @@ export default function ProfilePage() {
         </div>
       )}
 
+      {/* Upgrade banner — only show if not already subscribed */}
+      {!profile?.subscription_tier && (
+        <div style={{ margin: '0 20px 14px' }}>
+          <Link href="/upgrade" style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            background: 'linear-gradient(135deg, rgba(212,160,192,0.15) 0%, rgba(212,160,192,0.05) 100%)',
+            border: '0.5px solid rgba(212,160,192,0.3)',
+            borderRadius: '12px', padding: '13px 16px', textDecoration: 'none',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '18px' }}>✦</span>
+              <div>
+                <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '600', margin: '0 0 2px' }}>Upgrade to Pro</p>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: 0 }}>Unlock bookings, analytics & more</p>
+              </div>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M6 4l4 4-4 4" stroke="var(--accent)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </Link>
+        </div>
+      )}
+
       {/* My Appointments — visible to all users */}
       <div style={{ margin: '0 20px 14px' }}>
         <Link href="/appointments" style={{

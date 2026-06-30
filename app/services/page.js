@@ -25,6 +25,7 @@ function ServiceSheet({ service, onSave, onClose }) {
   const [description, setDescription] = useState(service?.description || '')
   const [duration, setDuration] = useState(service?.duration_minutes || 60)
   const [price, setPrice] = useState(service?.price ?? '')
+  const [deposit, setDeposit] = useState(service?.deposit_amount ?? '')
   const [saving, setSaving] = useState(false)
   const [keyboardOffset, setKeyboardOffset] = useState(0)
 
@@ -47,7 +48,7 @@ function ServiceSheet({ service, onSave, onClose }) {
   const handleSave = async () => {
     if (!name.trim()) return
     setSaving(true)
-    await onSave({ name: name.trim(), description: description.trim(), duration_minutes: duration, price: parseFloat(price) || 0 })
+    await onSave({ name: name.trim(), description: description.trim(), duration_minutes: duration, price: parseFloat(price) || 0, deposit_amount: parseFloat(deposit) || 0 })
     setSaving(false)
   }
 
@@ -120,6 +121,24 @@ function ServiceSheet({ service, onSave, onClose }) {
                 style={{ width: '100%', background: 'var(--bg-primary)', border: '0.5px solid var(--border)', borderRadius: '10px', padding: '12px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none', boxSizing: 'border-box' }}
               />
             </div>
+          </div>
+
+          {/* Deposit */}
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
+              Deposit (AED) <span style={{ opacity: 0.5 }}>(optional)</span>
+            </label>
+            <input
+              type="number"
+              value={deposit}
+              onChange={e => setDeposit(e.target.value)}
+              placeholder="0 — no deposit required"
+              min="0"
+              style={{ width: '100%', background: 'var(--bg-primary)', border: '0.5px solid var(--border)', borderRadius: '10px', padding: '12px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none', boxSizing: 'border-box' }}
+            />
+            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: '6px 0 0', lineHeight: '1.5' }}>
+              Clients will see this deposit requirement when booking.
+            </p>
           </div>
         </div>
 
@@ -253,13 +272,18 @@ export default function ServicesPage() {
                 {service.description && (
                   <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '0 0 8px', lineHeight: '1.5' }}>{service.description}</p>
                 )}
-                <div style={{ display: 'flex', gap: '12px' }}>
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                   <span style={{ color: 'var(--accent)', fontSize: '13px', fontWeight: '600' }}>
                     {service.price > 0 ? `AED ${service.price}` : 'Free'}
                   </span>
                   <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
                     {formatDuration(service.duration_minutes)}
                   </span>
+                  {service.deposit_amount > 0 && (
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+                      · AED {service.deposit_amount} deposit
+                    </span>
+                  )}
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginLeft: '12px' }}>
