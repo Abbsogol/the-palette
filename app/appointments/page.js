@@ -48,10 +48,38 @@ function StatusBadge({ status }) {
   )
 }
 
-function AppointmentCard({ booking }) {
+function AppointmentCard({ booking, currentUser }) {
   const [expanded, setExpanded] = useState(false)
+  const [payLoading, setPayLoading] = useState(false)
   const creator = booking.creator
   const service = booking.service
+
+  const showDepositButton =
+    booking.status === 'confirmed' &&
+    service?.deposit_amount > 0 &&
+    !booking.deposit_paid
+
+  const handlePayDeposit = async () => {
+    if (payLoading) return
+    setPayLoading(true)
+    try {
+      const res = await fetch('/api/create-deposit-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: booking.id, userId: currentUser.id }),
+      })
+      const data = await res.json()
+      if (data.url) {
+        window.location.href = data.url
+      } else {
+        alert(data.error || 'Something went wrong. Please try again.')
+        setPayLoading(false)
+      }
+    } catch {
+      alert('Something went wrong. Please try again.')
+      setPayLoading(false)
+    }
+  }
 
   return (
     <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '14px', overflow: 'hidden', marginBottom: '10px' }}>
@@ -107,6 +135,35 @@ function AppointmentCard({ booking }) {
               <p style={{ color: 'var(--text-primary)', fontSize: '13px', margin: 0, lineHeight: '1.5' }}>{booking.notes}</p>
             </div>
           )}
+          {/* Pay Deposit button */}
+          {showDepositButton && (
+            <button
+              onClick={handlePayDeposit}
+              disabled={payLoading}
+              style={{
+                width: '100%', padding: '13px', marginBottom: '10px',
+                background: 'var(--accent)', color: '#2C0A1E',
+                border: 'none', borderRadius: '12px',
+                fontSize: '14px', fontWeight: '600',
+                fontFamily: "'DM Sans', sans-serif",
+                cursor: payLoading ? 'not-allowed' : 'pointer',
+                opacity: payLoading ? 0.7 : 1,
+              }}
+            >
+              {payLoading ? 'Redirecting…' : `Pay deposit — AED ${service.deposit_amount}`}
+            </button>
+          )}
+
+          {/* Deposit paid badge */}
+          {booking.status === 'confirmed' && service?.deposit_amount > 0 && booking.deposit_paid && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px', padding: '10px 12px', background: 'rgba(100,200,130,0.08)', borderRadius: '10px', border: '0.5px solid rgba(100,200,130,0.2)' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M5 13L9 17L19 7" stroke="#6CC882" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <span style={{ color: '#6CC882', fontSize: '12px', fontWeight: '600' }}>Deposit paid</span>
+            </div>
+          )}
+
           <Link href={`/creator/${booking.creator_id}`} style={{ display: 'block', textAlign: 'center', color: 'var(--accent)', fontSize: '13px', fontWeight: '500', textDecoration: 'none', padding: '8px', background: 'rgba(212,160,192,0.08)', borderRadius: '8px' }}>
             View artist profile →
           </Link>
@@ -118,6 +175,7 @@ function AppointmentCard({ booking }) {
 
 export default function AppointmentsPage() {
   const router = useRouter()
+  const [currentUser, setCurrentUser] = useState(null)
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('upcoming')
@@ -126,6 +184,7 @@ export default function AppointmentsPage() {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
+      setCurrentUser(user)
 
       const { data } = await supabase
         .from('bookings')
@@ -225,7 +284,7 @@ export default function AppointmentsPage() {
             )}
           </div>
         ) : (
-          activeList.map(b => <AppointmentCard key={b.id} booking={b} />)
+          activeList.map(b => <AppointmentCard key={b.id} booking={b} currentUser={currentUser} />)
         )}
       </div>
     </div>

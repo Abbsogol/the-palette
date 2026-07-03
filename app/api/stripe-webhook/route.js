@@ -25,27 +25,46 @@ export async function POST(request) {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object
 
-    // One-time payment = credit pack
+    // One-time payment — could be credit pack or deposit
     if (session.mode === 'payment') {
-      const userId = session.metadata?.userId
-      const credits = parseInt(session.metadata?.credits || '0', 10)
+      const { type, bookingId, userId, credits } = session.metadata || {}
 
-      if (!userId || !credits) {
-        console.error('Missing metadata in webhook:', session.metadata)
-        return Response.json({ error: 'Missing metadata' }, { status: 400 })
+      // Deposit payment
+      if (type === 'deposit' && bookingId) {
+        const { error } = await supabase
+          .from('bookings')
+          .update({ deposit_paid: true })
+          .eq('id', bookingId)
+
+        if (error) {
+          console.error('Failed to mark deposit paid:', error)
+          return Response.json({ error: 'Failed to update booking' }, { status: 500 })
+        }
+
+        console.log(`Deposit paid for booking ${bookingId}`)
       }
 
-      const { error } = await supabase.rpc('increment_credits', {
-        user_id: userId,
-        amount: credits,
-      })
+      // Credit pack payment
+      if (!type || type === 'credits') {
+        const creditAmount = parseInt(credits || '0', 10)
 
-      if (error) {
-        console.error('Failed to add credits:', error)
-        return Response.json({ error: 'Failed to add credits' }, { status: 500 })
+        if (!userId || !creditAmount) {
+          console.error('Missing metadata in webhook:', session.metadata)
+          return Response.json({ error: 'Missing metadata' }, { status: 400 })
+        }
+
+        const { error } = await supabase.rpc('increment_credits', {
+          user_id: userId,
+          amount: creditAmount,
+        })
+
+        if (error) {
+          console.error('Failed to add credits:', error)
+          return Response.json({ error: 'Failed to add credits' }, { status: 500 })
+        }
+
+        console.log(`Added ${creditAmount} credits to user ${userId}`)
       }
-
-      console.log(`Added ${credits} credits to user ${userId}`)
     }
 
     // Subscription checkout completed → activate subscription tier
