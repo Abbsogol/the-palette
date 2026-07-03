@@ -185,6 +185,12 @@ export default function ChatPage() {
           const prevMsg = messages[i - 1]
           const showTime = !prevMsg || (new Date(msg.created_at) - new Date(prevMsg.created_at)) > 5 * 60 * 1000
 
+          // Check if this is a design share message
+          let designShare = null
+          if (msg.content?.startsWith('{"__type":"design"')) {
+            try { designShare = JSON.parse(msg.content) } catch {}
+          }
+
           return (
             <div key={msg.id}>
               {showTime && (
@@ -193,19 +199,55 @@ export default function ChatPage() {
                 </p>
               )}
               <div style={{ display: 'flex', justifyContent: isMe ? 'flex-end' : 'flex-start' }}>
-                <div style={{
-                  maxWidth: '75%',
-                  background: isMe ? 'var(--accent)' : 'var(--bg-card)',
-                  color: isMe ? '#2C0A1E' : 'var(--text-primary)',
-                  borderRadius: isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                  padding: '10px 14px',
-                  fontSize: '14px',
-                  lineHeight: '1.45',
-                  border: isMe ? 'none' : '0.5px solid var(--border)',
-                  wordBreak: 'break-word',
-                }}>
-                  {msg.content}
-                </div>
+                {designShare ? (
+                  /* Design card bubble */
+                  <a
+                    href={`/design/${designShare.id}`}
+                    style={{
+                      maxWidth: '220px',
+                      background: isMe ? 'var(--accent)' : 'var(--bg-card)',
+                      borderRadius: isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                      border: isMe ? 'none' : '0.5px solid var(--border)',
+                      overflow: 'hidden',
+                      textDecoration: 'none',
+                      display: 'block',
+                    }}
+                  >
+                    {designShare.image_url && (
+                      <img
+                        src={designShare.image_url}
+                        alt={designShare.title}
+                        style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', display: 'block' }}
+                      />
+                    )}
+                    <div style={{ padding: '10px 12px' }}>
+                      <p style={{ color: isMe ? '#2C0A1E' : 'var(--text-secondary)', fontSize: '10px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 3px' }}>
+                        Design
+                      </p>
+                      <p style={{ color: isMe ? '#2C0A1E' : 'var(--text-primary)', fontSize: '13px', fontWeight: '500', margin: '0 0 6px', lineHeight: 1.3 }}>
+                        {designShare.title}
+                      </p>
+                      <p style={{ color: isMe ? 'rgba(44,10,30,0.6)' : 'var(--accent)', fontSize: '12px', fontWeight: '500', margin: 0 }}>
+                        View design →
+                      </p>
+                    </div>
+                  </a>
+                ) : (
+                  /* Regular text bubble */
+                  <div style={{
+                    maxWidth: '75%',
+                    background: isMe ? 'var(--accent)' : 'var(--bg-card)',
+                    color: isMe ? '#2C0A1E' : 'var(--text-primary)',
+                    borderRadius: isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                    padding: '10px 14px',
+                    fontSize: '14px',
+                    lineHeight: '1.45',
+                    border: isMe ? 'none' : '0.5px solid var(--border)',
+                    wordBreak: 'break-word',
+                  }}>
+                    {msg.content}
+                  </div>
+                )}
               </div>
             </div>
           )

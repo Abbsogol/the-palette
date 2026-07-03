@@ -130,7 +130,11 @@ export default function MessagesPage() {
                 </div>
                 <p style={{ color: c.unread > 0 ? 'var(--text-primary)' : 'var(--text-secondary)', fontSize: '13px', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: c.unread > 0 ? '500' : '400' }}>
                   {c.lastMsg
-                    ? (c.lastMsg.sender_id === currentUser?.id ? `You: ${c.lastMsg.content}` : c.lastMsg.content)
+                    ? (() => {
+                        const isDesign = c.lastMsg.content?.startsWith('{"__type":"design"')
+                        const preview = isDesign ? '✦ Design' : c.lastMsg.content
+                        return c.lastMsg.sender_id === currentUser?.id ? `You: ${preview}` : preview
+                      })()
                     : 'No messages yet'}
                 </p>
               </div>

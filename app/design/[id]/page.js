@@ -7,6 +7,7 @@ import ShareButton from '@/components/ShareButton'
 import BackButton from '@/components/BackButton'
 import NailTechCard from '@/components/NailTechCard'
 import SaveToBoard from '@/components/SaveToBoard'
+import SendDesignButton from '@/components/SendDesignButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,6 +21,17 @@ export default async function DesignPage({ params, searchParams }) {
     .select('*')
     .eq('id', id)
     .single()
+
+  // Fetch creator profile if design has one
+  let creator = null
+  if (design?.created_by) {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, display_name, avatar_url, is_verified, account_type')
+      .eq('id', design.created_by)
+      .single()
+    creator = data
+  }
 
   const { data: colours } = await supabase
     .from('design_colours')
@@ -150,6 +162,7 @@ export default async function DesignPage({ params, searchParams }) {
         </Link>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <ShareButton title={design.title} />
+          <SendDesignButton design={{ id: design.id, title: design.title, image_url: design.image_url }} />
           <SaveToBoard designId={design.id} designImageUrl={design.image_url} />
           <SaveButton designId={design.id} />
         </div>
@@ -161,10 +174,34 @@ export default async function DesignPage({ params, searchParams }) {
 
         <h1 style={{
           color: 'var(--text-primary)', fontSize: '22px', fontWeight: '500',
-          letterSpacing: '-0.02em', marginBottom: '16px',
+          letterSpacing: '-0.02em', marginBottom: creator ? '10px' : '16px',
         }}>
           {design.title}
         </h1>
+
+        {/* Creator row */}
+        {creator && (
+          <Link href={`/creator/${creator.id}`} style={{
+            display: 'inline-flex', alignItems: 'center', gap: '8px',
+            textDecoration: 'none', marginBottom: '16px',
+          }}>
+            <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--bg-chip)', border: '0.5px solid var(--border)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {creator.avatar_url
+                ? <img src={creator.avatar_url} alt={creator.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : <span style={{ color: 'var(--accent)', fontSize: '10px', fontWeight: '600' }}>{(creator.display_name || '?')[0].toUpperCase()}</span>
+              }
+            </div>
+            <span style={{ color: 'var(--text-secondary)', fontSize: '13px', fontWeight: '500' }}>
+              {creator.display_name}
+            </span>
+            {creator.is_verified && (
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="8" r="7" fill="#D4A0C0"/>
+                <path d="M5 8L7 10L11 6" stroke="#2C0A1E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            )}
+          </Link>
+        )}
 
         {/* Spec chips */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '20px' }}>
