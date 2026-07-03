@@ -124,6 +124,7 @@ export default function CreatorPage() {
   )
 
   const isOwnProfile = currentUser?.id === id
+  const isSalon = profile.account_type === 'salon'
 
   return (
     <div style={{ paddingBottom: '32px' }}>
@@ -139,7 +140,75 @@ export default function CreatorPage() {
         <ShareButton title={profile?.display_name ? `${profile.display_name} on Laque` : 'Creator on Laque'} />
       </div>
 
-      {/* Header */}
+      {/* ── SALON HEADER ─────────────────────────────────────────────────── */}
+      {isSalon ? (
+        <div style={{ padding: '16px 20px 0' }}>
+          {/* Banner */}
+          <div style={{
+            width: '100%', height: '140px', borderRadius: '16px',
+            background: profile.avatar_url ? 'var(--bg-chip)' : 'linear-gradient(135deg, rgba(212,160,192,0.2) 0%, rgba(212,160,192,0.05) 100%)',
+            border: '0.5px solid var(--border)', overflow: 'hidden',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            marginBottom: '16px', position: 'relative',
+          }}>
+            {profile.avatar_url ? (
+              <img src={profile.avatar_url} alt={profile.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <span style={{ color: 'var(--accent)', fontSize: '40px', fontWeight: '300', opacity: 0.6 }}>✦</span>
+            )}
+          </div>
+
+          {/* Salon name + badge */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+            <h1 style={{ color: 'var(--text-primary)', fontSize: '20px', fontWeight: '700', margin: 0 }}>
+              {profile.display_name || 'Salon'}
+            </h1>
+            {profile.is_verified && (
+              <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="8" r="7" fill="#D4A0C0"/>
+                <path d="M5 8L7 10L11 6" stroke="#2C0A1E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            )}
+          </div>
+          <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 8px' }}>Salon</p>
+          {profile.username && (
+            <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '0 0 12px' }}>@{profile.username}</p>
+          )}
+          {profile.bio && (
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.6', margin: '0 0 16px' }}>{profile.bio}</p>
+          )}
+          {profile.specialties?.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px' }}>
+              {profile.specialties.map(s => (
+                <span key={s} style={{ background: 'var(--bg-chip)', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: '500', padding: '5px 10px', borderRadius: '20px', textTransform: 'capitalize' }}>{s}</span>
+              ))}
+            </div>
+          )}
+
+          {/* Location card with Get Directions */}
+          {profile.location && (
+            <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', padding: '14px 16px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M8 1.5C5.79 1.5 4 3.29 4 5.5C4 8.5 8 14.5 8 14.5C8 14.5 12 8.5 12 5.5C12 3.29 10.21 1.5 8 1.5Z" fill="rgba(212,160,192,0.2)" stroke="var(--accent)" strokeWidth="1.2"/>
+                  <circle cx="8" cy="5.5" r="1.5" fill="var(--accent)"/>
+                </svg>
+                <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', margin: 0 }}>{profile.location}</p>
+              </div>
+              <a
+                href={`https://maps.google.com/?q=${encodeURIComponent(profile.location)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: 'var(--accent)', fontSize: '12px', fontWeight: '600', textDecoration: 'none', whiteSpace: 'nowrap', marginLeft: '12px' }}
+              >
+                Get Directions →
+              </a>
+            </div>
+          )}
+        </div>
+
+      ) : (
+      // ── NAIL ARTIST HEADER ──────────────────────────────────────────────
       <div style={{ padding: '20px 20px 0' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
           <div style={{ width: '68px', height: '68px', borderRadius: '50%', background: 'var(--bg-chip)', border: '0.5px solid var(--border)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -164,7 +233,7 @@ export default function CreatorPage() {
               )}
             </div>
             <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-              {profile.account_type === 'salon' ? 'Salon' : 'Nail Artist'}
+              Nail Artist
             </p>
             {profile.username && (
               <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '2px' }}>@{profile.username}</p>
@@ -198,6 +267,11 @@ export default function CreatorPage() {
             <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>{profile.location}</p>
           </div>
         )}
+      </div>
+      )}
+
+      {/* ── SHARED CONTENT (both salon + nail artist) ──────────────────── */}
+      <div style={{ padding: '0 20px' }}>
 
         {/* Follow button */}
         {!isOwnProfile && currentUser && (
@@ -312,10 +386,12 @@ export default function CreatorPage() {
           </div>
         )}
 
-        {/* Availability */}
+        {/* Availability / Opening Hours */}
         {availability.length > 0 && (
           <div style={{ marginBottom: '24px' }}>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '12px' }}>Availability</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '12px' }}>
+              {isSalon ? 'Opening Hours' : 'Availability'}
+            </p>
             <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {availability.map(a => (
                 <div key={a.day_of_week} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -327,6 +403,22 @@ export default function CreatorPage() {
                   </span>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Team — salon only */}
+        {isSalon && (
+          <div style={{ marginBottom: '24px' }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '12px' }}>Our Nail Artists</p>
+            <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', padding: '24px 16px', textAlign: 'center' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(212,160,192,0.1)', border: '0.5px solid rgba(212,160,192,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+                </svg>
+              </div>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>Nail artist profiles coming soon</p>
             </div>
           </div>
         )}
@@ -367,7 +459,7 @@ export default function CreatorPage() {
             <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>No designs published yet</p>
           </div>
         )}
-      </div>
+      </div>{/* end shared content */}
     </div>
   )
 }
