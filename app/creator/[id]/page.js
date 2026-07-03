@@ -39,7 +39,7 @@ export default function CreatorPage() {
 
       const [{ data: prof }, { data: d }, { count: followers }, { count: following }, { data: svcs }, { data: avail }] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', id).single(),
-        supabase.from('designs').select('*').eq('created_by', id).eq('is_published', true).order('created_at', { ascending: false }),
+        supabase.from('designs').select('*').eq('created_by', id).eq('is_published', true).order('is_pinned', { ascending: false }).order('created_at', { ascending: false }),
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', id),
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', id),
         supabase.from('services').select('*').eq('creator_id', id).eq('is_active', true).order('created_at', { ascending: true }),
@@ -430,12 +430,19 @@ export default function CreatorPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               {designs.map(design => (
                 <Link key={design.id} href={`/design/${design.id}`}
-                  style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', overflow: 'hidden', textDecoration: 'none', display: 'block' }}>
+                  style={{ background: 'var(--bg-card)', borderRadius: '12px', border: `0.5px solid ${design.is_pinned ? 'rgba(212,160,192,0.35)' : 'var(--border)'}`, overflow: 'hidden', textDecoration: 'none', display: 'block', position: 'relative' }}>
                   {design.image_url ? (
                     <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden' }}>
                       <img src={design.image_url} alt={design.title} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
                     </div>
                   ) : <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--bg-chip)' }} />}
+                  {design.is_pinned && (
+                    <div style={{ position: 'absolute', top: '6px', right: '6px', background: 'var(--accent)', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="#2C0A1E">
+                        <path d="M12 2L9 9H2l5.5 4-2 7L12 16l6.5 4-2-7L22 9h-7z"/>
+                      </svg>
+                    </div>
+                  )}
                   <div style={{ padding: '10px 12px 12px' }}>
                     <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', marginBottom: '4px' }}>{design.title}</p>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

@@ -253,7 +253,9 @@ export default function ProfilePage() {
     setFollowerCount(frs || 0)
     setFollowingCount(fng || 0)
     if (prof?.account_type === 'creator' || prof?.account_type === 'salon') {
-      const { data: designs } = await supabase.from('designs').select('*').eq('created_by', u.id).order('created_at', { ascending: false })
+      const { data: designs } = await supabase.from('designs').select('*').eq('created_by', u.id)
+        .order('is_pinned', { ascending: false })
+        .order('created_at', { ascending: false })
       setMyDesigns(designs || [])
     }
     setLoading(false)
@@ -320,6 +322,18 @@ export default function ProfilePage() {
     await supabase.from('profiles').upsert({ id: user.id, account_type: chosenType, display_name: name })
     await loadUserData(user)
     setSubmitting(false)
+  }
+
+  const handlePin = async (design) => {
+    const newVal = !design.is_pinned
+    await supabase.from('designs').update({ is_pinned: newVal }).eq('id', design.id)
+    setMyDesigns(prev => {
+      const updated = prev.map(d => d.id === design.id ? { ...d, is_pinned: newVal } : d)
+      return [...updated].sort((a, b) => {
+        if (b.is_pinned !== a.is_pinned) return b.is_pinned ? 1 : -1
+        return new Date(b.created_at) - new Date(a.created_at)
+      })
+    })
   }
 
   const handleBecomeCreator = async () => {
@@ -1011,16 +1025,34 @@ export default function ProfilePage() {
             <>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 {myDesigns.slice(0, 6).map(design => (
-                  <Link key={design.id} href={`/design/${design.id}`}
-                    style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', overflow: 'hidden', textDecoration: 'none' }}>
-                    {design.image_url
-                      ? <div style={{ width: '100%', aspectRatio: '1/1', overflow: 'hidden' }}><img src={design.image_url} alt={design.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></div>
-                      : <div style={{ width: '100%', aspectRatio: '1/1', background: 'var(--bg-chip)' }} />
-                    }
-                    <div style={{ padding: '10px 12px 12px' }}>
-                      <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500' }}>{design.title}</p>
-                    </div>
-                  </Link>
+                  <div key={design.id} style={{ position: 'relative', background: 'var(--bg-card)', borderRadius: '12px', border: `0.5px solid ${design.is_pinned ? 'rgba(212,160,192,0.4)' : 'var(--border)'}`, overflow: 'hidden' }}>
+                    <Link href={`/design/${design.id}`} style={{ textDecoration: 'none', display: 'block' }}>
+                      {design.image_url
+                        ? <div style={{ width: '100%', aspectRatio: '1/1', overflow: 'hidden' }}><img src={design.image_url} alt={design.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></div>
+                        : <div style={{ width: '100%', aspectRatio: '1/1', background: 'var(--bg-chip)' }} />
+                      }
+                      <div style={{ padding: '8px 10px 10px' }}>
+                        <p style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500', margin: 0 }}>{design.title}</p>
+                      </div>
+                    </Link>
+                    {/* Pin button */}
+                    <button
+                      onClick={(e) => { e.preventDefault(); handlePin(design) }}
+                      style={{
+                        position: 'absolute', top: '6px', right: '6px',
+                        background: design.is_pinned ? 'var(--accent)' : 'rgba(0,0,0,0.5)',
+                        border: 'none', borderRadius: '50%',
+                        width: '26px', height: '26px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: 'pointer', backdropFilter: 'blur(4px)',
+                      }}
+                      title={design.is_pinned ? 'Unpin' : 'Pin to top'}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill={design.is_pinned ? '#2C0A1E' : 'white'}>
+                        <path d="M12 2L9 9H2l5.5 4-2 7L12 16l6.5 4-2-7L22 9h-7z"/>
+                      </svg>
+                    </button>
+                  </div>
                 ))}
               </div>
               {myDesigns.length > 6 && (
