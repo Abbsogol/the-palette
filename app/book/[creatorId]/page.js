@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useState, useEffect, useRef } from 'react'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
 
@@ -42,6 +42,8 @@ function timeToMins(timeStr) {
 export default function BookPage() {
   const { creatorId } = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const designId = searchParams.get('designId')
 
   const [step, setStep] = useState(1) // 1=service, 2=date, 3=time, 4=confirm
   const [currentUser, setCurrentUser] = useState(null)
@@ -51,6 +53,9 @@ export default function BookPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
+
+  // Inspiration design (from ?designId=)
+  const [inspDesign, setInspDesign] = useState(null)
 
   // Selections
   const [selectedService, setSelectedService] = useState(null)
@@ -65,6 +70,19 @@ export default function BookPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
       setCurrentUser(user)
+
+      // Fetch inspiration design if provided
+      if (designId) {
+        const { data: d } = await supabase
+          .from('designs')
+          .select('id, title, image_url')
+          .eq('id', designId)
+          .single()
+        if (d) {
+          setInspDesign(d)
+          setNote(`Inspiration: ${d.title}`)
+        }
+      }
 
       const [{ data: prof }, { data: svcs }, { data: avail }] = await Promise.all([
         supabase.from('profiles').select('id, display_name, avatar_url, account_type').eq('id', creatorId).single(),
@@ -227,6 +245,28 @@ export default function BookPage() {
       </div>
 
       <div style={{ padding: '0 20px' }}>
+
+        {/* ── Inspiration card ── */}
+        {inspDesign && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '12px',
+            background: 'rgba(212,160,192,0.08)', border: '0.5px solid rgba(212,160,192,0.3)',
+            borderRadius: '14px', padding: '12px 14px', marginBottom: '20px',
+          }}>
+            <img
+              src={inspDesign.image_url}
+              alt={inspDesign.title}
+              style={{ width: '52px', height: '52px', borderRadius: '10px', objectFit: 'cover', flexShrink: 0 }}
+            />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '10px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 3px' }}>Inspiration</p>
+              <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inspDesign.title}</p>
+            </div>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="var(--accent)" strokeWidth="1.5" fill="rgba(212,160,192,0.15)"/>
+            </svg>
+          </div>
+        )}
 
         {/* ── STEP 1: Choose service ── */}
         {step === 1 && (
