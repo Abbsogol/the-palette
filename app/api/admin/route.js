@@ -123,12 +123,17 @@ export async function POST(request) {
   // ── Search user ───────────────────────────────────────────────────────────────
   if (action === 'search-user') {
     const { query } = body
-    if (!query?.trim()) return Response.json({ users: [] })
-    const { data } = await supabase
+    let dbQuery = supabase
       .from('profiles')
       .select('id, display_name, username, account_type, credits, subscription_tier')
-      .or(`display_name.ilike.%${query}%,username.ilike.%${query}%`)
-      .limit(10)
+      .order('created_at', { ascending: false })
+      .limit(50)
+
+    if (query?.trim()) {
+      dbQuery = dbQuery.or(`display_name.ilike.%${query}%,username.ilike.%${query}%`)
+    }
+
+    const { data } = await dbQuery
     return Response.json({ users: data || [] })
   }
 

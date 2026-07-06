@@ -191,12 +191,21 @@ function Credits({ call }) {
   const [amount, setAmount] = useState('')
   const [updating, setUpdating] = useState(false)
   const [message, setMessage] = useState('')
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    call('search-user', { query: '' }).then(r => {
+      setResults(r.users || [])
+      setLoading(false)
+    })
+  }, [])
 
   const search = async () => {
-    if (!query.trim()) return
+    setLoading(true)
     const res = await call('search-user', { query })
     setResults(res.users || [])
     setSelected(null)
+    setLoading(false)
   }
 
   const updateCredits = async (delta) => {
@@ -225,7 +234,8 @@ function Credits({ call }) {
         />
         <button onClick={search} style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '10px', padding: '10px 16px', fontSize: '13px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>Search</button>
       </div>
-      {results.map(u => (
+      {loading && <Loader />}
+      {!loading && results.map(u => (
         <div key={u.id} onClick={() => setSelected(u)} style={{ padding: '12px 14px', marginBottom: '8px', background: selected?.id === u.id ? 'rgba(212,160,192,0.1)' : 'var(--bg-card)', border: `0.5px solid ${selected?.id === u.id ? 'var(--accent)' : 'var(--border)'}`, borderRadius: '12px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', margin: 0 }}>{u.display_name}</p>
