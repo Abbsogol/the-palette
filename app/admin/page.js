@@ -870,7 +870,6 @@ export default function AdminPage() {
           )}
         </>
       )}
-    </div>
 
       {/* ── DASHBOARD TAB ── */}
       {activeTab === 'dashboard' && <Dashboard />}
