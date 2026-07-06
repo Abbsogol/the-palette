@@ -263,7 +263,7 @@ export default function AdminPage() {
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
+      if (!user) { router.push('/'); return }
       const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
       if (!profile?.is_admin) { router.push('/'); return }
       setCurrentUser(user)
