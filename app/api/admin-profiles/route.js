@@ -11,7 +11,7 @@ export async function GET(request) {
 
   let q = supabase
     .from('profiles')
-    .select('id, display_name, username, account_type, credits, subscription_tier')
+    .select('id, display_name, username, account_type, credit_balance, subscription_tier')
     .order('created_at', { ascending: false })
 
   if (query.trim()) {
@@ -19,6 +19,7 @@ export async function GET(request) {
   } else {
     q = q.limit(50)
   }
+
 
   const { data, error } = await q
   if (error) return Response.json({ error: error.message }, { status: 500 })
@@ -29,7 +30,7 @@ export async function POST(request) {
   const { userId, credits } = await request.json()
   if (!userId || credits == null) return Response.json({ error: 'Missing params' }, { status: 400 })
 
-  const { error } = await supabase.from('profiles').update({ credits }).eq('id', userId)
+  const { error } = await supabase.from('profiles').update({ credit_balance: credits }).eq('id', userId)
   if (error) return Response.json({ error: error.message }, { status: 500 })
   return Response.json({ ok: true })
 }

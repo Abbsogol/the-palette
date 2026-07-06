@@ -498,15 +498,15 @@ function CreditsManager() {
   const updateCredits = async (delta) => {
     if (!selected || !amount || updating) return
     setUpdating(true)
-    const newBalance = Math.max(0, (selected.credits || 0) + delta * parseInt(amount))
+    const newBalance = Math.max(0, (selected.credit_balance ?? 0) + delta * parseInt(amount))
     const res = await fetch('/api/admin-profiles', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId: selected.id, credits: newBalance }),
     })
     if (res.ok) {
-      setSelected(prev => ({ ...prev, credits: newBalance }))
-      setResults(prev => prev.map(u => u.id === selected.id ? { ...u, credits: newBalance } : u))
+      setSelected(prev => ({ ...prev, credit_balance: newBalance }))
+      setResults(prev => prev.map(u => u.id === selected.id ? { ...u, credit_balance: newBalance } : u))
       setMessage('Done — new balance: ' + newBalance + ' credits')
       setAmount('')
     }
@@ -528,7 +528,7 @@ function CreditsManager() {
             <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: '2px 0 0' }}>@{u.username} · {u.account_type}</p>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <p style={{ color: 'var(--accent)', fontSize: '16px', fontWeight: '700', margin: 0 }}>{u.credits ?? 0}</p>
+            <p style={{ color: 'var(--accent)', fontSize: '16px', fontWeight: '700', margin: 0 }}>{u.credit_balance ?? 0}</p>
             <p style={{ color: 'var(--text-secondary)', fontSize: '10px', margin: 0 }}>credits</p>
           </div>
         </div>
@@ -536,7 +536,7 @@ function CreditsManager() {
       {selected && (
         <div style={{ marginTop: '20px', background: 'var(--bg-card)', borderRadius: '14px', padding: '16px', border: '0.5px solid var(--border)' }}>
           <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 8px' }}>Adjust credits — {selected.display_name}</p>
-          <p style={{ color: 'var(--accent)', fontSize: '22px', fontWeight: '700', margin: '0 0 12px' }}>{selected.credits ?? 0} credits</p>
+          <p style={{ color: 'var(--accent)', fontSize: '22px', fontWeight: '700', margin: '0 0 12px' }}>{selected.credit_balance ?? 0} credits</p>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <input type="number" min="1" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Amount" style={{ ...inputStyle, flex: 1 }} />
             <button onClick={() => updateCredits(1)} disabled={!amount || updating} style={{ background: 'rgba(100,200,130,0.12)', color: '#6CC882', border: '0.5px solid rgba(100,200,130,0.3)', borderRadius: '10px', padding: '11px 14px', fontSize: '13px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit' }}>+ Add</button>
