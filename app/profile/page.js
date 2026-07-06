@@ -1160,6 +1160,23 @@ export default function ProfilePage() {
         </div>
       </div>
 
+      {/* ── ADMIN PANEL LINK (admin only) ──────────────────────────────── */}
+      {profile?.is_admin && (
+        <div style={{ padding: '0 20px 12px' }}>
+          <a href="/admin" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'rgba(212,160,192,0.08)', border: '0.5px solid var(--accent)', borderRadius: '12px', padding: '14px 16px', textDecoration: 'none' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+              <span style={{ color: 'var(--accent)', fontSize: '14px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif" }}>Admin Panel</span>
+            </div>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M5 3L9 7L5 11" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </a>
+        </div>
+      )}
+
       {/* ── LOGOUT + DELETE ─────────────────────────────────────────────── */}
       <div style={{ padding: '0 20px 8px' }}>
         <button onClick={handleLogout}

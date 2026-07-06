@@ -290,6 +290,7 @@ export default function AdminPage() {
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', fontFamily: "'DM Sans', sans-serif", paddingBottom: '40px' }}>
       <div style={{ padding: '20px 20px 0' }}>
+        <a href="/profile" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '12px', marginBottom: '12px' }}><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 3L5 7L9 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>Back to app</a>
         <p style={{ color: 'var(--accent)', fontSize: '10px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 4px' }}>Laque</p>
         <h1 style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: '600', margin: 0, letterSpacing: '-0.02em' }}>Admin Panel</h1>
       </div>
