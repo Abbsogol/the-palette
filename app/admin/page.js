@@ -482,27 +482,29 @@ function CreditsManager() {
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    supabase.from('profiles').select('id, display_name, username, account_type, credits, subscription_tier').order('created_at', { ascending: false }).limit(50)
-      .then(({ data }) => { setResults(data || []); setLoading(false) })
-  }, [])
-
-  const search = async () => {
-    if (!query.trim()) return
+  const fetchUsers = async (q = '') => {
     setLoading(true)
-    const { data } = await supabase.from('profiles').select('id, display_name, username, account_type, credits, subscription_tier')
-      .or('display_name.ilike.%' + query + '%,username.ilike.%' + query + '%').limit(20)
-    setResults(data || [])
+    const res = await fetch(`/api/admin-profiles?q=${encodeURIComponent(q)}`)
+    const data = await res.json()
+    setResults(data.users || [])
     setSelected(null)
     setLoading(false)
   }
+
+  useEffect(() => { fetchUsers() }, [])
+
+  const search = () => fetchUsers(query)
 
   const updateCredits = async (delta) => {
     if (!selected || !amount || updating) return
     setUpdating(true)
     const newBalance = Math.max(0, (selected.credits || 0) + delta * parseInt(amount))
-    const { error } = await supabase.from('profiles').update({ credits: newBalance }).eq('id', selected.id)
-    if (!error) {
+    const res = await fetch('/api/admin-profiles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: selected.id, credits: newBalance }),
+    })
+    if (res.ok) {
       setSelected(prev => ({ ...prev, credits: newBalance }))
       setResults(prev => prev.map(u => u.id === selected.id ? { ...u, credits: newBalance } : u))
       setMessage('Done — new balance: ' + newBalance + ' credits')
