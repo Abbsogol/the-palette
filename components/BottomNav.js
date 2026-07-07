@@ -91,7 +91,7 @@ export default function BottomNav() {
   }, [pathname])
 
   // Hide on full-screen flows
-  if (pathname === '/story/new' || pathname === '/onboarding' || pathname?.startsWith('/messages/') || pathname?.startsWith('/admin')) return null
+  if (pathname === '/story/new' || pathname === '/onboarding' || pathname?.startsWith('/messages/') || pathname?.startsWith('/admin') || pathname === '/planner') return null
 
   return (
     <nav style={{
