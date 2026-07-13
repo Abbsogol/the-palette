@@ -49,6 +49,12 @@ export default function AppointmentDetailPage() {
   const [currentUser, setCurrentUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [payLoading, setPayLoading] = useState(false)
+  const [review, setReview] = useState(null)
+  const [reviewRating, setReviewRating] = useState(0)
+  const [reviewText, setReviewText] = useState('')
+  const [hoverRating, setHoverRating] = useState(0)
+  const [reviewLoading, setReviewLoading] = useState(false)
+  const [reviewSubmitted, setReviewSubmitted] = useState(false)
 
   useEffect(() => {
     const init = async () => {
@@ -65,12 +71,18 @@ export default function AppointmentDetailPage() {
 
       if (!data) { router.push('/appointments'); return }
 
-      // Fetch creator profile
-      const { data: creator } = await supabase
-        .from('profiles')
-        .select('id, display_name, avatar_url, username, is_verified, account_type')
-        .eq('id', data.creator_id)
-        .single()
+      // Fetch creator profile + existing review in parallel
+      const [{ data: creator }, { data: existingReview }] = await Promise.all([
+        supabase.from('profiles').select('id, display_name, avatar_url, username, is_verified, account_type').eq('id', data.creator_id).single(),
+        supabase.from('reviews').select('*').eq('booking_id', data.id).single(),
+      ])
+
+      if (existingReview) {
+        setReview(existingReview)
+        setReviewRating(existingReview.rating)
+        setReviewText(existingReview.text || '')
+        setReviewSubmitted(true)
+      }
 
       setBooking({ ...data, creator })
       setLoading(false)
@@ -91,6 +103,25 @@ export default function AppointmentDetailPage() {
       if (data.url) window.location.href = data.url
       else { alert(data.error || 'Something went wrong.'); setPayLoading(false) }
     } catch { alert('Something went wrong.'); setPayLoading(false) }
+  }
+
+  const handleSubmitReview = async () => {
+    if (!reviewRating) return
+    setReviewLoading(true)
+    const payload = {
+      booking_id: booking.id,
+      reviewer_id: currentUser.id,
+      creator_id: booking.creator_id,
+      rating: reviewRating,
+      text: reviewText.trim() || null,
+    }
+    if (review) {
+      await supabase.from('reviews').update({ rating: reviewRating, text: reviewText.trim() || null }).eq('id', review.id)
+    } else {
+      await supabase.from('reviews').insert(payload)
+    }
+    setReviewSubmitted(true)
+    setReviewLoading(false)
   }
 
   if (loading) return (
@@ -201,6 +232,74 @@ export default function AppointmentDetailPage() {
         >
           Message {creator?.display_name}
         </Link>
+
+        {/* Leave a review — only for confirmed past bookings */}
+        {booking.status === 'confirmed' && booking.booking_date < new Date().toISOString().split('T')[0] && (
+          <div style={{ marginTop: '20px', background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '16px', padding: '18px 16px' }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 14px' }}>
+              {reviewSubmitted ? 'Your review' : 'Leave a review'}
+            </p>
+
+            {/* Stars */}
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '14px' }}>
+              {[1,2,3,4,5].map(star => (
+                <button
+                  key={star}
+                  onClick={() => !reviewSubmitted && setReviewRating(star)}
+                  onMouseEnter={() => !reviewSubmitted && setHoverRating(star)}
+                  onMouseLeave={() => !reviewSubmitted && setHoverRating(0)}
+                  style={{
+                    background: 'none', border: 'none', padding: '2px', cursor: reviewSubmitted ? 'default' : 'pointer',
+                    fontSize: '28px', lineHeight: 1,
+                    color: star <= (hoverRating || reviewRating) ? '#F5C842' : 'var(--bg-chip)',
+                    filter: star <= (hoverRating || reviewRating) ? 'drop-shadow(0 0 4px rgba(245,200,66,0.4))' : 'none',
+                    transition: 'color 0.1s, filter 0.1s',
+                  }}
+                >
+                  ★
+                </button>
+              ))}
+            </div>
+
+            {/* Text */}
+            {!reviewSubmitted ? (
+              <>
+                <textarea
+                  value={reviewText}
+                  onChange={e => setReviewText(e.target.value)}
+                  placeholder="Share your experience (optional)"
+                  rows={3}
+                  style={{
+                    width: '100%', background: 'var(--bg-chip)', border: '0.5px solid var(--border)',
+                    borderRadius: '10px', padding: '10px 12px', color: 'var(--text-primary)',
+                    fontSize: '14px', fontFamily: "'DM Sans', sans-serif", resize: 'none',
+                    boxSizing: 'border-box', outline: 'none', marginBottom: '12px',
+                  }}
+                />
+                <button
+                  onClick={handleSubmitReview}
+                  disabled={!reviewRating || reviewLoading}
+                  style={{
+                    width: '100%', padding: '13px',
+                    background: reviewRating ? 'var(--accent)' : 'var(--bg-chip)',
+                    color: reviewRating ? '#2C0A1E' : 'var(--text-secondary)',
+                    border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: '600',
+                    fontFamily: "'DM Sans', sans-serif",
+                    cursor: reviewRating && !reviewLoading ? 'pointer' : 'not-allowed',
+                    opacity: reviewLoading ? 0.7 : 1,
+                  }}
+                >
+                  {reviewLoading ? 'Submitting…' : 'Submit review'}
+                </button>
+              </>
+            ) : (
+              <div>
+                {reviewText && <p style={{ color: 'var(--text-primary)', fontSize: '14px', lineHeight: '1.55', margin: '0 0 10px' }}>{reviewText}</p>}
+                <p style={{ color: '#6CC882', fontSize: '12px', fontWeight: '600', margin: 0 }}>✓ Review submitted</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

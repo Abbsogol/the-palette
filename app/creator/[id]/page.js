@@ -21,6 +21,9 @@ export default function CreatorPage() {
   const [services, setServices] = useState([])
   const [messagingLoading, setMessagingLoading] = useState(false)
   const [availability, setAvailability] = useState([])
+  const [reviews, setReviews] = useState([])
+  const [avgRating, setAvgRating] = useState(null)
+  const [showAllReviews, setShowAllReviews] = useState(false)
 
   const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   const fmt12 = (t) => {
@@ -37,16 +40,33 @@ export default function CreatorPage() {
       const me = session?.user || null
       setCurrentUser(me)
 
-      const [{ data: prof }, { data: d }, { count: followers }, { count: following }, { data: svcs }, { data: avail }] = await Promise.all([
+      const [{ data: prof }, { data: d }, { count: followers }, { count: following }, { data: svcs }, { data: avail }, { data: revs }] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', id).single(),
         supabase.from('designs').select('*').eq('created_by', id).eq('is_published', true).order('is_pinned', { ascending: false }).order('created_at', { ascending: false }),
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', id),
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', id),
         supabase.from('services').select('*').eq('creator_id', id).eq('is_active', true).order('created_at', { ascending: true }),
         supabase.from('availability').select('*').eq('creator_id', id).eq('is_active', true).order('day_of_week', { ascending: true }),
+        supabase.from('reviews').select('id, rating, text, created_at, reviewer_id').eq('creator_id', id).order('created_at', { ascending: false }),
       ])
 
       const totalSaves = (d || []).reduce((sum, design) => sum + (design.saves_count || 0), 0)
+      const reviewList = revs || []
+      const avg = reviewList.length > 0
+        ? Math.round((reviewList.reduce((s, r) => s + r.rating, 0) / reviewList.length) * 10) / 10
+        : null
+
+      // Fetch reviewer display names
+      let reviewsWithNames = reviewList
+      if (reviewList.length > 0) {
+        const reviewerIds = [...new Set(reviewList.map(r => r.reviewer_id))]
+        const { data: reviewerProfiles } = await supabase
+          .from('profiles')
+          .select('id, display_name, avatar_url')
+          .in('id', reviewerIds)
+        const rpMap = Object.fromEntries((reviewerProfiles || []).map(p => [p.id, p]))
+        reviewsWithNames = reviewList.map(r => ({ ...r, reviewer: rpMap[r.reviewer_id] || null }))
+      }
 
       setProfile(prof)
       setDesigns(d || [])
@@ -55,6 +75,8 @@ export default function CreatorPage() {
       setFollowerCount(followers || 0)
       setFollowingCount(following || 0)
       setTotalSaves(totalSaves)
+      setReviews(reviewsWithNames)
+      setAvgRating(avg)
 
       if (me) {
         const { data: followRow } = await supabase.from('follows')
@@ -210,33 +232,53 @@ export default function CreatorPage() {
       ) : (
       // ── NAIL ARTIST HEADER ──────────────────────────────────────────────
       <div style={{ padding: '20px 20px 0' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
-          <div style={{ width: '68px', height: '68px', borderRadius: '50%', background: 'var(--bg-chip)', border: '0.5px solid var(--border)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {profile.avatar_url ? (
-              <img src={profile.avatar_url} alt={profile.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              <span style={{ color: 'var(--accent)', fontSize: '24px', fontWeight: '500' }}>
-                {(profile.display_name || '?')[0].toUpperCase()}
-              </span>
-            )}
+        {/* Avatar + name row */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', marginBottom: '16px' }}>
+          {/* Avatar with accent ring */}
+          <div style={{ flexShrink: 0, position: 'relative' }}>
+            <div style={{
+              width: '80px', height: '80px', borderRadius: '50%',
+              background: 'linear-gradient(135deg, #D4A0C0, #2C0A1E)',
+              padding: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <div style={{ width: '74px', height: '74px', borderRadius: '50%', background: 'var(--bg-card)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {profile.avatar_url ? (
+                  <img src={profile.avatar_url} alt={profile.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <span style={{ color: 'var(--accent)', fontSize: '28px', fontWeight: '500' }}>
+                    {(profile.display_name || '?')[0].toUpperCase()}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-              <h1 style={{ color: 'var(--text-primary)', fontSize: '18px', fontWeight: '500' }}>
+
+          {/* Name + meta */}
+          <div style={{ flex: 1, paddingTop: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px', flexWrap: 'wrap' }}>
+              <h1 style={{ color: 'var(--text-primary)', fontSize: '20px', fontWeight: '700', margin: 0, lineHeight: 1.2 }}>
                 {profile.display_name || 'Creator'}
               </h1>
               {profile.is_verified && (
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
                   <circle cx="8" cy="8" r="7" fill="#D4A0C0"/>
                   <path d="M5 8L7 10L11 6" stroke="#2C0A1E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               )}
             </div>
-            <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 4px' }}>
               Nail Artist
             </p>
             {profile.username && (
-              <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '2px' }}>@{profile.username}</p>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '0 0 6px' }}>@{profile.username}</p>
+            )}
+            {/* Rating inline */}
+            {avgRating && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span style={{ color: '#F5C842', fontSize: '13px' }}>★</span>
+                <span style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '600' }}>{avgRating}</span>
+                <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>({reviews.length} {reviews.length === 1 ? 'review' : 'reviews'})</span>
+              </div>
             )}
           </div>
         </div>
@@ -250,9 +292,10 @@ export default function CreatorPage() {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
             {profile.specialties.map(s => (
               <span key={s} style={{
-                background: 'var(--bg-chip)', color: 'var(--text-secondary)',
-                fontSize: '12px', fontWeight: '500', padding: '5px 10px',
+                background: 'rgba(212,160,192,0.1)', color: 'var(--accent)',
+                fontSize: '12px', fontWeight: '500', padding: '5px 12px',
                 borderRadius: '20px', textTransform: 'capitalize',
+                border: '0.5px solid rgba(212,160,192,0.25)',
               }}>{s}</span>
             ))}
           </div>
@@ -264,7 +307,7 @@ export default function CreatorPage() {
               <path d="M6.5 1C4.567 1 3 2.567 3 4.5C3 7 6.5 12 6.5 12C6.5 12 10 7 10 4.5C10 2.567 8.433 1 6.5 1Z" stroke="#888888" strokeWidth="1.2"/>
               <circle cx="6.5" cy="4.5" r="1.2" stroke="#888888" strokeWidth="1.2"/>
             </svg>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>{profile.location}</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>{profile.location}</p>
           </div>
         )}
       </div>
@@ -346,6 +389,23 @@ export default function CreatorPage() {
           </div>
         )}
 
+        {/* Share profile card — nail artists only, own profile or any visitor */}
+        {!isSalon && (
+          <Link href={`/nail-card/${id}`} style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
+            background: 'var(--bg-chip)', border: '0.5px solid var(--border)',
+            borderRadius: '12px', padding: '10px 16px', marginBottom: '16px',
+            color: 'var(--text-secondary)', fontSize: '13px', fontWeight: '500',
+            textDecoration: 'none',
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+            Share profile card
+          </Link>
+        )}
+
         {/* Stats */}
         <div style={{ display: 'flex', gap: '20px', marginBottom: '24px', padding: '16px', background: 'var(--bg-card)', borderRadius: '14px', border: '0.5px solid var(--border)' }}>
           {[
@@ -420,6 +480,68 @@ export default function CreatorPage() {
               </div>
               <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>Nail artist profiles coming soon</p>
             </div>
+          </div>
+        )}
+
+        {/* Reviews */}
+        {reviews.length > 0 && (
+          <div style={{ marginBottom: '24px' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', margin: 0 }}>Reviews</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                {[1,2,3,4,5].map(i => (
+                  <svg key={i} width="12" height="12" viewBox="0 0 24 24" fill={i <= Math.round(avgRating) ? '#F5C842' : 'var(--bg-chip)'}>
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  </svg>
+                ))}
+                <span style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '600', marginLeft: '3px' }}>{avgRating}</span>
+                <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>/ 5</span>
+              </div>
+            </div>
+
+            {/* Review cards */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {(showAllReviews ? reviews : reviews.slice(0, 5)).map(review => (
+                <div key={review.id} style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '14px', padding: '14px 16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--bg-chip)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {review.reviewer?.avatar_url
+                          ? <img src={review.reviewer.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          : <span style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '600' }}>{(review.reviewer?.display_name || '?')[0].toUpperCase()}</span>
+                        }
+                      </div>
+                      <span style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500' }}>
+                        {review.reviewer?.display_name || 'Client'}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                      {[1,2,3,4,5].map(i => (
+                        <svg key={i} width="11" height="11" viewBox="0 0 24 24" fill={i <= review.rating ? '#F5C842' : 'var(--bg-chip)'}>
+                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                        </svg>
+                      ))}
+                    </div>
+                  </div>
+                  {review.text && (
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: '1.55', margin: 0 }}>{review.text}</p>
+                  )}
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: '8px 0 0', opacity: 0.6 }}>
+                    {new Date(review.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {reviews.length > 5 && (
+              <button
+                onClick={() => setShowAllReviews(v => !v)}
+                style={{ width: '100%', marginTop: '10px', background: 'none', border: 'none', color: 'var(--accent)', fontSize: '13px', fontWeight: '500', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer', padding: '8px' }}
+              >
+                {showAllReviews ? 'Show less' : `See all ${reviews.length} reviews`}
+              </button>
+            )}
           </div>
         )}
 
