@@ -47,24 +47,20 @@ function StatusBadge({ status }) {
   )
 }
 
-function BookingCard({ booking, onAccept, onDecline, acting }) {
-  const [expanded, setExpanded] = useState(false)
+function BookingCard({ booking }) {
   const client = booking.client
   const service = booking.service
 
   return (
-    <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '14px', overflow: 'hidden', marginBottom: '10px' }}>
-      {/* Main row */}
-      <div onClick={() => setExpanded(!expanded)} style={{ padding: '14px 16px', cursor: 'pointer' }}>
+    <Link href={`/bookings/${booking.id}`} style={{ textDecoration: 'none', display: 'block', background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '14px', marginBottom: '10px' }}>
+      <div style={{ padding: '14px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {/* Avatar */}
           <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--bg-chip)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {client?.avatar_url
               ? <img src={client.avatar_url} alt={client.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               : <span style={{ color: 'var(--accent)', fontSize: '16px', fontWeight: '600' }}>{(client?.display_name || '?')[0].toUpperCase()}</span>
             }
           </div>
-          {/* Info */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '3px' }}>
               <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '600', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -77,67 +73,15 @@ function BookingCard({ booking, onAccept, onDecline, acting }) {
             </p>
             <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '2px 0 0' }}>
               {fmt12(booking.start_time)} – {fmt12(booking.end_time)}
+              {booking.status === 'pending' && <span style={{ color: 'var(--accent)', fontWeight: '600' }}> · Needs response</span>}
             </p>
           </div>
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0, transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
-            <path d="M3 5L7 9L11 5" stroke="var(--text-secondary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }}>
+            <path d="M5 3L9 7L5 11" stroke="var(--text-secondary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </div>
       </div>
-
-      {/* Expanded details */}
-      {expanded && (
-        <div style={{ borderTop: '0.5px solid var(--border)', padding: '14px 16px', background: 'var(--bg-primary)' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: booking.notes ? '12px' : '0' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Service</span>
-              <span style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500' }}>{service?.name}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Duration</span>
-              <span style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500' }}>{fmtDuration(service?.duration_minutes)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Price</span>
-              <span style={{ color: 'var(--accent)', fontSize: '12px', fontWeight: '600' }}>{service?.price > 0 ? `AED ${service.price}` : 'Free'}</span>
-            </div>
-            {client?.username && (
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Client</span>
-                <span style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500' }}>@{client.username}</span>
-              </div>
-            )}
-          </div>
-
-          {booking.notes && (
-            <div style={{ background: 'var(--bg-chip)', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px' }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '10px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 4px' }}>Client note</p>
-              <p style={{ color: 'var(--text-primary)', fontSize: '13px', margin: 0, lineHeight: '1.5' }}>{booking.notes}</p>
-            </div>
-          )}
-
-          {/* Accept / Decline — only for pending */}
-          {booking.status === 'pending' && (
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                onClick={() => onDecline(booking.id)}
-                disabled={acting === booking.id}
-                style={{ flex: 1, background: 'var(--bg-chip)', color: 'var(--text-secondary)', border: '0.5px solid var(--border)', borderRadius: '10px', padding: '10px', fontSize: '13px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}
-              >
-                Decline
-              </button>
-              <button
-                onClick={() => onAccept(booking.id)}
-                disabled={acting === booking.id}
-                style={{ flex: 2, background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '10px', padding: '10px', fontSize: '13px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}
-              >
-                {acting === booking.id ? 'Saving…' : 'Accept ✦'}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+    </Link>
   )
 }
 
@@ -147,7 +91,6 @@ export default function BookingsPage() {
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('requests')
-  const [acting, setActing] = useState(null) // booking id being accepted/declined
 
   useEffect(() => {
     const init = async () => {
@@ -183,28 +126,6 @@ export default function BookingsPage() {
 
     const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
     setBookings(data.map(b => ({ ...b, client: profileMap[b.client_id] || null })))
-  }
-
-  const sendNotif = async (userId, actorId, type) => {
-    await supabase.from('notifications').insert({ user_id: userId, actor_id: actorId, type })
-  }
-
-  const handleAccept = async (bookingId) => {
-    setActing(bookingId)
-    const booking = bookings.find(b => b.id === bookingId)
-    await supabase.from('bookings').update({ status: 'confirmed' }).eq('id', bookingId)
-    await sendNotif(booking.client_id, currentUser.id, 'booking_confirmed')
-    await loadBookings(currentUser.id)
-    setActing(null)
-  }
-
-  const handleDecline = async (bookingId) => {
-    setActing(bookingId)
-    const booking = bookings.find(b => b.id === bookingId)
-    await supabase.from('bookings').update({ status: 'declined' }).eq('id', bookingId)
-    await sendNotif(booking.client_id, currentUser.id, 'booking_declined')
-    await loadBookings(currentUser.id)
-    setActing(null)
   }
 
   const today = new Date().toISOString().split('T')[0]
@@ -296,15 +217,7 @@ export default function BookingsPage() {
             <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>{emptyMessages[tab].sub}</p>
           </div>
         ) : (
-          activeList.map(b => (
-            <BookingCard
-              key={b.id}
-              booking={b}
-              onAccept={handleAccept}
-              onDecline={handleDecline}
-              acting={acting}
-            />
-          ))
+          activeList.map(b => <BookingCard key={b.id} booking={b} />)
         )}
       </div>
     </div>

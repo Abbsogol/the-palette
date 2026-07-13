@@ -48,51 +48,21 @@ function StatusBadge({ status }) {
   )
 }
 
-function AppointmentCard({ booking, currentUser }) {
-  const [expanded, setExpanded] = useState(false)
-  const [payLoading, setPayLoading] = useState(false)
+function AppointmentCard({ booking }) {
   const creator = booking.creator
   const service = booking.service
-
-  const showDepositButton =
-    booking.status === 'confirmed' &&
-    service?.deposit_amount > 0 &&
-    !booking.deposit_paid
-
-  const handlePayDeposit = async () => {
-    if (payLoading) return
-    setPayLoading(true)
-    try {
-      const res = await fetch('/api/create-deposit-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId: booking.id, userId: currentUser.id }),
-      })
-      const data = await res.json()
-      if (data.url) {
-        window.location.href = data.url
-      } else {
-        alert(data.error || 'Something went wrong. Please try again.')
-        setPayLoading(false)
-      }
-    } catch {
-      alert('Something went wrong. Please try again.')
-      setPayLoading(false)
-    }
-  }
+  const showDepositDot = booking.status === 'confirmed' && service?.deposit_amount > 0 && !booking.deposit_paid
 
   return (
-    <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '14px', overflow: 'hidden', marginBottom: '10px' }}>
-      <div onClick={() => setExpanded(!expanded)} style={{ padding: '14px 16px', cursor: 'pointer' }}>
+    <Link href={`/appointments/${booking.id}`} style={{ textDecoration: 'none', display: 'block', background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '14px', marginBottom: '10px' }}>
+      <div style={{ padding: '14px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {/* Avatar */}
           <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--bg-chip)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {creator?.avatar_url
               ? <img src={creator.avatar_url} alt={creator.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               : <span style={{ color: 'var(--accent)', fontSize: '16px', fontWeight: '600' }}>{(creator?.display_name || '?')[0].toUpperCase()}</span>
             }
           </div>
-          {/* Info */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '3px' }}>
               <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '600', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -105,71 +75,15 @@ function AppointmentCard({ booking, currentUser }) {
             </p>
             <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '2px 0 0' }}>
               {fmt12(booking.start_time)} – {fmt12(booking.end_time)}
+              {showDepositDot && <span style={{ color: 'var(--accent)', fontWeight: '600' }}> · Deposit due</span>}
             </p>
           </div>
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0, transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
-            <path d="M3 5L7 9L11 5" stroke="var(--text-secondary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }}>
+            <path d="M5 3L9 7L5 11" stroke="var(--text-secondary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </div>
       </div>
-
-      {expanded && (
-        <div style={{ borderTop: '0.5px solid var(--border)', padding: '14px 16px', background: 'var(--bg-primary)' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Service</span>
-              <span style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500' }}>{service?.name}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Duration</span>
-              <span style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500' }}>{fmtDuration(service?.duration_minutes)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Price</span>
-              <span style={{ color: 'var(--accent)', fontSize: '12px', fontWeight: '600' }}>{service?.price > 0 ? `AED ${service.price}` : 'Free'}</span>
-            </div>
-          </div>
-          {booking.notes && (
-            <div style={{ background: 'var(--bg-chip)', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px' }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '10px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 4px' }}>Your note</p>
-              <p style={{ color: 'var(--text-primary)', fontSize: '13px', margin: 0, lineHeight: '1.5' }}>{booking.notes}</p>
-            </div>
-          )}
-          {/* Pay Deposit button */}
-          {showDepositButton && (
-            <button
-              onClick={handlePayDeposit}
-              disabled={payLoading}
-              style={{
-                width: '100%', padding: '13px', marginBottom: '10px',
-                background: 'var(--accent)', color: '#2C0A1E',
-                border: 'none', borderRadius: '12px',
-                fontSize: '14px', fontWeight: '600',
-                fontFamily: "'DM Sans', sans-serif",
-                cursor: payLoading ? 'not-allowed' : 'pointer',
-                opacity: payLoading ? 0.7 : 1,
-              }}
-            >
-              {payLoading ? 'Redirecting…' : `Pay deposit — AED ${service.deposit_amount}`}
-            </button>
-          )}
-
-          {/* Deposit paid badge */}
-          {booking.status === 'confirmed' && service?.deposit_amount > 0 && booking.deposit_paid && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px', padding: '10px 12px', background: 'rgba(100,200,130,0.08)', borderRadius: '10px', border: '0.5px solid rgba(100,200,130,0.2)' }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <path d="M5 13L9 17L19 7" stroke="#6CC882" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              <span style={{ color: '#6CC882', fontSize: '12px', fontWeight: '600' }}>Deposit paid</span>
-            </div>
-          )}
-
-          <Link href={`/creator/${booking.creator_id}`} style={{ display: 'block', textAlign: 'center', color: 'var(--accent)', fontSize: '13px', fontWeight: '500', textDecoration: 'none', padding: '8px', background: 'rgba(212,160,192,0.08)', borderRadius: '8px' }}>
-            View artist profile →
-          </Link>
-        </div>
-      )}
-    </div>
+    </Link>
   )
 }
 
@@ -284,7 +198,7 @@ export default function AppointmentsPage() {
             )}
           </div>
         ) : (
-          activeList.map(b => <AppointmentCard key={b.id} booking={b} currentUser={currentUser} />)
+          activeList.map(b => <AppointmentCard key={b.id} booking={b} />)
         )}
       </div>
     </div>
