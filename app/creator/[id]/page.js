@@ -24,6 +24,10 @@ export default function CreatorPage() {
   const [reviews, setReviews] = useState([])
   const [avgRating, setAvgRating] = useState(null)
   const [showAllReviews, setShowAllReviews] = useState(false)
+  const [isBlocked, setIsBlocked] = useState(false)       // viewer has blocked this profile
+  const [blockedByThem, setBlockedByThem] = useState(false) // this profile has blocked viewer
+  const [blockLoading, setBlockLoading] = useState(false)
+  const [showBlockMenu, setShowBlockMenu] = useState(false)
 
   const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   const fmt12 = (t) => {
@@ -41,7 +45,7 @@ export default function CreatorPage() {
       setCurrentUser(me)
 
       const [{ data: prof }, { data: d }, { count: followers }, { count: following }, { data: svcs }, { data: avail }, { data: revs }] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', id).single(),
+        supabase.from('profiles').select('*, is_private, message_permission, show_saves').eq('id', id).single(),
         supabase.from('designs').select('*').eq('created_by', id).eq('is_published', true).order('is_pinned', { ascending: false }).order('created_at', { ascending: false }),
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', id),
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', id),
@@ -79,9 +83,14 @@ export default function CreatorPage() {
       setAvgRating(avg)
 
       if (me) {
-        const { data: followRow } = await supabase.from('follows')
-          .select('*').eq('follower_id', me.id).eq('following_id', id).single()
+        const [{ data: followRow }, { data: iBlockedThem }, { data: theyBlockedMe }] = await Promise.all([
+          supabase.from('follows').select('*').eq('follower_id', me.id).eq('following_id', id).single(),
+          supabase.from('blocks').select('id').eq('blocker_id', me.id).eq('blocked_id', id).single(),
+          supabase.from('blocks').select('id').eq('blocker_id', id).eq('blocked_id', me.id).single(),
+        ])
         setIsFollowing(!!followRow)
+        setIsBlocked(!!iBlockedThem)
+        setBlockedByThem(!!theyBlockedMe)
       }
 
       setLoading(false)
@@ -135,6 +144,26 @@ export default function CreatorPage() {
     setMessagingLoading(false)
   }
 
+  const handleBlock = async () => {
+    if (!currentUser) return
+    setBlockLoading(true)
+    setShowBlockMenu(false)
+    if (isBlocked) {
+      await supabase.from('blocks').delete().eq('blocker_id', currentUser.id).eq('blocked_id', id)
+      setIsBlocked(false)
+    } else {
+      await supabase.from('blocks').insert({ blocker_id: currentUser.id, blocked_id: id })
+      setIsBlocked(true)
+      // Also unfollow if following
+      if (isFollowing) {
+        await supabase.from('follows').delete().eq('follower_id', currentUser.id).eq('following_id', id)
+        setIsFollowing(false)
+        setFollowerCount(c => c - 1)
+      }
+    }
+    setBlockLoading(false)
+  }
+
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
       <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Loading...</p>
@@ -145,13 +174,27 @@ export default function CreatorPage() {
     <div style={{ padding: '24px 20px', color: 'var(--text-secondary)' }}>Creator not found.</div>
   )
 
+  // Blocked-by-them guard
+  if (blockedByThem) return (
+    <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', fontFamily: "'DM Sans', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', textAlign: 'center' }}>
+      <div style={{ fontSize: '28px', marginBottom: '16px' }}>✦</div>
+      <p style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '600', margin: '0 0 8px' }}>This profile is unavailable</p>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0 }}>You can't view this profile.</p>
+    </div>
+  )
+
   const isOwnProfile = currentUser?.id === id
   const isSalon = profile.account_type === 'salon'
+  const isPrivateAndNotFollowing = profile.is_private && !isFollowing && !isOwnProfile
+  const canMessage = !isOwnProfile && currentUser && (
+    profile.message_permission === 'everyone' ||
+    (profile.message_permission === 'followers' && isFollowing)
+  )
 
   return (
     <div style={{ paddingBottom: '32px' }}>
 
-      {/* Back + Share */}
+      {/* Back + Share + 3-dot */}
       <div style={{ padding: '16px 20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '13px', fontWeight: '500' }}>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -159,7 +202,32 @@ export default function CreatorPage() {
           </svg>
           Back
         </Link>
-        <ShareButton title={profile?.display_name ? `${profile.display_name} on Laque` : 'Creator on Laque'} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', position: 'relative' }}>
+          <ShareButton title={profile?.display_name ? `${profile.display_name} on Laque` : 'Creator on Laque'} />
+          {!isOwnProfile && currentUser && (
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setShowBlockMenu(v => !v)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', color: 'var(--text-secondary)' }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+                </svg>
+              </button>
+              {showBlockMenu && (
+                <div style={{ position: 'absolute', right: 0, top: '28px', background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', minWidth: '160px', zIndex: 100, boxShadow: '0 8px 24px rgba(0,0,0,0.4)', overflow: 'hidden' }}>
+                  <button
+                    onClick={handleBlock}
+                    disabled={blockLoading}
+                    style={{ width: '100%', padding: '13px 16px', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', color: isBlocked ? 'var(--text-primary)' : '#E07070', fontSize: '14px', fontWeight: '500', fontFamily: "'DM Sans', sans-serif" }}
+                  >
+                    {blockLoading ? '…' : isBlocked ? 'Unblock user' : 'Block user'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── SALON HEADER ─────────────────────────────────────────────────── */}
@@ -348,9 +416,9 @@ export default function CreatorPage() {
         )}
 
         {/* CTA buttons — Book + Message */}
-        {!isOwnProfile && currentUser && (
+        {!isOwnProfile && currentUser && !isBlocked && (
           <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-            {services.length > 0 && (
+            {services.length > 0 && !isPrivateAndNotFollowing && (
               <Link href={`/book/${id}`} style={{
                 flex: 1, display: 'block', background: 'var(--accent)', color: '#2C0A1E',
                 border: 'none', borderRadius: '12px', padding: '13px',
@@ -360,19 +428,21 @@ export default function CreatorPage() {
                 Book ✦
               </Link>
             )}
-            <button
-              onClick={handleMessage}
-              disabled={messagingLoading}
-              style={{
-                flex: services.length > 0 ? '0 0 auto' : 1,
-                background: 'var(--bg-card)', color: 'var(--text-primary)',
-                border: '0.5px solid var(--border)', borderRadius: '12px', padding: '13px 20px',
-                fontSize: '14px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif",
-                cursor: 'pointer', whiteSpace: 'nowrap',
-              }}
-            >
-              {messagingLoading ? '…' : 'Message'}
-            </button>
+            {canMessage && (
+              <button
+                onClick={handleMessage}
+                disabled={messagingLoading}
+                style={{
+                  flex: (services.length > 0 && !isPrivateAndNotFollowing) ? '0 0 auto' : 1,
+                  background: 'var(--bg-card)', color: 'var(--text-primary)',
+                  border: '0.5px solid var(--border)', borderRadius: '12px', padding: '13px 20px',
+                  fontSize: '14px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif",
+                  cursor: 'pointer', whiteSpace: 'nowrap',
+                }}
+              >
+                {messagingLoading ? '…' : 'Message'}
+              </button>
+            )}
           </div>
         )}
         {/* Book only — logged out */}
@@ -483,8 +553,20 @@ export default function CreatorPage() {
           </div>
         )}
 
+        {/* Private account guard */}
+        {isPrivateAndNotFollowing ? (
+          <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '14px', padding: '32px 20px', textAlign: 'center', marginBottom: '24px' }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '12px', display: 'block', margin: '0 auto 12px' }}>
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+            <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', margin: '0 0 6px' }}>This account is private</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>Follow to see their designs and reviews.</p>
+          </div>
+        ) : null}
+
         {/* Reviews */}
-        {reviews.length > 0 && (
+        {!isPrivateAndNotFollowing && reviews.length > 0 && (
           <div style={{ marginBottom: '24px' }}>
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
@@ -546,7 +628,7 @@ export default function CreatorPage() {
         )}
 
         {/* Designs grid */}
-        {designs.length > 0 ? (
+        {!isPrivateAndNotFollowing && designs.length > 0 ? (
           <>
             <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '12px' }}>Portfolio</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
@@ -583,11 +665,11 @@ export default function CreatorPage() {
               ))}
             </div>
           </>
-        ) : (
+        ) : (!isPrivateAndNotFollowing && (
           <div style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '24px', border: '0.5px solid var(--border)', textAlign: 'center' }}>
             <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>No designs published yet</p>
           </div>
-        )}
+        ))}
       </div>{/* end shared content */}
     </div>
   )

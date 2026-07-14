@@ -1123,9 +1123,18 @@ export default function ProfilePage() {
       {/* ── SETTINGS ───────────────────────────────────────────────────── */}
       <div style={{ margin: '0 20px 12px', background: 'var(--bg-card)', borderRadius: '14px', border: '0.5px solid var(--border)', overflow: 'hidden' }}>
         <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '14px 16px 10px' }}>Settings</p>
+        {/* Privacy settings — live */}
+        <Link href="/settings/privacy" style={{ textDecoration: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderTop: '0.5px solid var(--border)' }}>
+          <div>
+            <p style={{ color: 'var(--text-primary)', fontSize: '14px', marginBottom: '2px', margin: 0 }}>Privacy settings</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '2px 0 0' }}>Profile visibility, messages, blocked users</p>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+            <path d="M6 4L10 8L6 12" stroke="#888" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </Link>
         {[
           { label: 'Notification preferences', desc: 'Appointments, salon updates, trend drops' },
-          { label: 'Privacy settings',         desc: 'Profile visibility, moodboard privacy' },
           { label: 'Payment methods',           desc: 'Cards for credits and bookings' },
           { label: 'Language & region',         desc: 'Language, currency, location' },
           { label: 'Change password',           desc: null },
