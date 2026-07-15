@@ -1152,8 +1152,16 @@ export default function ProfilePage() {
       {/* ── SUPPORT ────────────────────────────────────────────────────── */}
       <div style={{ margin: '0 20px 12px', background: 'var(--bg-card)', borderRadius: '14px', border: '0.5px solid var(--border)', overflow: 'hidden' }}>
         <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '14px 16px 10px' }}>Support</p>
+        <Link href="/help" style={{ textDecoration: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderTop: '0.5px solid var(--border)' }}>
+          <div>
+            <p style={{ color: 'var(--text-primary)', fontSize: '14px', marginBottom: '2px', margin: 0 }}>Help & Support</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '2px 0 0' }}>Get help with bookings, credits, account</p>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+            <path d="M6 4L10 8L6 12" stroke="#888" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </Link>
         {[
-          { label: 'Help & Support',  desc: 'Get help with bookings, credits, account' },
           { label: 'Terms & Privacy', desc: 'Terms of service and privacy policy' },
         ].map((item) => (
           <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderTop: '0.5px solid var(--border)' }}>
