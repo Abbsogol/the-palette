@@ -17,7 +17,7 @@ const SECTIONS = [
       },
       {
         q: 'What happens after I submit a booking request?',
-        a: "Your request is sent to the artist as "Pending." Once they accept, your status changes to "Confirmed" and you'll get a notification. If a deposit is required, a payment button will appear on your appointment.",
+        a: "Your request is sent to the artist as “Pending.” Once they accept, your status changes to “Confirmed” and you'll get a notification. If a deposit is required, a payment button will appear on your appointment.",
       },
       {
         q: 'How do I pay a deposit?',
