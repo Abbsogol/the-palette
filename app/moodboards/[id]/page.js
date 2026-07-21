@@ -12,17 +12,16 @@ export default function MoodboardDetailPage() {
   const [creatorName, setCreatorName] = useState(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [isPrivate, setIsPrivate] = useState(false)
 
   useEffect(() => {
     if (!id) return
-
-    // Wait for auth session to be ready before querying (RLS requires it)
     supabase.auth.getSession().then(({ data: { session } }) => {
-      loadBoard()
+      loadBoard(session?.user?.id || null)
     })
   }, [id])
 
-  async function loadBoard() {
+  async function loadBoard(currentUserId) {
     setLoading(true)
 
     const { data: boardData, error } = await supabase
@@ -33,6 +32,13 @@ export default function MoodboardDetailPage() {
 
     if (!boardData) {
       setNotFound(true)
+      setLoading(false)
+      return
+    }
+
+    // Block non-owners from viewing private boards
+    if (!boardData.is_public && currentUserId !== boardData.user_id) {
+      setIsPrivate(true)
       setLoading(false)
       return
     }
@@ -59,6 +65,17 @@ export default function MoodboardDetailPage() {
 
   if (loading) {
     return <div style={{ padding: '40px 20px', color: 'var(--text-secondary)', fontSize: '14px' }}>Loading...</div>
+  }
+
+  if (isPrivate) {
+    return (
+      <div style={{ padding: '24px 20px', textAlign: 'center', paddingTop: '80px' }}>
+        <p style={{ fontSize: '28px', marginBottom: '12px' }}>🔒</p>
+        <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '500', marginBottom: '6px' }}>This board is private</p>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '20px' }}>Only the owner can view this board.</p>
+        <Link href="/feed" style={{ color: 'var(--accent)', fontSize: '14px', textDecoration: 'none' }}>← Browse designs</Link>
+      </div>
+    )
   }
 
   if (notFound || !board) {

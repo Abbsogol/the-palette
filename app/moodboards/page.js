@@ -33,7 +33,6 @@ export default function MoodboardsPage() {
 
     setBoards(data || [])
 
-    // Get design counts per board
     if (data?.length) {
       const { data: countData } = await supabase
         .from('moodboard_designs')
@@ -52,7 +51,7 @@ export default function MoodboardsPage() {
     setCreating(true)
     const { data } = await supabase
       .from('moodboards')
-      .insert({ user_id: user.id, name: newName.trim() })
+      .insert({ user_id: user.id, name: newName.trim(), is_public: false })
       .select('id, name, cover_image_url, is_public, created_at')
       .single()
     if (data) {
@@ -61,6 +60,12 @@ export default function MoodboardsPage() {
       setShowCreate(false)
     }
     setCreating(false)
+  }
+
+  async function togglePrivacy(boardId, currentIsPublic) {
+    const newVal = !currentIsPublic
+    await supabase.from('moodboards').update({ is_public: newVal }).eq('id', boardId)
+    setBoards(prev => prev.map(b => b.id === boardId ? { ...b, is_public: newVal } : b))
   }
 
   if (!loading && !user) {
@@ -153,44 +158,67 @@ export default function MoodboardsPage() {
           </p>
         </div>
       ) : (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: '12px',
-        }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           {boards.map(board => (
-            <Link key={board.id} href={`/moodboards/${board.id}`} style={{
-              background: 'var(--bg-card)', borderRadius: '14px',
-              border: '0.5px solid var(--border)', overflow: 'hidden',
-              textDecoration: 'none', display: 'block',
-            }}>
-              {/* Cover */}
-              <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--bg-chip)', overflow: 'hidden' }}>
-                {board.cover_image_url ? (
-                  <img src={board.cover_image_url} alt={board.name}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <div key={board.id} style={{ position: 'relative' }}>
+              <Link href={`/moodboards/${board.id}`} style={{
+                background: 'var(--bg-card)', borderRadius: '14px',
+                border: '0.5px solid var(--border)', overflow: 'hidden',
+                textDecoration: 'none', display: 'block',
+              }}>
+                {/* Cover */}
+                <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--bg-chip)', overflow: 'hidden' }}>
+                  {board.cover_image_url ? (
+                    <img src={board.cover_image_url} alt={board.name}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--border)" strokeWidth="1.5">
+                        <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
+                      </svg>
+                    </div>
+                  )}
+                </div>
+                {/* Info */}
+                <div style={{ padding: '10px 12px 12px' }}>
+                  <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', margin: '0 0 3px', paddingRight: '28px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {board.name}
+                  </p>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: 0 }}>
+                    {counts[board.id] || 0} {counts[board.id] === 1 ? 'design' : 'designs'}
+                  </p>
+                </div>
+              </Link>
+
+              {/* Privacy toggle — outside the Link */}
+              <button
+                onClick={e => { e.preventDefault(); togglePrivacy(board.id, board.is_public) }}
+                title={board.is_public ? 'Make private' : 'Make public'}
+                style={{
+                  position: 'absolute', bottom: '10px', right: '10px',
+                  background: 'var(--bg-chip)', border: '0.5px solid var(--border)',
+                  borderRadius: '20px', width: '26px', height: '26px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', padding: 0,
+                  color: board.is_public ? 'var(--accent)' : 'var(--text-secondary)',
+                }}
+              >
+                {board.is_public ? (
+                  /* Globe / public icon */
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="2" y1="12" x2="22" y2="12"/>
+                    <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>
+                  </svg>
                 ) : (
-                  <div style={{
-                    width: '100%', height: '100%',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--border)" strokeWidth="1.5">
-                      <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
-                    </svg>
-                  </div>
+                  /* Lock / private icon */
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                    <path d="M7 11V7a5 5 0 0110 0v4"/>
+                  </svg>
                 )}
-              </div>
-              {/* Info */}
-              <div style={{ padding: '10px 12px 12px' }}>
-                <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', margin: '0 0 3px' }}>
-                  {board.name}
-                </p>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: 0 }}>
-                  {counts[board.id] || 0} {counts[board.id] === 1 ? 'design' : 'designs'}
-                  {board.is_public && <span style={{ color: 'var(--accent)', marginLeft: '6px' }}>· Public</span>}
-                </p>
-              </div>
-            </Link>
+              </button>
+            </div>
           ))}
         </div>
       )}
