@@ -48,11 +48,17 @@ export default function BookingDetailPage() {
   const [booking, setBooking] = useState(null)
   const [loading, setLoading] = useState(true)
   const [acting, setActing] = useState(null)
+  const [currentUser, setCurrentUser] = useState(null)
+  const [noteText, setNoteText] = useState('')
+  const [noteId, setNoteId] = useState(null)
+  const [noteSaving, setNoteSaving] = useState(false)
+  const [noteSaved, setNoteSaved] = useState(false)
 
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
+      setCurrentUser(user)
 
       const { data } = await supabase
         .from('bookings')
@@ -63,17 +69,41 @@ export default function BookingDetailPage() {
 
       if (!data) { router.push('/bookings'); return }
 
-      const { data: client } = await supabase
-        .from('profiles')
-        .select('id, display_name, avatar_url, username')
-        .eq('id', data.client_id)
-        .single()
+      const [{ data: client }, { data: existingNote }] = await Promise.all([
+        supabase.from('profiles').select('id, display_name, avatar_url, username').eq('id', data.client_id).single(),
+        supabase.from('client_notes').select('*').eq('booking_id', id).single(),
+      ])
+
+      if (existingNote) {
+        setNoteId(existingNote.id)
+        setNoteText(existingNote.note)
+      }
 
       setBooking({ ...data, client })
       setLoading(false)
     }
     init()
   }, [id])
+
+  const handleSaveNote = async () => {
+    if (!currentUser || noteSaving) return
+    setNoteSaving(true)
+    setNoteSaved(false)
+    if (noteId) {
+      await supabase.from('client_notes').update({ note: noteText, updated_at: new Date().toISOString() }).eq('id', noteId)
+    } else {
+      const { data } = await supabase.from('client_notes').insert({
+        booking_id: booking.id,
+        creator_id: currentUser.id,
+        client_id: booking.client_id,
+        note: noteText,
+      }).select().single()
+      if (data) setNoteId(data.id)
+    }
+    setNoteSaving(false)
+    setNoteSaved(true)
+    setTimeout(() => setNoteSaved(false), 2000)
+  }
 
   const handleAccept = async () => {
     setActing('accept')
@@ -203,6 +233,45 @@ export default function BookingDetailPage() {
         >
           Message {client?.display_name}
         </Link>
+
+        {/* Private client notes */}
+        <div style={{ marginTop: '20px', background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '16px', padding: '18px 16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', margin: 0 }}>
+              Private notes
+            </p>
+            <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>🔒 Only you can see this</span>
+          </div>
+          <textarea
+            value={noteText}
+            onChange={e => { setNoteText(e.target.value); setNoteSaved(false) }}
+            placeholder={`Notes about ${client?.display_name || 'this client'}… e.g. prefers short almond, sensitive to acetone`}
+            rows={4}
+            style={{
+              width: '100%', background: 'var(--bg-chip)', border: '0.5px solid var(--border)',
+              borderRadius: '10px', padding: '10px 12px', color: 'var(--text-primary)',
+              fontSize: '14px', fontFamily: "'DM Sans', sans-serif", resize: 'none',
+              boxSizing: 'border-box', outline: 'none', lineHeight: '1.6', marginBottom: '10px',
+            }}
+          />
+          <button
+            onClick={handleSaveNote}
+            disabled={noteSaving || !noteText.trim()}
+            style={{
+              width: '100%', padding: '12px',
+              background: noteSaved ? 'rgba(100,200,130,0.15)' : noteText.trim() ? 'var(--accent)' : 'var(--bg-chip)',
+              color: noteSaved ? '#6CC882' : noteText.trim() ? '#2C0A1E' : 'var(--text-secondary)',
+              border: noteSaved ? '0.5px solid rgba(100,200,130,0.3)' : 'none',
+              borderRadius: '12px', fontSize: '14px', fontWeight: '600',
+              fontFamily: "'DM Sans', sans-serif",
+              cursor: noteText.trim() && !noteSaving ? 'pointer' : 'not-allowed',
+              transition: 'background 0.2s, color 0.2s',
+            }}
+          >
+            {noteSaving ? 'Saving…' : noteSaved ? '✓ Saved' : 'Save note'}
+          </button>
+        </div>
+
       </div>
     </div>
   )
