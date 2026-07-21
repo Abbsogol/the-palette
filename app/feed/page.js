@@ -25,6 +25,7 @@ export default function FeedPage() {
   const [designs, setDesigns]       = useState([])
   const [activeTab, setActiveTab]   = useState('All')
   const [sort, setSort]             = useState('newest')
+  const [sortInitialized, setSortInitialized] = useState(false)
   const [loadingExplore, setLoadingExplore] = useState(true)
 
   // Community state
@@ -44,6 +45,7 @@ export default function FeedPage() {
 
   // Shared
   const [currentUser, setCurrentUser] = useState(null)
+  const [userProfile, setUserProfile] = useState(null)
   const [unreadCount, setUnreadCount] = useState(0)
   const [dropDesigns, setDropDesigns] = useState([])
 
@@ -65,12 +67,12 @@ export default function FeedPage() {
       setCurrentUser(u)
 
       if (u) {
-        const { count } = await supabase
-          .from('notifications')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', u.id)
-          .eq('read', false)
+        const [{ count }, { data: prof }] = await Promise.all([
+          supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('user_id', u.id).eq('read', false),
+          supabase.from('profiles').select('nail_shape, nail_length, nail_colors, nail_finishes, nail_techniques, occasions').eq('id', u.id).single(),
+        ])
         setUnreadCount(count || 0)
+        setUserProfile(prof || null)
       }
 
       const [{ data: curatedDesigns }, { data: drops }, { data: rawStories }] = await Promise.all([
@@ -96,6 +98,14 @@ export default function FeedPage() {
     }
     load()
   }, [])
+
+  // Auto-select "for you" sort when profile has preferences
+  useEffect(() => {
+    if (!sortInitialized && userProfile && hasPrefs) {
+      setSort('for_you')
+      setSortInitialized(true)
+    }
+  }, [userProfile])
 
   // Restore scroll on back navigation
   useEffect(() => {
@@ -240,10 +250,40 @@ export default function FeedPage() {
     return 'Just now'
   }
 
+  // ── Personalization score ─────────────────────────────────────────────────
+  const hasPrefs = userProfile && (
+    userProfile.nail_shape ||
+    userProfile.nail_techniques?.length ||
+    userProfile.occasions?.length ||
+    userProfile.nail_finishes?.length
+  )
+
+  function scoreDesign(d) {
+    if (!hasPrefs) return 0
+    let score = 0
+    const p = userProfile
+    // Shape (+3)
+    if (p.nail_shape && d.shape?.toLowerCase() === p.nail_shape.toLowerCase()) score += 3
+    // Occasions (+2 each)
+    const dOcc = (d.occasion || '').split(',').map(o => o.trim().toLowerCase())
+    ;(p.occasions || []).forEach(po => {
+      if (dOcc.some(o => o.includes(po.toLowerCase()) || po.toLowerCase().includes(o))) score += 2
+    })
+    // Techniques (+1.5 each)
+    const dTech = (d.technique || '').split(',').map(t => t.trim().toLowerCase())
+    ;(p.nail_techniques || []).forEach(pt => {
+      if (dTech.some(t => t.includes(pt.toLowerCase()) || pt.toLowerCase().includes(t))) score += 1.5
+    })
+    // Saves popularity boost (capped at +2)
+    score += Math.min((d.saves_count || 0) * 0.1, 2)
+    return score
+  }
+
   // ── Explore filtered/sorted ───────────────────────────────────────────────
   const filtered = designs
     .filter(VIBE_FILTER[activeTab])
     .sort((a, b) => {
+      if (sort === 'for_you') return scoreDesign(b) - scoreDesign(a)
       if (sort === 'most_saved') return (b.saves_count || 0) - (a.saves_count || 0)
       return new Date(b.created_at) - new Date(a.created_at)
     })
@@ -423,13 +463,17 @@ export default function FeedPage() {
           </div>
 
           {/* Sort row */}
-          <div style={{ padding: '0 20px 16px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div style={{ padding: '0 20px 16px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             <span style={{ color: 'var(--text-secondary)', fontSize: '12px', marginRight: '2px' }}>Sort:</span>
-            {[['newest', 'Newest'], ['most_saved', 'Most saved']].map(([val, label]) => (
+            {[
+              ...(hasPrefs ? [['for_you', '✦ For you']] : []),
+              ['newest', 'Newest'],
+              ['most_saved', 'Most saved'],
+            ].map(([val, label]) => (
               <button key={val} onClick={() => setSort(val)} style={{
-                background: sort === val ? 'var(--bg-chip)' : 'none',
-                color: sort === val ? 'var(--text-primary)' : 'var(--text-secondary)',
-                border: '0.5px solid ' + (sort === val ? 'var(--border)' : 'transparent'),
+                background: sort === val ? (val === 'for_you' ? 'var(--accent)' : 'var(--bg-chip)') : 'none',
+                color: sort === val ? (val === 'for_you' ? '#2C0A1E' : 'var(--text-primary)') : 'var(--text-secondary)',
+                border: '0.5px solid ' + (sort === val ? (val === 'for_you' ? 'transparent' : 'var(--border)') : 'transparent'),
                 borderRadius: '20px', padding: '5px 12px',
                 fontSize: '12px', fontWeight: sort === val ? '500' : '400',
                 fontFamily: "'DM Sans', sans-serif", cursor: 'pointer',
