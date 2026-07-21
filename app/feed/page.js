@@ -363,8 +363,14 @@ export default function FeedPage() {
             Nail & beauty design library
           </p>
         </div>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px' }}>
+          <Link href="/pick-my-set" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '50%', background: 'var(--bg-card)', border: '0.5px solid var(--border)', textDecoration: 'none', flexShrink: 0 }} title="Pick My Set">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+          </Link>
         {currentUser && (
-          <Link href="/notifications" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '50%', background: 'var(--bg-card)', border: '0.5px solid var(--border)', textDecoration: 'none', marginTop: '4px', flexShrink: 0 }}>
+          <Link href="/notifications" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '50%', background: 'var(--bg-card)', border: '0.5px solid var(--border)', textDecoration: 'none', flexShrink: 0 }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/>
             </svg>
@@ -382,6 +388,7 @@ export default function FeedPage() {
             )}
           </Link>
         )}
+        </div>
       </div>
 
       {/* ── Main tabs: Explore / Community ────────────────────────────────── */}
