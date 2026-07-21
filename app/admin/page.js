@@ -582,7 +582,7 @@ export default function AdminPage() {
 
   const loadDesigns = async () => {
     setLoadingDesigns(true)
-    const { data } = await supabase.from('designs').select('id, title, image_url, created_at').order('created_at', { ascending: false })
+    const { data } = await supabase.from('designs').select('id, title, image_url, created_at, is_drop').order('created_at', { ascending: false })
     setAllDesigns(data || [])
     setLoadingDesigns(false)
   }
@@ -604,6 +604,11 @@ export default function AdminPage() {
     await supabase.from('designs').delete().eq('id', id)
     setAllDesigns(prev => prev.filter(d => d.id !== id))
     setDeletingId(null)
+  }
+
+  const toggleDrop = async (id, current) => {
+    await supabase.from('designs').update({ is_drop: !current }).eq('id', id)
+    setAllDesigns(prev => prev.map(d => d.id === id ? { ...d, is_drop: !current } : d))
   }
 
   const deleteProduct = async (id, name) => {
@@ -809,6 +814,9 @@ export default function AdminPage() {
                     </p>
                   </div>
                   <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                    <button onClick={() => toggleDrop(design.id, design.is_drop)} style={{ background: design.is_drop ? 'rgba(212,160,192,0.15)' : 'var(--bg-chip)', border: design.is_drop ? '0.5px solid rgba(212,160,192,0.4)' : 'none', borderRadius: '8px', padding: '6px 12px', color: design.is_drop ? 'var(--accent)' : 'var(--text-secondary)', fontSize: '12px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit' }}>
+                      {design.is_drop ? '✦ Drop' : 'Drop'}
+                    </button>
                     <button onClick={() => startEdit(design)} style={{ background: 'var(--bg-chip)', border: 'none', borderRadius: '8px', padding: '6px 12px', color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit' }}>Edit</button>
                     <button onClick={() => deleteDesign(design.id, design.title)} disabled={deletingId === design.id} style={{ background: 'rgba(229,115,115,0.1)', border: '0.5px solid rgba(229,115,115,0.3)', borderRadius: '8px', padding: '6px 12px', color: '#e57373', fontSize: '12px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit' }}>
                       {deletingId === design.id ? '...' : 'Delete'}

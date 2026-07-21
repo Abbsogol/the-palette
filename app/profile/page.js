@@ -220,6 +220,13 @@ export default function ProfilePage() {
   const [followingCount, setFollowingCount] = useState(0)
   const [myDesigns, setMyDesigns]         = useState([])
 
+  // Salon posts (Updates)
+  const [myPosts, setMyPosts]           = useState([])
+  const [postModalOpen, setPostModalOpen] = useState(false)
+  const [postText, setPostText]         = useState('')
+  const [editingPostId, setEditingPostId] = useState(null)
+  const [postSaving, setPostSaving]     = useState(false)
+
   // Expandable sections
   const [expanded, setExpanded] = useState({})
   const toggle = (key) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }))
@@ -253,10 +260,14 @@ export default function ProfilePage() {
     setFollowerCount(frs || 0)
     setFollowingCount(fng || 0)
     if (prof?.account_type === 'creator' || prof?.account_type === 'salon') {
-      const { data: designs } = await supabase.from('designs').select('*').eq('created_by', u.id)
-        .order('is_pinned', { ascending: false })
-        .order('created_at', { ascending: false })
+      const [{ data: designs }, { data: posts }] = await Promise.all([
+        supabase.from('designs').select('*').eq('created_by', u.id)
+          .order('is_pinned', { ascending: false })
+          .order('created_at', { ascending: false }),
+        supabase.from('salon_posts').select('*').eq('creator_id', u.id).order('created_at', { ascending: false }),
+      ])
       setMyDesigns(designs || [])
+      setMyPosts(posts || [])
     }
     setLoading(false)
   }
@@ -264,6 +275,30 @@ export default function ProfilePage() {
   const saveField = async (field, value) => {
     await supabase.from('profiles').update({ [field]: value }).eq('id', user.id)
     setProfile(prev => ({ ...prev, [field]: value }))
+  }
+
+  const openNewPost = () => { setEditingPostId(null); setPostText(''); setPostModalOpen(true) }
+  const openEditPost = (post) => { setEditingPostId(post.id); setPostText(post.body); setPostModalOpen(true) }
+  const closePostModal = () => { setPostModalOpen(false); setPostText(''); setEditingPostId(null) }
+
+  const handleSubmitPost = async () => {
+    if (!postText.trim() || postSaving) return
+    setPostSaving(true)
+    if (editingPostId) {
+      await supabase.from('salon_posts').update({ body: postText.trim(), updated_at: new Date().toISOString() }).eq('id', editingPostId)
+      setMyPosts(prev => prev.map(p => p.id === editingPostId ? { ...p, body: postText.trim() } : p))
+    } else {
+      const { data } = await supabase.from('salon_posts').insert({ creator_id: user.id, body: postText.trim() }).select().single()
+      if (data) setMyPosts(prev => [data, ...prev])
+    }
+    setPostSaving(false)
+    closePostModal()
+  }
+
+  const handleDeletePost = async (postId) => {
+    if (!confirm('Delete this update?')) return
+    await supabase.from('salon_posts').delete().eq('id', postId)
+    setMyPosts(prev => prev.filter(p => p.id !== postId))
   }
 
   const toggleChip = async (field, item, single) => {
@@ -581,6 +616,46 @@ export default function ProfilePage() {
     <div style={{ paddingBottom: '100px' }}>
 
       {cropFile && <CropModal file={cropFile} onCrop={handleCroppedUpload} onCancel={() => setCropFile(null)} />}
+
+      {/* ── Post update modal ──────────────────────────────────────────── */}
+      {postModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+          <div style={{ width: '100%', maxWidth: '480px', background: 'var(--bg-primary)', borderRadius: '20px 20px 0 0', padding: '24px 20px 40px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <p style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '600', margin: 0 }}>
+                {editingPostId ? 'Edit update' : 'Post an update'}
+              </p>
+              <button onClick={closePostModal} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '20px', cursor: 'pointer', padding: '4px', lineHeight: 1 }}>✕</button>
+            </div>
+            <textarea
+              value={postText}
+              onChange={e => setPostText(e.target.value)}
+              placeholder="Share an update with your followers… e.g. New gel colours in! 🌸"
+              rows={5}
+              autoFocus
+              style={{
+                width: '100%', background: 'var(--bg-card)', border: '0.5px solid var(--border)',
+                borderRadius: '12px', padding: '12px 14px', color: 'var(--text-primary)',
+                fontSize: '14px', fontFamily: "'DM Sans', sans-serif", resize: 'none',
+                boxSizing: 'border-box', outline: 'none', lineHeight: '1.6', marginBottom: '14px',
+              }}
+            />
+            <button
+              onClick={handleSubmitPost}
+              disabled={!postText.trim() || postSaving}
+              style={{
+                width: '100%', padding: '14px', background: postText.trim() ? 'var(--accent)' : 'var(--bg-chip)',
+                color: postText.trim() ? '#2C0A1E' : 'var(--text-secondary)',
+                border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: '600',
+                fontFamily: "'DM Sans', sans-serif",
+                cursor: postText.trim() && !postSaving ? 'pointer' : 'not-allowed',
+              }}
+            >
+              {postSaving ? 'Saving…' : editingPostId ? 'Save changes' : 'Post'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {resetDone && (
         <div style={{ margin: '16px 20px 0', background: 'var(--accent)', borderRadius: '12px', padding: '14px 16px' }}>
@@ -1016,6 +1091,45 @@ export default function ProfilePage() {
             </div>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4L10 8L6 12" stroke="#888888" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </Link>
+
+          {/* Updates section */}
+          <div style={{ marginBottom: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', margin: 0 }}>Your Updates</p>
+              <button
+                onClick={openNewPost}
+                style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '20px', padding: '6px 14px', fontSize: '12px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}
+              >
+                + Post update
+              </button>
+            </div>
+            {myPosts.length === 0 ? (
+              <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '20px 16px', textAlign: 'center' }}>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>No updates yet — share news with your followers</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {myPosts.map(post => {
+                  const diff = Date.now() - new Date(post.created_at).getTime()
+                  const h = Math.floor(diff / 3600000)
+                  const d = Math.floor(diff / 86400000)
+                  const ago = d >= 1 ? `${d}d ago` : h >= 1 ? `${h}h ago` : 'Just now'
+                  return (
+                    <div key={post.id} style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px 16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                        <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>{ago}</span>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button onClick={() => openEditPost(post)} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: '12px', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", padding: 0 }}>Edit</button>
+                          <button onClick={() => handleDeletePost(post.id)} style={{ background: 'none', border: 'none', color: '#E07070', fontSize: '12px', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", padding: 0 }}>Delete</button>
+                        </div>
+                      </div>
+                      <p style={{ color: 'var(--text-primary)', fontSize: '14px', lineHeight: '1.6', margin: 0, whiteSpace: 'pre-wrap' }}>{post.body}</p>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
           {myDesigns.length === 0 ? (
             <div style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '28px 20px', border: '0.5px solid var(--border)', textAlign: 'center' }}>
               <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '8px' }}>No designs yet</p>

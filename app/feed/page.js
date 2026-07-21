@@ -37,9 +37,15 @@ export default function FeedPage() {
   const [loadingFollowing, setLoadingFollowing]   = useState(false)
   const [followingLoaded, setFollowingLoaded]     = useState(false)
 
+  // Updates state
+  const [updates, setUpdates]               = useState([])
+  const [loadingUpdates, setLoadingUpdates] = useState(false)
+  const [updatesLoaded, setUpdatesLoaded]   = useState(false)
+
   // Shared
   const [currentUser, setCurrentUser] = useState(null)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [dropDesigns, setDropDesigns] = useState([])
 
   // Stories state
   const [stories, setStories]         = useState([])
@@ -67,8 +73,9 @@ export default function FeedPage() {
         setUnreadCount(count || 0)
       }
 
-      const [{ data: curatedDesigns }, { data: rawStories }] = await Promise.all([
+      const [{ data: curatedDesigns }, { data: drops }, { data: rawStories }] = await Promise.all([
         supabase.from('designs').select('*').eq('is_published', true).eq('is_curated', true),
+        supabase.from('designs').select('id, title, image_url').eq('is_published', true).eq('is_drop', true).order('created_at', { ascending: false }),
         supabase.from('stories')
           .select('*, profiles(id, display_name, avatar_url)')
           .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
@@ -83,6 +90,7 @@ export default function FeedPage() {
       })
 
       setDesigns(curatedDesigns || [])
+      setDropDesigns(drops || [])
       setStories(deduped)
       setLoadingExplore(false)
     }
@@ -132,6 +140,24 @@ export default function FeedPage() {
       }
       setLoadingFollowing(false)
       setFollowingLoaded(true)
+    }
+    if (tab === 'updates' && !updatesLoaded && currentUser) {
+      setLoadingUpdates(true)
+      const { data: followRows } = await supabase
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', currentUser.id)
+      const ids = (followRows || []).map(r => r.following_id)
+      if (ids.length > 0) {
+        const { data } = await supabase
+          .from('salon_posts')
+          .select('*, profiles(id, display_name, avatar_url, account_type)')
+          .in('creator_id', ids)
+          .order('created_at', { ascending: false })
+        setUpdates(data || [])
+      }
+      setLoadingUpdates(false)
+      setUpdatesLoaded(true)
     }
   }
 
@@ -310,7 +336,7 @@ export default function FeedPage() {
         display: 'flex', borderBottom: '0.5px solid var(--border)',
         padding: '0 20px', marginBottom: '0',
       }}>
-        {[['explore', 'Explore'], ['community', 'Community'], ['following', 'Following']].map(([val, label]) => (
+        {[['explore', 'Explore'], ['community', 'Community'], ['following', 'Following'], ['updates', 'Updates']].map(([val, label]) => (
           <button
             key={val}
             onClick={() => switchTab(val)}
@@ -437,6 +463,35 @@ export default function FeedPage() {
             )
           })()}
 
+          {/* ✦ Trend Drops carousel */}
+          {dropDesigns.length > 0 && (
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ padding: '0 20px 10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase' }}>✦ This Week's Drops</span>
+                <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>· Curated just for you</span>
+              </div>
+              <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', padding: '0 20px', scrollbarWidth: 'none' }}>
+                {dropDesigns.map(d => (
+                  <Link key={d.id} href={`/design/${d.id}?from=%2Ffeed`}
+                    onClick={() => sessionStorage.setItem('feed-scroll', window.scrollY.toString())}
+                    style={{ flexShrink: 0, width: '130px', textDecoration: 'none' }}
+                  >
+                    <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '0.5px solid var(--accent)', background: 'var(--bg-card)' }}>
+                      {d.image_url
+                        ? <div style={{ width: '130px', height: '130px', overflow: 'hidden' }}><img src={d.image_url} alt={d.title} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} /></div>
+                        : <div style={{ width: '130px', height: '130px', background: 'var(--bg-chip)' }} />
+                      }
+                      <div style={{ position: 'absolute', top: '6px', right: '6px', background: 'var(--accent)', color: '#2C0A1E', fontSize: '9px', fontWeight: '700', padding: '3px 7px', borderRadius: '8px' }}>
+                        DROP
+                      </div>
+                    </div>
+                    <p style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500', lineHeight: '1.3', margin: '6px 2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.title}</p>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Design grid */}
           <div style={{ padding: '0 20px' }}>
             {loadingExplore ? (
@@ -506,6 +561,64 @@ export default function FeedPage() {
               {community.map(design => (
                 <CommunityCard key={design.id} design={design} currentUser={currentUser} />
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* UPDATES TAB                                                         */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {mainTab === 'updates' && (
+        <div style={{ padding: '16px 20px' }}>
+          {!currentUser ? (
+            <div style={{ padding: '32px 0', textAlign: 'center' }}>
+              <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '500', marginBottom: '8px' }}>Sign in to see updates</p>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: '1.6', marginBottom: '20px' }}>
+                Follow salons and nail artists to get their latest news here.
+              </p>
+              <Link href="/profile" style={{ display: 'inline-block', background: 'var(--accent)', color: '#2C0A1E', borderRadius: '12px', padding: '12px 28px', fontSize: '14px', fontWeight: '600', textDecoration: 'none', fontFamily: "'DM Sans', sans-serif" }}>
+                Sign in
+              </Link>
+            </div>
+          ) : loadingUpdates ? (
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center', padding: '48px 0' }}>Loading...</p>
+          ) : updates.length === 0 ? (
+            <div style={{ padding: '32px 0', textAlign: 'center' }}>
+              <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '500', marginBottom: '8px' }}>No updates yet</p>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: '1.6' }}>
+                Updates from salons and artists you follow will appear here.
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {updates.map(post => {
+                const name   = post.profiles?.display_name || 'Creator'
+                const avatar = post.profiles?.avatar_url
+                const diff   = Date.now() - new Date(post.created_at).getTime()
+                const h = Math.floor(diff / 3600000)
+                const d = Math.floor(diff / 86400000)
+                const ago = d >= 1 ? `${d}d ago` : h >= 1 ? `${h}h ago` : 'Just now'
+                return (
+                  <div key={post.id} style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '16px', padding: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                      <Link href={`/creator/${post.creator_id}`} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
+                        <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'var(--bg-chip)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {avatar
+                            ? <img src={avatar} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            : <span style={{ color: 'var(--accent)', fontSize: '15px', fontWeight: '600' }}>{name[0].toUpperCase()}</span>
+                          }
+                        </div>
+                        <div>
+                          <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '600', margin: 0 }}>{name}</p>
+                          <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: '2px 0 0' }}>{ago}</p>
+                        </div>
+                      </Link>
+                    </div>
+                    <p style={{ color: 'var(--text-primary)', fontSize: '14px', lineHeight: '1.6', margin: 0, whiteSpace: 'pre-wrap' }}>{post.body}</p>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
