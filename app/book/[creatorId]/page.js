@@ -44,6 +44,8 @@ export default function BookPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const designId = searchParams.get('designId')
+  const prefillServiceId = searchParams.get('serviceId')
+  const prefillNote = searchParams.get('note')
 
   const [step, setStep] = useState(1) // 1=service, 2=date, 3=time, 4=confirm
   const [currentUser, setCurrentUser] = useState(null)
@@ -93,6 +95,17 @@ export default function BookPage() {
       setCreator(prof)
       setServices(svcs || [])
       setAvailability(avail || [])
+
+      // Pre-select service + note if coming from Book Again
+      if (prefillServiceId && svcs) {
+        const match = svcs.find(s => s.id === prefillServiceId)
+        if (match) {
+          setSelectedService(match)
+          setStep(2)
+        }
+      }
+      if (prefillNote) setNote(decodeURIComponent(prefillNote))
+
       setLoading(false)
     }
     init()

@@ -220,6 +220,19 @@ export default function AppointmentDetailPage() {
           </button>
         )}
 
+        {/* Book again */}
+        <Link
+          href={`/book/${creator?.id}?serviceId=${service?.id}${booking.notes ? `&note=${encodeURIComponent(booking.notes)}` : ''}`}
+          style={{
+            display: 'block', textAlign: 'center', padding: '14px',
+            background: 'var(--accent)', color: '#2C0A1E',
+            borderRadius: '14px', fontSize: '15px', fontWeight: '600',
+            textDecoration: 'none', marginBottom: '10px',
+          }}
+        >
+          Book again
+        </Link>
+
         {/* Message creator */}
         <Link
           href={`/messages?with=${creator?.id}`}
