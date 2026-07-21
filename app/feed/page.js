@@ -148,14 +148,24 @@ export default function FeedPage() {
         .select('following_id')
         .eq('follower_id', currentUser.id)
       const followedIds = (followRows || []).map(r => r.following_id)
-      // include own posts + followed creators
       const ids = [...new Set([currentUser.id, ...followedIds])]
-      const { data } = await supabase
+      const { data: postsData } = await supabase
         .from('salon_posts')
-        .select('*, profiles(id, display_name, avatar_url, account_type)')
+        .select('*')
         .in('creator_id', ids)
         .order('created_at', { ascending: false })
-      setUpdates(data || [])
+      if (postsData?.length) {
+        const profileIds = [...new Set(postsData.map(p => p.creator_id))]
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, display_name, avatar_url, account_type')
+          .in('id', profileIds)
+        const profileMap = {}
+        profilesData?.forEach(p => { profileMap[p.id] = p })
+        setUpdates(postsData.map(post => ({ ...post, profiles: profileMap[post.creator_id] || null })))
+      } else {
+        setUpdates([])
+      }
       setLoadingUpdates(false)
       setUpdatesLoaded(true)
     }
