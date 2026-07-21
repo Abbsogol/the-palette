@@ -619,8 +619,8 @@ export default function ProfilePage() {
 
       {/* ── Post update modal ──────────────────────────────────────────── */}
       {postModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-          <div style={{ width: '100%', maxWidth: '480px', background: 'var(--bg-primary)', borderRadius: '20px 20px 0 0', padding: '24px 20px 40px' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ width: '100%', maxWidth: '440px', background: 'var(--bg-primary)', borderRadius: '20px', padding: '24px 20px 28px', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <p style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '600', margin: 0 }}>
                 {editingPostId ? 'Edit update' : 'Post an update'}
