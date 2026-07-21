@@ -769,7 +769,7 @@ export default function AdminPage() {
       <h1 style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: '500', marginBottom: '20px' }}>Laque</h1>
 
       <div style={{ display: 'flex', gap: '8px', marginBottom: '28px', flexWrap: 'wrap' }}>
-        {[['upload', 'Upload Design'], ['manage', 'Manage Designs'], ['shop', 'Shop Products'], ['dashboard', 'Dashboard'], ['tags', 'Tags'], ['credits', 'Credits']].map(([tab, label]) => (
+        {[['upload', 'Upload Design'], ['manage', 'Manage Designs'], ['shop', 'Shop Products'], ['dashboard', 'Dashboard'], ['tags', 'Tags'], ['credits', 'Credits'], ['challenges', 'Challenges']].map(([tab, label]) => (
           <button key={tab} onClick={() => { setActiveTab(tab); setSuccessMsg(''); setAddingProduct(false) }} style={{
             background: activeTab === tab ? 'var(--accent)' : 'var(--bg-chip)',
             color: activeTab === tab ? '#2C0A1E' : 'var(--text-secondary)',
@@ -889,6 +889,9 @@ export default function AdminPage() {
 
       {/* ── CREDITS TAB ── */}
       {activeTab === 'credits' && <CreditsManager />}
+
+      {/* ── CHALLENGES TAB ── */}
+      {activeTab === 'challenges' && <ChallengesManager />}
 
     </div>
   )
@@ -1031,4 +1034,79 @@ const removeBtn = {
   border: 'none', borderRadius: '50%', width: '22px', height: '22px',
   color: '#fff', fontSize: '14px', cursor: 'pointer',
   display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
+}
+
+// ─── Challenges Manager ───────────────────────────────────────────
+function ChallengesManager() {
+  const [challenges, setChallenges] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [endsAt, setEndsAt] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  useEffect(() => {
+    supabase.from('challenges').select('*').order('created_at', { ascending: false }).then(({ data }) => {
+      setChallenges(data || [])
+      setLoading(false)
+    })
+  }, [])
+
+  const handleCreate = async () => {
+    if (!title.trim() || !endsAt) return
+    setSaving(true)
+    const { data, error } = await supabase.from('challenges').insert({
+      title: title.trim(),
+      description: description.trim() || null,
+      ends_at: new Date(endsAt).toISOString(),
+    }).select().single()
+    if (!error && data) {
+      setChallenges(prev => [data, ...prev])
+      setTitle(''); setDescription(''); setEndsAt('')
+      setMsg('Challenge created!')
+      setTimeout(() => setMsg(''), 3000)
+    }
+    setSaving(false)
+  }
+
+  const handleDelete = async (id) => {
+    if (!confirm('Delete this challenge and all submissions?')) return
+    await supabase.from('challenges').delete().eq('id', id)
+    setChallenges(prev => prev.filter(c => c.id !== id))
+  }
+
+  const inputStyle = { width: '100%', background: 'var(--bg-chip)', border: '0.5px solid var(--border)', borderRadius: '10px', padding: '10px 12px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', marginBottom: '10px' }
+
+  return (
+    <div>
+      <h2 style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '600', marginBottom: '20px' }}>Create Challenge</h2>
+      <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Challenge title e.g. Spring Florals" style={inputStyle} />
+      <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Description (optional)" rows={3} style={{ ...inputStyle, resize: 'none' }} />
+      <input type="datetime-local" value={endsAt} onChange={e => setEndsAt(e.target.value)} style={inputStyle} />
+      <button onClick={handleCreate} disabled={saving || !title.trim() || !endsAt} style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '10px', padding: '11px 24px', fontSize: '14px', fontWeight: '600', fontFamily: 'inherit', cursor: 'pointer', marginBottom: '24px' }}>
+        {saving ? 'Creating…' : 'Create Challenge'}
+      </button>
+      {msg && <p style={{ color: '#6CC882', fontSize: '13px', marginBottom: '16px' }}>{msg}</p>}
+
+      <h2 style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '600', marginBottom: '12px' }}>All Challenges</h2>
+      {loading ? <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Loading…</p> : challenges.length === 0 ? (
+        <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>No challenges yet.</p>
+      ) : challenges.map(c => {
+        const ended = new Date(c.ends_at) < new Date()
+        return (
+          <div key={c.id} style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px 16px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '600', margin: '0 0 4px' }}>{c.title}</p>
+              {c.description && <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '0 0 4px' }}>{c.description}</p>}
+              <p style={{ color: ended ? '#E07070' : 'var(--accent)', fontSize: '11px', margin: 0 }}>
+                {ended ? 'Ended' : 'Ends'}: {new Date(c.ends_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
+            <button onClick={() => handleDelete(c.id)} style={{ background: 'none', border: 'none', color: '#E07070', fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0, marginLeft: '12px' }}>Delete</button>
+          </div>
+        )
+      })}
+    </div>
+  )
 }

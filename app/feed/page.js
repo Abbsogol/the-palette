@@ -48,6 +48,7 @@ export default function FeedPage() {
   const [userProfile, setUserProfile] = useState(null)
   const [unreadCount, setUnreadCount] = useState(0)
   const [dropDesigns, setDropDesigns] = useState([])
+  const [activeChallenge, setActiveChallenge] = useState(null)
 
   // Stories state
   const [stories, setStories]         = useState([])
@@ -75,13 +76,14 @@ export default function FeedPage() {
         setUserProfile(prof || null)
       }
 
-      const [{ data: curatedDesigns }, { data: drops }, { data: rawStories }] = await Promise.all([
+      const [{ data: curatedDesigns }, { data: drops }, { data: rawStories }, { data: challengeData }] = await Promise.all([
         supabase.from('designs').select('*').eq('is_published', true).eq('is_curated', true),
         supabase.from('designs').select('id, title, image_url').eq('is_published', true).eq('is_drop', true).order('created_at', { ascending: false }),
         supabase.from('stories')
           .select('*, profiles(id, display_name, avatar_url)')
           .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
           .order('created_at', { ascending: false }),
+        supabase.from('challenges').select('id, title, ends_at').gt('ends_at', new Date().toISOString()).order('ends_at', { ascending: true }).limit(1).single(),
       ])
 
       // Deduplicate stories by user
@@ -93,6 +95,7 @@ export default function FeedPage() {
 
       setDesigns(curatedDesigns || [])
       setDropDesigns(drops || [])
+      setActiveChallenge(challengeData || null)
       setStories(deduped)
       setLoadingExplore(false)
     }
@@ -410,6 +413,19 @@ export default function FeedPage() {
       {/* ════════════════════════════════════════════════════════════════════ */}
       {mainTab === 'explore' && (
         <>
+          {/* Active challenge banner */}
+          {activeChallenge && (
+            <Link href={`/challenges/${activeChallenge.id}`} style={{ textDecoration: 'none', display: 'block', margin: '8px 20px 4px' }}>
+              <div style={{ background: 'linear-gradient(135deg, rgba(212,160,192,0.15) 0%, rgba(155,94,138,0.1) 100%)', border: '0.5px solid rgba(212,160,192,0.35)', borderRadius: '14px', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <p style={{ color: 'var(--accent)', fontSize: '10px', fontWeight: '700', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 2px' }}>✦ Active Challenge</p>
+                  <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '600', margin: 0 }}>{activeChallenge.title}</p>
+                </div>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4L10 8L6 12" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </div>
+            </Link>
+          )}
+
           {/* Story circles */}
           {(stories.length > 0 || currentUser) && (
             <div style={{ display: 'flex', gap: '14px', overflowX: 'auto', padding: '16px 20px', scrollbarWidth: 'none' }}>
