@@ -28,6 +28,7 @@ const notifText = (n) => {
   if (n.type === 'booking_declined')    return `${name} declined your booking request`
   if (n.type === 'new_message')         return `${name} sent you a message`
   if (n.type === 'appointment_reminder') return `Reminder: you have an appointment tomorrow with ${name}`
+  if (n.type === 'moodboard_invite') return `${name} invited you to collaborate on a moodboard`
   return ''
 }
 
@@ -37,6 +38,7 @@ const notifHref = (n) => {
   if (n.type === 'booking_confirmed' || n.type === 'booking_declined') return `/appointments`
   if (n.type === 'new_message')         return `/messages`
   if (n.type === 'appointment_reminder') return `/appointments`
+  if (n.type === 'moodboard_invite')    return `/moodboards`
   if (n.design_id)                      return `/design/${n.design_id}`
   return '#'
 }
