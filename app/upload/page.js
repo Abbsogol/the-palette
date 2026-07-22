@@ -140,6 +140,9 @@ export default function UploadPage() {
         weekly_uploads: (profile.weekly_uploads || 0) + 1,
       }).eq('id', user.id)
 
+      // Reward for posting a design
+      fetch('/api/add-reward', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: user.id, reason: 'post_design' }) })
+
       setSuccess(true)
       setTimeout(() => router.push(`/design/${design.id}`), 1500)
     } catch (err) {

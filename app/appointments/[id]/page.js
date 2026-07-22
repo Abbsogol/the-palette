@@ -119,6 +119,8 @@ export default function AppointmentDetailPage() {
       await supabase.from('reviews').update({ rating: reviewRating, text: reviewText.trim() || null }).eq('id', review.id)
     } else {
       await supabase.from('reviews').insert(payload)
+      // Reward for leaving a review (first time only)
+      fetch('/api/add-reward', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: currentUser.id, reason: 'leave_review' }) })
     }
     setReviewSubmitted(true)
     setReviewLoading(false)

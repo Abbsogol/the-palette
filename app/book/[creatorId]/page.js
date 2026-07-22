@@ -180,6 +180,9 @@ export default function BookPage() {
       type: 'booking_request',
     })
 
+    // Reward the client for booking
+    fetch('/api/add-reward', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: currentUser.id, reason: 'book_appointment' }) })
+
     setSubmitting(false)
     setDone(true)
   }
