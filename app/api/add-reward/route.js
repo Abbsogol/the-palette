@@ -7,10 +7,12 @@ const supabase = createClient(
 
 // Point values per action
 export const REWARD_POINTS = {
-  save_design:    5,
-  post_design:    10,
-  leave_review:   15,
-  book_appointment: 20,
+  save_design:       5,
+  post_design:       10,
+  leave_review:      15,
+  book_appointment:  20,
+  invite_friend:     50,
+  joined_via_invite: 25,
 }
 
 export async function POST(request) {

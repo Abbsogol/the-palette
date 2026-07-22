@@ -1092,6 +1092,15 @@ export default function ProfilePage() {
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4L10 8L6 12" stroke="#888888" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </Link>
 
+          <Link href="/invite"
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', borderRadius: '12px', padding: '14px 16px', border: '0.5px solid var(--border)', textDecoration: 'none', marginBottom: '10px' }}>
+            <div>
+              <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500', marginBottom: '2px' }}>💅 Invite & Earn</p>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Share your code — you both get reward points</p>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4L10 8L6 12" stroke="#888888" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </Link>
+
           <Link href={`/creator/${user.id}`}
             style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', borderRadius: '12px', padding: '14px 16px', border: '0.5px solid var(--border)', textDecoration: 'none', marginBottom: '10px' }}>
             <div>

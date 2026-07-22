@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
 // ── Option lists ────────────────────────────────────────────────────────────
@@ -54,14 +54,17 @@ const label = {
   display: 'block',
 }
 
-export default function OnboardingPage() {
+function OnboardingInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const [user, setUser]       = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [stepIdx, setStepIdx] = useState(0)
   const [saving, setSaving]   = useState(false)
+
+  const [referralCode, setReferralCode] = useState('')
 
   const [d, setD] = useState({
     display_name: '',
@@ -82,6 +85,10 @@ export default function OnboardingPage() {
   })
 
   useEffect(() => {
+    // Pre-fill referral code from ?ref= param
+    const ref = searchParams.get('ref')
+    if (ref) setReferralCode(ref.toUpperCase().trim())
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session?.user) { router.push('/profile'); return }
       init(session.user)
@@ -153,6 +160,16 @@ export default function OnboardingPage() {
       credit_balance:       credits,
       onboarding_complete:  true,
     }).eq('id', user.id)
+
+    // Apply referral code if provided
+    if (referralCode.trim()) {
+      fetch('/api/apply-referral', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: referralCode.trim(), new_user_id: user.id }),
+      }).catch(() => {})
+    }
+
     setSaving(false)
     router.push(redirectTo)
   }
@@ -220,6 +237,19 @@ export default function OnboardingPage() {
                     rows={3} style={{ ...inp, resize: 'none' }} />
                 </div>
               )}
+              <div>
+                <p style={label}>Referral code <span style={{ fontWeight: '400', opacity: 0.6 }}>(optional)</span></p>
+                <input
+                  value={referralCode}
+                  onChange={e => setReferralCode(e.target.value.toUpperCase().trim())}
+                  placeholder="e.g. AB12CD34"
+                  style={{ ...inp, letterSpacing: '0.08em' }}
+                  maxLength={8}
+                />
+                <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '6px' }}>
+                  Got a code from a friend? Enter it here and you'll both earn Beauty Rewards points.
+                </p>
+              </div>
             </div>
           </div>
         )
@@ -470,5 +500,17 @@ export default function OnboardingPage() {
       </div>
 
     </div>
+  )
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ position: 'fixed', inset: 0, background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif" }}>Loading...</p>
+      </div>
+    }>
+      <OnboardingInner />
+    </Suspense>
   )
 }

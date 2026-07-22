@@ -13,10 +13,12 @@ const LEVELS = [
 ]
 
 const REASON_LABELS = {
-  save_design:      { label: 'Saved a design',       points: '+5'  },
-  post_design:      { label: 'Posted a design',      points: '+10' },
-  leave_review:     { label: 'Left a review',        points: '+15' },
-  book_appointment: { label: 'Booked an appointment', points: '+20' },
+  save_design:       { label: 'Saved a design',        points: '+5'  },
+  post_design:       { label: 'Posted a design',       points: '+10' },
+  leave_review:      { label: 'Left a review',         points: '+15' },
+  book_appointment:  { label: 'Booked an appointment', points: '+20' },
+  invite_friend:     { label: 'Invited a friend',      points: '+50' },
+  joined_via_invite: { label: 'Joined via invite',     points: '+25' },
 }
 
 function getLevel(total) {
@@ -103,7 +105,7 @@ export default function RewardsPage() {
         {/* How to earn */}
         <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '16px', padding: '16px', marginBottom: '20px' }}>
           <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 12px' }}>How to earn</p>
-          {Object.entries(REASON_LABELS).map(([key, { label, points }]) => (
+          {Object.entries(REASON_LABELS).filter(([key]) => key !== 'joined_via_invite').map(([key, { label, points }]) => (
             <div key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', borderBottom: '0.5px solid var(--border)' }}>
               <span style={{ color: 'var(--text-primary)', fontSize: '13px' }}>{label}</span>
               <span style={{ color: 'var(--accent)', fontSize: '13px', fontWeight: '600' }}>{points} pts</span>
