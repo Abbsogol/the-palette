@@ -48,6 +48,7 @@ export default function FeedPage() {
   const [userProfile, setUserProfile] = useState(null)
   const [unreadCount, setUnreadCount] = useState(0)
   const [dropDesigns, setDropDesigns] = useState([])
+  const [boostedDesigns, setBoostedDesigns] = useState([])
   const [activeChallenge, setActiveChallenge] = useState(null)
 
   // Stories state
@@ -76,7 +77,7 @@ export default function FeedPage() {
         setUserProfile(prof || null)
       }
 
-      const [{ data: curatedDesigns }, { data: drops }, { data: rawStories }, { data: challengeData }] = await Promise.all([
+      const [{ data: curatedDesigns }, { data: drops }, { data: rawStories }, { data: challengeData }, { data: boosted }] = await Promise.all([
         supabase.from('designs').select('*').eq('is_published', true).eq('is_curated', true),
         supabase.from('designs').select('id, title, image_url').eq('is_published', true).eq('is_drop', true).order('created_at', { ascending: false }),
         supabase.from('stories')
@@ -84,6 +85,7 @@ export default function FeedPage() {
           .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
           .order('created_at', { ascending: false }),
         supabase.from('challenges').select('id, title, ends_at').gt('ends_at', new Date().toISOString()).order('ends_at', { ascending: true }).limit(1).single(),
+        supabase.from('designs').select('id, title, image_url').eq('is_published', true).gt('boosted_until', new Date().toISOString()).order('boosted_until', { ascending: false }),
       ])
 
       // Deduplicate stories by user
@@ -95,6 +97,7 @@ export default function FeedPage() {
 
       setDesigns(curatedDesigns || [])
       setDropDesigns(drops || [])
+      setBoostedDesigns(boosted || [])
       setActiveChallenge(challengeData || null)
       setStories(deduped)
       setLoadingExplore(false)
@@ -560,6 +563,34 @@ export default function FeedPage() {
                       }
                       <div style={{ position: 'absolute', top: '6px', right: '6px', background: 'var(--accent)', color: '#2C0A1E', fontSize: '9px', fontWeight: '700', padding: '3px 7px', borderRadius: '8px' }}>
                         DROP
+                      </div>
+                    </div>
+                    <p style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500', lineHeight: '1.3', margin: '6px 2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.title}</p>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ✦ Promoted carousel */}
+          {boostedDesigns.length > 0 && (
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ padding: '0 20px 10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase' }}>✦ Promoted</span>
+              </div>
+              <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', padding: '0 20px', scrollbarWidth: 'none' }}>
+                {boostedDesigns.map(d => (
+                  <Link key={d.id} href={`/design/${d.id}?from=%2Ffeed`}
+                    onClick={() => sessionStorage.setItem('feed-scroll', window.scrollY.toString())}
+                    style={{ flexShrink: 0, width: '130px', textDecoration: 'none' }}
+                  >
+                    <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '0.5px solid var(--border)', background: 'var(--bg-card)' }}>
+                      {d.image_url
+                        ? <div style={{ width: '130px', height: '130px', overflow: 'hidden' }}><img src={d.image_url} alt={d.title} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} /></div>
+                        : <div style={{ width: '130px', height: '130px', background: 'var(--bg-chip)' }} />
+                      }
+                      <div style={{ position: 'absolute', top: '6px', left: '6px', background: 'rgba(44,10,30,0.75)', color: 'var(--text-secondary)', fontSize: '9px', fontWeight: '600', padding: '3px 7px', borderRadius: '8px', letterSpacing: '0.04em' }}>
+                        Promoted
                       </div>
                     </div>
                     <p style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500', lineHeight: '1.3', margin: '6px 2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.title}</p>

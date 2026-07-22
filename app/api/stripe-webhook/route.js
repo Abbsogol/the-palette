@@ -29,6 +29,24 @@ export async function POST(request) {
     if (session.mode === 'payment') {
       const { type, bookingId, userId, credits } = session.metadata || {}
 
+      // Boost payment
+      if (type === 'boost' && session.metadata?.designId) {
+        const { designId, days } = session.metadata
+        const daysNum = parseInt(days, 10)
+        // Extend from now (or from current boosted_until if still active)
+        const { data: existing } = await supabase
+          .from('designs')
+          .select('boosted_until')
+          .eq('id', designId)
+          .single()
+        const base = existing?.boosted_until && new Date(existing.boosted_until) > new Date()
+          ? new Date(existing.boosted_until)
+          : new Date()
+        const boostedUntil = new Date(base.getTime() + daysNum * 86400000).toISOString()
+        await supabase.from('designs').update({ boosted_until: boostedUntil }).eq('id', designId)
+        console.log(`Boosted design ${designId} until ${boostedUntil}`)
+      }
+
       // Deposit payment
       if (type === 'deposit' && bookingId) {
         const { error } = await supabase

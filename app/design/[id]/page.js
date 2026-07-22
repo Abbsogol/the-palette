@@ -8,12 +8,13 @@ import BackButton from '@/components/BackButton'
 import NailTechCard from '@/components/NailTechCard'
 import SaveToBoard from '@/components/SaveToBoard'
 import SendDesignButton from '@/components/SendDesignButton'
+import BoostButton from '@/components/BoostButton'
 
 export const dynamic = 'force-dynamic'
 
 export default async function DesignPage({ params, searchParams }) {
   const { id } = await params
-  const { from } = await searchParams || {}
+  const { from, boosted } = await searchParams || {}
   const backHref = from ? decodeURIComponent(from) : '/'
 
   const { data: design } = await supabase
@@ -159,6 +160,15 @@ export default async function DesignPage({ params, searchParams }) {
   return (
     <div style={{ paddingBottom: '32px' }}>
 
+      {/* Boost success banner */}
+      {boosted === '1' && (
+        <div style={{ background: 'rgba(212,160,192,0.15)', borderBottom: '0.5px solid rgba(212,160,192,0.3)', padding: '12px 20px', textAlign: 'center' }}>
+          <p style={{ color: 'var(--accent)', fontSize: '13px', fontWeight: '600', margin: 0 }}>
+            ✦ Your design is now boosted and featured in the feed!
+          </p>
+        </div>
+      )}
+
       {/* Back + Save */}
       <div style={{ padding: '16px 20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Link href={backHref} style={{
@@ -172,6 +182,9 @@ export default async function DesignPage({ params, searchParams }) {
           Back
         </Link>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {design.created_by && (
+            <BoostButton designId={design.id} creatorId={design.created_by} boostedUntil={design.boosted_until || null} />
+          )}
           <ShareButton title={design.title} />
           <SendDesignButton design={{ id: design.id, title: design.title, image_url: design.image_url }} />
           <SaveToBoard designId={design.id} designImageUrl={design.image_url} />
