@@ -180,7 +180,7 @@ export default function CommunityCard({ design, currentUser }) {
         </Link>
         {(design.shape || design.occasion) && (
           <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.05em', textTransform: 'uppercase', marginTop: '4px', marginBottom: 0 }}>
-            {[design.shape, design.occasion].filter(Boolean).join(' · ')}
+            {[design.shape, design.occasion?.split(',')[0]?.trim()].filter(Boolean).join(' · ')}
           </p>
         )}
       </div>

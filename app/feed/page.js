@@ -622,8 +622,8 @@ export default function FeedPage() {
                     )}
                     <div style={{ padding: '10px 12px 12px' }}>
                       <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', marginBottom: '4px', lineHeight: '1.3' }}>{design.title}</p>
-                      <p style={{ color: 'var(--accent)', fontSize: '10px', fontWeight: '500', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                        {design.shape} · {design.occasion}
+                      <p style={{ color: 'var(--accent)', fontSize: '10px', fontWeight: '500', letterSpacing: '0.05em', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {[design.shape, design.occasion?.split(',')[0]?.trim()].filter(Boolean).join(' · ')}
                       </p>
                     </div>
                   </Link>
