@@ -768,14 +768,16 @@ export default function NailLabPage() {
         <div style={{ padding: '24px 20px 20px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <div>
             <h1 style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: '500', letterSpacing: '-0.02em', margin: '0 0 4px' }}>Nail Lab</h1>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0 }}>Generate a custom design with AI</p>
-              <Link href="/nail-lab/history" style={{ color: 'var(--accent)', fontSize: '12px', textDecoration: 'none', fontFamily: "'DM Sans', sans-serif", fontWeight: '500' }}>History</Link>
-            </div>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0 }}>Generate a custom design with AI</p>
           </div>
-          <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '8px 14px', textAlign: 'center', flexShrink: 0 }}>
-            <p style={{ color: 'var(--accent)', fontSize: '18px', fontWeight: '600', margin: 0, fontFamily: "'DM Sans', sans-serif", lineHeight: 1 }}>{credits ?? '—'}</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '10px', margin: '2px 0 0', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Credits</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+            <Link href="/nail-lab/history" style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '8px 14px', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: '500', textDecoration: 'none', fontFamily: "'DM Sans', sans-serif" }}>
+              History
+            </Link>
+            <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '8px 14px', textAlign: 'center', flexShrink: 0 }}>
+              <p style={{ color: 'var(--accent)', fontSize: '18px', fontWeight: '600', margin: 0, fontFamily: "'DM Sans', sans-serif", lineHeight: 1 }}>{credits ?? '—'}</p>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '10px', margin: '2px 0 0', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Credits</p>
+            </div>
           </div>
         </div>
 
