@@ -259,6 +259,7 @@ export default function NailLabPage() {
 
   // Result screen actions
   const [freeRegenUsed, setFreeRegenUsed] = useState(false)
+  const [rootGenerationId, setRootGenerationId] = useState(null)
   const [publishedDesignId, setPublishedDesignId] = useState(null)
   const [publishStatus, setPublishStatus] = useState(null) // null | 'draft' | 'published'
   const [showNailTechSheet, setShowNailTechSheet] = useState(false)
@@ -331,25 +332,30 @@ export default function NailLabPage() {
 
   const canGenerate = vibes.length > 0 && shape && length && currentUser && credits >= 1 && !generating
 
-  const callGenerateAPI = async (freeRegen = false) => {
+  const callGenerateAPI = async (freeRegen = false, parentId = null) => {
     setGenerating(true)
     setGenError(null)
     try {
+      const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch('/api/generate-nail-design', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({
-          userId: currentUser.id,
           vibe: vibes, shape, length, colors,
           occasion: occasions,
           customText: customText || null,
           referenceImageUrls: refDesigns.map(d => d.image_url).filter(Boolean),
           freeRegen,
+          parentGenerationId: parentId,
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Generation failed')
       setResult(data)
+      if (!parentId) setRootGenerationId(data.generationId)
       if (!freeRegen) setCredits(data.creditsRemaining)
       setPublishedDesignId(null)
       setPublishStatus(null)
@@ -365,7 +371,8 @@ export default function NailLabPage() {
     if (!canGenerate) return
     setResult(null)
     setFreeRegenUsed(false)
-    await callGenerateAPI(false)
+    setRootGenerationId(null)
+    await callGenerateAPI(false, null)
   }
 
   const regen = async (free = false) => {
@@ -373,7 +380,7 @@ export default function NailLabPage() {
     if (free && freeRegenUsed) return
     if (!free && credits < 1) return
     if (free) setFreeRegenUsed(true)
-    await callGenerateAPI(free)
+    await callGenerateAPI(free, rootGenerationId)
   }
 
   const ensureDesignId = async () => {
@@ -444,6 +451,7 @@ export default function NailLabPage() {
     setPublishedDesignId(null)
     setPublishStatus(null)
     setFreeRegenUsed(false)
+    setRootGenerationId(null)
     setShowSaveBoard(false)
     setShowNailTechSheet(false)
     setShowPublishSheet(false)

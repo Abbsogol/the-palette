@@ -1,13 +1,20 @@
 import { createClient } from '@supabase/supabase-js'
+import { getSessionUser } from '@/lib/auth'
 
 export const maxDuration = 60 // allow up to 60s for gpt-image-1
 
 export async function POST(request) {
   try {
-    const body = await request.json()
-    const { vibe, shape, length, colors, occasion, customText, referenceImageUrls, userId, freeRegen } = body
+    const user = await getSessionUser(request)
+    if (!user) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const userId = user.id
 
-    if (!userId || !vibe || !shape || !length) {
+    const body = await request.json()
+    const { vibe, shape, length, colors, occasion, customText, referenceImageUrls, freeRegen, parentGenerationId } = body
+
+    if (!vibe || !shape || !length) {
       return Response.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
@@ -26,6 +33,21 @@ export async function POST(request) {
 
     if (profileError || !profile) {
       return Response.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    // A free regen must point at a real, unused, original (non-regen) generation owned by this user
+    if (freeRegen) {
+      const { data: parent } = parentGenerationId
+        ? await supabase
+            .from('nail_lab_generations')
+            .select('id, user_id, free_regen_used, parent_generation_id')
+            .eq('id', parentGenerationId)
+            .single()
+        : { data: null }
+
+      if (!parent || parent.user_id !== userId || parent.free_regen_used || parent.parent_generation_id) {
+        return Response.json({ error: 'Free regen unavailable' }, { status: 403 })
+      }
     }
 
     if (!freeRegen && profile.credit_balance < 1) {
@@ -130,9 +152,11 @@ DESIGN NAME: Choose a name that is ${nameHint}. Subtitle should reflect shape, l
       .from('nail-lab')
       .getPublicUrl(fileName)
 
-    // Deduct 1 credit (skip for free regen)
+    // Deduct 1 credit, or mark the free regen as used on its parent
     if (!freeRegen) {
       await supabase.rpc('decrement_credits', { user_id: userId })
+    } else {
+      await supabase.from('nail_lab_generations').update({ free_regen_used: true }).eq('id', parentGenerationId)
     }
 
     // Save generation record
@@ -150,6 +174,7 @@ DESIGN NAME: Choose a name that is ${nameHint}. Subtitle should reflect shape, l
         prompt_used: prompt,
         reference_image_urls: referenceImageUrls || [],
         credits_used: 1,
+        parent_generation_id: parentGenerationId || null,
       })
       .select()
       .single()
