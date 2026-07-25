@@ -1,13 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-
-const ADMIN_PASSWORD = 'palette2024'
 
 export default function BatchUploadPage() {
   const [authed, setAuthed] = useState(false)
-  const [password, setPassword] = useState('')
+  const [checkingAuth, setCheckingAuth] = useState(true)
   const [jsonText, setJsonText] = useState('')
   const [designs, setDesigns] = useState([])
   const [images, setImages] = useState({})
@@ -15,9 +13,14 @@ export default function BatchUploadPage() {
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState([])
 
-  const handleLogin = () => {
-    if (password === ADMIN_PASSWORD) setAuthed(true)
-  }
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session?.user) { setCheckingAuth(false); return }
+      const { data: prof } = await supabase.from('profiles').select('is_admin').eq('id', session.user.id).single()
+      setAuthed(!!prof?.is_admin)
+      setCheckingAuth(false)
+    })
+  }, [])
 
   const parseJSON = () => {
     setParseError('')
@@ -136,15 +139,22 @@ export default function BatchUploadPage() {
     label: { color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px', display: 'block' },
   }
 
-  if (!authed) {
+  if (checkingAuth) {
     return (
       <div style={s.bg}>
         <div style={{ ...s.inner, paddingTop: '30vh' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Loading…</p>
+        </div>
+      </div>
+    )
+  }
+  if (!authed) {
+    return (
+      <div style={s.bg}>
+        <div style={{ ...s.inner, paddingTop: '30vh', textAlign: 'center' }}>
           <p style={{ color: 'var(--accent)', fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Admin</p>
-          <h1 style={{ fontSize: '28px', fontWeight: '400', marginBottom: '24px' }}>Batch Upload</h1>
-          <input style={s.input} type="password" placeholder="Admin password" value={password}
-            onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleLogin()} />
-          <button style={{ ...s.btn, marginTop: '12px' }} onClick={handleLogin}>Enter</button>
+          <h1 style={{ fontSize: '28px', fontWeight: '400', marginBottom: '10px' }}>You don't have access</h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Sign in with an admin account to view this page.</p>
         </div>
       </div>
     )

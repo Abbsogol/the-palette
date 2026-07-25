@@ -8,8 +8,6 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 )
 
-const ADMIN_PASSWORD = 'palette2024'
-
 async function authHeaders() {
   const { data: { session } } = await supabase.auth.getSession()
   return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
@@ -559,8 +557,7 @@ function CreditsManager() {
 // ─── Main Admin Page ──────────────────────────────────────────────
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false)
-  const [passwordInput, setPasswordInput] = useState('')
-  const [passwordError, setPasswordError] = useState('')
+  const [checkingAuth, setCheckingAuth] = useState(true)
   const [activeTab, setActiveTab] = useState('upload')
   const [successMsg, setSuccessMsg] = useState('')
 
@@ -577,10 +574,14 @@ export default function AdminPage() {
   const [editingProduct, setEditingProduct] = useState(null)
   const [addingProduct, setAddingProduct] = useState(false)
 
-  const handleLogin = () => {
-    if (passwordInput === ADMIN_PASSWORD) setAuthed(true)
-    else setPasswordError('Incorrect password')
-  }
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session?.user) { setCheckingAuth(false); return }
+      const { data: prof } = await supabase.from('profiles').select('is_admin').eq('id', session.user.id).single()
+      setAuthed(!!prof?.is_admin)
+      setCheckingAuth(false)
+    })
+  }, [])
 
   useEffect(() => {
     if (authed && activeTab === 'manage' && !editingDesign) loadDesigns()
@@ -724,19 +725,21 @@ export default function AdminPage() {
     loadProducts()
   }
 
-  // ── Password screen ──────────────────────────────────────────────
+  // ── Auth gate ─────────────────────────────────────────────────────
+  if (checkingAuth) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Loading…</p>
+      </div>
+    )
+  }
   if (!authed) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-        <div style={{ width: '100%', maxWidth: '360px' }}>
+        <div style={{ width: '100%', maxWidth: '360px', textAlign: 'center' }}>
           <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Admin</p>
-          <h1 style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: '500', marginBottom: '24px' }}>Laque</h1>
-          <input type="password" placeholder="Admin password" value={passwordInput}
-            onChange={e => { setPasswordInput(e.target.value); setPasswordError('') }}
-            onKeyDown={e => e.key === 'Enter' && handleLogin()}
-            style={{ ...inputStyle, marginBottom: '10px' }} />
-          {passwordError && <p style={{ color: '#e57373', fontSize: '12px', marginBottom: '10px' }}>{passwordError}</p>}
-          <button onClick={handleLogin} style={{ width: '100%', background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '10px', padding: '12px', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }}>Enter</button>
+          <h1 style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: '500', marginBottom: '10px' }}>You don't have access</h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Sign in with an admin account to view this page.</p>
         </div>
       </div>
     )
