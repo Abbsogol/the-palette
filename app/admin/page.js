@@ -10,6 +10,11 @@ const supabase = createClient(
 
 const ADMIN_PASSWORD = 'palette2024'
 
+async function authHeaders() {
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
+}
+
 const SHAPES = ['Round', 'Square', 'Oval', 'Coffin', 'Almond', 'Stiletto', 'Ballerina', 'Squoval']
 const LENGTHS = ['Short', 'Medium', 'Long', 'Extra Long']
 const OCCASIONS = [
@@ -484,7 +489,9 @@ function CreditsManager() {
 
   const fetchUsers = async (q = '') => {
     setLoading(true)
-    const res = await fetch(`/api/admin-profiles?q=${encodeURIComponent(q)}`)
+    const res = await fetch(`/api/admin-profiles?q=${encodeURIComponent(q)}`, {
+      headers: await authHeaders(),
+    })
     const data = await res.json()
     setResults(data.users || [])
     setSelected(null)
@@ -501,7 +508,7 @@ function CreditsManager() {
     const newBalance = Math.max(0, (selected.credit_balance ?? 0) + delta * parseInt(amount))
     const res = await fetch('/api/admin-profiles', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
       body: JSON.stringify({ userId: selected.id, credits: newBalance }),
     })
     if (res.ok) {
