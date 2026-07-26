@@ -57,7 +57,7 @@ export default function BookingDetailPage() {
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
+      if (!user) { router.push('/profile'); return }
       setCurrentUser(user)
 
       const { data } = await supabase

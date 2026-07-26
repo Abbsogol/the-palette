@@ -49,7 +49,7 @@ export default function AvailabilityPage() {
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
+      if (!user) { router.push('/profile'); return }
       const { data: profile } = await supabase.from('profiles').select('account_type').eq('id', user.id).single()
       if (!profile || !['nail_artist', 'creator', 'salon'].includes(profile.account_type)) {
         router.push('/profile'); return

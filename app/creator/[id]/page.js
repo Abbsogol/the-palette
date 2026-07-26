@@ -118,7 +118,7 @@ export default function CreatorPage() {
   }
 
   const handleMessage = async () => {
-    if (!currentUser) { router.push('/login'); return }
+    if (!currentUser) { router.push('/profile'); return }
     setMessagingLoading(true)
     // Find existing conversation or create one
     // current user is always the client, creator is `id`

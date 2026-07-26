@@ -52,7 +52,7 @@ export default function BuyCreditsPage() {
   useEffect(() => {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
+      if (!user) { router.push('/profile'); return }
       setCurrentUser(user)
       const { data: profile } = await supabase
         .from('profiles')

@@ -59,7 +59,7 @@ export default function PrivacySettingsPage() {
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
+      if (!user) { router.push('/profile'); return }
       setUser(user)
 
       const [{ data: profile }, { data: blocks }] = await Promise.all([
