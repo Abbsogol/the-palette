@@ -141,7 +141,12 @@ export default function UploadPage() {
       }).eq('id', user.id)
 
       // Reward for posting a design
-      fetch('/api/add-reward', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: user.id, reason: 'post_design' }) })
+      const { data: { session } } = await supabase.auth.getSession()
+      fetch('/api/add-reward', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) },
+        body: JSON.stringify({ reason: 'post_design', ref_id: design.id }),
+      })
 
       setSuccess(true)
       setTimeout(() => router.push(`/design/${design.id}`), 1500)

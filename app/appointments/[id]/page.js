@@ -120,7 +120,12 @@ export default function AppointmentDetailPage() {
     } else {
       await supabase.from('reviews').insert(payload)
       // Reward for leaving a review (first time only)
-      fetch('/api/add-reward', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: currentUser.id, reason: 'leave_review' }) })
+      const { data: { session } } = await supabase.auth.getSession()
+      fetch('/api/add-reward', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) },
+        body: JSON.stringify({ reason: 'leave_review', ref_id: booking.id }),
+      })
     }
     setReviewSubmitted(true)
     setReviewLoading(false)

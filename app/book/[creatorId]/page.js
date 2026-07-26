@@ -162,7 +162,7 @@ export default function BookPage() {
     const dateStr = selectedDate.toISOString().split('T')[0]
     const endTime = addMinutes(selectedSlot, selectedService.duration_minutes)
 
-    await supabase.from('bookings').insert({
+    const { data: newBooking } = await supabase.from('bookings').insert({
       client_id: currentUser.id,
       creator_id: creatorId,
       service_id: selectedService.id,
@@ -171,7 +171,7 @@ export default function BookPage() {
       end_time: endTime,
       status: 'pending',
       notes: note.trim() || null,
-    })
+    }).select().single()
 
     // Notify the creator
     await supabase.from('notifications').insert({
@@ -181,7 +181,14 @@ export default function BookPage() {
     })
 
     // Reward the client for booking
-    fetch('/api/add-reward', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: currentUser.id, reason: 'book_appointment' }) })
+    if (newBooking) {
+      const { data: { session } } = await supabase.auth.getSession()
+      fetch('/api/add-reward', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) },
+        body: JSON.stringify({ reason: 'book_appointment', ref_id: newBooking.id }),
+      })
+    }
 
     setSubmitting(false)
     setDone(true)

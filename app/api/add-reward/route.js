@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { getSessionUser } from '@/lib/auth'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -16,14 +17,26 @@ export const REWARD_POINTS = {
 }
 
 export async function POST(request) {
-  const { user_id, reason } = await request.json()
-  if (!user_id || !reason || !REWARD_POINTS[reason]) {
+  const user = await getSessionUser(request)
+  if (!user) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const { reason, ref_id } = await request.json()
+  if (!reason || !REWARD_POINTS[reason] || !ref_id) {
     return Response.json({ error: 'Invalid request' }, { status: 400 })
   }
 
   const points = REWARD_POINTS[reason]
-  const { error } = await supabase.from('rewards').insert({ user_id, points, reason })
-  if (error) return Response.json({ error: error.message }, { status: 500 })
+  const { error } = await supabase.from('rewards').insert({ user_id: user.id, points, reason, ref_id })
+
+  if (error) {
+    if (error.code === '23505') {
+      // Already rewarded for this exact action — treat as a harmless no-op
+      return Response.json({ ok: true, points: 0, already: true })
+    }
+    return Response.json({ error: error.message }, { status: 500 })
+  }
 
   return Response.json({ ok: true, points })
 }

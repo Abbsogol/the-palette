@@ -41,7 +41,12 @@ export default function SaveButton({ designId }) {
     if (next) {
       await supabase.from('saved_designs').insert({ user_id: user.id, design_id: designId })
       await supabase.rpc('increment_saves', { design_id: designId })
-      fetch('/api/add-reward', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: user.id, reason: 'save_design' }) })
+      const { data: { session } } = await supabase.auth.getSession()
+      fetch('/api/add-reward', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) },
+        body: JSON.stringify({ reason: 'save_design', ref_id: designId }),
+      })
     } else {
       await supabase.from('saved_designs').delete().eq('user_id', user.id).eq('design_id', designId)
       await supabase.rpc('decrement_saves', { design_id: designId })
