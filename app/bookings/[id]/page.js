@@ -108,6 +108,11 @@ export default function BookingDetailPage() {
   const handleAccept = async () => {
     setActing('accept')
     await supabase.from('bookings').update({ status: 'confirmed' }).eq('id', booking.id)
+    await supabase.from('notifications').insert({
+      user_id: booking.client_id,
+      actor_id: currentUser.id,
+      type: 'booking_confirmed',
+    })
     setBooking(prev => ({ ...prev, status: 'confirmed' }))
     setActing(null)
   }
@@ -116,6 +121,11 @@ export default function BookingDetailPage() {
     if (!confirm('Decline this booking request?')) return
     setActing('decline')
     await supabase.from('bookings').update({ status: 'declined' }).eq('id', booking.id)
+    await supabase.from('notifications').insert({
+      user_id: booking.client_id,
+      actor_id: currentUser.id,
+      type: 'booking_declined',
+    })
     setBooking(prev => ({ ...prev, status: 'declined' }))
     setActing(null)
   }
