@@ -151,7 +151,9 @@ export default function UploadPage() {
       setSuccess(true)
       setTimeout(() => router.push(`/design/${design.id}`), 1500)
     } catch (err) {
-      setError(err.message)
+      setError(err.message?.includes('WEEKLY_UPLOAD_LIMIT')
+        ? "You've reached your 5 free uploads this week. Upgrade to Pro for unlimited uploads."
+        : err.message)
       setSubmitting(false)
     }
   }
