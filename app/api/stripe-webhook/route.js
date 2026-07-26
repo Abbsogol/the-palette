@@ -21,6 +21,20 @@ export async function POST(request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY
   )
 
+  // Idempotency guard — skip if this exact Stripe event has already been processed
+  const { error: dedupeError } = await supabase
+    .from('processed_webhook_events')
+    .insert({ event_id: event.id })
+
+  if (dedupeError) {
+    if (dedupeError.code === '23505') {
+      // Already processed this event — tell Stripe we're done, don't reapply anything
+      return Response.json({ received: true, duplicate: true })
+    }
+    console.error('Failed to record webhook event:', dedupeError)
+    return Response.json({ error: 'Failed to record event' }, { status: 500 })
+  }
+
   // ── Credit pack purchase (one-time payment) ──────────────────────────────
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object
