@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { getSessionUser } from '@/lib/auth'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -6,6 +7,11 @@ const supabase = createClient(
 )
 
 export async function POST(request) {
+  const user = await getSessionUser(request)
+  if (!user) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const { prompt } = await request.json()
   if (!prompt?.trim()) {
     return Response.json({ error: 'No prompt provided' }, { status: 400 })

@@ -118,8 +118,9 @@ export default function ChallengeDetailPage() {
     setImageFile(null); setImagePreview(null); setCaption('')
   }
 
-  const toggleVote = async (subId) => {
+  const toggleVote = async (subId, submissionUserId) => {
     if (!currentUser) { router.push('/profile'); return }
+    if (submissionUserId === currentUser.id) return
     const voted = myVotes.has(subId)
     if (voted) {
       await supabase.from('challenge_votes').delete().eq('submission_id', subId).eq('user_id', currentUser.id)
@@ -241,6 +242,7 @@ export default function ChallengeDetailPage() {
             {sorted.map((sub, i) => {
               const voteCount = voteCounts[sub.id] || 0
               const voted = myVotes.has(sub.id)
+              const isOwn = sub.user_id === currentUser?.id
               const isWinner = ended && i === 0 && voteCount > 0
               const name = sub.profiles?.display_name || 'User'
               return (
@@ -256,8 +258,9 @@ export default function ChallengeDetailPage() {
                   <div style={{ padding: '8px 10px 10px' }}>
                     <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: '0 0 6px' }}>{name}</p>
                     {sub.caption && <p style={{ color: 'var(--text-primary)', fontSize: '12px', lineHeight: '1.4', margin: '0 0 8px' }}>{sub.caption}</p>}
-                    <button onClick={() => toggleVote(sub.id)}
-                      style={{ display: 'flex', alignItems: 'center', gap: '5px', background: voted ? 'rgba(212,160,192,0.15)' : 'var(--bg-chip)', border: `0.5px solid ${voted ? 'var(--accent)' : 'var(--border)'}`, borderRadius: '20px', padding: '5px 10px', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>
+                    <button onClick={() => toggleVote(sub.id, sub.user_id)} disabled={isOwn}
+                      title={isOwn ? "You can't vote for your own entry" : undefined}
+                      style={{ display: 'flex', alignItems: 'center', gap: '5px', background: voted ? 'rgba(212,160,192,0.15)' : 'var(--bg-chip)', border: `0.5px solid ${voted ? 'var(--accent)' : 'var(--border)'}`, borderRadius: '20px', padding: '5px 10px', cursor: isOwn ? 'default' : 'pointer', opacity: isOwn ? 0.5 : 1, fontFamily: "'DM Sans', sans-serif" }}>
                       <svg width="12" height="12" viewBox="0 0 16 16" fill={voted ? '#D4A0C0' : 'none'}>
                         <path d="M8 13.5C8 13.5 1.5 9.5 1.5 5.5C1.5 3.5 3 2 5 2C6.2 2 7.2 2.6 8 3.5C8.8 2.6 9.8 2 11 2C13 2 14.5 3.5 14.5 5.5C14.5 9.5 8 13.5 8 13.5Z" stroke={voted ? '#D4A0C0' : 'var(--text-secondary)'} strokeWidth="1.3" strokeLinejoin="round"/>
                       </svg>

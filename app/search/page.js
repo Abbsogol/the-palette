@@ -77,13 +77,24 @@ export default function SearchPage() {
     if (!query.trim()) { setPeople([]); return }
     const searchPeople = async () => {
       const q = query.trim()
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, display_name, username, avatar_url, account_type, is_verified')
-        .or(`display_name.ilike.%${q}%,username.ilike.%${q}%`)
-        .in('account_type', ['nail_artist', 'creator', 'salon'])
-        .limit(5)
-      setPeople(data || [])
+      // Two separate .ilike() queries instead of one raw .or() string — a comma or
+      // parenthesis typed into the search box could otherwise alter the filter logic.
+      const [{ data: byName }, { data: byUsername }] = await Promise.all([
+        supabase.from('profiles')
+          .select('id, display_name, username, avatar_url, account_type, is_verified')
+          .ilike('display_name', `%${q}%`)
+          .in('account_type', ['nail_artist', 'creator', 'salon'])
+          .limit(5),
+        supabase.from('profiles')
+          .select('id, display_name, username, avatar_url, account_type, is_verified')
+          .ilike('username', `%${q}%`)
+          .in('account_type', ['nail_artist', 'creator', 'salon'])
+          .limit(5),
+      ])
+      const merged = [...(byName || [])]
+      const seen = new Set(merged.map(p => p.id))
+      ;(byUsername || []).forEach(p => { if (!seen.has(p.id)) merged.push(p) })
+      setPeople(merged.slice(0, 5))
     }
     searchPeople()
   }, [query])
