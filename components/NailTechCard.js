@@ -9,8 +9,8 @@ export default function NailTechCard({ design, colours }) {
     .map(c => {
       let line = `• ${c.colour_name || 'Colour'}`
       if (c.hex_code) line += ` — ${c.hex_code}`
-      if (c.brand && c.product_code) line += ` (${c.brand}: ${c.product_code})`
-      else if (c.brand) line += ` (${c.brand})`
+      if (c.brand_name && c.brand_code) line += ` (${c.brand_name}: ${c.brand_code})`
+      else if (c.brand_name) line += ` (${c.brand_name})`
       return line
     })
     .join('\n')
@@ -201,9 +201,9 @@ export default function NailTechCard({ design, colours }) {
                               {c.hex_code}
                             </span>
                           )}
-                          {c.brand && (
+                          {c.brand_name && (
                             <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>
-                              {c.brand}{c.product_code ? ` ${c.product_code}` : ''}
+                              {c.brand_name}{c.brand_code ? ` ${c.brand_code}` : ''}
                             </span>
                           )}
                         </div>
