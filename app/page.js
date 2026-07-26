@@ -709,7 +709,7 @@ export default function LandingPage() {
               {[
                 'Browse all designs',
                 'Unlimited saves',
-                'Named collections',
+                'Boards & moodboards',
                 'Search & filter',
                 'Share designs',
                 '5 uploads / week',
@@ -792,10 +792,12 @@ export default function LandingPage() {
             </div>
           ))}
         </div>
-        <div style={{ display:'inline-flex', alignItems:'center', gap:'8px', background:'var(--bg-chip)', border:'0.5px solid var(--border)', borderRadius:'20px', padding:'8px 16px' }}>
-          <span style={{ width:'6px', height:'6px', borderRadius:'50%', background:'var(--accent)', flexShrink:0 }} />
-          <span style={{ color:'var(--text-secondary)', fontSize:'12px', fontWeight:'500' }}>Coming soon — join the waitlist at signup</span>
-        </div>
+        <Link href="/nail-lab" className="lq-cta-creator">
+          Try Nail Lab now
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+            <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </Link>
       </section>
 
       {/* ════ NAIL MIRROR TEASER ════ */}
