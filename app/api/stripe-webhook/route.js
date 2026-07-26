@@ -111,7 +111,7 @@ export async function POST(request) {
 
       const { error } = await supabase
         .from('profiles')
-        .update({ subscription_tier: planId })
+        .update({ subscription_tier: planId, stripe_customer_id: session.customer })
         .eq('id', userId)
 
       if (error) {

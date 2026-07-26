@@ -193,6 +193,7 @@ export default function ProfilePage() {
   const [user, setUser]       = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [managingSubscription, setManagingSubscription] = useState(false)
 
   // Auth state
   const [mode, setMode]                   = useState('login')
@@ -375,6 +376,24 @@ export default function ProfilePage() {
     if (!confirm('Switch your account to a Creator account?')) return
     await supabase.from('profiles').update({ account_type: 'creator' }).eq('id', user.id)
     setProfile(prev => ({ ...prev, account_type: 'creator' }))
+  }
+
+  const handleManageSubscription = async () => {
+    if (managingSubscription) return
+    setManagingSubscription(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/create-billing-portal-session', {
+        method: 'POST',
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
+      })
+      const data = await res.json()
+      if (data.url) window.location.href = data.url
+      else { alert(data.error || 'Something went wrong.'); setManagingSubscription(false) }
+    } catch {
+      alert('Something went wrong.')
+      setManagingSubscription(false)
+    }
   }
 
   const handleSetNewPassword = async (e) => {
@@ -1230,6 +1249,31 @@ export default function ProfilePage() {
               <path d="M6 4l4 4-4 4" stroke="var(--accent)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </Link>
+        </div>
+      )}
+
+      {/* Manage subscription — only show if already subscribed */}
+      {profile?.subscription_tier && (
+        <div style={{ margin: '0 20px 14px' }}>
+          <button onClick={handleManageSubscription} disabled={managingSubscription} style={{
+            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            background: 'var(--bg-card)', border: '0.5px solid var(--border)',
+            borderRadius: '12px', padding: '13px 16px', cursor: managingSubscription ? 'default' : 'pointer',
+            fontFamily: 'inherit',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '18px' }}>✦</span>
+              <div style={{ textAlign: 'left' }}>
+                <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '600', margin: '0 0 2px' }}>
+                  {managingSubscription ? 'Redirecting…' : 'Manage subscription'}
+                </p>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: 0 }}>Update payment or cancel anytime</p>
+              </div>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M6 4l4 4-4 4" stroke="var(--accent)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
         </div>
       )}
 
