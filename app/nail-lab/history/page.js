@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+import { supabase, getNailLabSignedUrl } from '@/lib/supabase'
 import SaveToBoard from '@/components/SaveToBoard'
 
 function timeAgo(dateStr) {
@@ -43,20 +43,45 @@ export default function NailLabHistoryPage() {
         .select('*')
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false })
-      setGenerations(data || [])
+      const gens = data || []
+      // nail-lab is a private bucket; resolve a fresh signed URL for each
+      // stored reference so the images actually display.
+      const withSignedUrls = await Promise.all(
+        gens.map(async g => ({ ...g, image_url: await getNailLabSignedUrl(g.image_url) }))
+      )
+      setGenerations(withSignedUrls)
       setLoadingGens(false)
     }
     load()
   }, [])
 
+  // Publishing needs to copy the file into the public designs bucket first,
+  // via a service-role backend route — the local image_url is a signed URL
+  // resolved for display and isn't a stable reference.
+  const getPublishedImageUrl = async (generationId) => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/publish-nail-lab-generation', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
+      body: JSON.stringify({ generationId }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Failed to publish image')
+    return data.publicUrl
+  }
+
   const ensureDesignId = async (gen) => {
     if (publishedIds[gen.id]) return publishedIds[gen.id]
     const vibes = Array.isArray(gen.vibe) ? gen.vibe : [gen.vibe]
+    const publicUrl = await getPublishedImageUrl(gen.id)
     const { data } = await supabase
       .from('designs')
       .insert({
         title: vibes.join(' + '),
-        image_url: gen.image_url,
+        image_url: publicUrl,
         shape: gen.shape,
         length: gen.length,
         is_published: false,
@@ -83,11 +108,12 @@ export default function NailLabHistoryPage() {
         setPublishStatuses(prev => ({ ...prev, [selected.id]: asDraft ? 'draft' : 'published' }))
       } else {
         const vibes = Array.isArray(selected.vibe) ? selected.vibe : [selected.vibe]
+        const publicUrl = await getPublishedImageUrl(selected.id)
         const { data } = await supabase
           .from('designs')
           .insert({
             title: vibes.join(' + '),
-            image_url: selected.image_url,
+            image_url: publicUrl,
             shape: selected.shape,
             length: selected.length,
             is_published: !asDraft,

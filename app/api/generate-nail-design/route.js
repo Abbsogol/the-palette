@@ -136,7 +136,7 @@ DESIGN NAME: Choose a name that is ${nameHint}. Subtitle should reflect shape, l
       return Response.json({ error: 'No image returned', raw: openaiData }, { status: 500 })
     }
 
-    // Upload to Supabase Storage → get public URL
+    // Upload to Supabase Storage (private bucket)
     const fileName = `${userId}/${Date.now()}.png`
     const imageBuffer = Buffer.from(b64, 'base64')
     const { error: uploadError } = await supabase.storage
@@ -148,9 +148,22 @@ DESIGN NAME: Choose a name that is ${nameHint}. Subtitle should reflect shape, l
       return Response.json({ error: 'Failed to save image', details: uploadError.message }, { status: 500 })
     }
 
-    const { data: { publicUrl: imageUrl } } = supabase.storage
+    // Stable reference stored in the DB — the bucket is private, so this is
+    // resolved into a fresh signed URL whenever it's displayed later.
+    const { data: { publicUrl: storedImageUrl } } = supabase.storage
       .from('nail-lab')
       .getPublicUrl(fileName)
+
+    // Signed URL for immediate display in this response only.
+    const { data: signedData, error: signError } = await supabase.storage
+      .from('nail-lab')
+      .createSignedUrl(fileName, 3600)
+
+    if (signError || !signedData) {
+      console.error('Signed URL error:', signError)
+      return Response.json({ error: 'Failed to prepare image', details: signError?.message }, { status: 500 })
+    }
+    const imageUrl = signedData.signedUrl
 
     // Deduct 1 credit, or mark the free regen as used on its parent
     if (!freeRegen) {
@@ -164,7 +177,7 @@ DESIGN NAME: Choose a name that is ${nameHint}. Subtitle should reflect shape, l
       .from('nail_lab_generations')
       .insert({
         user_id: userId,
-        image_url: imageUrl,
+        image_url: storedImageUrl,
         vibe,
         shape,
         length,

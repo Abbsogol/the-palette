@@ -383,14 +383,32 @@ export default function NailLabPage() {
     await callGenerateAPI(free, rootGenerationId)
   }
 
+  // nail-lab is a private bucket; publishing needs to copy the file into the
+  // public designs bucket first, via a service-role backend route.
+  const getPublishedImageUrl = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/publish-nail-lab-generation', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
+      body: JSON.stringify({ generationId: result.generationId }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Failed to publish image')
+    return data.publicUrl
+  }
+
   const ensureDesignId = async () => {
     if (publishedDesignId) return publishedDesignId
     try {
+      const publicUrl = await getPublishedImageUrl()
       const { data, error } = await supabase
         .from('designs')
         .insert({
           title: vibes.join(' + '),
-          image_url: result.imageUrl,
+          image_url: publicUrl,
           shape,
           length,
           is_published: false,
@@ -420,11 +438,12 @@ export default function NailLabPage() {
           .eq('id', publishedDesignId)
         setPublishStatus(asDraft ? 'draft' : 'published')
       } else {
+        const publicUrl = await getPublishedImageUrl()
         const { data } = await supabase
           .from('designs')
           .insert({
             title: vibes.join(' + '),
-            image_url: result.imageUrl,
+            image_url: publicUrl,
             shape,
             length,
             is_published: !asDraft,
