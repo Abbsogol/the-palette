@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { getSessionUser, isAdmin } from '@/lib/auth'
+import { getSessionUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,8 +10,26 @@ const supabase = createClient(
 
 async function requireAdmin(request) {
   const user = await getSessionUser(request)
-  if (!user || !(await isAdmin(user.id))) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) {
+    return Response.json({ error: 'Unauthorized', debug: { reason: 'no session user' } }, { status: 401 })
+  }
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('is_admin')
+    .eq('id', user.id)
+    .single()
+
+  if (error || !data?.is_admin) {
+    return Response.json({
+      error: 'Unauthorized',
+      debug: {
+        userId: user.id,
+        queryError: error?.message || null,
+        queryErrorCode: error?.code || null,
+        data,
+      },
+    }, { status: 401 })
   }
   return null
 }
