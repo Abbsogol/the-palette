@@ -109,8 +109,10 @@ export async function POST(request) {
         return Response.json({ error: 'Missing metadata' }, { status: 400 })
       }
 
+      // profiles_data — subscription_tier/stripe_customer_id are expression
+      // columns in the profiles view (masked by auth.uid() = id), not directly writable there
       const { error } = await supabase
-        .from('profiles')
+        .from('profiles_data')
         .update({ subscription_tier: planId, stripe_customer_id: session.customer })
         .eq('id', userId)
 
@@ -130,7 +132,7 @@ export async function POST(request) {
 
     if (userId) {
       const { error } = await supabase
-        .from('profiles')
+        .from('profiles_data')
         .update({ subscription_tier: null })
         .eq('id', userId)
 
@@ -150,7 +152,7 @@ export async function POST(request) {
 
     if (userId && planId && subscription.status === 'active') {
       await supabase
-        .from('profiles')
+        .from('profiles_data')
         .update({ subscription_tier: planId })
         .eq('id', userId)
     }

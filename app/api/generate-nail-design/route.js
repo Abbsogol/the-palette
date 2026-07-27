@@ -25,8 +25,10 @@ export async function POST(request) {
     )
 
     // Check credit balance (skip for free regen)
+    // profiles_data, not the profiles view — credit_balance is masked behind
+    // auth.uid() = id in the view, which is never true for a service-role caller.
     const { data: profile, error: profileError } = await supabase
-      .from('profiles')
+      .from('profiles_data')
       .select('credit_balance')
       .eq('id', userId)
       .single()

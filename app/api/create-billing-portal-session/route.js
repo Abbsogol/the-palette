@@ -16,8 +16,10 @@ export async function POST(request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY
     )
 
+    // profiles_data, not the profiles view — stripe_customer_id is masked
+    // behind auth.uid() = id in the view, always null for a service-role caller.
     const { data: profile } = await supabase
-      .from('profiles')
+      .from('profiles_data')
       .select('stripe_customer_id')
       .eq('id', user.id)
       .single()

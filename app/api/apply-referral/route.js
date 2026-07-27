@@ -12,8 +12,11 @@ export async function POST(request) {
   const upperCode = code.toUpperCase().trim()
 
   // Check new user exists and hasn't already been referred
+  // profiles_data, not the profiles view — referred_by is masked behind
+  // auth.uid() = id in the view, always null for a service-role caller
+  // (which would silently defeat the already-referred check below).
   const { data: newUser } = await supabase
-    .from('profiles')
+    .from('profiles_data')
     .select('id, referred_by')
     .eq('id', new_user_id)
     .single()
@@ -29,8 +32,9 @@ export async function POST(request) {
   if (!inviter) return Response.json({ error: 'Invalid code' }, { status: 404 })
   if (inviter.id === new_user_id) return Response.json({ error: 'Cannot refer yourself' }, { status: 400 })
 
-  // Mark new user as referred
-  await supabase.from('profiles').update({ referred_by: upperCode }).eq('id', new_user_id)
+  // Mark new user as referred (profiles_data — referred_by is an
+  // expression column in the profiles view, not directly writable there)
+  await supabase.from('profiles_data').update({ referred_by: upperCode }).eq('id', new_user_id)
 
   // Award both parties
   await supabase.from('rewards').insert([

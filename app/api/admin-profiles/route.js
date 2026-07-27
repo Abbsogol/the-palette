@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { getSessionUser } from '@/lib/auth'
+import { getSessionUser, isAdmin } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,26 +10,8 @@ const supabase = createClient(
 
 async function requireAdmin(request) {
   const user = await getSessionUser(request)
-  if (!user) {
-    return Response.json({ error: 'Unauthorized', debug: { reason: 'no session user' } }, { status: 401 })
-  }
-
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('is_admin')
-    .eq('id', user.id)
-    .single()
-
-  if (error || !data?.is_admin) {
-    return Response.json({
-      error: 'Unauthorized',
-      debug: {
-        userId: user.id,
-        queryError: error?.message || null,
-        queryErrorCode: error?.code || null,
-        data,
-      },
-    }, { status: 401 })
+  if (!user || !(await isAdmin(user.id))) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
   return null
 }
@@ -41,8 +23,10 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url)
   const query = searchParams.get('q') || ''
 
+  // profiles_data, not the profiles view — credit_balance/subscription_tier
+  // are masked behind auth.uid() = id in the view, always null for service-role.
   let q = supabase
-    .from('profiles')
+    .from('profiles_data')
     .select('id, display_name, username, account_type, credit_balance, subscription_tier')
     .order('created_at', { ascending: false })
 
@@ -65,7 +49,7 @@ export async function POST(request) {
   const { userId, credits } = await request.json()
   if (!userId || credits == null) return Response.json({ error: 'Missing params' }, { status: 400 })
 
-  const { error } = await supabase.from('profiles').update({ credit_balance: credits }).eq('id', userId)
+  const { error } = await supabase.from('profiles_data').update({ credit_balance: credits }).eq('id', userId)
   if (error) return Response.json({ error: error.message }, { status: 500 })
   return Response.json({ ok: true })
 }
