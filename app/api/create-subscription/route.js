@@ -1,5 +1,5 @@
 import Stripe from 'stripe'
-import { createClient } from '@supabase/supabase-js'
+import { serviceClient as supabase } from '@/lib/auth'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
@@ -28,11 +28,6 @@ export async function POST(request) {
     }
 
     // Verify user exists + get email
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY
-    )
-
     const { data: { user } } = await supabase.auth.admin.getUserById(userId)
     if (!user) {
       return Response.json({ error: 'User not found' }, { status: 404 })

@@ -1,5 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
-import { getSessionUser } from '@/lib/auth'
+import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
 
 // nail-lab is a private bucket; publishing a generation to the public feed
 // requires copying the file into the public designs bucket first.
@@ -14,11 +13,6 @@ export async function POST(request) {
     if (!generationId) {
       return Response.json({ error: 'Missing generationId' }, { status: 400 })
     }
-
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY
-    )
 
     const { data: generation, error: genError } = await supabase
       .from('nail_lab_generations')

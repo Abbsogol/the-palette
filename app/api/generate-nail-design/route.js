@@ -1,5 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
-import { getSessionUser } from '@/lib/auth'
+import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
 
 export const maxDuration = 60 // allow up to 60s for gpt-image-1
 
@@ -17,12 +16,6 @@ export async function POST(request) {
     if (!vibe || !shape || !length) {
       return Response.json({ error: 'Missing required fields' }, { status: 400 })
     }
-
-    // Server-side Supabase with service role
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY
-    )
 
     // Check credit balance (skip for free regen)
     // profiles_data, not the profiles view — credit_balance is masked behind

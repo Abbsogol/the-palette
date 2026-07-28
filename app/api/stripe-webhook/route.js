@@ -1,5 +1,5 @@
 import Stripe from 'stripe'
-import { createClient } from '@supabase/supabase-js'
+import { serviceClient as supabase } from '@/lib/auth'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
@@ -15,11 +15,6 @@ export async function POST(request) {
     console.error('Webhook signature verification failed:', err.message)
     return Response.json({ error: 'Invalid signature' }, { status: 400 })
   }
-
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  )
 
   // Idempotency guard — skip if this exact Stripe event has already been processed
   const { error: dedupeError } = await supabase

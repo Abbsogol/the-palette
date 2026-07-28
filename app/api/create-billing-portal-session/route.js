@@ -1,6 +1,5 @@
 import Stripe from 'stripe'
-import { createClient } from '@supabase/supabase-js'
-import { getSessionUser } from '@/lib/auth'
+import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
@@ -10,11 +9,6 @@ export async function POST(request) {
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY
-    )
 
     // profiles_data, not the profiles view — stripe_customer_id is masked
     // behind auth.uid() = id in the view, always null for a service-role caller.

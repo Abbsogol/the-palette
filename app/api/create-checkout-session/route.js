@@ -1,5 +1,5 @@
 import Stripe from 'stripe'
-import { createClient } from '@supabase/supabase-js'
+import { serviceClient as supabase } from '@/lib/auth'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
@@ -23,10 +23,6 @@ export async function POST(request) {
     }
 
     // Verify user exists
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY
-    )
     const { data: profile } = await supabase
       .from('profiles')
       .select('id')

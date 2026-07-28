@@ -1,12 +1,6 @@
-import { createClient } from '@supabase/supabase-js'
-import { getSessionUser, isAdmin } from '@/lib/auth'
+import { getSessionUser, isAdmin, serviceClient as supabase } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
 
 async function requireAdmin(request) {
   const user = await getSessionUser(request)

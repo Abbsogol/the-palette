@@ -1,9 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
+import { serviceClient as supabase } from '@/lib/auth'
 
 // No ambiguous chars (0/O, 1/I/L)
 const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'

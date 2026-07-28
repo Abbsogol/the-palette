@@ -1,5 +1,5 @@
 import Stripe from 'stripe'
-import { createClient } from '@supabase/supabase-js'
+import { serviceClient as supabase } from '@/lib/auth'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
@@ -10,11 +10,6 @@ export async function POST(request) {
     if (!bookingId || !userId) {
       return Response.json({ error: 'Missing bookingId or userId' }, { status: 400 })
     }
-
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY
-    )
 
     // Fetch the booking + service to get deposit amount
     const { data: booking, error } = await supabase
