@@ -7,7 +7,7 @@ const supabase = createClient(
 )
 
 // Point values per action
-export const REWARD_POINTS = {
+const REWARD_POINTS = {
   save_design:       5,
   post_design:       10,
   leave_review:      15,
