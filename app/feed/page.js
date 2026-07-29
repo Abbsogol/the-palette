@@ -71,7 +71,7 @@ export default function FeedPage() {
       if (u) {
         const [{ count }, { data: prof }] = await Promise.all([
           supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('user_id', u.id).eq('read', false),
-          supabase.from('profiles').select('nail_shape, nail_length, nail_colors, nail_finishes, nail_techniques, occasions').eq('id', u.id).single(),
+          supabase.from('profiles').select('nail_shape, nail_length, nail_colors, nail_finishes, nail_techniques, occasions, account_type').eq('id', u.id).single(),
         ])
         setUnreadCount(count || 0)
         setUserProfile(prof || null)
@@ -654,15 +654,15 @@ export default function FeedPage() {
               <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: '1.6', marginBottom: '20px' }}>
                 Be the first to share your nail work with the Laque community.
               </p>
-              {currentUser ? (
+              {currentUser && (userProfile?.account_type === 'creator' || userProfile?.account_type === 'salon') ? (
                 <Link href="/upload" style={{ display: 'inline-block', background: 'var(--accent)', color: '#2C0A1E', borderRadius: '12px', padding: '12px 28px', fontSize: '14px', fontWeight: '600', textDecoration: 'none', fontFamily: "'DM Sans', sans-serif" }}>
                   Post a design
                 </Link>
-              ) : (
+              ) : !currentUser ? (
                 <Link href="/profile" style={{ display: 'inline-block', background: 'var(--accent)', color: '#2C0A1E', borderRadius: '12px', padding: '12px 28px', fontSize: '14px', fontWeight: '600', textDecoration: 'none', fontFamily: "'DM Sans', sans-serif" }}>
                   Sign in to post
                 </Link>
-              )}
+              ) : null}
             </div>
           ) : (
             <div>
