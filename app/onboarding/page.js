@@ -65,6 +65,7 @@ function OnboardingInner() {
   const [saving, setSaving]   = useState(false)
 
   const [referralCode, setReferralCode] = useState('')
+  const [errorMsg, setErrorMsg] = useState('')
 
   const [d, setD] = useState({
     display_name: '',
@@ -140,26 +141,31 @@ function OnboardingInner() {
 
   const complete = async (redirectTo = '/feed') => {
     setSaving(true)
-    const credits = (accountType === 'creator' || accountType === 'salon') ? 5 : 3
-    await supabase.from('profiles').update({
-      display_name:         d.display_name || null,
-      phone_number:         d.phone_number || null,
-      location:             d.location || null,
-      bio:                  d.bio || null,
-      nail_shape:           d.nail_shape,
-      nail_length:          d.nail_length,
-      nail_colors:          d.nail_colors,
-      nail_finishes:        d.nail_finishes,
-      nail_techniques:      d.nail_techniques,
-      occasions:            d.occasions,
-      budget_range:         d.budget_range,
-      allergies:            d.allergies || null,
-      product_sensitivities: d.product_sensitivities,
-      removal_needed:       d.removal_needed,
-      specialties:          d.specialties,
-      credit_balance:       credits,
-      onboarding_complete:  true,
-    }).eq('id', user.id)
+    setErrorMsg('')
+
+    const { data: { session } } = await supabase.auth.getSession()
+    let res
+    try {
+      res = await fetch('/api/complete-onboarding', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify(d),
+      })
+    } catch {
+      setSaving(false)
+      setErrorMsg('Something went wrong. Please check your connection and try again.')
+      return
+    }
+
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok || json.error) {
+      setSaving(false)
+      setErrorMsg(json.error || 'Something went wrong. Please try again.')
+      return
+    }
 
     // Apply referral code if provided
     if (referralCode.trim()) {
@@ -496,6 +502,9 @@ function OnboardingInner() {
         flexShrink: 0,
         borderTop: showBorder ? '0.5px solid var(--border)' : 'none',
       }}>
+        {errorMsg && (
+          <p style={{ color: '#E07070', fontSize: '13px', marginBottom: '12px', textAlign: 'center' }}>{errorMsg}</p>
+        )}
         {renderActions()}
       </div>
 
