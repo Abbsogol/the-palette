@@ -5,24 +5,53 @@ import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
+const POLL_INTERVAL_MS = 1500
+const MAX_POLL_ATTEMPTS = 8 // ~12s of polling, on top of the immediate first read
+
 function SuccessContent() {
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('session_id')
   const [creditBalance, setCreditBalance] = useState(null)
+  const [checking, setChecking] = useState(true)
+  const [timedOut, setTimedOut] = useState(false)
 
   useEffect(() => {
-    const getBalance = async () => {
-      await new Promise(r => setTimeout(r, 2000))
+    let cancelled = false
+    let timeoutId
+    let attempts = 0
+    let lastValue // undefined until the first read
+
+    const fetchBalance = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user) return null
       const { data: profile } = await supabase
         .from('profiles')
         .select('credit_balance')
         .eq('id', user.id)
         .single()
-      if (profile) setCreditBalance(profile.credit_balance)
+      return profile ? profile.credit_balance : null
     }
-    getBalance()
+
+    const tick = async () => {
+      const balance = await fetchBalance()
+      if (cancelled) return
+      attempts += 1
+
+      if (balance !== null) setCreditBalance(balance)
+
+      // Settled once a read agrees with the previous one — handles both a
+      // webhook that already landed (stable on the very first read) and one
+      // that's still catching up (value changes, then stabilizes).
+      const settled = balance !== null && balance === lastValue
+      lastValue = balance
+
+      if (settled) { setChecking(false); return }
+      if (attempts >= MAX_POLL_ATTEMPTS) { setChecking(false); setTimedOut(true); return }
+      timeoutId = setTimeout(tick, POLL_INTERVAL_MS)
+    }
+
+    tick()
+    return () => { cancelled = true; clearTimeout(timeoutId) }
   }, [])
 
   return (
@@ -63,12 +92,22 @@ function SuccessContent() {
           borderRadius: '14px',
           border: '0.5px solid var(--border)',
           padding: '16px 28px',
-          marginBottom: '32px',
+          marginBottom: checking || timedOut ? '12px' : '32px',
         }}>
           <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 4px' }}>New balance</p>
           <p style={{ color: 'var(--accent)', fontSize: '36px', fontWeight: '700', margin: 0, letterSpacing: '-0.03em' }}>{creditBalance}</p>
           <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '2px 0 0' }}>credits</p>
         </div>
+      )}
+
+      {checking && (
+        <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '0 0 32px' }}>Confirming your balance…</p>
+      )}
+
+      {timedOut && (
+        <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '0 0 32px' }}>
+          Still finalizing — <a onClick={() => window.location.reload()} style={{ color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline' }}>refresh</a> if this doesn't look right in a moment.
+        </p>
       )}
 
       <Link href="/nail-lab" style={{
