@@ -320,14 +320,32 @@ export default function ProfilePage() {
     setError(''); setMode('choose-type')
   }
 
+  const setAccountType = async (accountType, name) => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/set-account-type', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
+      body: JSON.stringify({ accountType, displayName: name }),
+    })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok || json.error) throw new Error(json.error || 'Failed to set account type')
+  }
+
   const handleCreateAccount = async () => {
     if (!chosenType) return
     setSubmitting(true); setError('')
     const { data, error } = await supabase.auth.signUp({ email, password })
     if (error) { setError(error.message); setSubmitting(false); return }
     if (data.user) {
-      await supabase.from('profiles').upsert({ id: data.user.id, account_type: chosenType, display_name: displayName.trim() })
-      await loadUserData(data.user)
+      try {
+        await setAccountType(chosenType, displayName.trim())
+        await loadUserData(data.user)
+      } catch (err) {
+        setError(err.message)
+      }
     }
     setSubmitting(false)
   }
@@ -353,10 +371,14 @@ export default function ProfilePage() {
 
   const handleSetGoogleAccountType = async () => {
     if (!chosenType) return
-    setSubmitting(true)
+    setSubmitting(true); setError('')
     const name = displayName.trim() || user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User'
-    await supabase.from('profiles').upsert({ id: user.id, account_type: chosenType, display_name: name })
-    await loadUserData(user)
+    try {
+      await setAccountType(chosenType, name)
+      await loadUserData(user)
+    } catch (err) {
+      setError(err.message)
+    }
     setSubmitting(false)
   }
 
@@ -374,8 +396,12 @@ export default function ProfilePage() {
 
   const handleBecomeCreator = async () => {
     if (!confirm('Switch your account to a Creator account?')) return
-    await supabase.from('profiles').update({ account_type: 'creator' }).eq('id', user.id)
-    setProfile(prev => ({ ...prev, account_type: 'creator' }))
+    try {
+      await setAccountType('creator')
+      setProfile(prev => ({ ...prev, account_type: 'creator' }))
+    } catch (err) {
+      alert(err.message || 'Something went wrong. Please try again.')
+    }
   }
 
   const handleManageSubscription = async () => {
