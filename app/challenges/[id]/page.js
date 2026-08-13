@@ -98,11 +98,20 @@ export default function ChallengeDetailPage() {
   const handleSubmit = async () => {
     if (!imageFile || submitting || !currentUser) return
     setSubmitting(true)
-    const ext = imageFile.name.split('.').pop()
-    const path = `challenges/${id}/${currentUser.id}-${Date.now()}.${ext}`
-    const { error: upErr } = await supabase.storage.from('designs').upload(path, imageFile, { upsert: false })
-    if (upErr) { setSubmitting(false); alert('Upload failed'); return }
-    const { data: { publicUrl } } = supabase.storage.from('designs').getPublicUrl(path)
+
+    const { data: { session } } = await supabase.auth.getSession()
+    const formData = new FormData()
+    formData.append('file', imageFile)
+    formData.append('challengeId', id)
+    const uploadRes = await fetch('/api/upload-challenge-photo', {
+      method: 'POST',
+      headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
+      body: formData,
+    })
+    const uploadJson = await uploadRes.json().catch(() => ({}))
+    if (!uploadRes.ok || uploadJson.error) { setSubmitting(false); alert('Upload failed: ' + (uploadJson.error || 'Unknown error')); return }
+    const publicUrl = uploadJson.publicUrl
+
     const { data: sub } = await supabase.from('challenge_submissions').insert({
       challenge_id: id,
       user_id: currentUser.id,
