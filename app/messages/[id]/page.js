@@ -13,6 +13,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
+  const [sendError, setSendError] = useState('')
   const [loading, setLoading] = useState(true)
   const [keyboardOffset, setKeyboardOffset] = useState(0)
   const bottomRef = useRef(null)
@@ -107,13 +108,25 @@ export default function ChatPage() {
     const text = input.trim()
     if (!text || sending) return
     setSending(true)
+    setSendError('')
     setInput('')
 
-    await supabase.from('messages').insert({
+    const { error } = await supabase.from('messages').insert({
       conversation_id: id,
       sender_id: currentUser.id,
       content: text,
     })
+
+    if (error) {
+      setInput(text)
+      setSendError(
+        error.message?.includes('BLOCKED_CANNOT_MESSAGE')
+          ? "You can't message this person."
+          : 'Message failed to send. Please try again.'
+      )
+      setSending(false)
+      return
+    }
 
     // Update last_message_at on conversation
     await supabase
@@ -256,9 +269,12 @@ export default function ChatPage() {
         background: 'var(--bg-primary)', borderTop: '0.5px solid var(--border)',
         padding: '10px 16px',
         paddingBottom: `max(10px, env(safe-area-inset-bottom))`,
-        display: 'flex', gap: '10px', alignItems: 'flex-end',
         transition: 'bottom 0.2s ease', zIndex: 50,
       }}>
+        {sendError && (
+          <p style={{ color: '#E07070', fontSize: '12px', margin: '0 0 8px', textAlign: 'center' }}>{sendError}</p>
+        )}
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
         <textarea
           ref={inputRef}
           value={input}
@@ -291,6 +307,7 @@ export default function ChatPage() {
             <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke={input.trim() ? '#2C0A1E' : 'var(--text-secondary)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </button>
+        </div>
       </div>
     </div>
   )
