@@ -25,7 +25,6 @@ const FREE_LIMIT = 5
 export default function UploadPage() {
   const router = useRouter()
   const [user, setUser]       = useState(null)
-  const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [atLimit, setAtLimit] = useState(false)
   const [uploadsLeft, setUploadsLeft] = useState(FREE_LIMIT)
@@ -68,7 +67,6 @@ export default function UploadPage() {
         prof = { ...prof, ...reset }
       }
 
-      setProfile(prof)
       const used  = prof.weekly_uploads || 0
       const isPro = prof.is_pro || false
       setUploadsLeft(isPro ? Infinity : Math.max(0, FREE_LIMIT - used))
@@ -132,19 +130,20 @@ export default function UploadPage() {
         )
       }
 
-      // Tags
+      // Tags + weekly upload count — via server route (tags table and profiles
+      // updates are blocked by RLS for direct client writes)
       const tagNames = tagsInput.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
-      for (const tagName of tagNames) {
-        const { data: tag } = await supabase.from('tags')
-          .upsert({ name: tagName }, { onConflict: 'name' }).select().single()
-        if (tag) await supabase.from('design_tags')
-          .upsert({ design_id: design.id, tag_id: tag.id }, { onConflict: 'design_id,tag_id' })
+      const finalizeRes = await fetch('/api/finalize-design-upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ designId: design.id, tagNames }),
+      })
+      if (!finalizeRes.ok) {
+        console.error('Failed to finalize design upload (tags/weekly count)')
       }
-
-      // Increment weekly upload count
-      await supabase.from('profiles').update({
-        weekly_uploads: (profile.weekly_uploads || 0) + 1,
-      }).eq('id', user.id)
 
       // Reward for posting a design
       fetch('/api/add-reward', {
