@@ -50,6 +50,7 @@ export default function PrivacySettingsPage() {
   const [isPrivate, setIsPrivate] = useState(false)
   const [messagePermission, setMessagePermission] = useState('everyone')
   const [showSaves, setShowSaves] = useState(true)
+  const [saveError, setSaveError] = useState('')
 
   useEffect(() => {
     const init = async () => {
@@ -83,25 +84,42 @@ export default function PrivacySettingsPage() {
     init()
   }, [])
 
-  const save = async (field, value) => {
+  const save = async (field, value, revert) => {
     setSaving(field)
-    await supabase.from('profiles').update({ [field]: value }).eq('id', user.id)
+    setSaveError('')
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/update-privacy-settings', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
+      body: JSON.stringify({ [field]: value }),
+    })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok || json.error) {
+      revert()
+      setSaveError('Failed to save. Please try again.')
+    }
     setSaving(null)
   }
 
   const handleTogglePrivate = async (val) => {
+    const prev = isPrivate
     setIsPrivate(val)
-    await save('is_private', val)
+    await save('is_private', val, () => setIsPrivate(prev))
   }
 
   const handleMessagePermission = async (val) => {
+    const prev = messagePermission
     setMessagePermission(val)
-    await save('message_permission', val)
+    await save('message_permission', val, () => setMessagePermission(prev))
   }
 
   const handleShowSaves = async (val) => {
+    const prev = showSaves
     setShowSaves(val)
-    await save('show_saves', val)
+    await save('show_saves', val, () => setShowSaves(prev))
   }
 
   const handleUnblock = async (blockedId) => {
@@ -135,6 +153,10 @@ export default function PrivacySettingsPage() {
         </Link>
         <h1 style={{ color: 'var(--text-primary)', fontSize: '17px', fontWeight: '600', margin: 0 }}>Privacy</h1>
       </div>
+
+      {saveError && (
+        <p style={{ color: '#E07070', fontSize: '13px', margin: '0 20px 16px', textAlign: 'center' }}>{saveError}</p>
+      )}
 
       {/* Profile visibility */}
       <div style={{ margin: '0 20px 20px' }}>
