@@ -68,7 +68,7 @@ export default function UploadPage() {
       }
 
       const used  = prof.weekly_uploads || 0
-      const isPro = prof.is_pro || false
+      const isPro = prof.subscription_tier === 'pro_creator'
       setUploadsLeft(isPro ? Infinity : Math.max(0, FREE_LIMIT - used))
       setAtLimit(!isPro && used >= FREE_LIMIT)
       setLoading(false)

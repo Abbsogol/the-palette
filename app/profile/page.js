@@ -1116,7 +1116,7 @@ export default function ProfilePage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               {(() => {
                 const used    = profile?.weekly_uploads || 0
-                const isPro   = profile?.is_pro || false
+                const isPro   = profile?.subscription_tier === 'pro_creator'
                 const left    = isPro ? null : Math.max(0, 5 - used)
                 const atLimit = !isPro && used >= 5
                 return (
