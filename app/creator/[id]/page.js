@@ -120,10 +120,14 @@ export default function CreatorPage() {
   const handleMessage = async () => {
     if (!currentUser) { router.push('/profile'); return }
     setMessagingLoading(true)
-    // Find existing conversation or create one
-    // current user is always the client, creator is `id`
-    const clientId  = currentUser.id
-    const creatorId = id
+    // Find existing conversation or create one. Role assignment must match
+    // the ?with= deep-link flow in app/messages/page.js (based on the
+    // CURRENT user's own account_type) — not assume the viewer is always
+    // the client, since this profile page is reachable for any account.
+    const { data: myProfile } = await supabase.from('profiles').select('account_type').eq('id', currentUser.id).single()
+    const iAmCreator = myProfile?.account_type === 'creator' || myProfile?.account_type === 'salon'
+    const clientId  = iAmCreator ? id : currentUser.id
+    const creatorId = iAmCreator ? currentUser.id : id
     const { data: existing } = await supabase
       .from('conversations')
       .select('id')
