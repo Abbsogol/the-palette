@@ -29,20 +29,16 @@ export default function InvitePage() {
       const { code: userCode } = await res.json()
       setCode(userCode)
 
-      // Count friends who joined via this code
-      const [{ count }, { data: rewardRows }] = await Promise.all([
-        supabase
-          .from('profiles')
-          .select('id', { count: 'exact', head: true })
-          .eq('referred_by', userCode),
-        supabase
-          .from('rewards')
-          .select('points')
-          .eq('user_id', session.user.id)
-          .eq('reason', 'invite_friend'),
-      ])
+      // Each invite_friend reward row is exactly one successful referral —
+      // counting via profiles.referred_by doesn't work here since that
+      // column is masked (auth.uid() = id) for any row that isn't your own.
+      const { data: rewardRows } = await supabase
+        .from('rewards')
+        .select('points')
+        .eq('user_id', session.user.id)
+        .eq('reason', 'invite_friend')
 
-      setFriendCount(count || 0)
+      setFriendCount((rewardRows || []).length)
       setPointsEarned((rewardRows || []).reduce((sum, r) => sum + r.points, 0))
       setLoading(false)
     }
