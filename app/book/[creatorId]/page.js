@@ -34,6 +34,16 @@ function timeToMins(timeStr) {
   return h * 60 + m
 }
 
+// Local calendar date as YYYY-MM-DD — Date#toISOString() converts to UTC
+// first, which shifts the date back a day for any positive UTC offset
+// (e.g. Asia/Dubai, UTC+4) once local midnight crosses into the prior UTC day.
+function toLocalDateStr(d) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 export default function BookPage() {
   const { creatorId } = useParams()
   const router = useRouter()
@@ -116,7 +126,7 @@ export default function BookPage() {
       if (!dayAvail) { setSlots([]); setSlotsLoading(false); return }
 
       // Get existing bookings for this creator on this date
-      const dateStr = selectedDate.toISOString().split('T')[0]
+      const dateStr = toLocalDateStr(selectedDate)
       const { data: existingBookings } = await supabase
         .from('bookings')
         .select('start_time, end_time')
@@ -154,7 +164,7 @@ export default function BookPage() {
     if (!selectedService || !selectedDate || !selectedSlot) return
     setSubmitting(true)
 
-    const dateStr = selectedDate.toISOString().split('T')[0]
+    const dateStr = toLocalDateStr(selectedDate)
     const endTime = addMinutes(selectedSlot, selectedService.duration_minutes)
 
     const { data: newBooking } = await supabase.from('bookings').insert({
@@ -189,16 +199,20 @@ export default function BookPage() {
     setDone(true)
   }
 
-  // Build next 42 days, grouped by week for calendar
+  // Build a 42-day (6-week) calendar grid, aligned to Sun–Sat columns so
+  // dates land under their correct weekday header regardless of what
+  // weekday "today" happens to be.
   const buildCalendar = () => {
     const activeDows = new Set(availability.map(a => a.day_of_week))
     const today = new Date()
     today.setHours(0, 0, 0, 0)
+    const startOfWeek = new Date(today)
+    startOfWeek.setDate(today.getDate() - today.getDay())
     const days = []
     for (let i = 0; i < 42; i++) {
-      const d = new Date(today)
-      d.setDate(today.getDate() + i)
-      days.push({ date: d, available: activeDows.has(d.getDay()) })
+      const d = new Date(startOfWeek)
+      d.setDate(startOfWeek.getDate() + i)
+      days.push({ date: d, available: d >= today && activeDows.has(d.getDay()) })
     }
     return days
   }
