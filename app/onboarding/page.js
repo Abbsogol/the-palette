@@ -58,7 +58,6 @@ function OnboardingInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const [user, setUser]       = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [stepIdx, setStepIdx] = useState(0)
@@ -91,13 +90,15 @@ function OnboardingInner() {
     if (ref) setReferralCode(ref.toUpperCase().trim())
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session?.user) { router.push('/profile'); return }
+      if (!session?.user) {
+        router.push(ref ? `/profile?ref=${encodeURIComponent(ref)}` : '/profile')
+        return
+      }
       init(session.user)
     })
   }, [])
 
   const init = async (u) => {
-    setUser(u)
     const { data: prof } = await supabase.from('profiles').select('*').eq('id', u.id).single()
     if (!prof) { router.push('/profile'); return }
     // Already completed onboarding → go to feed
@@ -171,8 +172,11 @@ function OnboardingInner() {
     if (referralCode.trim()) {
       fetch('/api/apply-referral', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: referralCode.trim(), new_user_id: user.id }),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ code: referralCode.trim() }),
       }).catch(() => {})
     }
 
