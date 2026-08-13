@@ -89,13 +89,19 @@ export default function UploadPage() {
     if (!title.trim()) { setError('Please enter a title'); return }
     setSubmitting(true)
     try {
-      // Upload image to Supabase Storage
-      const ext      = imageFile.name.split('.').pop()
-      const fileName = `${Date.now()}-${title.toLowerCase().replace(/\s+/g, '-')}.${ext}`
-      const { error: storageErr } = await supabase.storage
-        .from('designs').upload(fileName, imageFile, { cacheControl: '3600', upsert: false })
-      if (storageErr) throw new Error('Photo upload failed: ' + storageErr.message)
-      const { data: { publicUrl } } = supabase.storage.from('designs').getPublicUrl(fileName)
+      // Upload image via server route — storage RLS blocks direct client uploads to this bucket
+      const { data: { session } } = await supabase.auth.getSession()
+      const formData = new FormData()
+      formData.append('file', imageFile)
+      formData.append('title', title.trim())
+      const uploadRes = await fetch('/api/upload-design-photo', {
+        method: 'POST',
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
+        body: formData,
+      })
+      const uploadJson = await uploadRes.json().catch(() => ({}))
+      if (!uploadRes.ok || uploadJson.error) throw new Error('Photo upload failed: ' + (uploadJson.error || 'Unknown error'))
+      const publicUrl = uploadJson.publicUrl
 
       // Insert design row
       const { data: design, error: designErr } = await supabase.from('designs').insert({
@@ -141,7 +147,6 @@ export default function UploadPage() {
       }).eq('id', user.id)
 
       // Reward for posting a design
-      const { data: { session } } = await supabase.auth.getSession()
       fetch('/api/add-reward', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) },
