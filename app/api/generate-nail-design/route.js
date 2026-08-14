@@ -11,11 +11,29 @@ export async function POST(request) {
     const userId = user.id
 
     const body = await request.json()
-    const { vibe, shape, length, colors, occasion, customText, referenceImageUrls, freeRegen, parentGenerationId } = body
+    const { freeRegen, parentGenerationId } = body
 
-    if (!vibe || !shape || !length) {
+    if (!body.vibe || !body.shape || !body.length) {
       return Response.json({ error: 'Missing required fields' }, { status: 400 })
     }
+    if (typeof body.shape !== 'string' || typeof body.length !== 'string') {
+      return Response.json({ error: 'Invalid request' }, { status: 400 })
+    }
+
+    // Cap every prompt-composing field before it reaches OpenAI — these were
+    // previously unbounded, letting a single request balloon the prompt (and
+    // the per-request OpenAI cost) with an arbitrarily large payload, most
+    // directly through customText.
+    const capStr = (v, max) => (typeof v === 'string' ? v.slice(0, max) : '')
+    const capArr = (v, maxItems, maxLen) => (Array.isArray(v) ? v.filter(x => typeof x === 'string').slice(0, maxItems).map(x => x.slice(0, maxLen)) : [])
+
+    const shape = capStr(body.shape, 40)
+    const length = capStr(body.length, 40)
+    const vibe = Array.isArray(body.vibe) ? capArr(body.vibe, 10, 40) : capStr(body.vibe, 200)
+    const colors = capArr(body.colors, 20, 40)
+    const occasion = Array.isArray(body.occasion) ? capArr(body.occasion, 10, 40) : capStr(body.occasion, 100)
+    const customText = capStr(body.customText, 500)
+    const referenceImageUrls = capArr(body.referenceImageUrls, 10, 500)
 
     // Check credit balance (skip for free regen)
     // profiles_data, not the profiles view — credit_balance is masked behind
