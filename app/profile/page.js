@@ -18,6 +18,14 @@ const CONTACTS   = ['App notification','SMS','Email','WhatsApp','Phone call']
 const SENSITIVITIES = ['Acrylic','Gel','Acetone','Glue','BIAB','Primer','UV light']
 const UNDERTONES    = ['Warm','Cool','Neutral','Olive','Deep Warm','Deep Cool']
 
+// Lenient international format — not UAE-only, since users aren't guaranteed local numbers
+const PHONE_RE = /^\+?[\d\s\-()]{7,20}$/
+const validatePhone = (val) => {
+  const trimmed = val.trim()
+  if (!trimmed) return null
+  return PHONE_RE.test(trimmed) ? null : 'Enter a valid phone number'
+}
+
 // ── Profile completion score ───────────────────────────────────────────────
 const calcCompletion = (p, u) => {
   if (!p || !u) return 0
@@ -68,14 +76,17 @@ function SectionHeader({ title, expanded, onToggle, pct }) {
 }
 
 // ── Inline editable row ────────────────────────────────────────────────────
-function EditRow({ label, field, value, placeholder, multiline, onSave }) {
+function EditRow({ label, field, value, placeholder, multiline, onSave, validate }) {
   const [editing, setEditing] = useState(false)
   const [input, setInput]     = useState('')
   const [saving, setSaving]   = useState(false)
+  const [error, setError]     = useState('')
 
-  const start  = () => { setInput(value || ''); setEditing(true) }
-  const cancel = () => setEditing(false)
+  const start  = () => { setInput(value || ''); setError(''); setEditing(true) }
+  const cancel = () => { setEditing(false); setError('') }
   const save   = async () => {
+    const validationError = validate?.(input)
+    if (validationError) { setError(validationError); return }
     setSaving(true)
     const ok = await onSave(field, input)
     setSaving(false)
@@ -86,22 +97,25 @@ function EditRow({ label, field, value, placeholder, multiline, onSave }) {
     <div style={{ padding: '14px 16px' }}>
       <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '6px' }}>{label}</p>
       {editing ? (
-        <div style={{ display: 'flex', flexDirection: multiline ? 'column' : 'row', gap: '8px' }}>
-          {multiline ? (
-            <textarea value={input} onChange={e => setInput(e.target.value)} autoFocus placeholder={placeholder}
-              style={{ width: '100%', background: 'var(--bg-chip)', border: '0.5px solid var(--border)', borderRadius: '8px', padding: '8px 12px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none', resize: 'none', minHeight: '72px', boxSizing: 'border-box' }} />
-          ) : (
-            <input value={input} onChange={e => setInput(e.target.value)} autoFocus placeholder={placeholder}
-              style={{ flex: 1, background: 'var(--bg-chip)', border: '0.5px solid var(--border)', borderRadius: '8px', padding: '8px 12px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none' }} />
-          )}
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={save} disabled={saving}
-              style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '8px', padding: '8px 14px', fontSize: '13px', fontWeight: '500', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
-              {saving ? '...' : 'Save'}
-            </button>
-            <button onClick={cancel}
-              style={{ background: 'none', color: 'var(--text-secondary)', border: 'none', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>✕</button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'flex', flexDirection: multiline ? 'column' : 'row', gap: '8px' }}>
+            {multiline ? (
+              <textarea value={input} onChange={e => setInput(e.target.value)} autoFocus placeholder={placeholder}
+                style={{ width: '100%', background: 'var(--bg-chip)', border: '0.5px solid var(--border)', borderRadius: '8px', padding: '8px 12px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none', resize: 'none', minHeight: '72px', boxSizing: 'border-box' }} />
+            ) : (
+              <input value={input} onChange={e => setInput(e.target.value)} autoFocus placeholder={placeholder}
+                style={{ flex: 1, background: 'var(--bg-chip)', border: '0.5px solid var(--border)', borderRadius: '8px', padding: '8px 12px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none' }} />
+            )}
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={save} disabled={saving}
+                style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '8px', padding: '8px 14px', fontSize: '13px', fontWeight: '500', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
+                {saving ? '...' : 'Save'}
+              </button>
+              <button onClick={cancel}
+                style={{ background: 'none', color: 'var(--text-secondary)', border: 'none', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>✕</button>
+            </div>
           </div>
+          {error && <p style={{ color: '#E05C5C', fontSize: '12px', margin: 0 }}>{error}</p>}
         </div>
       ) : (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -858,7 +872,7 @@ export default function ProfilePage() {
           <p style={{ color: 'var(--text-primary)', fontSize: '14px' }}>{user.email}</p>
         </div>
         <div style={{ borderTop: '0.5px solid var(--border)' }}>
-          <EditRow label="Phone number" field="phone_number" value={profile?.phone_number} placeholder="e.g. +971 50 123 4567" onSave={saveField} />
+          <EditRow label="Phone number" field="phone_number" value={profile?.phone_number} placeholder="e.g. +971 50 123 4567" onSave={saveField} validate={validatePhone} />
         </div>
         <div style={{ borderTop: '0.5px solid var(--border)' }}>
           <EditRow label="Location" field="location" value={profile?.location} placeholder="Your city or area" onSave={saveField} />
