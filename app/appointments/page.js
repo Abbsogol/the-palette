@@ -95,12 +95,13 @@ export default function AppointmentsPage() {
       if (!user) { router.push('/profile'); return }
       setCurrentUser(user)
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('bookings')
         .select('*, service:services(*)')
         .eq('client_id', user.id)
         .order('booking_date', { ascending: true })
         .order('start_time', { ascending: true })
+      if (error) console.error('appointments fetch failed:', error)
 
       if (!data) { setLoading(false); return }
 
@@ -121,7 +122,7 @@ export default function AppointmentsPage() {
   const today = new Date().toISOString().split('T')[0]
 
   const upcoming = bookings.filter(b => (b.status === 'pending' || b.status === 'confirmed') && b.booking_date >= today)
-  const past     = bookings.filter(b => b.status === 'declined' || b.status === 'cancelled' || (b.status === 'confirmed' && b.booking_date < today))
+  const past     = bookings.filter(b => b.status === 'declined' || b.status === 'cancelled' || ((b.status === 'confirmed' || b.status === 'pending') && b.booking_date < today))
 
   const tabs = [
     { key: 'upcoming', label: 'Upcoming', count: upcoming.length },
