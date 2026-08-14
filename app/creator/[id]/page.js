@@ -465,7 +465,7 @@ export default function CreatorPage() {
           </div>
         )}
         {/* Book only — logged out */}
-        {services.length > 0 && !isOwnProfile && !currentUser && (
+        {services.length > 0 && !isOwnProfile && !currentUser && !isPrivateAndNotFollowing && (
           <div style={{ marginBottom: '20px' }}>
             <Link href={`/book/${id}`} style={{
               display: 'block', width: '100%', background: 'var(--accent)', color: '#2C0A1E',
@@ -511,7 +511,7 @@ export default function CreatorPage() {
         </div>
 
         {/* Services */}
-        {services.length > 0 && (
+        {!isPrivateAndNotFollowing && services.length > 0 && (
           <div style={{ marginBottom: '24px' }}>
             <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '12px' }}>Services</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -536,7 +536,7 @@ export default function CreatorPage() {
         )}
 
         {/* Availability / Opening Hours */}
-        {availability.length > 0 && (
+        {!isPrivateAndNotFollowing && availability.length > 0 && (
           <div style={{ marginBottom: '24px' }}>
             <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '12px' }}>
               {isSalon ? 'Opening Hours' : 'Availability'}

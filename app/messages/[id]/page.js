@@ -124,6 +124,8 @@ export default function ChatPage() {
       setSendError(
         error.message?.includes('BLOCKED_CANNOT_MESSAGE')
           ? "You can't message this person."
+          : error.message?.includes('MESSAGE_PERMISSION_DENIED')
+          ? "This person isn't accepting messages right now."
           : 'Message failed to send. Please try again.'
       )
       setSending(false)

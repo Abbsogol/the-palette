@@ -55,6 +55,7 @@ export default function BookPage() {
   const [step, setStep] = useState(1) // 1=service, 2=date, 3=time, 4=confirm
   const [currentUser, setCurrentUser] = useState(null)
   const [creator, setCreator] = useState(null)
+  const [isPrivateAndBlocked, setIsPrivateAndBlocked] = useState(false)
   const [services, setServices] = useState([])
   const [availability, setAvailability] = useState([]) // active days
   const [loading, setLoading] = useState(true)
@@ -92,13 +93,15 @@ export default function BookPage() {
         }
       }
 
-      const [{ data: prof }, { data: svcs }, { data: avail }] = await Promise.all([
-        supabase.from('profiles').select('id, display_name, avatar_url, account_type').eq('id', creatorId).single(),
+      const [{ data: prof }, { data: svcs }, { data: avail }, { data: followRow }] = await Promise.all([
+        supabase.from('profiles').select('id, display_name, avatar_url, account_type, is_private').eq('id', creatorId).single(),
         supabase.from('services').select('*').eq('creator_id', creatorId).eq('is_active', true).order('created_at', { ascending: true }),
         supabase.from('availability').select('*').eq('creator_id', creatorId).eq('is_active', true).order('day_of_week', { ascending: true }),
+        creatorId === user.id ? { data: null } : supabase.from('follows').select('*').eq('follower_id', user.id).eq('following_id', creatorId).maybeSingle(),
       ])
 
       setCreator(prof)
+      setIsPrivateAndBlocked(!!prof?.is_private && creatorId !== user.id && !followRow)
       setServices(svcs || [])
       setAvailability(avail || [])
 
@@ -232,6 +235,21 @@ export default function BookPage() {
   if (loading) return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <p style={{ color: 'var(--text-secondary)', fontFamily: "'DM Sans', sans-serif" }}>Loading…</p>
+    </div>
+  )
+
+  // ── PRIVATE ACCOUNT GUARD ───────────────────────────────────────────────────
+  if (isPrivateAndBlocked) return (
+    <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', fontFamily: "'DM Sans', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px', textAlign: 'center' }}>
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '16px' }}>
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+      <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', margin: '0 0 6px' }}>This account is private</p>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '0 0 24px' }}>Follow {creator?.display_name || 'them'} to book an appointment.</p>
+      <Link href={`/creator/${creatorId}`} style={{ background: 'var(--accent)', color: '#2C0A1E', borderRadius: '12px', padding: '13px 24px', fontSize: '14px', fontWeight: '600', textDecoration: 'none' }}>
+        Back to profile
+      </Link>
     </div>
   )
 

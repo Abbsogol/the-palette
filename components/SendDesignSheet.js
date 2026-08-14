@@ -66,6 +66,8 @@ export default function SendDesignSheet({ design, onClose }) {
       setSendError(
         error.message?.includes('BLOCKED_CANNOT_MESSAGE')
           ? "You can't message this person."
+          : error.message?.includes('MESSAGE_PERMISSION_DENIED')
+          ? "This person isn't accepting messages right now."
           : 'Failed to send. Please try again.'
       )
       setSending(null)
