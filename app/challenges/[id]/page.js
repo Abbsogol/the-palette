@@ -120,7 +120,9 @@ export default function ChallengeDetailPage() {
     }).select('*, profiles(id, display_name, avatar_url)').single()
     setSubmitting(false)
     if (subError || !sub) {
-      alert('Failed to submit entry: ' + (subError?.message || 'Unknown error'))
+      alert(subError?.message?.includes('CHALLENGE_ENDED')
+        ? 'This challenge has ended — submissions are closed.'
+        : 'Failed to submit entry: ' + (subError?.message || 'Unknown error'))
       return
     }
     setSubmissions(prev => [sub, ...prev])
