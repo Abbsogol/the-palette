@@ -33,6 +33,10 @@ export async function POST(request) {
 
     if (!design) return Response.json({ error: 'Design not found' }, { status: 404 })
 
+    // Buckets rapid double-clicks/retries into the same Stripe session instead
+    // of creating a second real Checkout Session for one intended boost.
+    const idempotencyKey = `boost-${user.id}-${designId}-${days}-${Math.floor(Date.now() / 300000)}`
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       mode: 'payment',
@@ -57,7 +61,7 @@ export async function POST(request) {
       },
       success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://laque.app'}/design/${designId}?boosted=1`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://laque.app'}/design/${designId}`,
-    })
+    }, { idempotencyKey })
 
     return Response.json({ url: session.url })
   } catch (err) {

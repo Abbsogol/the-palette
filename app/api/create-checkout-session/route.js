@@ -33,6 +33,10 @@ export async function POST(request) {
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://laque.app'
 
+    // Buckets rapid double-clicks/retries into the same Stripe session instead
+    // of creating a second real Checkout Session for one intended purchase.
+    const idempotencyKey = `checkout-${userId}-${packId}-${Math.floor(Date.now() / 300000)}`
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
@@ -56,7 +60,7 @@ export async function POST(request) {
         packId,
         credits: pack.credits.toString(),
       },
-    })
+    }, { idempotencyKey })
 
     return Response.json({ url: session.url })
 
