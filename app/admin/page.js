@@ -432,6 +432,7 @@ function TagsManager() {
   const [newTag, setNewTag] = useState('')
   const [adding, setAdding] = useState(false)
   const [deleting, setDeleting] = useState(null)
+  const [errorMsg, setErrorMsg] = useState('')
 
   useEffect(() => {
     supabase.from('tags').select('id, name').order('name').then(({ data }) => setTags(data || []))
@@ -440,17 +441,27 @@ function TagsManager() {
   const addTag = async () => {
     if (!newTag.trim() || adding) return
     setAdding(true)
-    const { data } = await supabase.from('tags').insert({ name: newTag.trim().toLowerCase() }).select().single()
-    if (data) setTags(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)))
-    setNewTag('')
+    setErrorMsg('')
+    const { data, error } = await supabase.from('tags').insert({ name: newTag.trim().toLowerCase() }).select().single()
+    if (error) {
+      setErrorMsg(error.message)
+    } else if (data) {
+      setTags(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)))
+      setNewTag('')
+    }
     setAdding(false)
   }
 
   const deleteTag = async (tag) => {
     if (deleting) return
     setDeleting(tag.id)
-    await supabase.from('tags').delete().eq('id', tag.id)
-    setTags(prev => prev.filter(t => t.id !== tag.id))
+    setErrorMsg('')
+    const { error } = await supabase.from('tags').delete().eq('id', tag.id)
+    if (error) {
+      setErrorMsg(error.message)
+    } else {
+      setTags(prev => prev.filter(t => t.id !== tag.id))
+    }
     setDeleting(null)
   }
 
@@ -462,6 +473,7 @@ function TagsManager() {
           {adding ? '…' : 'Add'}
         </button>
       </div>
+      {errorMsg && <p style={{ color: '#e57373', fontSize: '12px', marginBottom: '10px' }}>{errorMsg}</p>}
       <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginBottom: '10px' }}>{tags.length} tags</p>
       {tags.map(tag => (
         <div key={tag.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '0.5px solid var(--border)' }}>
@@ -609,24 +621,36 @@ export default function AdminPage() {
   const deleteDesign = async (id, title) => {
     if (!confirm(`Delete "${title}"? This cannot be undone.`)) return
     setDeletingId(id)
-    await supabase.from('design_tags').delete().eq('design_id', id)
-    await supabase.from('design_colours').delete().eq('design_id', id)
-    await supabase.from('design_images').delete().eq('design_id', id)
-    await supabase.from('saved_designs').delete().eq('design_id', id)
-    await supabase.from('designs').delete().eq('id', id)
+    const steps = [
+      () => supabase.from('design_tags').delete().eq('design_id', id),
+      () => supabase.from('design_colours').delete().eq('design_id', id),
+      () => supabase.from('design_images').delete().eq('design_id', id),
+      () => supabase.from('saved_designs').delete().eq('design_id', id),
+      () => supabase.from('designs').delete().eq('id', id),
+    ]
+    for (const step of steps) {
+      const { error } = await step()
+      if (error) {
+        alert('Failed to delete: ' + error.message)
+        setDeletingId(null)
+        return
+      }
+    }
     setAllDesigns(prev => prev.filter(d => d.id !== id))
     setDeletingId(null)
   }
 
   const toggleDrop = async (id, current) => {
-    await supabase.from('designs').update({ is_drop: !current }).eq('id', id)
+    const { error } = await supabase.from('designs').update({ is_drop: !current }).eq('id', id)
+    if (error) { alert('Failed to update: ' + error.message); return }
     setAllDesigns(prev => prev.map(d => d.id === id ? { ...d, is_drop: !current } : d))
   }
 
   const deleteProduct = async (id, name) => {
     if (!confirm(`Delete "${name}"? This cannot be undone.`)) return
     setDeletingProductId(id)
-    await supabase.from('products').delete().eq('id', id)
+    const { error } = await supabase.from('products').delete().eq('id', id)
+    if (error) { alert('Failed to delete: ' + error.message); setDeletingProductId(null); return }
     setAllProducts(prev => prev.filter(p => p.id !== id))
     setDeletingProductId(null)
   }
@@ -663,14 +687,20 @@ export default function AdminPage() {
 
     for (let i = 0; i < newExtraFiles.length; i++) {
       const url = await uploadImage(newExtraFiles[i].file, `${slug}-extra-${i + 1}`)
-      await supabase.from('design_images').insert({ design_id: design.id, image_url: url, image_order: i + 1 })
+      const { error: imgErr } = await supabase.from('design_images').insert({ design_id: design.id, image_url: url, image_order: i + 1 })
+      if (imgErr) throw new Error('Failed to save extra image: ' + imgErr.message)
     }
     if (colours.length > 0) {
-      await supabase.from('design_colours').insert(colours.map((c, i) => ({ design_id: design.id, colour_name: c.colour_name || null, hex_code: c.hex_code || null, brand_name: c.brand_name || null, brand_code: c.brand_code || null, colour_order: i + 1 })))
+      const { error: colourErr } = await supabase.from('design_colours').insert(colours.map((c, i) => ({ design_id: design.id, colour_name: c.colour_name || null, hex_code: c.hex_code || null, brand_name: c.brand_name || null, brand_code: c.brand_code || null, colour_order: i + 1 })))
+      if (colourErr) throw new Error('Failed to save colours: ' + colourErr.message)
     }
     for (const tagName of tagNames) {
-      const { data: tag } = await supabase.from('tags').upsert({ name: tagName }, { onConflict: 'name' }).select().single()
-      if (tag) await supabase.from('design_tags').upsert({ design_id: design.id, tag_id: tag.id }, { onConflict: 'design_id,tag_id' })
+      const { data: tag, error: tagErr } = await supabase.from('tags').upsert({ name: tagName }, { onConflict: 'name' }).select().single()
+      if (tagErr) throw new Error(`Failed to save tag "${tagName}": ` + tagErr.message)
+      if (tag) {
+        const { error: linkErr } = await supabase.from('design_tags').upsert({ design_id: design.id, tag_id: tag.id }, { onConflict: 'design_id,tag_id' })
+        if (linkErr) throw new Error(`Failed to link tag "${tagName}": ` + linkErr.message)
+      }
     }
     setSuccessMsg(`✓ "${design.title}" published!`)
     setActiveTab('upload')
@@ -692,21 +722,30 @@ export default function AdminPage() {
     if (error) throw new Error(error.message)
 
     for (const imgId of removedExtraIds) {
-      await supabase.from('design_images').delete().eq('id', imgId)
+      const { error: delImgErr } = await supabase.from('design_images').delete().eq('id', imgId)
+      if (delImgErr) throw new Error('Failed to remove image: ' + delImgErr.message)
     }
     const existingCount = editingDesign.extraImages.filter(img => !removedExtraIds.includes(img.id)).length
     for (let i = 0; i < newExtraFiles.length; i++) {
       const url = await uploadImage(newExtraFiles[i].file, `${slug}-extra-${existingCount + i + 1}`)
-      await supabase.from('design_images').insert({ design_id: id, image_url: url, image_order: existingCount + i + 1 })
+      const { error: imgErr } = await supabase.from('design_images').insert({ design_id: id, image_url: url, image_order: existingCount + i + 1 })
+      if (imgErr) throw new Error('Failed to save extra image: ' + imgErr.message)
     }
-    await supabase.from('design_colours').delete().eq('design_id', id)
+    const { error: delColourErr } = await supabase.from('design_colours').delete().eq('design_id', id)
+    if (delColourErr) throw new Error('Failed to update colours: ' + delColourErr.message)
     if (colours.length > 0) {
-      await supabase.from('design_colours').insert(colours.map((c, i) => ({ design_id: id, colour_name: c.colour_name || null, hex_code: c.hex_code || null, brand_name: c.brand_name || null, brand_code: c.brand_code || null, colour_order: i + 1 })))
+      const { error: colourErr } = await supabase.from('design_colours').insert(colours.map((c, i) => ({ design_id: id, colour_name: c.colour_name || null, hex_code: c.hex_code || null, brand_name: c.brand_name || null, brand_code: c.brand_code || null, colour_order: i + 1 })))
+      if (colourErr) throw new Error('Failed to save colours: ' + colourErr.message)
     }
-    await supabase.from('design_tags').delete().eq('design_id', id)
+    const { error: delTagErr } = await supabase.from('design_tags').delete().eq('design_id', id)
+    if (delTagErr) throw new Error('Failed to update tags: ' + delTagErr.message)
     for (const tagName of tagNames) {
-      const { data: tag } = await supabase.from('tags').upsert({ name: tagName }, { onConflict: 'name' }).select().single()
-      if (tag) await supabase.from('design_tags').insert({ design_id: id, tag_id: tag.id })
+      const { data: tag, error: tagErr } = await supabase.from('tags').upsert({ name: tagName }, { onConflict: 'name' }).select().single()
+      if (tagErr) throw new Error(`Failed to save tag "${tagName}": ` + tagErr.message)
+      if (tag) {
+        const { error: linkErr } = await supabase.from('design_tags').insert({ design_id: id, tag_id: tag.id })
+        if (linkErr) throw new Error(`Failed to link tag "${tagName}": ` + linkErr.message)
+      }
     }
     setEditingDesign(null)
     setSuccessMsg(`✓ "${title}" updated!`)
@@ -934,10 +973,12 @@ function LinkedProducts({ designId }) {
   const toggle = async (productId) => {
     setSaving(productId)
     if (linkedIds.has(productId)) {
-      await supabase.from('design_products').delete().eq('design_id', designId).eq('product_id', productId)
+      const { error } = await supabase.from('design_products').delete().eq('design_id', designId).eq('product_id', productId)
+      if (error) { alert('Failed to unlink product: ' + error.message); setSaving(null); return }
       setLinkedIds(prev => { const next = new Set(prev); next.delete(productId); return next })
     } else {
-      await supabase.from('design_products').insert({ design_id: designId, product_id: productId })
+      const { error } = await supabase.from('design_products').insert({ design_id: designId, product_id: productId })
+      if (error) { alert('Failed to link product: ' + error.message); setSaving(null); return }
       setLinkedIds(prev => new Set([...prev, productId]))
     }
     setSaving(null)
@@ -1059,6 +1100,7 @@ function ChallengesManager() {
   const [endsAt, setEndsAt] = useState('')
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
+  const [errMsg, setErrMsg] = useState('')
 
   useEffect(() => {
     supabase.from('challenges').select('*').order('created_at', { ascending: false }).then(({ data }) => {
@@ -1070,12 +1112,15 @@ function ChallengesManager() {
   const handleCreate = async () => {
     if (!title.trim() || !endsAt) return
     setSaving(true)
+    setErrMsg('')
     const { data, error } = await supabase.from('challenges').insert({
       title: title.trim(),
       description: description.trim() || null,
       ends_at: new Date(endsAt).toISOString(),
     }).select().single()
-    if (!error && data) {
+    if (error) {
+      setErrMsg(error.message)
+    } else if (data) {
       setChallenges(prev => [data, ...prev])
       setTitle(''); setDescription(''); setEndsAt('')
       setMsg('Challenge created!')
@@ -1086,7 +1131,9 @@ function ChallengesManager() {
 
   const handleDelete = async (id) => {
     if (!confirm('Delete this challenge and all submissions?')) return
-    await supabase.from('challenges').delete().eq('id', id)
+    setErrMsg('')
+    const { error } = await supabase.from('challenges').delete().eq('id', id)
+    if (error) { setErrMsg(error.message); return }
     setChallenges(prev => prev.filter(c => c.id !== id))
   }
 
@@ -1102,6 +1149,7 @@ function ChallengesManager() {
         {saving ? 'Creating…' : 'Create Challenge'}
       </button>
       {msg && <p style={{ color: '#6CC882', fontSize: '13px', marginBottom: '16px' }}>{msg}</p>}
+      {errMsg && <p style={{ color: '#E07070', fontSize: '13px', marginBottom: '16px' }}>{errMsg}</p>}
 
       <h2 style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '600', marginBottom: '12px' }}>All Challenges</h2>
       {loading ? <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Loading…</p> : challenges.length === 0 ? (
