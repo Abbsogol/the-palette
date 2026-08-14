@@ -30,23 +30,42 @@ export async function POST(request) {
       return Response.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // A free regen must point at a real, unused, original (non-regen) generation owned by this user
+    // A free regen must point at a real, unused, original (non-regen)
+    // generation owned by this user — claimed atomically via a conditional
+    // update BEFORE generation starts, not via a check-then-flag-after
+    // sequence. Two concurrent requests racing a plain read-then-write could
+    // both pass the eligibility read and both get a free image from one
+    // eligible regen; this update can only ever succeed for one of them.
     if (freeRegen) {
-      const { data: parent } = parentGenerationId
-        ? await supabase
-            .from('nail_lab_generations')
-            .select('id, user_id, free_regen_used, parent_generation_id')
-            .eq('id', parentGenerationId)
-            .maybeSingle()
-        : { data: null }
+      if (!parentGenerationId) {
+        return Response.json({ error: 'Free regen unavailable' }, { status: 403 })
+      }
+      const { data: claimed, error: claimError } = await supabase
+        .from('nail_lab_generations')
+        .update({ free_regen_used: true })
+        .eq('id', parentGenerationId)
+        .eq('user_id', userId)
+        .eq('free_regen_used', false)
+        .is('parent_generation_id', null)
+        .select('id')
+        .maybeSingle()
 
-      if (!parent || parent.user_id !== userId || parent.free_regen_used || parent.parent_generation_id) {
+      if (claimError || !claimed) {
         return Response.json({ error: 'Free regen unavailable' }, { status: 403 })
       }
     }
 
     if (!freeRegen && profile.credit_balance < 1) {
       return Response.json({ error: 'Insufficient credits' }, { status: 402 })
+    }
+
+    // If generation fails anywhere after the free-regen flag is claimed
+    // above, give it back — the user shouldn't lose their one free regen to
+    // an OpenAI/storage hiccup that produced no image.
+    const refundFreeRegen = async () => {
+      if (freeRegen && parentGenerationId) {
+        await supabase.from('nail_lab_generations').update({ free_regen_used: false }).eq('id', parentGenerationId)
+      }
     }
 
     // Build prompt
@@ -119,6 +138,7 @@ DESIGN NAME: Choose a name that is ${nameHint}. Subtitle should reflect shape, l
     if (!openaiRes.ok) {
       const err = await openaiRes.json()
       console.error('OpenAI error:', err)
+      await refundFreeRegen()
       return Response.json({ error: 'Image generation failed', details: err }, { status: 500 })
     }
 
@@ -128,6 +148,7 @@ DESIGN NAME: Choose a name that is ${nameHint}. Subtitle should reflect shape, l
     const b64 = openaiData?.data?.[0]?.b64_json
 
     if (!b64) {
+      await refundFreeRegen()
       return Response.json({ error: 'No image returned', raw: openaiData }, { status: 500 })
     }
 
@@ -140,6 +161,7 @@ DESIGN NAME: Choose a name that is ${nameHint}. Subtitle should reflect shape, l
 
     if (uploadError) {
       console.error('Storage upload error:', uploadError)
+      await refundFreeRegen()
       return Response.json({ error: 'Failed to save image', details: uploadError.message }, { status: 500 })
     }
 
@@ -156,19 +178,18 @@ DESIGN NAME: Choose a name that is ${nameHint}. Subtitle should reflect shape, l
 
     if (signError || !signedData) {
       console.error('Signed URL error:', signError)
+      await refundFreeRegen()
       return Response.json({ error: 'Failed to prepare image', details: signError?.message }, { status: 500 })
     }
     const imageUrl = signedData.signedUrl
 
-    // Deduct 1 credit, or mark the free regen as used on its parent. The
-    // image is already generated and uploaded by this point, so a failure
-    // here is logged for reconciliation rather than discarding the result.
+    // Deduct 1 credit (free regens already had their one-time flag claimed
+    // atomically above, before generation started). The image is already
+    // generated and uploaded by this point, so a decrement failure here is
+    // logged for reconciliation rather than discarding the result.
     if (!freeRegen) {
       const { error: decError } = await supabase.rpc('decrement_credits', { user_id: userId })
       if (decError) console.error('decrement_credits failed:', decError)
-    } else {
-      const { error: flagError } = await supabase.from('nail_lab_generations').update({ free_regen_used: true }).eq('id', parentGenerationId)
-      if (flagError) console.error('free_regen_used update failed:', flagError)
     }
 
     // Save generation record
@@ -194,10 +215,12 @@ DESIGN NAME: Choose a name that is ${nameHint}. Subtitle should reflect shape, l
     if (insertError || !generation) {
       console.error('nail_lab_generations insert failed:', insertError)
       // The generation record — the only durable reference to what was just
-      // charged for — was lost, so refund the credit rather than silently
-      // keeping the charge.
+      // charged for — was lost, so refund the credit/free-regen rather than
+      // silently keeping the charge.
       if (!freeRegen) {
         await supabase.rpc('increment_credits', { user_id: userId, amount: 1 })
+      } else {
+        await refundFreeRegen()
       }
       return Response.json({ error: 'Failed to save your generation. Please try again — you have not been charged.' }, { status: 500 })
     }
