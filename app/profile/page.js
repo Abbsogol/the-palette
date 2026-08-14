@@ -77,9 +77,9 @@ function EditRow({ label, field, value, placeholder, multiline, onSave }) {
   const cancel = () => setEditing(false)
   const save   = async () => {
     setSaving(true)
-    await onSave(field, input)
+    const ok = await onSave(field, input)
     setSaving(false)
-    setEditing(false)
+    if (ok !== false) setEditing(false)
   }
 
   return (
@@ -115,7 +115,7 @@ function EditRow({ label, field, value, placeholder, multiline, onSave }) {
 }
 
 // ── Username editable row (with format validation + unique error) ──────────
-function UsernameRow({ value, userId }) {
+function UsernameRow({ value }) {
   const [editing, setEditing] = useState(false)
   const [input, setInput]     = useState('')
   const [saving, setSaving]   = useState(false)
@@ -132,11 +132,20 @@ function UsernameRow({ value, userId }) {
     if (!val) { setError('Username cannot be empty'); return }
     if (!USERNAME_RE.test(val)) { setError('3–30 chars, lowercase letters, numbers, _ and . only'); return }
     setSaving(true); setError('')
-    const { error: dbErr } = await supabase.from('profiles').update({ username: val }).eq('id', userId)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/update-profile', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
+      body: JSON.stringify({ username: val }),
+    })
+    const json = await res.json().catch(() => ({}))
     setSaving(false)
-    if (dbErr) {
-      if (dbErr.message?.includes('unique') || dbErr.code === '23505') setError('Username already taken')
-      else setError(dbErr.message)
+    if (!res.ok || json.error) {
+      if (json.code === '23505' || json.error?.includes('unique')) setError('Username already taken')
+      else setError(json.error || 'Failed to save')
       return
     }
     setCurrent(val); setEditing(false)
@@ -282,8 +291,24 @@ export default function ProfilePage() {
   }
 
   const saveField = async (field, value) => {
-    await supabase.from('profiles').update({ [field]: value }).eq('id', user.id)
-    setProfile(prev => ({ ...prev, [field]: value }))
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/update-profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ [field]: value }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok || json.error) throw new Error(json.error || 'Failed to save')
+      setProfile(prev => ({ ...prev, [field]: value }))
+      return true
+    } catch (err) {
+      alert(err.message || 'Failed to save. Please try again.')
+      return false
+    }
   }
 
   const openNewPost = () => { setEditingPostId(null); setPostText(''); setPostModalOpen(true) }
@@ -315,8 +340,7 @@ export default function ProfilePage() {
     const next = single
       ? (current === item ? null : item)
       : (current || []).includes(item) ? (current).filter(i => i !== item) : [...(current || []), item]
-    await supabase.from('profiles').update({ [field]: next }).eq('id', user.id)
-    setProfile(prev => ({ ...prev, [field]: next }))
+    await saveField(field, next)
   }
 
   // ── Auth handlers ──────────────────────────────────────────────────────
@@ -462,15 +486,13 @@ export default function ProfilePage() {
     if (uploadError) { alert('Upload failed: ' + uploadError.message); setUploadingAvatar(false); return }
     const { data: { publicUrl } } = supabase.storage.from('designs').getPublicUrl(path)
     const bustedUrl = `${publicUrl}?t=${Date.now()}`
-    await supabase.from('profiles').update({ avatar_url: bustedUrl }).eq('id', user.id)
-    setProfile(prev => ({ ...prev, avatar_url: bustedUrl }))
+    await saveField('avatar_url', bustedUrl)
     setUploadingAvatar(false)
   }
 
   const removeAvatar = async () => {
     if (!confirm('Remove profile photo?')) return
-    await supabase.from('profiles').update({ avatar_url: null }).eq('id', user.id)
-    setProfile(prev => ({ ...prev, avatar_url: null }))
+    await saveField('avatar_url', null)
   }
 
   // ── Loading ────────────────────────────────────────────────────────────
@@ -820,7 +842,7 @@ export default function ProfilePage() {
           <EditRow label="Display name" field="display_name" value={profile?.display_name} placeholder="Your name" onSave={saveField} />
         </div>
         <div style={{ borderTop: '0.5px solid var(--border)' }}>
-          <UsernameRow value={profile?.username} userId={user.id} />
+          <UsernameRow value={profile?.username} />
         </div>
         <div style={{ borderTop: '0.5px solid var(--border)', padding: '14px 16px' }}>
           <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '6px' }}>Email</p>
