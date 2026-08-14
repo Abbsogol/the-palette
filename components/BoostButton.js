@@ -34,10 +34,14 @@ export default function BoostButton({ designId, creatorId, boostedUntil }) {
     if (!selected || loading) return
     setLoading(true)
     try {
+      const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch('/api/create-boost-payment', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ designId, creatorId, days: selected.days, price: selected.price }),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ designId, days: selected.days, price: selected.price }),
       })
       const data = await res.json()
       if (data.url) window.location.href = data.url

@@ -1,5 +1,5 @@
 import Stripe from 'stripe'
-import { serviceClient as supabase } from '@/lib/auth'
+import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
@@ -7,9 +7,14 @@ const VALID_PRICES = { 1: 15, 3: 35, 7: 70 } // days → AED price
 
 export async function POST(request) {
   try {
-    const { designId, creatorId, days, price } = await request.json()
+    const user = await getSessionUser(request)
+    if (!user) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-    if (!designId || !creatorId || !days) {
+    const { designId, days, price } = await request.json()
+
+    if (!designId || !days) {
       return Response.json({ error: 'Missing fields' }, { status: 400 })
     }
 
@@ -18,13 +23,12 @@ export async function POST(request) {
       return Response.json({ error: 'Invalid boost option' }, { status: 400 })
     }
 
-
-    // Verify the design belongs to this creator
+    // Verify the design belongs to the authenticated caller
     const { data: design } = await supabase
       .from('designs')
       .select('id, title, created_by')
       .eq('id', designId)
-      .eq('created_by', creatorId)
+      .eq('created_by', user.id)
       .single()
 
     if (!design) return Response.json({ error: 'Design not found' }, { status: 404 })
@@ -48,7 +52,7 @@ export async function POST(request) {
       metadata: {
         type: 'boost',
         designId,
-        creatorId,
+        creatorId: user.id,
         days: String(days),
       },
       success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://laque.app'}/design/${designId}?boosted=1`,

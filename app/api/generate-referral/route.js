@@ -1,4 +1,4 @@
-import { serviceClient as supabase } from '@/lib/auth'
+import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
 
 // No ambiguous chars (0/O, 1/I/L)
 const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -8,13 +8,17 @@ function genCode() {
 }
 
 export async function POST(request) {
-  const { user_id } = await request.json()
-  if (!user_id) return Response.json({ error: 'Missing user_id' }, { status: 400 })
+  const user = await getSessionUser(request)
+  if (!user) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
+  // profiles_data, not the profiles view — referral_code is masked behind
+  // auth.uid() = id in the view, always null for a service-role caller.
   const { data: profile } = await supabase
-    .from('profiles')
+    .from('profiles_data')
     .select('referral_code')
-    .eq('id', user_id)
+    .eq('id', user.id)
     .single()
   if (!profile) return Response.json({ error: 'User not found' }, { status: 404 })
 
@@ -26,7 +30,7 @@ export async function POST(request) {
   for (let i = 0; i < 10; i++) {
     const candidate = genCode()
     const { data: clash } = await supabase
-      .from('profiles')
+      .from('profiles_data')
       .select('id')
       .eq('referral_code', candidate)
       .maybeSingle()
@@ -34,6 +38,8 @@ export async function POST(request) {
   }
   if (!code) return Response.json({ error: 'Could not generate code' }, { status: 500 })
 
-  await supabase.from('profiles').update({ referral_code: code }).eq('id', user_id)
+  const { error } = await supabase.from('profiles_data').update({ referral_code: code }).eq('id', user.id)
+  if (error) return Response.json({ error: error.message }, { status: 500 })
+
   return Response.json({ code })
 }

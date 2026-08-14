@@ -53,10 +53,14 @@ export default function UpgradePage() {
     if (!profile) return
     setSubscribing(planId)
     try {
+      const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch('/api/create-subscription', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planId, userId: profile.id }),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ planId }),
       })
       const { url, error } = await res.json()
       if (error) { alert('Something went wrong. Please try again.'); setSubscribing(null); return }

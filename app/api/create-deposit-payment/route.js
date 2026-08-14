@@ -1,14 +1,19 @@
 import Stripe from 'stripe'
-import { serviceClient as supabase } from '@/lib/auth'
+import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
 export async function POST(request) {
   try {
-    const { bookingId, userId } = await request.json()
+    const user = await getSessionUser(request)
+    if (!user) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-    if (!bookingId || !userId) {
-      return Response.json({ error: 'Missing bookingId or userId' }, { status: 400 })
+    const { bookingId } = await request.json()
+
+    if (!bookingId) {
+      return Response.json({ error: 'Missing bookingId' }, { status: 400 })
     }
 
     // Fetch the booking + service to get deposit amount
@@ -16,7 +21,7 @@ export async function POST(request) {
       .from('bookings')
       .select('*, service:services(name, deposit_amount)')
       .eq('id', bookingId)
-      .eq('client_id', userId)
+      .eq('client_id', user.id)
       .single()
 
     if (error || !booking) {
@@ -52,7 +57,7 @@ export async function POST(request) {
       metadata: {
         type: 'deposit',
         bookingId,
-        userId,
+        userId: user.id,
       },
       success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://laque.app'}/appointments/deposit-success?booking=${bookingId}`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://laque.app'}/appointments`,

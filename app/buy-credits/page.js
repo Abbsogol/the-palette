@@ -63,10 +63,14 @@ export default function BuyCreditsPage() {
     if (!currentUser) return
     setLoading(pack.id)
     try {
+      const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch('/api/create-checkout-session', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ packId: pack.id, userId: currentUser.id }),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ packId: pack.id }),
       })
       const data = await res.json()
       if (data.url) {

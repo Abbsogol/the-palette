@@ -1,5 +1,5 @@
 import Stripe from 'stripe'
-import { serviceClient as supabase } from '@/lib/auth'
+import { getSessionUser } from '@/lib/auth'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
@@ -16,21 +16,21 @@ const PLANS = {
 
 export async function POST(request) {
   try {
-    const { planId, userId } = await request.json()
+    const user = await getSessionUser(request)
+    if (!user) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const userId = user.id
 
-    if (!planId || !userId) {
-      return Response.json({ error: 'Missing planId or userId' }, { status: 400 })
+    const { planId } = await request.json()
+
+    if (!planId) {
+      return Response.json({ error: 'Missing planId' }, { status: 400 })
     }
 
     const plan = PLANS[planId]
     if (!plan) {
       return Response.json({ error: 'Invalid plan' }, { status: 400 })
-    }
-
-    // Verify user exists + get email
-    const { data: { user } } = await supabase.auth.admin.getUserById(userId)
-    if (!user) {
-      return Response.json({ error: 'User not found' }, { status: 404 })
     }
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://laque.app'

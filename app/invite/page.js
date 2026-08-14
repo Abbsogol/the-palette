@@ -23,11 +23,13 @@ export default function InvitePage() {
       // Generate or fetch referral code
       const res = await fetch('/api/generate-referral', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: session.user.id }),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
       })
-      const { code: userCode } = await res.json()
-      setCode(userCode)
+      const json = await res.json().catch(() => ({}))
+      if (res.ok && json.code) setCode(json.code)
 
       // Each invite_friend reward row is exactly one successful referral —
       // counting via profiles.referred_by doesn't work here since that

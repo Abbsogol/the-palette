@@ -1,5 +1,5 @@
 import Stripe from 'stripe'
-import { serviceClient as supabase } from '@/lib/auth'
+import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
@@ -11,26 +11,21 @@ const PACKS = {
 
 export async function POST(request) {
   try {
-    const { packId, userId } = await request.json()
+    const user = await getSessionUser(request)
+    if (!user) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const userId = user.id
 
-    if (!packId || !userId) {
-      return Response.json({ error: 'Missing packId or userId' }, { status: 400 })
+    const { packId } = await request.json()
+
+    if (!packId) {
+      return Response.json({ error: 'Missing packId' }, { status: 400 })
     }
 
     const pack = PACKS[packId]
     if (!pack) {
       return Response.json({ error: 'Invalid pack' }, { status: 400 })
-    }
-
-    // Verify user exists
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('id', userId)
-      .single()
-
-    if (!profile) {
-      return Response.json({ error: 'User not found' }, { status: 404 })
     }
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://laque.app'
