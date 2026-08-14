@@ -362,13 +362,16 @@ function Dashboard() {
         { count: users },
         { count: designs },
         { count: bookings },
-        { count: subscriptions },
+        subscriptionsRes,
       ] = await Promise.all([
         supabase.from('profiles').select('*', { count: 'exact', head: true }),
         supabase.from('designs').select('*', { count: 'exact', head: true }).eq('is_published', true),
         supabase.from('bookings').select('*', { count: 'exact', head: true }),
-        supabase.from('profiles').select('*', { count: 'exact', head: true }).not('subscription_tier', 'is', null),
+        // subscription_tier is masked in the profiles view for other users'
+        // rows, so this count needs the service-role route, not a direct query.
+        fetch('/api/admin-subscription-count', { headers: await authHeaders() }).then(r => r.json()),
       ])
+      const subscriptions = subscriptionsRes?.count ?? null
       const { data: recentUsers } = await supabase
         .from('profiles')
         .select('id, display_name, username, account_type, created_at')
