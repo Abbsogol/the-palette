@@ -43,11 +43,12 @@ export default function RewardsPage() {
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session?.user) { router.push('/profile'); return }
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('rewards')
         .select('*')
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false })
+      if (error) console.error('rewards fetch failed:', error)
       const rows = data || []
       setHistory(rows)
       setTotalPoints(rows.reduce((sum, r) => sum + r.points, 0))

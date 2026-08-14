@@ -273,12 +273,15 @@ export default function NailLabPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.user) { setLoadingUser(false); return }
       setCurrentUser(session.user)
-      const { data: profile } = await supabase
+      const { data: profile, error } = await supabase
         .from('profiles')
         .select('credit_balance')
         .eq('id', session.user.id)
         .single()
-      setCredits(profile?.credit_balance ?? 0)
+      if (error) console.error('credit balance fetch failed:', error)
+      // Leave credits unset (renders as "—") rather than defaulting to 0 on
+      // a fetch failure, so a real error isn't shown as "no credits left."
+      if (profile) setCredits(profile.credit_balance ?? 0)
       setLoadingUser(false)
     }
     load()

@@ -34,11 +34,12 @@ export default function InvitePage() {
       // Each invite_friend reward row is exactly one successful referral —
       // counting via profiles.referred_by doesn't work here since that
       // column is masked (auth.uid() = id) for any row that isn't your own.
-      const { data: rewardRows } = await supabase
+      const { data: rewardRows, error: rewardsError } = await supabase
         .from('rewards')
         .select('points')
         .eq('user_id', session.user.id)
         .eq('reason', 'invite_friend')
+      if (rewardsError) console.error('invite rewards fetch failed:', rewardsError)
 
       setFriendCount((rewardRows || []).length)
       setPointsEarned((rewardRows || []).reduce((sum, r) => sum + r.points, 0))

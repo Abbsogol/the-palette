@@ -54,15 +54,17 @@ export default function ChallengeDetailPage() {
       const u = session?.user || null
       setCurrentUser(u)
 
-      const { data: ch } = await supabase.from('challenges').select('*').eq('id', id).single()
+      const { data: ch, error: chError } = await supabase.from('challenges').select('*').eq('id', id).single()
+      if (chError) console.error('challenge fetch failed:', chError)
       if (!ch) { router.push('/challenges'); return }
       setChallenge(ch)
 
-      const { data: subs } = await supabase
+      const { data: subs, error: subsError } = await supabase
         .from('challenge_submissions')
         .select('*, profiles(id, display_name, avatar_url)')
         .eq('challenge_id', id)
         .order('created_at', { ascending: false })
+      if (subsError) console.error('challenge submissions fetch failed:', subsError)
 
       // Fetch vote counts
       const subIds = (subs || []).map(s => s.id)
@@ -70,11 +72,13 @@ export default function ChallengeDetailPage() {
       let myVoteSet = new Set()
 
       if (subIds.length > 0) {
-        const [{ data: allVotes }, { data: myVoteRows }] = await Promise.all([
+        const [{ data: allVotes, error: votesError }, { data: myVoteRows, error: myVotesError }] = await Promise.all([
           supabase.from('challenge_votes').select('submission_id').in('submission_id', subIds),
           u ? supabase.from('challenge_votes').select('submission_id').in('submission_id', subIds).eq('user_id', u.id)
             : Promise.resolve({ data: [] }),
         ])
+        if (votesError) console.error('vote counts fetch failed:', votesError)
+        if (myVotesError) console.error('my votes fetch failed:', myVotesError)
         allVotes?.forEach(v => { counts[v.submission_id] = (counts[v.submission_id] || 0) + 1 })
         myVoteRows?.forEach(v => myVoteSet.add(v.submission_id))
       }

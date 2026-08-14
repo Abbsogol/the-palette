@@ -34,16 +34,18 @@ export default function UpgradePage() {
   const router = useRouter()
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [subscribing, setSubscribing] = useState(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session?.user) { router.push('/profile'); return }
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .select('id, display_name, account_type, subscription_tier')
         .eq('id', session.user.id)
         .single()
+      if (error) { console.error('profile fetch failed:', error); setLoadError(true) }
       setProfile(data)
       setLoading(false)
     })
@@ -77,6 +79,19 @@ export default function UpgradePage() {
   if (loading) return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <p style={{ color: 'var(--text-secondary)', fontFamily: "'DM Sans', sans-serif" }}>Loading…</p>
+    </div>
+  )
+
+  // Don't show the "not subscribed" upgrade options if the profile fetch
+  // itself failed — a real subscriber could otherwise be misled into
+  // thinking they need to pay again.
+  if (loadError) return (
+    <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '20px', textAlign: 'center' }}>
+      <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif" }}>Couldn't load your subscription status</p>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif" }}>Please try again in a moment.</p>
+      <button onClick={() => window.location.reload()} style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '12px 24px', fontSize: '14px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
+        Retry
+      </button>
     </div>
   )
 
