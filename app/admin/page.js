@@ -478,6 +478,7 @@ function CreditsManager() {
   const [amount, setAmount] = useState('')
   const [updating, setUpdating] = useState(false)
   const [message, setMessage] = useState('')
+  const [errorMsg, setErrorMsg] = useState('')
   const [loading, setLoading] = useState(true)
 
   const fetchUsers = async (q = '') => {
@@ -498,6 +499,7 @@ function CreditsManager() {
   const updateCredits = async (delta) => {
     if (!selected || !amount || updating) return
     setUpdating(true)
+    setErrorMsg('')
     const newBalance = Math.max(0, (selected.credit_balance ?? 0) + delta * parseInt(amount))
     const res = await fetch('/api/admin-profiles', {
       method: 'POST',
@@ -509,9 +511,12 @@ function CreditsManager() {
       setResults(prev => prev.map(u => u.id === selected.id ? { ...u, credit_balance: newBalance } : u))
       setMessage('Done — new balance: ' + newBalance + ' credits')
       setAmount('')
+    } else {
+      const json = await res.json().catch(() => ({}))
+      setErrorMsg(json.error || 'Failed to update credits. Please try again.')
     }
     setUpdating(false)
-    setTimeout(() => setMessage(''), 3000)
+    setTimeout(() => { setMessage(''); setErrorMsg('') }, 4000)
   }
 
   return (
@@ -543,6 +548,7 @@ function CreditsManager() {
             <button onClick={() => updateCredits(-1)} disabled={!amount || updating} style={{ background: 'rgba(229,115,115,0.1)', color: '#e57373', border: '0.5px solid rgba(229,115,115,0.3)', borderRadius: '10px', padding: '11px 14px', fontSize: '13px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit' }}>− Remove</button>
           </div>
           {message && <p style={{ color: '#81c784', fontSize: '12px', marginTop: '10px' }}>{message}</p>}
+          {errorMsg && <p style={{ color: '#e57373', fontSize: '12px', marginTop: '10px' }}>{errorMsg}</p>}
         </div>
       )}
     </div>
