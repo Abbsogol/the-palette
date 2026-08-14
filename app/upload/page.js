@@ -58,13 +58,20 @@ export default function UploadPage() {
         return
       }
 
-      // Reset weekly count if 7+ days have passed
+      // Reset weekly count if 7+ days have passed. This write is
+      // display-only — the server-side enforce_weekly_upload_limit trigger
+      // independently recomputes the same 7-day reset at insert time, so a
+      // failure here can't let anyone bypass the real limit. But the local
+      // "uploads left" count should only reflect the reset if it actually
+      // persisted, so the UI never claims more availability than the
+      // server will honor.
       const lastReset = prof.week_reset_at ? new Date(prof.week_reset_at) : new Date(0)
       const daysSince = (Date.now() - lastReset.getTime()) / (1000 * 60 * 60 * 24)
       if (daysSince >= 7) {
         const reset = { weekly_uploads: 0, week_reset_at: new Date().toISOString() }
-        await supabase.from('profiles').update(reset).eq('id', u.id)
-        prof = { ...prof, ...reset }
+        const { error: resetError } = await supabase.from('profiles').update(reset).eq('id', u.id)
+        if (resetError) console.error('weekly reset failed:', resetError)
+        else prof = { ...prof, ...reset }
       }
 
       const used  = prof.weekly_uploads || 0
