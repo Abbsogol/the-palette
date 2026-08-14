@@ -157,6 +157,13 @@ export default async function DesignPage({ params, searchParams }) {
     ? design.occasion.split(',').map(o => o.trim()).filter(Boolean)
     : []
 
+  // The redirect back from Stripe (?boosted=1) can arrive before the webhook
+  // has actually set boosted_until — this page re-fetches fresh on every
+  // request (force-dynamic), so checking the real column instead of just
+  // trusting the URL param avoids showing a "boosted" banner that isn't
+  // true yet.
+  const isActuallyBoosted = design.boosted_until && new Date(design.boosted_until) > new Date()
+
   return (
     <div style={{ paddingBottom: '32px' }}>
 
@@ -164,7 +171,9 @@ export default async function DesignPage({ params, searchParams }) {
       {boosted === '1' && (
         <div style={{ background: 'rgba(212,160,192,0.15)', borderBottom: '0.5px solid rgba(212,160,192,0.3)', padding: '12px 20px', textAlign: 'center' }}>
           <p style={{ color: 'var(--accent)', fontSize: '13px', fontWeight: '600', margin: 0 }}>
-            ✦ Your design is now boosted and featured in the feed!
+            {isActuallyBoosted
+              ? '✦ Your design is now boosted and featured in the feed!'
+              : 'Payment received — your boost will appear here in a moment.'}
           </p>
         </div>
       )}
