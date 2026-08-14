@@ -55,13 +55,14 @@ export default function PlannerPage() {
         router.push('/profile'); return
       }
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('bookings')
         .select('*, service:services(name, duration_minutes, price)')
         .eq('creator_id', user.id)
         .in('status', ['confirmed', 'pending'])
         .order('booking_date', { ascending: true })
         .order('start_time', { ascending: true })
+      if (error) console.error('planner bookings fetch failed:', error)
 
       if (data && data.length > 0) {
         const clientIds = [...new Set(data.map(b => b.client_id))]

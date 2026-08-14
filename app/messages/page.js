@@ -65,11 +65,12 @@ function MessagesInner() {
   }, [])
 
   const loadConversations = async (userId) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('conversations')
       .select('*')
       .or(`client_id.eq.${userId},creator_id.eq.${userId}`)
       .order('last_message_at', { ascending: false })
+    if (error) console.error('conversations fetch failed:', error)
 
     if (!data || data.length === 0) { setConversations([]); return }
 

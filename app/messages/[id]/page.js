@@ -36,11 +36,12 @@ export default function ChatPage() {
       setCurrentUser(user)
 
       // Load conversation + other participant
-      const { data: conv } = await supabase
+      const { data: conv, error: convError } = await supabase
         .from('conversations')
         .select('*')
         .eq('id', id)
         .single()
+      if (convError) console.error('conversation fetch failed:', convError)
 
       if (!conv) { router.push('/messages'); return }
 
@@ -54,11 +55,12 @@ export default function ChatPage() {
       setOther(profile)
 
       // Load messages
-      const { data: msgs } = await supabase
+      const { data: msgs, error: msgsError } = await supabase
         .from('messages')
         .select('*')
         .eq('conversation_id', id)
         .order('created_at', { ascending: true })
+      if (msgsError) console.error('messages fetch failed:', msgsError)
 
       setMessages(msgs || [])
 

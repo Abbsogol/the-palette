@@ -52,12 +52,13 @@ export default function NotificationsPage() {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session?.user) { router.push('/profile'); return }
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('notifications')
         .select('*, actor:profiles!notifications_actor_id_fkey(id, display_name, avatar_url)')
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false })
         .limit(50)
+      if (error) console.error('notifications fetch failed:', error)
 
       setNotifications(data || [])
       setLoading(false)

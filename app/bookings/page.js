@@ -103,12 +103,13 @@ export default function BookingsPage() {
   }, [])
 
   const loadBookings = async (userId) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('bookings')
       .select('*, service:services(*)')
       .eq('creator_id', userId)
       .order('booking_date', { ascending: true })
       .order('start_time', { ascending: true })
+    if (error) console.error('bookings fetch failed:', error)
 
     if (!data) { setBookings([]); return }
 
