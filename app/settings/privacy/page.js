@@ -124,7 +124,13 @@ export default function PrivacySettingsPage() {
 
   const handleUnblock = async (blockedId) => {
     setUnblocking(blockedId)
-    await supabase.from('blocks').delete().eq('blocker_id', user.id).eq('blocked_id', blockedId)
+    setSaveError('')
+    const { error } = await supabase.from('blocks').delete().eq('blocker_id', user.id).eq('blocked_id', blockedId)
+    if (error) {
+      setSaveError('Failed to unblock. Please try again.')
+      setUnblocking(null)
+      return
+    }
     setBlockedUsers(prev => prev.filter(u => u.id !== blockedId))
     setUnblocking(null)
   }
