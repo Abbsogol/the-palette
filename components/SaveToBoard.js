@@ -33,11 +33,13 @@ export default function SaveToBoard({ designId, designImageUrl, renderTrigger, e
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
 
-    // Load which boards already contain this design
-    const { data: savedData } = await supabase
-      .from('moodboard_designs')
-      .select('moodboard_id')
-      .eq('design_id', designId)
+    // Load which of THIS user's own boards already contain this design —
+    // scoped to their own board ids, not every user's, so the response
+    // never includes other people's board ids for a design they saved.
+    const boardIds = (boardData || []).map(b => b.id)
+    const { data: savedData } = boardIds.length > 0
+      ? await supabase.from('moodboard_designs').select('moodboard_id').eq('design_id', designId).in('moodboard_id', boardIds)
+      : { data: [] }
 
     const savedMap = {}
     savedData?.forEach(r => { savedMap[r.moodboard_id] = true })
