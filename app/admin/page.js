@@ -682,7 +682,8 @@ export default function AdminPage() {
       return supabase.storage.from('designs').getPublicUrl(fileName).data.publicUrl
     }
 
-    const { data: design, error } = await supabase.from('designs').insert({ title, description, image_url, shape, length, occasion, technique, is_published: true }).select().single()
+    const { data: { session } } = await supabase.auth.getSession()
+    const { data: design, error } = await supabase.from('designs').insert({ title, description, image_url, shape, length, occasion, technique, is_published: true, is_curated: true, created_by: session?.user?.id || null }).select().single()
     if (error) throw new Error(error.message)
 
     for (let i = 0; i < newExtraFiles.length; i++) {
