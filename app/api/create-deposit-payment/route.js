@@ -63,6 +63,17 @@ export async function POST(request) {
         bookingId,
         userId: user.id,
       },
+      // Same metadata on the PaymentIntent (not just the Checkout Session) —
+      // a charge.refunded webhook only has the charge/PaymentIntent to work
+      // from, not the ephemeral session, so this is what makes a refund
+      // traceable back to what it should reverse.
+      payment_intent_data: {
+        metadata: {
+          type: 'deposit',
+          bookingId,
+          userId: user.id,
+        },
+      },
       success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://laque.app'}/appointments/deposit-success?booking=${bookingId}`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://laque.app'}/appointments`,
     }, { idempotencyKey })

@@ -60,6 +60,18 @@ export async function POST(request) {
         packId,
         credits: pack.credits.toString(),
       },
+      // Same metadata on the PaymentIntent (not just the Checkout Session) —
+      // a charge.refunded webhook only has the charge/PaymentIntent to work
+      // from, not the ephemeral session, so this is what makes a refund
+      // traceable back to what it should reverse.
+      payment_intent_data: {
+        metadata: {
+          userId,
+          packId,
+          credits: pack.credits.toString(),
+          type: 'credits',
+        },
+      },
     }, { idempotencyKey })
 
     return Response.json({ url: session.url })

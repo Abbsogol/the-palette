@@ -59,6 +59,18 @@ export async function POST(request) {
         creatorId: user.id,
         days: String(days),
       },
+      // Same metadata on the PaymentIntent (not just the Checkout Session) —
+      // a charge.refunded webhook only has the charge/PaymentIntent to work
+      // from, not the ephemeral session, so this is what makes a refund
+      // traceable back to what it should reverse.
+      payment_intent_data: {
+        metadata: {
+          type: 'boost',
+          designId,
+          creatorId: user.id,
+          days: String(days),
+        },
+      },
       success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://laque.app'}/design/${designId}?boosted=1`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://laque.app'}/design/${designId}`,
     }, { idempotencyKey })
