@@ -9,6 +9,7 @@ export default function SendDesignSheet({ design, onClose }) {
   const [currentUser, setCurrentUser] = useState(null)
   const [conversations, setConversations] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [sending, setSending] = useState(null) // conversation id being sent to
   const [sendError, setSendError] = useState('')
 
@@ -19,12 +20,13 @@ export default function SendDesignSheet({ design, onClose }) {
       setCurrentUser(user)
 
       // Load conversations with other participant profiles
-      const { data: convs } = await supabase
+      const { data: convs, error: convError } = await supabase
         .from('conversations')
         .select('*')
         .or(`client_id.eq.${user.id},creator_id.eq.${user.id}`)
         .order('last_message_at', { ascending: false })
 
+      if (convError) { setLoadError(true); setLoading(false); return }
       if (!convs || convs.length === 0) { setConversations([]); setLoading(false); return }
 
       const otherIds = convs.map(c => c.client_id === user.id ? c.creator_id : c.client_id)
@@ -148,6 +150,10 @@ export default function SendDesignSheet({ design, onClose }) {
           {loading ? (
             <div style={{ padding: '40px 20px', textAlign: 'center' }}>
               <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Loading…</p>
+            </div>
+          ) : loadError ? (
+            <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Couldn't load your conversations. Please try again.</p>
             </div>
           ) : conversations.length === 0 ? (
             <div style={{ padding: '40px 20px', textAlign: 'center' }}>

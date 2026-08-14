@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 export default function CommentSheet({ design, currentUser, onClose, onCommentAdded, onCommentDeleted }) {
   const [comments, setComments] = useState([])
   const [loading, setLoading]   = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [body, setBody]         = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [deletingIds, setDeletingIds] = useState({}) // comment id → boolean, in-flight guard
@@ -12,15 +13,17 @@ export default function CommentSheet({ design, currentUser, onClose, onCommentAd
 
   useEffect(() => {
     loadComments()
-    setTimeout(() => inputRef.current?.focus(), 300)
+    const focusTimer = setTimeout(() => inputRef.current?.focus(), 300)
+    return () => clearTimeout(focusTimer)
   }, [])
 
   async function loadComments() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('design_comments')
       .select('*, profiles(display_name, avatar_url)')
       .eq('design_id', design.id)
       .order('created_at', { ascending: true })
+    if (error) { setLoadError(true); setLoading(false); return }
     setComments(data || [])
     setLoading(false)
   }
@@ -117,6 +120,10 @@ export default function CommentSheet({ design, currentUser, onClose, onCommentAd
         <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px' }}>
           {loading ? (
             <p style={{ color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center', padding: '24px 0' }}>Loading...</p>
+          ) : loadError ? (
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center', padding: '24px 0' }}>
+              Couldn't load comments. Please try again.
+            </p>
           ) : comments.length === 0 ? (
             <p style={{ color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center', padding: '24px 0' }}>
               No comments yet — be the first.

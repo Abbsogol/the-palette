@@ -12,6 +12,7 @@ export default function SaveToBoard({ designId, designImageUrl, renderTrigger, e
   const [boards, setBoards] = useState([])
   const [saved, setSaved] = useState({}) // boardId → boolean
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState(false)
   const [creating, setCreating] = useState(false)
   const [togglingBoards, setTogglingBoards] = useState({}) // boardId → boolean, in-flight guard
   const [newName, setNewName] = useState('')
@@ -26,13 +27,20 @@ export default function SaveToBoard({ designId, designImageUrl, renderTrigger, e
     if (!user) { setOpen(true); return }
     setOpen(true)
     setLoading(true)
+    setLoadError(false)
 
     // Load user's boards
-    const { data: boardData } = await supabase
+    const { data: boardData, error: boardError } = await supabase
       .from('moodboards')
       .select('id, name, cover_image_url')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
+
+    if (boardError) {
+      setLoadError(true)
+      setLoading(false)
+      return
+    }
 
     // Load which of THIS user's own boards already contain this design —
     // scoped to their own board ids, not every user's, so the response
@@ -238,6 +246,10 @@ export default function SaveToBoard({ designId, designImageUrl, renderTrigger, e
                 {loading ? (
                   <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '14px' }}>
                     Loading boards...
+                  </div>
+                ) : loadError ? (
+                  <div style={{ padding: '24px 20px', color: 'var(--text-secondary)', fontSize: '14px' }}>
+                    Couldn't load your boards. Please try again.
                   </div>
                 ) : boards.length === 0 ? (
                   <div style={{ padding: '24px 20px', color: 'var(--text-secondary)', fontSize: '14px' }}>

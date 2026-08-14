@@ -1,9 +1,12 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 export default function NailTechCard({ design, colours }) {
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const copiedTimer = useRef(null)
+
+  useEffect(() => () => clearTimeout(copiedTimer.current), [])
 
   const colourLines = (colours || [])
     .map(c => {
@@ -48,7 +51,8 @@ export default function NailTechCard({ design, colours }) {
   function copyText() {
     navigator.clipboard.writeText(shareText).then(() => {
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      clearTimeout(copiedTimer.current)
+      copiedTimer.current = setTimeout(() => setCopied(false), 2000)
     })
   }
 

@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 function clean(value) {
   if (!value) return null
@@ -9,12 +9,16 @@ function clean(value) {
 
 export default function ColourSwatches({ colours }) {
   const [copiedId, setCopiedId] = useState(null)
+  const copiedTimer = useRef(null)
+
+  useEffect(() => () => clearTimeout(copiedTimer.current), [])
 
   const copyHex = (hex, id) => {
     if (!hex) return
     navigator.clipboard.writeText(hex).then(() => {
       setCopiedId(id)
-      setTimeout(() => setCopiedId(null), 1500)
+      clearTimeout(copiedTimer.current)
+      copiedTimer.current = setTimeout(() => setCopiedId(null), 1500)
     })
   }
 

@@ -34,13 +34,13 @@ export default function CommunityCard({ design, currentUser, initiallyLiked }) {
     setLikeLoading(true)
     if (liked) {
       const { error } = await supabase.from('design_likes').delete().eq('user_id', currentUser.id).eq('design_id', design.id)
-      if (error) { setLikeLoading(false); return }
+      if (error) { alert('Failed to unlike. Please try again.'); setLikeLoading(false); return }
       await supabase.rpc('decrement_likes', { design_id: design.id })
       setLiked(false)
       setLikesCount(c => Math.max(0, c - 1))
     } else {
       const { error } = await supabase.from('design_likes').insert({ user_id: currentUser.id, design_id: design.id })
-      if (error) { setLikeLoading(false); return }
+      if (error) { alert('Failed to like. Please try again.'); setLikeLoading(false); return }
       await supabase.rpc('increment_likes', { design_id: design.id })
       setLiked(true)
       setLikesCount(c => c + 1)

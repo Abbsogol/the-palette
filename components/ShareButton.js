@@ -1,8 +1,11 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 export default function ShareButton({ title }) {
   const [copied, setCopied] = useState(false)
+  const copiedTimer = useRef(null)
+
+  useEffect(() => () => clearTimeout(copiedTimer.current), [])
 
   const handleShare = async () => {
     const url = window.location.href
@@ -16,7 +19,8 @@ export default function ShareButton({ title }) {
     } else {
       await navigator.clipboard.writeText(url)
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      clearTimeout(copiedTimer.current)
+      copiedTimer.current = setTimeout(() => setCopied(false), 2000)
     }
   }
 
