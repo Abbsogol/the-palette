@@ -52,6 +52,29 @@ export async function POST(request) {
       return Response.json({ error: 'Generation not found' }, { status: 404 })
     }
 
+    // A retried/double-fired publish call for a generation that's already
+    // been published shouldn't re-upload and create a second feed entry —
+    // just flip the existing one's publish state instead.
+    const { data: alreadyPublished } = await supabase
+      .from('designs')
+      .select('id')
+      .eq('source_generation_id', generationId)
+      .maybeSingle()
+
+    if (alreadyPublished) {
+      const { error: updateError } = await supabase
+        .from('designs')
+        .update({ is_published: !asDraft })
+        .eq('id', alreadyPublished.id)
+
+      if (updateError) {
+        console.error('publish-nail-lab-generation update error:', updateError)
+        return Response.json({ error: 'Failed to update design' }, { status: 500 })
+      }
+
+      return Response.json({ designId: alreadyPublished.id, isPublished: !asDraft })
+    }
+
     const marker = '/nail-lab/'
     const idx = generation.image_url.indexOf(marker)
     const sourcePath = idx === -1 ? generation.image_url : generation.image_url.slice(idx + marker.length)
@@ -90,9 +113,21 @@ export async function POST(request) {
         is_published: !asDraft,
         is_curated: false,
         created_by: user.id,
+        source_generation_id: generationId,
       })
       .select('id')
       .single()
+
+    if (insertError?.code === '23505') {
+      // Lost a genuine concurrent race against another request publishing the
+      // same generation — reuse the row that won instead of erroring out.
+      const { data: winner } = await supabase
+        .from('designs')
+        .select('id')
+        .eq('source_generation_id', generationId)
+        .single()
+      if (winner) return Response.json({ publicUrl, designId: winner.id, isPublished: !asDraft })
+    }
 
     if (insertError || !design) {
       console.error('designs insert error:', insertError)

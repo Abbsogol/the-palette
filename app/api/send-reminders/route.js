@@ -12,12 +12,17 @@ export async function GET(request) {
   tomorrow.setDate(tomorrow.getDate() + 1)
   const tomorrowStr = tomorrow.toISOString().split('T')[0]
 
-  // Fetch all confirmed bookings for tomorrow
+  // Atomically claim all confirmed, not-yet-reminded bookings for tomorrow —
+  // if this cron fires twice (manual retrigger, Vercel retry), the second
+  // run finds reminder_sent_at already set and claims zero rows, instead of
+  // sending every affected user a duplicate reminder.
   const { data: bookings, error } = await supabase
     .from('bookings')
-    .select('id, client_id, creator_id, booking_date, start_time, services(name)')
+    .update({ reminder_sent_at: new Date().toISOString() })
     .eq('booking_date', tomorrowStr)
     .eq('status', 'confirmed')
+    .is('reminder_sent_at', null)
+    .select('id, client_id, creator_id, booking_date, start_time, services(name)')
 
   if (error) {
     console.error('send-reminders error:', error)
@@ -49,6 +54,9 @@ export async function GET(request) {
 
   if (insertError) {
     console.error('send-reminders insert error:', insertError)
+    // Give the claim back so tomorrow's retry (or a manual retrigger) can
+    // still actually send these reminders instead of treating them as done.
+    await supabase.from('bookings').update({ reminder_sent_at: null }).in('id', bookings.map(b => b.id))
     return new Response(JSON.stringify({ error: 'Failed to send reminders' }), { status: 500 })
   }
 
