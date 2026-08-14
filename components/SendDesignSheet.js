@@ -10,6 +10,7 @@ export default function SendDesignSheet({ design, onClose }) {
   const [conversations, setConversations] = useState([])
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(null) // conversation id being sent to
+  const [sendError, setSendError] = useState('')
 
   useEffect(() => {
     const init = async () => {
@@ -46,6 +47,7 @@ export default function SendDesignSheet({ design, onClose }) {
   const handleSend = async (conv) => {
     if (sending) return
     setSending(conv.id)
+    setSendError('')
 
     const content = JSON.stringify({
       __type: 'design',
@@ -54,11 +56,21 @@ export default function SendDesignSheet({ design, onClose }) {
       image_url: design.image_url,
     })
 
-    await supabase.from('messages').insert({
+    const { error } = await supabase.from('messages').insert({
       conversation_id: conv.id,
       sender_id: currentUser.id,
       content,
     })
+
+    if (error) {
+      setSendError(
+        error.message?.includes('BLOCKED_CANNOT_MESSAGE')
+          ? "You can't message this person."
+          : 'Failed to send. Please try again.'
+      )
+      setSending(null)
+      return
+    }
 
     await supabase
       .from('conversations')
@@ -119,6 +131,13 @@ export default function SendDesignSheet({ design, onClose }) {
             </svg>
           </button>
         </div>
+
+        {/* Error */}
+        {sendError && (
+          <div style={{ margin: '12px 20px 0', background: 'rgba(255,80,80,0.08)', border: '0.5px solid rgba(255,80,80,0.3)', borderRadius: '10px', padding: '10px 14px' }}>
+            <p style={{ color: '#ff6b6b', fontSize: '13px', margin: 0 }}>{sendError}</p>
+          </div>
+        )}
 
         {/* Conversation list */}
         <div style={{ overflowY: 'auto', flex: 1 }}>
