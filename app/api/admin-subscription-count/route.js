@@ -14,7 +14,8 @@ export async function GET(request) {
     .not('subscription_tier', 'is', null)
 
   if (error) {
-    return Response.json({ error: error.message }, { status: 500 })
+    console.error('admin-subscription-count error:', error)
+    return Response.json({ error: 'Failed to load count' }, { status: 500 })
   }
 
   return Response.json({ count })

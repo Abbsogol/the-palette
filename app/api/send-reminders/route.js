@@ -21,7 +21,7 @@ export async function GET(request) {
 
   if (error) {
     console.error('send-reminders error:', error)
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+    return new Response(JSON.stringify({ error: 'Failed to load bookings' }), { status: 500 })
   }
 
   if (!bookings?.length) {
@@ -49,7 +49,7 @@ export async function GET(request) {
 
   if (insertError) {
     console.error('send-reminders insert error:', insertError)
-    return new Response(JSON.stringify({ error: insertError.message }), { status: 500 })
+    return new Response(JSON.stringify({ error: 'Failed to send reminders' }), { status: 500 })
   }
 
   return new Response(JSON.stringify({ sent: notifications.length, bookings: bookings.length }), { status: 200 })

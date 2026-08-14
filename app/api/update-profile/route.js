@@ -26,7 +26,9 @@ export async function POST(request) {
 
   const { error } = await supabase.from('profiles_data').update(fields).eq('id', user.id)
   if (error) {
-    return Response.json({ error: error.message, code: error.code }, { status: 500 })
+    console.error('update-profile error:', error)
+    const message = error.code === '23505' ? 'That username is already taken' : 'Failed to update profile'
+    return Response.json({ error: message }, { status: error.code === '23505' ? 409 : 500 })
   }
 
   return Response.json({ ok: true })

@@ -35,7 +35,8 @@ export async function POST(request) {
         .eq('id', designId)
 
       if (updateError) {
-        return Response.json({ error: updateError.message }, { status: 500 })
+        console.error('publish-nail-lab-generation update error:', updateError)
+        return Response.json({ error: 'Failed to update design' }, { status: 500 })
       }
 
       return Response.json({ designId, isPublished: !asDraft })
@@ -101,6 +102,6 @@ export async function POST(request) {
     return Response.json({ publicUrl, designId: design.id, isPublished: !asDraft })
   } catch (err) {
     console.error('publish-nail-lab-generation error:', err)
-    return Response.json({ error: 'Server error', details: err.message }, { status: 500 })
+    return Response.json({ error: 'Server error' }, { status: 500 })
   }
 }

@@ -139,7 +139,7 @@ DESIGN NAME: Choose a name that is ${nameHint}. Subtitle should reflect shape, l
       const err = await openaiRes.json()
       console.error('OpenAI error:', err)
       await refundFreeRegen()
-      return Response.json({ error: 'Image generation failed', details: err }, { status: 500 })
+      return Response.json({ error: 'Image generation failed' }, { status: 500 })
     }
 
     const openaiData = await openaiRes.json()
@@ -148,8 +148,9 @@ DESIGN NAME: Choose a name that is ${nameHint}. Subtitle should reflect shape, l
     const b64 = openaiData?.data?.[0]?.b64_json
 
     if (!b64) {
+      console.error('No image returned from OpenAI:', openaiData)
       await refundFreeRegen()
-      return Response.json({ error: 'No image returned', raw: openaiData }, { status: 500 })
+      return Response.json({ error: 'No image returned' }, { status: 500 })
     }
 
     // Upload to Supabase Storage (private bucket)
@@ -162,7 +163,7 @@ DESIGN NAME: Choose a name that is ${nameHint}. Subtitle should reflect shape, l
     if (uploadError) {
       console.error('Storage upload error:', uploadError)
       await refundFreeRegen()
-      return Response.json({ error: 'Failed to save image', details: uploadError.message }, { status: 500 })
+      return Response.json({ error: 'Failed to save image' }, { status: 500 })
     }
 
     // Stable reference stored in the DB — the bucket is private, so this is
@@ -179,7 +180,7 @@ DESIGN NAME: Choose a name that is ${nameHint}. Subtitle should reflect shape, l
     if (signError || !signedData) {
       console.error('Signed URL error:', signError)
       await refundFreeRegen()
-      return Response.json({ error: 'Failed to prepare image', details: signError?.message }, { status: 500 })
+      return Response.json({ error: 'Failed to prepare image' }, { status: 500 })
     }
     const imageUrl = signedData.signedUrl
 
@@ -233,6 +234,6 @@ DESIGN NAME: Choose a name that is ${nameHint}. Subtitle should reflect shape, l
 
   } catch (err) {
     console.error('generate-nail-design error:', err)
-    return Response.json({ error: 'Server error', details: err.message }, { status: 500 })
+    return Response.json({ error: 'Server error' }, { status: 500 })
   }
 }

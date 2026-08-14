@@ -62,6 +62,6 @@ export async function POST(request) {
     return Response.json({ url: session.url })
   } catch (err) {
     console.error('Create boost payment error:', err)
-    return Response.json({ error: err.message }, { status: 500 })
+    return Response.json({ error: 'Server error' }, { status: 500 })
   }
 }

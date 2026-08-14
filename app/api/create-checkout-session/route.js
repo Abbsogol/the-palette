@@ -62,6 +62,6 @@ export async function POST(request) {
 
   } catch (err) {
     console.error('create-checkout-session error:', err)
-    return Response.json({ error: 'Server error', details: err.message }, { status: 500 })
+    return Response.json({ error: 'Server error' }, { status: 500 })
   }
 }

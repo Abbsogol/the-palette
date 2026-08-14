@@ -9,7 +9,7 @@ export async function POST(request) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const body = await request.json()
+  const body = await request.json().catch(() => ({}))
   const update = {}
   for (const field of ALLOWED_FIELDS) {
     if (field in body) update[field] = body[field]
@@ -25,7 +25,8 @@ export async function POST(request) {
   const { error } = await supabase.from('profiles_data').update(update).eq('id', user.id)
 
   if (error) {
-    return Response.json({ error: error.message }, { status: 500 })
+    console.error('update-privacy-settings error:', error)
+    return Response.json({ error: 'Failed to update settings' }, { status: 500 })
   }
 
   return Response.json({ ok: true })

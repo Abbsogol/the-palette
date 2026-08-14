@@ -39,7 +39,10 @@ export async function POST(request) {
   if (!code) return Response.json({ error: 'Could not generate code' }, { status: 500 })
 
   const { error } = await supabase.from('profiles_data').update({ referral_code: code }).eq('id', user.id)
-  if (error) return Response.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error('generate-referral error:', error)
+    return Response.json({ error: 'Failed to generate code' }, { status: 500 })
+  }
 
   return Response.json({ code })
 }
