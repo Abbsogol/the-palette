@@ -28,10 +28,13 @@ export async function POST(request) {
       return Response.json({ error: 'Missing planId' }, { status: 400 })
     }
 
-    const plan = PLANS[planId]
-    if (!plan) {
+    // Object.hasOwn (not just truthiness) — a planId of "constructor" or
+    // "__proto__" would otherwise resolve to an inherited Object.prototype
+    // value and pass a plain `!plan` check.
+    if (typeof planId !== 'string' || !Object.hasOwn(PLANS, planId)) {
       return Response.json({ error: 'Invalid plan' }, { status: 400 })
     }
+    const plan = PLANS[planId]
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://laque.app'
 

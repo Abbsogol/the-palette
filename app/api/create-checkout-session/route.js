@@ -23,10 +23,13 @@ export async function POST(request) {
       return Response.json({ error: 'Missing packId' }, { status: 400 })
     }
 
-    const pack = PACKS[packId]
-    if (!pack) {
+    // Object.hasOwn (not just truthiness) — a packId of "constructor" or
+    // "__proto__" would otherwise resolve to an inherited Object.prototype
+    // value and pass a plain `!pack` check.
+    if (typeof packId !== 'string' || !Object.hasOwn(PACKS, packId)) {
       return Response.json({ error: 'Invalid pack' }, { status: 400 })
     }
+    const pack = PACKS[packId]
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://laque.app'
 
