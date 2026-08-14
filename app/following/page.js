@@ -43,7 +43,8 @@ export default function FollowingPage() {
   const handleUnfollow = async (followingId) => {
     if (unfollowingId) return
     setUnfollowingId(followingId)
-    await supabase.from('follows').delete().eq('follower_id', userId).eq('following_id', followingId)
+    const { error } = await supabase.from('follows').delete().eq('follower_id', userId).eq('following_id', followingId)
+    if (error) { alert('Failed to unfollow. Please try again.'); setUnfollowingId(null); return }
     setFollowing(prev => prev.filter(r => r.following_id !== followingId))
     setUnfollowingId(null)
   }

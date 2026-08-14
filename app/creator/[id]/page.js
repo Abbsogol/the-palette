@@ -102,11 +102,13 @@ export default function CreatorPage() {
     if (!currentUser) return
     setFollowLoading(true)
     if (isFollowing) {
-      await supabase.from('follows').delete().eq('follower_id', currentUser.id).eq('following_id', id)
+      const { error } = await supabase.from('follows').delete().eq('follower_id', currentUser.id).eq('following_id', id)
+      if (error) { alert('Failed to unfollow. Please try again.'); setFollowLoading(false); return }
       setIsFollowing(false)
       setFollowerCount(c => c - 1)
     } else {
-      await supabase.from('follows').insert({ follower_id: currentUser.id, following_id: id })
+      const { error } = await supabase.from('follows').insert({ follower_id: currentUser.id, following_id: id })
+      if (error) { alert('Failed to follow. Please try again.'); setFollowLoading(false); return }
       setIsFollowing(true)
       setFollowerCount(c => c + 1)
       // Notify — skip if following yourself
@@ -137,14 +139,23 @@ export default function CreatorPage() {
 
     if (existing) {
       router.push(`/messages/${existing.id}`)
-    } else {
-      const { data: created } = await supabase
-        .from('conversations')
-        .insert({ client_id: clientId, creator_id: creatorId })
-        .select('id')
-        .single()
-      router.push(`/messages/${created.id}`)
+      setMessagingLoading(false)
+      return
     }
+
+    const { data: created, error } = await supabase
+      .from('conversations')
+      .insert({ client_id: clientId, creator_id: creatorId })
+      .select('id')
+      .single()
+
+    if (error || !created) {
+      alert('Failed to start conversation. Please try again.')
+      setMessagingLoading(false)
+      return
+    }
+
+    router.push(`/messages/${created.id}`)
     setMessagingLoading(false)
   }
 
@@ -153,16 +164,20 @@ export default function CreatorPage() {
     setBlockLoading(true)
     setShowBlockMenu(false)
     if (isBlocked) {
-      await supabase.from('blocks').delete().eq('blocker_id', currentUser.id).eq('blocked_id', id)
+      const { error } = await supabase.from('blocks').delete().eq('blocker_id', currentUser.id).eq('blocked_id', id)
+      if (error) { alert('Failed to unblock. Please try again.'); setBlockLoading(false); return }
       setIsBlocked(false)
     } else {
-      await supabase.from('blocks').insert({ blocker_id: currentUser.id, blocked_id: id })
+      const { error } = await supabase.from('blocks').insert({ blocker_id: currentUser.id, blocked_id: id })
+      if (error) { alert('Failed to block. Please try again.'); setBlockLoading(false); return }
       setIsBlocked(true)
       // Also unfollow if following
       if (isFollowing) {
-        await supabase.from('follows').delete().eq('follower_id', currentUser.id).eq('following_id', id)
-        setIsFollowing(false)
-        setFollowerCount(c => c - 1)
+        const { error: unfollowErr } = await supabase.from('follows').delete().eq('follower_id', currentUser.id).eq('following_id', id)
+        if (!unfollowErr) {
+          setIsFollowing(false)
+          setFollowerCount(c => c - 1)
+        }
       }
     }
     setBlockLoading(false)
