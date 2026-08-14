@@ -151,7 +151,7 @@ export default function SearchPage() {
           .from('tags')
           .select('id')
           .eq('name', tagFilter)
-          .single()
+          .maybeSingle()
 
         if (tagRow) {
           const { data: designTagRows } = await supabase

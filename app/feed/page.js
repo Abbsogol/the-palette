@@ -84,7 +84,7 @@ export default function FeedPage() {
           .select('*, profiles(id, display_name, avatar_url)')
           .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
           .order('created_at', { ascending: false }),
-        supabase.from('challenges').select('id, title, ends_at').gt('ends_at', new Date().toISOString()).order('ends_at', { ascending: true }).limit(1).single(),
+        supabase.from('challenges').select('id, title, ends_at').gt('ends_at', new Date().toISOString()).order('ends_at', { ascending: true }).limit(1).maybeSingle(),
         supabase.from('designs').select('id, title, image_url').eq('is_published', true).gt('boosted_until', new Date().toISOString()).order('boosted_until', { ascending: false }),
       ])
 

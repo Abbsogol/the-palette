@@ -37,7 +37,7 @@ export async function POST(request) {
             .from('nail_lab_generations')
             .select('id, user_id, free_regen_used, parent_generation_id')
             .eq('id', parentGenerationId)
-            .single()
+            .maybeSingle()
         : { data: null }
 
       if (!parent || parent.user_id !== userId || parent.free_regen_used || parent.parent_generation_id) {

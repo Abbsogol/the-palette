@@ -42,7 +42,7 @@ function MessagesInner() {
           .select('id')
           .eq('client_id', clientId)
           .eq('creator_id', creatorId)
-          .single()
+          .maybeSingle()
 
         let conversationId = existing?.id
         if (!conversationId) {
@@ -86,7 +86,7 @@ function MessagesInner() {
     const enriched = await Promise.all(data.map(async (c) => {
       const otherId = c.client_id === userId ? c.creator_id : c.client_id
       const [{ data: lastMsg }, { count: unread }] = await Promise.all([
-        supabase.from('messages').select('content, created_at, sender_id').eq('conversation_id', c.id).order('created_at', { ascending: false }).limit(1).single(),
+        supabase.from('messages').select('content, created_at, sender_id').eq('conversation_id', c.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('messages').select('*', { count: 'exact', head: true }).eq('conversation_id', c.id).eq('is_read', false).neq('sender_id', userId),
       ])
       return { ...c, other: profileMap[otherId], lastMsg, unread: unread || 0 }

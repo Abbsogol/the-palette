@@ -69,7 +69,7 @@ export default function AppointmentDetailPage() {
       // Fetch creator profile + existing review in parallel
       const [{ data: creator }, { data: existingReview }] = await Promise.all([
         supabase.from('profiles').select('id, display_name, avatar_url, username, is_verified, account_type').eq('id', data.creator_id).single(),
-        supabase.from('reviews').select('*').eq('booking_id', data.id).single(),
+        supabase.from('reviews').select('*').eq('booking_id', data.id).maybeSingle(),
       ])
 
       if (existingReview) {

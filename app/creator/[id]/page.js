@@ -84,9 +84,9 @@ export default function CreatorPage() {
 
       if (me) {
         const [{ data: followRow }, { data: iBlockedThem }, { data: theyBlockedMe }] = await Promise.all([
-          supabase.from('follows').select('*').eq('follower_id', me.id).eq('following_id', id).single(),
-          supabase.from('blocks').select('id').eq('blocker_id', me.id).eq('blocked_id', id).single(),
-          supabase.from('blocks').select('id').eq('blocker_id', id).eq('blocked_id', me.id).single(),
+          supabase.from('follows').select('*').eq('follower_id', me.id).eq('following_id', id).maybeSingle(),
+          supabase.from('blocks').select('id').eq('blocker_id', me.id).eq('blocked_id', id).maybeSingle(),
+          supabase.from('blocks').select('id').eq('blocker_id', id).eq('blocked_id', me.id).maybeSingle(),
         ])
         setIsFollowing(!!followRow)
         setIsBlocked(!!iBlockedThem)
@@ -135,7 +135,7 @@ export default function CreatorPage() {
       .select('id')
       .eq('client_id', clientId)
       .eq('creator_id', creatorId)
-      .single()
+      .maybeSingle()
 
     if (existing) {
       router.push(`/messages/${existing.id}`)

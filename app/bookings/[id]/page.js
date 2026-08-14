@@ -66,7 +66,7 @@ export default function BookingDetailPage() {
 
       const [{ data: client }, { data: existingNote }] = await Promise.all([
         supabase.from('profiles').select('id, display_name, avatar_url, username').eq('id', data.client_id).single(),
-        supabase.from('client_notes').select('*').eq('booking_id', id).single(),
+        supabase.from('client_notes').select('*').eq('booking_id', id).maybeSingle(),
       ])
 
       if (existingNote) {
