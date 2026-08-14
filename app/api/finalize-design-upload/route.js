@@ -6,11 +6,18 @@ export async function POST(request) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { designId, tagNames } = await request.json()
+  const { designId, tagNames } = await request.json().catch(() => ({}))
 
   if (!designId) {
     return Response.json({ error: 'Missing designId' }, { status: 400 })
   }
+
+  // tagNames must be an array (a string would otherwise be iterated
+  // character-by-character below) and is capped so a huge array can't force
+  // thousands of sequential upsert round-trips in one request.
+  const safeTagNames = Array.isArray(tagNames)
+    ? tagNames.filter(t => typeof t === 'string' && t.trim()).slice(0, 20).map(t => t.trim().slice(0, 50))
+    : []
 
   const { data: design } = await supabase
     .from('designs')
@@ -22,7 +29,7 @@ export async function POST(request) {
     return Response.json({ error: 'Design not found' }, { status: 404 })
   }
 
-  for (const tagName of (tagNames || [])) {
+  for (const tagName of safeTagNames) {
     const { data: tag } = await supabase
       .from('tags')
       .upsert({ name: tagName }, { onConflict: 'name' })
