@@ -36,10 +36,11 @@ export default function SaveButton({ designId }) {
       return
     }
     const next = !saved
-    setSaved(next)
 
     if (next) {
-      await supabase.from('saved_designs').insert({ user_id: user.id, design_id: designId })
+      const { error } = await supabase.from('saved_designs').insert({ user_id: user.id, design_id: designId })
+      if (error) return
+      setSaved(true)
       await supabase.rpc('increment_saves', { design_id: designId })
       const { data: { session } } = await supabase.auth.getSession()
       fetch('/api/add-reward', {
@@ -48,7 +49,9 @@ export default function SaveButton({ designId }) {
         body: JSON.stringify({ reason: 'save_design', ref_id: designId }),
       })
     } else {
-      await supabase.from('saved_designs').delete().eq('user_id', user.id).eq('design_id', designId)
+      const { error } = await supabase.from('saved_designs').delete().eq('user_id', user.id).eq('design_id', designId)
+      if (error) return
+      setSaved(false)
       await supabase.rpc('decrement_saves', { design_id: designId })
     }
   }

@@ -67,12 +67,14 @@ export default function MoodboardsPage() {
   async function createBoard() {
     if (!newName.trim() || !user) return
     setCreating(true)
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('moodboards')
       .insert({ user_id: user.id, name: newName.trim(), is_public: false })
       .select('id, name, cover_image_url, is_public, created_at')
       .single()
-    if (data) {
+    if (error || !data) {
+      alert('Failed to create board. Please try again.')
+    } else {
       setBoards(prev => [data, ...prev])
       setNewName('')
       setShowCreate(false)
@@ -82,7 +84,8 @@ export default function MoodboardsPage() {
 
   async function togglePrivacy(boardId, currentIsPublic) {
     const newVal = !currentIsPublic
-    await supabase.from('moodboards').update({ is_public: newVal }).eq('id', boardId)
+    const { error } = await supabase.from('moodboards').update({ is_public: newVal }).eq('id', boardId)
+    if (error) { alert('Failed to update board privacy. Please try again.'); return }
     setBoards(prev => prev.map(b => b.id === boardId ? { ...b, is_public: newVal } : b))
   }
 

@@ -63,15 +63,23 @@ export default function PickMySetPage() {
     if (!session?.user) { router.push('/profile'); return }
 
     const boardName = `My Set — ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
-    const { data: board } = await supabase
+    const { data: board, error: boardError } = await supabase
       .from('moodboards')
       .insert({ user_id: session.user.id, name: boardName, is_public: false })
       .select().single()
 
-    if (board) {
-      await Promise.all(results.map((d, i) =>
-        supabase.from('moodboard_designs').insert({ moodboard_id: board.id, design_id: d.id, position: i })
-      ))
+    if (boardError || !board) {
+      setError('Failed to save board. Please try again.')
+      setSaving(false)
+      return
+    }
+
+    const results2 = await Promise.all(results.map((d, i) =>
+      supabase.from('moodboard_designs').insert({ moodboard_id: board.id, design_id: d.id, position: i })
+    ))
+    if (results2.some(r => r.error)) {
+      setError('Board saved, but some designs failed to save to it. Please try again.')
+    } else {
       setSaved(true)
     }
     setSaving(false)

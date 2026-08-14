@@ -226,11 +226,13 @@ export default function FeedPage() {
     const storyId = viewingStories[storyIndex].id
     const liked = storyLikes.has(storyId)
     if (liked) {
-      await supabase.from('story_likes').delete().eq('story_id', storyId).eq('user_id', currentUser.id)
+      const { error } = await supabase.from('story_likes').delete().eq('story_id', storyId).eq('user_id', currentUser.id)
+      if (error) return
       setStoryLikes(prev => { const s = new Set(prev); s.delete(storyId); return s })
       setLikeCounts(prev => ({ ...prev, [storyId]: Math.max(0, (prev[storyId] || 1) - 1) }))
     } else {
-      await supabase.from('story_likes').insert({ story_id: storyId, user_id: currentUser.id })
+      const { error } = await supabase.from('story_likes').insert({ story_id: storyId, user_id: currentUser.id })
+      if (error) return
       setStoryLikes(prev => new Set([...prev, storyId]))
       setLikeCounts(prev => ({ ...prev, [storyId]: (prev[storyId] || 0) + 1 }))
     }
@@ -241,7 +243,8 @@ export default function FeedPage() {
     if (!viewingStories) return
     const story = viewingStories[storyIndex]
     if (!confirm('Delete this story?')) return
-    await supabase.from('stories').delete().eq('id', story.id)
+    const { error } = await supabase.from('stories').delete().eq('id', story.id)
+    if (error) { alert('Failed to delete story. Please try again.'); return }
     const remaining = viewingStories.filter((_, i) => i !== storyIndex)
     if (remaining.length === 0) { closeStories(); setStories(prev => prev.filter(s => s.user_id !== story.user_id)) }
     else { setViewingStories(remaining); setStoryIndex(Math.min(storyIndex, remaining.length - 1)) }

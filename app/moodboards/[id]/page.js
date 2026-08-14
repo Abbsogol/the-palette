@@ -138,11 +138,16 @@ export default function MoodboardDetailPage() {
   const addMember = async () => {
     if (!searchResult || !currentUser || !isOwner) return
     setAddingMember(true)
-    await supabase.from('moodboard_members').insert({
+    const { error } = await supabase.from('moodboard_members').insert({
       moodboard_id: id,
       user_id: searchResult.id,
       invited_by: currentUser.id,
     })
+    if (error) {
+      setSearchError('Failed to add member. Please try again.')
+      setAddingMember(false)
+      return
+    }
     // Send notification
     await supabase.from('notifications').insert({
       user_id: searchResult.id,
@@ -159,10 +164,11 @@ export default function MoodboardDetailPage() {
   }
 
   const removeMember = async (memberId, memberUserId) => {
-    await supabase.from('moodboard_members')
+    const { error } = await supabase.from('moodboard_members')
       .delete()
       .eq('moodboard_id', id)
       .eq('user_id', memberUserId)
+    if (error) { alert('Failed to remove member. Please try again.'); return }
     setMembers(prev => prev.filter(m => m.user_id !== memberUserId))
     // If current user just removed themselves, redirect
     if (memberUserId === currentUser?.id) {

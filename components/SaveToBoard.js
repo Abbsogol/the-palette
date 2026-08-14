@@ -52,26 +52,30 @@ export default function SaveToBoard({ designId, designImageUrl, renderTrigger, e
     if (!user) return
     if (saved[boardId]) {
       // Remove from board
-      await supabase
+      const { error } = await supabase
         .from('moodboard_designs')
         .delete()
         .eq('moodboard_id', boardId)
         .eq('design_id', designId)
+      if (error) { alert('Failed to remove from board. Please try again.'); return }
       setSaved(prev => { const n = { ...prev }; delete n[boardId]; return n })
     } else {
       // Add to board
-      await supabase
+      const { error } = await supabase
         .from('moodboard_designs')
         .insert({ moodboard_id: boardId, design_id: designId })
+      if (error) { alert('Failed to save to board. Please try again.'); return }
 
       // Update cover if board has none
       const board = boards.find(b => b.id === boardId)
       if (board && !board.cover_image_url && designImageUrl) {
-        await supabase
+        const { error: coverErr } = await supabase
           .from('moodboards')
           .update({ cover_image_url: designImageUrl })
           .eq('id', boardId)
-        setBoards(prev => prev.map(b => b.id === boardId ? { ...b, cover_image_url: designImageUrl } : b))
+        if (!coverErr) {
+          setBoards(prev => prev.map(b => b.id === boardId ? { ...b, cover_image_url: designImageUrl } : b))
+        }
       }
 
       setSaved(prev => ({ ...prev, [boardId]: true }))
@@ -82,20 +86,28 @@ export default function SaveToBoard({ designId, designImageUrl, renderTrigger, e
   async function createBoard() {
     if (!newName.trim() || !user) return
     setCreating(true)
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('moodboards')
       .insert({ user_id: user.id, name: newName.trim(), cover_image_url: designImageUrl || null })
       .select('id, name, cover_image_url')
       .single()
 
-    if (data) {
-      // Auto-save design to new board
-      await supabase
-        .from('moodboard_designs')
-        .insert({ moodboard_id: data.id, design_id: designId })
-      setBoards(prev => [data, ...prev])
+    if (error || !data) {
+      alert('Failed to create board. Please try again.')
+      setCreating(false)
+      return
+    }
+
+    // Auto-save design to new board
+    const { error: linkErr } = await supabase
+      .from('moodboard_designs')
+      .insert({ moodboard_id: data.id, design_id: designId })
+    setBoards(prev => [data, ...prev])
+    if (!linkErr) {
       setSaved(prev => ({ ...prev, [data.id]: true }))
       setAnyBoardSaved(true)
+    } else {
+      alert('Board created, but failed to save this design to it. Please try again.')
     }
     setNewName('')
     setCreating(false)

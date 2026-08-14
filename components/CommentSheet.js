@@ -28,13 +28,19 @@ export default function CommentSheet({ design, currentUser, onClose, onCommentAd
     e?.preventDefault()
     if (!body.trim() || !currentUser || submitting) return
     setSubmitting(true)
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('design_comments')
       .insert({ user_id: currentUser.id, design_id: design.id, body: body.trim() })
       .select('*, profiles(display_name, avatar_url)')
       .single()
+    if (error || !data) {
+      alert('Failed to post comment. Please try again.')
+      setSubmitting(false)
+      return
+    }
     await supabase.rpc('increment_comments', { design_id: design.id })
-    if (data) { setComments(prev => [...prev, data]); onCommentAdded?.() }
+    setComments(prev => [...prev, data])
+    onCommentAdded?.()
     // Notify design owner (skip if commenting on own design)
     if (design.created_by && design.created_by !== currentUser.id) {
       await supabase.from('notifications').insert({
@@ -50,7 +56,8 @@ export default function CommentSheet({ design, currentUser, onClose, onCommentAd
   }
 
   async function deleteComment(comment) {
-    await supabase.from('design_comments').delete().eq('id', comment.id)
+    const { error } = await supabase.from('design_comments').delete().eq('id', comment.id)
+    if (error) { alert('Failed to delete comment. Please try again.'); return }
     await supabase.rpc('decrement_comments', { design_id: design.id })
     setComments(prev => prev.filter(c => c.id !== comment.id))
     onCommentDeleted?.()
