@@ -84,15 +84,26 @@ function MessagesInner() {
 
     const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
 
-    // Fetch last message + unread count for each conversation
-    const enriched = await Promise.all(data.map(async (c) => {
+    // Last message + unread count for ALL conversations in 2 batched
+    // queries instead of 2 per conversation (matches the pattern already
+    // used correctly in BottomNav.js for its own unread badge).
+    const convIds = data.map(c => c.id)
+    const [{ data: recentMsgs, error: recentError }, { data: unreadRows, error: unreadError }] = await Promise.all([
+      supabase.from('messages').select('conversation_id, content, created_at, sender_id').in('conversation_id', convIds).order('created_at', { ascending: false }).limit(500),
+      supabase.from('messages').select('conversation_id').in('conversation_id', convIds).eq('is_read', false).neq('sender_id', userId),
+    ])
+    if (recentError) console.error('recent messages fetch failed:', recentError)
+    if (unreadError) console.error('unread counts fetch failed:', unreadError)
+
+    const lastMsgMap = {}
+    ;(recentMsgs || []).forEach(m => { if (!lastMsgMap[m.conversation_id]) lastMsgMap[m.conversation_id] = m })
+    const unreadMap = {}
+    ;(unreadRows || []).forEach(m => { unreadMap[m.conversation_id] = (unreadMap[m.conversation_id] || 0) + 1 })
+
+    const enriched = data.map(c => {
       const otherId = c.client_id === userId ? c.creator_id : c.client_id
-      const [{ data: lastMsg }, { count: unread }] = await Promise.all([
-        supabase.from('messages').select('content, created_at, sender_id').eq('conversation_id', c.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-        supabase.from('messages').select('*', { count: 'exact', head: true }).eq('conversation_id', c.id).eq('is_read', false).neq('sender_id', userId),
-      ])
-      return { ...c, other: profileMap[otherId], lastMsg, unread: unread || 0 }
-    }))
+      return { ...c, other: profileMap[otherId], lastMsg: lastMsgMap[c.id] || null, unread: unreadMap[c.id] || 0 }
+    })
 
     setConversations(enriched)
   }

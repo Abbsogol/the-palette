@@ -46,6 +46,7 @@ export default function FeedPage() {
   // Shared
   const [currentUser, setCurrentUser] = useState(null)
   const [userProfile, setUserProfile] = useState(null)
+  const [likedDesignIds, setLikedDesignIds] = useState(new Set())
   const [unreadCount, setUnreadCount] = useState(0)
   const [dropDesigns, setDropDesigns] = useState([])
   const [boostedDesigns, setBoostedDesigns] = useState([])
@@ -124,6 +125,19 @@ export default function FeedPage() {
     }
   }, [loadingExplore])
 
+  // One batched "did I like these" query for a whole visible set, instead
+  // of each CommunityCard querying its own like status individually.
+  const loadLikedStatus = async (designIds) => {
+    if (!currentUser || designIds.length === 0) return
+    const { data, error } = await supabase
+      .from('design_likes')
+      .select('design_id')
+      .eq('user_id', currentUser.id)
+      .in('design_id', designIds)
+    if (error) { console.error('likes fetch failed:', error); return }
+    setLikedDesignIds(prev => new Set([...prev, ...(data || []).map(d => d.design_id)]))
+  }
+
   // ── Load community / following tabs on first switch ─────────────────────
   const switchTab = async (tab) => {
     setMainTab(tab)
@@ -136,6 +150,10 @@ export default function FeedPage() {
         .eq('is_curated', false)
         .order('created_at', { ascending: false })
         .limit(100)
+      // Fetch like status BEFORE setting community, so cards mount with the
+      // right initiallyLiked value the first time (a prop change after
+      // mount wouldn't update CommunityCard's own useState-seeded liked flag).
+      await loadLikedStatus((data || []).map(d => d.id))
       setCommunity(data || [])
       setLoadingCommunity(false)
       setCommunityLoaded(true)
@@ -155,6 +173,7 @@ export default function FeedPage() {
           .eq('is_published', true)
           .order('created_at', { ascending: false })
           .limit(100)
+        await loadLikedStatus((data || []).map(d => d.id))
         setFollowingFeed(data || [])
       }
       setLoadingFollowing(false)
@@ -674,7 +693,7 @@ export default function FeedPage() {
           ) : (
             <div>
               {community.map(design => (
-                <CommunityCard key={design.id} design={design} currentUser={currentUser} />
+                <CommunityCard key={design.id} design={design} currentUser={currentUser} initiallyLiked={likedDesignIds.has(design.id)} />
               ))}
             </div>
           )}
@@ -771,7 +790,7 @@ export default function FeedPage() {
           ) : (
             <div>
               {followingFeed.map(design => (
-                <CommunityCard key={design.id} design={design} currentUser={currentUser} />
+                <CommunityCard key={design.id} design={design} currentUser={currentUser} initiallyLiked={likedDesignIds.has(design.id)} />
               ))}
             </div>
           )}

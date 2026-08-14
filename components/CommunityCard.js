@@ -5,15 +5,18 @@ import { supabase } from '@/lib/supabase'
 import SaveToBoard from './SaveToBoard'
 import CommentSheet from './CommentSheet'
 
-export default function CommunityCard({ design, currentUser }) {
-  const [liked, setLiked]               = useState(false)
+export default function CommunityCard({ design, currentUser, initiallyLiked }) {
+  const [liked, setLiked]               = useState(!!initiallyLiked)
   const [likesCount, setLikesCount]     = useState(design.likes_count || 0)
   const [commentsCount, setCommentsCount] = useState(design.comments_count || 0)
   const [commentOpen, setCommentOpen]   = useState(false)
   const [likeLoading, setLikeLoading]   = useState(false)
 
   useEffect(() => {
-    if (!currentUser) return
+    // If the parent already fetched like status for the whole visible set
+    // in one batched query (initiallyLiked passed as a real boolean), skip
+    // this card's own per-card query entirely.
+    if (!currentUser || initiallyLiked !== undefined) return
     supabase
       .from('design_likes')
       .select('design_id')

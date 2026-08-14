@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { supabase, getNailLabSignedUrl } from '@/lib/supabase'
+import { supabase, getNailLabSignedUrls } from '@/lib/supabase'
 import SaveToBoard from '@/components/SaveToBoard'
 
 function timeAgo(dateStr) {
@@ -46,11 +46,10 @@ export default function NailLabHistoryPage() {
         .limit(100)
       if (error) console.error('nail-lab history fetch failed:', error)
       const gens = data || []
-      // nail-lab is a private bucket; resolve a fresh signed URL for each
-      // stored reference so the images actually display.
-      const withSignedUrls = await Promise.all(
-        gens.map(async g => ({ ...g, image_url: await getNailLabSignedUrl(g.image_url) }))
-      )
+      // nail-lab is a private bucket; resolve fresh signed URLs for the
+      // stored references in one batched storage call instead of one per row.
+      const signedUrlMap = await getNailLabSignedUrls(gens.map(g => g.image_url))
+      const withSignedUrls = gens.map(g => ({ ...g, image_url: signedUrlMap[g.image_url] ?? null }))
       setGenerations(withSignedUrls)
       setLoadingGens(false)
     }
