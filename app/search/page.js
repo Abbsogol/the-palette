@@ -174,7 +174,8 @@ export default function SearchPage() {
         }
       }
 
-      const { data } = await q
+      const { data, error } = await q.limit(100)
+      if (error) console.error('search fetch failed:', error)
       setDesigns(data || [])
       setLoading(false)
     }
@@ -185,11 +186,13 @@ export default function SearchPage() {
   const switchMainTab = async (tab) => {
     setMainTab(tab)
     if (tab === 'salons' && !salonsLoaded) {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .select('id, display_name, username, avatar_url, account_type, location, bio')
         .in('account_type', ['nail_artist', 'creator', 'salon'])
         .order('display_name', { ascending: true })
+        .limit(200)
+      if (error) console.error('salons fetch failed:', error)
       setSalons(data || [])
       setSalonsLoaded(true)
     }

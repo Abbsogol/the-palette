@@ -78,14 +78,15 @@ export default function FeedPage() {
       }
 
       const [{ data: curatedDesigns }, { data: drops }, { data: rawStories }, { data: challengeData }, { data: boosted }] = await Promise.all([
-        supabase.from('designs').select('*').eq('is_published', true).eq('is_curated', true),
-        supabase.from('designs').select('id, title, image_url').eq('is_published', true).eq('is_drop', true).order('created_at', { ascending: false }),
+        supabase.from('designs').select('*').eq('is_published', true).eq('is_curated', true).order('created_at', { ascending: false }).limit(100),
+        supabase.from('designs').select('id, title, image_url').eq('is_published', true).eq('is_drop', true).order('created_at', { ascending: false }).limit(100),
         supabase.from('stories')
           .select('*, profiles(id, display_name, avatar_url)')
           .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-          .order('created_at', { ascending: false }),
+          .order('created_at', { ascending: false })
+          .limit(200),
         supabase.from('challenges').select('id, title, ends_at').gt('ends_at', new Date().toISOString()).order('ends_at', { ascending: true }).limit(1).maybeSingle(),
-        supabase.from('designs').select('id, title, image_url').eq('is_published', true).gt('boosted_until', new Date().toISOString()).order('boosted_until', { ascending: false }),
+        supabase.from('designs').select('id, title, image_url').eq('is_published', true).gt('boosted_until', new Date().toISOString()).order('boosted_until', { ascending: false }).limit(50),
       ])
 
       // Deduplicate stories by user
@@ -134,6 +135,7 @@ export default function FeedPage() {
         .eq('is_published', true)
         .eq('is_curated', false)
         .order('created_at', { ascending: false })
+        .limit(100)
       setCommunity(data || [])
       setLoadingCommunity(false)
       setCommunityLoaded(true)
@@ -152,6 +154,7 @@ export default function FeedPage() {
           .in('created_by', ids)
           .eq('is_published', true)
           .order('created_at', { ascending: false })
+          .limit(100)
         setFollowingFeed(data || [])
       }
       setLoadingFollowing(false)
@@ -170,6 +173,7 @@ export default function FeedPage() {
         .select('*')
         .in('creator_id', ids)
         .order('created_at', { ascending: false })
+        .limit(100)
       if (postsData?.length) {
         const profileIds = [...new Set(postsData.map(p => p.creator_id))]
         const { data: profilesData } = await supabase
