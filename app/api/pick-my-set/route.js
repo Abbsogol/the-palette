@@ -6,9 +6,12 @@ export async function POST(request) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { prompt } = await request.json()
-  if (!prompt?.trim()) {
+  const { prompt } = await request.json().catch(() => ({}))
+  if (typeof prompt !== 'string' || !prompt.trim()) {
     return Response.json({ error: 'No prompt provided' }, { status: 400 })
+  }
+  if (prompt.length > 500) {
+    return Response.json({ error: 'Prompt is too long' }, { status: 400 })
   }
 
   // Fetch all published designs (lightweight fields only)
@@ -58,6 +61,14 @@ export async function POST(request) {
 
   let ids = []
   try { ids = JSON.parse(raw) } catch { ids = [] }
+
+  // Only accept ids that were actually part of the candidate set offered
+  // to the model — never trust its output as valid on its own, since a
+  // crafted prompt could coax it into returning an id we never gave it
+  // (e.g. an unpublished design), bypassing the is_published/is_curated
+  // filter this route is supposed to enforce.
+  const validIds = new Set(designs.map(d => d.id))
+  ids = Array.isArray(ids) ? ids.filter(id => typeof id === 'string' && validIds.has(id)) : []
 
   // Fetch full design data for matched IDs
   if (!ids.length) return Response.json({ designs: [] })
