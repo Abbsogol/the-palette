@@ -30,6 +30,15 @@ export async function POST(request) {
     return Response.json({ error: 'Failed to record event' }, { status: 500 })
   }
 
+  // If any write below fails, un-record the event first — otherwise a
+  // genuine Stripe retry would hit the dedupe guard above and get silently
+  // skipped without the failed write ever actually completing.
+  const failWithRetry = async (message, err) => {
+    console.error(message, err)
+    await supabase.from('processed_webhook_events').delete().eq('event_id', event.id)
+    return Response.json({ error: message }, { status: 500 })
+  }
+
   // ── Credit pack purchase (one-time payment) ──────────────────────────────
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object
@@ -43,16 +52,18 @@ export async function POST(request) {
         const { designId, days } = session.metadata
         const daysNum = parseInt(days, 10)
         // Extend from now (or from current boosted_until if still active)
-        const { data: existing } = await supabase
+        const { data: existing, error: readErr } = await supabase
           .from('designs')
           .select('boosted_until')
           .eq('id', designId)
           .single()
+        if (readErr) return failWithRetry('Failed to read design for boost:', readErr)
         const base = existing?.boosted_until && new Date(existing.boosted_until) > new Date()
           ? new Date(existing.boosted_until)
           : new Date()
         const boostedUntil = new Date(base.getTime() + daysNum * 86400000).toISOString()
-        await supabase.from('designs').update({ boosted_until: boostedUntil }).eq('id', designId)
+        const { error: boostErr } = await supabase.from('designs').update({ boosted_until: boostedUntil }).eq('id', designId)
+        if (boostErr) return failWithRetry('Failed to apply boost:', boostErr)
         console.log(`Boosted design ${designId} until ${boostedUntil}`)
       }
 
@@ -63,10 +74,7 @@ export async function POST(request) {
           .update({ deposit_paid: true })
           .eq('id', bookingId)
 
-        if (error) {
-          console.error('Failed to mark deposit paid:', error)
-          return Response.json({ error: 'Failed to update booking' }, { status: 500 })
-        }
+        if (error) return failWithRetry('Failed to mark deposit paid:', error)
 
         console.log(`Deposit paid for booking ${bookingId}`)
       }
@@ -85,10 +93,7 @@ export async function POST(request) {
           amount: creditAmount,
         })
 
-        if (error) {
-          console.error('Failed to add credits:', error)
-          return Response.json({ error: 'Failed to add credits' }, { status: 500 })
-        }
+        if (error) return failWithRetry('Failed to add credits:', error)
 
         console.log(`Added ${creditAmount} credits to user ${userId}`)
       }
@@ -111,10 +116,7 @@ export async function POST(request) {
         .update({ subscription_tier: planId, stripe_customer_id: session.customer })
         .eq('id', userId)
 
-      if (error) {
-        console.error('Failed to update subscription tier:', error)
-        return Response.json({ error: 'Failed to update subscription' }, { status: 500 })
-      }
+      if (error) return failWithRetry('Failed to update subscription tier:', error)
 
       console.log(`Activated ${planId} subscription for user ${userId}`)
     }
@@ -131,11 +133,9 @@ export async function POST(request) {
         .update({ subscription_tier: null })
         .eq('id', userId)
 
-      if (error) {
-        console.error('Failed to clear subscription tier:', error)
-      } else {
-        console.log(`Cleared subscription for user ${userId}`)
-      }
+      if (error) return failWithRetry('Failed to clear subscription tier:', error)
+
+      console.log(`Cleared subscription for user ${userId}`)
     }
   }
 
@@ -146,10 +146,12 @@ export async function POST(request) {
     const planId = subscription.metadata?.planId
 
     if (userId && planId && subscription.status === 'active') {
-      await supabase
+      const { error } = await supabase
         .from('profiles_data')
         .update({ subscription_tier: planId })
         .eq('id', userId)
+
+      if (error) return failWithRetry('Failed to update subscription plan:', error)
     }
   }
 
