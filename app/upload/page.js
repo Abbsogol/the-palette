@@ -118,7 +118,7 @@ export default function UploadPage() {
       // Colour specs
       const validColours = colours.filter(c => c.hex_code.trim() || c.colour_name.trim())
       if (validColours.length > 0) {
-        await supabase.from('design_colours').insert(
+        const { error: coloursErr } = await supabase.from('design_colours').insert(
           validColours.map((c, i) => ({
             design_id:    design.id,
             colour_name:  c.colour_name  || null,
@@ -128,6 +128,7 @@ export default function UploadPage() {
             colour_order: i + 1,
           }))
         )
+        if (coloursErr) throw new Error('Failed to save colours: ' + coloursErr.message)
       }
 
       // Tags + weekly upload count — via server route (tags table and profiles
@@ -142,7 +143,7 @@ export default function UploadPage() {
         body: JSON.stringify({ designId: design.id, tagNames }),
       })
       if (!finalizeRes.ok) {
-        console.error('Failed to finalize design upload (tags/weekly count)')
+        throw new Error('Design was uploaded, but tags/weekly count failed to save. Please contact support if this repeats.')
       }
 
       // Reward for posting a design

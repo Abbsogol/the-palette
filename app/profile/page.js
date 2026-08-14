@@ -318,20 +318,28 @@ export default function ProfilePage() {
   const handleSubmitPost = async () => {
     if (!postText.trim() || postSaving) return
     setPostSaving(true)
+    let postError = null
     if (editingPostId) {
-      await supabase.from('salon_posts').update({ body: postText.trim(), updated_at: new Date().toISOString() }).eq('id', editingPostId)
-      setMyPosts(prev => prev.map(p => p.id === editingPostId ? { ...p, body: postText.trim() } : p))
+      const { error } = await supabase.from('salon_posts').update({ body: postText.trim(), updated_at: new Date().toISOString() }).eq('id', editingPostId)
+      postError = error
+      if (!error) setMyPosts(prev => prev.map(p => p.id === editingPostId ? { ...p, body: postText.trim() } : p))
     } else {
-      const { data } = await supabase.from('salon_posts').insert({ creator_id: user.id, body: postText.trim() }).select().single()
+      const { data, error } = await supabase.from('salon_posts').insert({ creator_id: user.id, body: postText.trim() }).select().single()
+      postError = error
       if (data) setMyPosts(prev => [data, ...prev])
     }
     setPostSaving(false)
+    if (postError) {
+      alert('Failed to save update. Please try again.')
+      return
+    }
     closePostModal()
   }
 
   const handleDeletePost = async (postId) => {
     if (!confirm('Delete this update?')) return
-    await supabase.from('salon_posts').delete().eq('id', postId)
+    const { error } = await supabase.from('salon_posts').delete().eq('id', postId)
+    if (error) { alert('Failed to delete update. Please try again.'); return }
     setMyPosts(prev => prev.filter(p => p.id !== postId))
   }
 
@@ -416,7 +424,8 @@ export default function ProfilePage() {
 
   const handlePin = async (design) => {
     const newVal = !design.is_pinned
-    await supabase.from('designs').update({ is_pinned: newVal }).eq('id', design.id)
+    const { error } = await supabase.from('designs').update({ is_pinned: newVal }).eq('id', design.id)
+    if (error) { alert('Failed to update. Please try again.'); return }
     setMyDesigns(prev => {
       const updated = prev.map(d => d.id === design.id ? { ...d, is_pinned: newVal } : d)
       return [...updated].sort((a, b) => {
