@@ -55,10 +55,12 @@ export default function NailLabHistoryPage() {
     load()
   }, [])
 
-  // Publishing needs to copy the file into the public designs bucket first,
-  // via a service-role backend route — the local image_url is a signed URL
-  // resolved for display and isn't a stable reference.
-  const getPublishedImageUrl = async (generationId) => {
+  // Publishing needs to copy the file into the public designs bucket and
+  // create/update the designs row, all via a service-role backend route —
+  // the local image_url is a signed URL resolved for display and isn't a
+  // stable reference, and the designs table's write policies aren't
+  // reliably reachable from the anon client for this cross-bucket flow.
+  const publishGeneration = async (generationId, designId, asDraft) => {
     const { data: { session } } = await supabase.auth.getSession()
     const res = await fetch('/api/publish-nail-lab-generation', {
       method: 'POST',
@@ -66,36 +68,24 @@ export default function NailLabHistoryPage() {
         'Content-Type': 'application/json',
         ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
       },
-      body: JSON.stringify({ generationId }),
+      body: JSON.stringify({ generationId, designId, asDraft }),
     })
     const data = await res.json()
-    if (!res.ok) throw new Error(data.error || 'Failed to publish image')
-    return data.publicUrl
+    if (!res.ok) throw new Error(data.error || 'Failed to save design')
+    return data
   }
 
   const ensureDesignId = async (gen) => {
     if (publishedIds[gen.id]) return publishedIds[gen.id]
-    const vibes = Array.isArray(gen.vibe) ? gen.vibe : [gen.vibe]
-    const publicUrl = await getPublishedImageUrl(gen.id)
-    const { data } = await supabase
-      .from('designs')
-      .insert({
-        title: vibes.join(' + '),
-        image_url: publicUrl,
-        shape: gen.shape,
-        length: gen.length,
-        is_published: false,
-        is_curated: false,
-        created_by: currentUser.id,
-      })
-      .select('id')
-      .single()
-    if (data?.id) {
-      setPublishedIds(prev => ({ ...prev, [gen.id]: data.id }))
+    try {
+      const data = await publishGeneration(gen.id, null, true)
+      setPublishedIds(prev => ({ ...prev, [gen.id]: data.designId }))
       setPublishStatuses(prev => ({ ...prev, [gen.id]: 'draft' }))
-      return data.id
+      return data.designId
+    } catch (e) {
+      alert(e.message || 'Failed to save design')
+      return null
     }
-    return null
   }
 
   const publishDesign = async (asDraft) => {
@@ -103,32 +93,11 @@ export default function NailLabHistoryPage() {
     setPublishing(true)
     try {
       const existingId = publishedIds[selected.id]
-      if (existingId) {
-        await supabase.from('designs').update({ is_published: !asDraft }).eq('id', existingId)
-        setPublishStatuses(prev => ({ ...prev, [selected.id]: asDraft ? 'draft' : 'published' }))
-      } else {
-        const vibes = Array.isArray(selected.vibe) ? selected.vibe : [selected.vibe]
-        const publicUrl = await getPublishedImageUrl(selected.id)
-        const { data } = await supabase
-          .from('designs')
-          .insert({
-            title: vibes.join(' + '),
-            image_url: publicUrl,
-            shape: selected.shape,
-            length: selected.length,
-            is_published: !asDraft,
-            is_curated: false,
-            created_by: currentUser.id,
-          })
-          .select('id')
-          .single()
-        if (data?.id) {
-          setPublishedIds(prev => ({ ...prev, [selected.id]: data.id }))
-          setPublishStatuses(prev => ({ ...prev, [selected.id]: asDraft ? 'draft' : 'published' }))
-        }
-      }
+      const data = await publishGeneration(selected.id, existingId || null, asDraft)
+      setPublishedIds(prev => ({ ...prev, [selected.id]: data.designId }))
+      setPublishStatuses(prev => ({ ...prev, [selected.id]: data.isPublished ? 'published' : 'draft' }))
     } catch (e) {
-      console.error('publish error:', e)
+      alert(e.message || 'Failed to save design')
     } finally {
       setPublishing(false)
       setShowPublishSheet(false)

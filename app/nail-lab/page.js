@@ -360,8 +360,10 @@ export default function NailLabPage() {
       setPublishedDesignId(null)
       setPublishStatus(null)
       window.scrollTo({ top: 0, behavior: 'smooth' })
+      return true
     } catch (e) {
       setGenError(e.message)
+      return false
     } finally {
       setGenerating(false)
     }
@@ -379,13 +381,15 @@ export default function NailLabPage() {
     if (generating) return
     if (free && freeRegenUsed) return
     if (!free && credits < 1) return
-    if (free) setFreeRegenUsed(true)
-    await callGenerateAPI(free, rootGenerationId)
+    const ok = await callGenerateAPI(free, rootGenerationId)
+    if (free && ok) setFreeRegenUsed(true)
   }
 
   // nail-lab is a private bucket; publishing needs to copy the file into the
-  // public designs bucket first, via a service-role backend route.
-  const getPublishedImageUrl = async () => {
+  // public designs bucket and create/update the designs row, all via a
+  // service-role backend route (the designs table's write policies aren't
+  // reliably reachable from the anon client for this cross-bucket flow).
+  const publishGeneration = async (asDraft) => {
     const { data: { session } } = await supabase.auth.getSession()
     const res = await fetch('/api/publish-nail-lab-generation', {
       method: 'POST',
@@ -393,72 +397,34 @@ export default function NailLabPage() {
         'Content-Type': 'application/json',
         ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
       },
-      body: JSON.stringify({ generationId: result.generationId }),
+      body: JSON.stringify({ generationId: result.generationId, designId: publishedDesignId, asDraft }),
     })
     const data = await res.json()
-    if (!res.ok) throw new Error(data.error || 'Failed to publish image')
-    return data.publicUrl
+    if (!res.ok) throw new Error(data.error || 'Failed to save design')
+    return data
   }
 
   const ensureDesignId = async () => {
     if (publishedDesignId) return publishedDesignId
     try {
-      const publicUrl = await getPublishedImageUrl()
-      const { data, error } = await supabase
-        .from('designs')
-        .insert({
-          title: vibes.join(' + '),
-          image_url: publicUrl,
-          shape,
-          length,
-          is_published: false,
-          is_curated: false,
-          created_by: currentUser.id,
-        })
-        .select('id')
-        .single()
-      if (data?.id) {
-        setPublishedDesignId(data.id)
-        setPublishStatus('draft')
-        return data.id
-      }
+      const data = await publishGeneration(true)
+      setPublishedDesignId(data.designId)
+      setPublishStatus('draft')
+      return data.designId
     } catch (e) {
-      console.error('ensureDesignId error:', e)
+      alert(e.message || 'Failed to save design')
+      return null
     }
-    return null
   }
 
   const publishDesign = async (asDraft) => {
     setPublishing(true)
     try {
-      if (publishedDesignId) {
-        await supabase
-          .from('designs')
-          .update({ is_published: !asDraft })
-          .eq('id', publishedDesignId)
-        setPublishStatus(asDraft ? 'draft' : 'published')
-      } else {
-        const publicUrl = await getPublishedImageUrl()
-        const { data } = await supabase
-          .from('designs')
-          .insert({
-            title: vibes.join(' + '),
-            image_url: publicUrl,
-            shape,
-            length,
-            is_published: !asDraft,
-            is_curated: false,
-            created_by: currentUser.id,
-          })
-          .select('id')
-          .single()
-        if (data?.id) {
-          setPublishedDesignId(data.id)
-          setPublishStatus(asDraft ? 'draft' : 'published')
-        }
-      }
+      const data = await publishGeneration(asDraft)
+      setPublishedDesignId(data.designId)
+      setPublishStatus(data.isPublished ? 'published' : 'draft')
     } catch (e) {
-      console.error('publishDesign error:', e)
+      alert(e.message || 'Failed to save design')
     } finally {
       setPublishing(false)
       setShowPublishSheet(false)
