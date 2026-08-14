@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 export default function SaveButton({ designId }) {
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [user, setUser] = useState(null)
 
   useEffect(() => {
@@ -35,31 +36,37 @@ export default function SaveButton({ designId }) {
       window.location.href = '/profile'
       return
     }
+    if (saving) return
+    setSaving(true)
     const next = !saved
 
-    if (next) {
-      const { error } = await supabase.from('saved_designs').insert({ user_id: user.id, design_id: designId })
-      if (error) return
-      setSaved(true)
-      await supabase.rpc('increment_saves', { design_id: designId })
-      const { data: { session } } = await supabase.auth.getSession()
-      fetch('/api/add-reward', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) },
-        body: JSON.stringify({ reason: 'save_design', ref_id: designId }),
-      })
-    } else {
-      const { error } = await supabase.from('saved_designs').delete().eq('user_id', user.id).eq('design_id', designId)
-      if (error) return
-      setSaved(false)
-      await supabase.rpc('decrement_saves', { design_id: designId })
+    try {
+      if (next) {
+        const { error } = await supabase.from('saved_designs').insert({ user_id: user.id, design_id: designId })
+        if (error) { alert('Failed to save. Please try again.'); return }
+        setSaved(true)
+        await supabase.rpc('increment_saves', { design_id: designId })
+        const { data: { session } } = await supabase.auth.getSession()
+        fetch('/api/add-reward', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) },
+          body: JSON.stringify({ reason: 'save_design', ref_id: designId }),
+        })
+      } else {
+        const { error } = await supabase.from('saved_designs').delete().eq('user_id', user.id).eq('design_id', designId)
+        if (error) { alert('Failed to unsave. Please try again.'); return }
+        setSaved(false)
+        await supabase.rpc('decrement_saves', { design_id: designId })
+      }
+    } finally {
+      setSaving(false)
     }
   }
 
   return (
     <button
       onClick={toggle}
-      disabled={loading}
+      disabled={loading || saving}
       title={saved ? 'Unsave' : 'Save'}
       style={{
         background: saved ? 'rgba(212,160,192,0.15)' : 'var(--bg-chip)',
@@ -70,7 +77,7 @@ export default function SaveButton({ designId }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        cursor: loading ? 'default' : 'pointer',
+        cursor: (loading || saving) ? 'default' : 'pointer',
         color: saved ? 'var(--accent)' : 'var(--text-secondary)',
         flexShrink: 0,
         transition: 'background 0.2s, color 0.2s',

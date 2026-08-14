@@ -13,6 +13,7 @@ export default function SaveToBoard({ designId, designImageUrl, renderTrigger, e
   const [saved, setSaved] = useState({}) // boardId → boolean
   const [loading, setLoading] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [togglingBoards, setTogglingBoards] = useState({}) // boardId → boolean, in-flight guard
   const [newName, setNewName] = useState('')
   const [user, setUser] = useState(null)
   const [anyBoardSaved, setAnyBoardSaved] = useState(false)
@@ -51,42 +52,47 @@ export default function SaveToBoard({ designId, designImageUrl, renderTrigger, e
   }
 
   async function toggleBoard(boardId) {
-    if (!user) return
-    if (saved[boardId]) {
-      // Remove from board
-      const { error } = await supabase
-        .from('moodboard_designs')
-        .delete()
-        .eq('moodboard_id', boardId)
-        .eq('design_id', designId)
-      if (error) { alert('Failed to remove from board. Please try again.'); return }
-      setSaved(prev => { const n = { ...prev }; delete n[boardId]; return n })
-    } else {
-      // Add to board
-      const { error } = await supabase
-        .from('moodboard_designs')
-        .insert({ moodboard_id: boardId, design_id: designId })
-      if (error) { alert('Failed to save to board. Please try again.'); return }
+    if (!user || togglingBoards[boardId]) return
+    setTogglingBoards(prev => ({ ...prev, [boardId]: true }))
+    try {
+      if (saved[boardId]) {
+        // Remove from board
+        const { error } = await supabase
+          .from('moodboard_designs')
+          .delete()
+          .eq('moodboard_id', boardId)
+          .eq('design_id', designId)
+        if (error) { alert('Failed to remove from board. Please try again.'); return }
+        setSaved(prev => { const n = { ...prev }; delete n[boardId]; return n })
+      } else {
+        // Add to board
+        const { error } = await supabase
+          .from('moodboard_designs')
+          .insert({ moodboard_id: boardId, design_id: designId })
+        if (error) { alert('Failed to save to board. Please try again.'); return }
 
-      // Update cover if board has none
-      const board = boards.find(b => b.id === boardId)
-      if (board && !board.cover_image_url && designImageUrl) {
-        const { error: coverErr } = await supabase
-          .from('moodboards')
-          .update({ cover_image_url: designImageUrl })
-          .eq('id', boardId)
-        if (!coverErr) {
-          setBoards(prev => prev.map(b => b.id === boardId ? { ...b, cover_image_url: designImageUrl } : b))
+        // Update cover if board has none
+        const board = boards.find(b => b.id === boardId)
+        if (board && !board.cover_image_url && designImageUrl) {
+          const { error: coverErr } = await supabase
+            .from('moodboards')
+            .update({ cover_image_url: designImageUrl })
+            .eq('id', boardId)
+          if (!coverErr) {
+            setBoards(prev => prev.map(b => b.id === boardId ? { ...b, cover_image_url: designImageUrl } : b))
+          }
         }
-      }
 
-      setSaved(prev => ({ ...prev, [boardId]: true }))
+        setSaved(prev => ({ ...prev, [boardId]: true }))
+      }
+      setAnyBoardSaved(s => !s) // re-calc after state updates
+    } finally {
+      setTogglingBoards(prev => { const n = { ...prev }; delete n[boardId]; return n })
     }
-    setAnyBoardSaved(s => !s) // re-calc after state updates
   }
 
   async function createBoard() {
-    if (!newName.trim() || !user) return
+    if (!newName.trim() || !user || creating) return
     setCreating(true)
     const { data, error } = await supabase
       .from('moodboards')
@@ -241,16 +247,19 @@ export default function SaveToBoard({ designId, designImageUrl, renderTrigger, e
                   <div style={{ padding: '12px 20px 0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {boards.map(board => {
                       const isSaved = !!saved[board.id]
+                      const isToggling = !!togglingBoards[board.id]
                       return (
                         <button
                           key={board.id}
                           onClick={() => toggleBoard(board.id)}
+                          disabled={isToggling}
                           style={{
                             display: 'flex', alignItems: 'center', gap: '12px',
                             background: isSaved ? 'rgba(212,160,192,0.1)' : 'var(--bg-primary)',
                             border: isSaved ? '0.5px solid var(--accent)' : '0.5px solid var(--border)',
                             borderRadius: '12px', padding: '10px 12px',
-                            cursor: 'pointer', textAlign: 'left', width: '100%',
+                            cursor: isToggling ? 'default' : 'pointer', textAlign: 'left', width: '100%',
+                            opacity: isToggling ? 0.6 : 1,
                             transition: 'background 0.15s, border-color 0.15s',
                           }}
                         >

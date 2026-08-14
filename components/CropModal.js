@@ -10,6 +10,7 @@ export default function CropModal({ file, onCrop, onCancel }) {
   const [pos, setPos]         = useState({ x: 0, y: 0 })
   const [zoom, setZoom]       = useState(1)
   const [ready, setReady]     = useState(false)
+  const [cropping, setCropping] = useState(false)
   const dragging  = useRef(false)
   const lastPos   = useRef({ x: 0, y: 0 })
   const lastDist  = useRef(null)
@@ -80,6 +81,8 @@ export default function CropModal({ file, onCrop, onCancel }) {
 
   // ── Export ────────────────────────────────────────────────────────────────
   const handleCrop = () => {
+    if (cropping) return
+    setCropping(true)
     const OUTPUT = 400
     const canvas = document.createElement('canvas')
     canvas.width = OUTPUT
@@ -216,16 +219,18 @@ export default function CropModal({ file, onCrop, onCancel }) {
         {/* Use Photo button */}
         <button
           onClick={handleCrop}
+          disabled={cropping}
           style={{
             pointerEvents: 'auto',
             background: '#D4A0C0',
             border: 'none',
             borderRadius: '16px', padding: '17px',
             color: '#2C0A1E', fontSize: '16px', fontWeight: '700',
-            cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
+            cursor: cropping ? 'default' : 'pointer', fontFamily: "'DM Sans', sans-serif",
             letterSpacing: '-0.01em',
+            opacity: cropping ? 0.7 : 1,
           }}
-        >Use Photo</button>
+        >{cropping ? 'Processing...' : 'Use Photo'}</button>
       </div>
     </div>
   )

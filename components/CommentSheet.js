@@ -7,6 +7,7 @@ export default function CommentSheet({ design, currentUser, onClose, onCommentAd
   const [loading, setLoading]   = useState(true)
   const [body, setBody]         = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [deletingIds, setDeletingIds] = useState({}) // comment id → boolean, in-flight guard
   const inputRef = useRef(null)
 
   useEffect(() => {
@@ -56,11 +57,17 @@ export default function CommentSheet({ design, currentUser, onClose, onCommentAd
   }
 
   async function deleteComment(comment) {
-    const { error } = await supabase.from('design_comments').delete().eq('id', comment.id)
-    if (error) { alert('Failed to delete comment. Please try again.'); return }
-    await supabase.rpc('decrement_comments', { design_id: design.id })
-    setComments(prev => prev.filter(c => c.id !== comment.id))
-    onCommentDeleted?.()
+    if (deletingIds[comment.id]) return
+    setDeletingIds(prev => ({ ...prev, [comment.id]: true }))
+    try {
+      const { error } = await supabase.from('design_comments').delete().eq('id', comment.id)
+      if (error) { alert('Failed to delete comment. Please try again.'); return }
+      await supabase.rpc('decrement_comments', { design_id: design.id })
+      setComments(prev => prev.filter(c => c.id !== comment.id))
+      onCommentDeleted?.()
+    } finally {
+      setDeletingIds(prev => { const n = { ...prev }; delete n[comment.id]; return n })
+    }
   }
 
   const timeAgo = (iso) => {
@@ -149,7 +156,8 @@ export default function CommentSheet({ design, currentUser, onClose, onCommentAd
                     {isOwn && (
                       <button
                         onClick={() => deleteComment(c)}
-                        style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '16px', cursor: 'pointer', padding: '2px 4px', flexShrink: 0 }}
+                        disabled={!!deletingIds[c.id]}
+                        style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '16px', cursor: deletingIds[c.id] ? 'default' : 'pointer', padding: '2px 4px', flexShrink: 0, opacity: deletingIds[c.id] ? 0.5 : 1 }}
                       >✕</button>
                     )}
                   </div>
