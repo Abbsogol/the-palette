@@ -12,12 +12,14 @@ export default function ShopPage() {
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('products')
         .select('*')
         .eq('is_published', true)
         .order('is_featured', { ascending: false })
         .order('created_at', { ascending: false })
+        .limit(200)
+      if (error) console.error('products fetch failed:', error)
       setProducts(data || [])
       setLoading(false)
     }

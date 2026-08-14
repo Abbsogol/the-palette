@@ -41,10 +41,12 @@ export default function SavedPage() {
 
   const loadAll = async (userId) => {
     setLoading(true)
-    const [{ data: saved }, { data: boardData }] = await Promise.all([
-      supabase.from('saved_designs').select('design_id, designs(*)').eq('user_id', userId).order('saved_at', { ascending: false }),
-      supabase.from('moodboards').select('id, name, cover_image_url').eq('user_id', userId).order('created_at', { ascending: false }),
+    const [{ data: saved, error: savedError }, { data: boardData, error: boardsError }] = await Promise.all([
+      supabase.from('saved_designs').select('design_id, designs(*)').eq('user_id', userId).order('saved_at', { ascending: false }).limit(200),
+      supabase.from('moodboards').select('id, name, cover_image_url').eq('user_id', userId).order('created_at', { ascending: false }).limit(100),
     ])
+    if (savedError) console.error('saved designs fetch failed:', savedError)
+    if (boardsError) console.error('moodboards fetch failed:', boardsError)
     setDesigns(saved?.map(d => d.designs).filter(Boolean) || [])
     setBoards(boardData || [])
 

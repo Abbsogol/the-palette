@@ -59,7 +59,8 @@ export default function ChallengesPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.from('challenges').select('*').order('ends_at', { ascending: false }).then(({ data }) => {
+    supabase.from('challenges').select('*').order('ends_at', { ascending: false }).limit(100).then(({ data, error }) => {
+      if (error) console.error('challenges fetch failed:', error)
       setChallenges(data || [])
       setLoading(false)
     })

@@ -21,11 +21,13 @@ export default function FollowingPage() {
   }, [])
 
   const loadFollowing = async (uid) => {
-    const { data: followRows } = await supabase
+    const { data: followRows, error: followError } = await supabase
       .from('follows')
       .select('following_id')
       .eq('follower_id', uid)
       .order('created_at', { ascending: false })
+      .limit(500)
+    if (followError) console.error('following fetch failed:', followError)
     const ids = (followRows || []).map(r => r.following_id)
     let result = []
     if (ids.length > 0) {

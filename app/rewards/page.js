@@ -43,15 +43,18 @@ export default function RewardsPage() {
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session?.user) { router.push('/profile'); return }
-      const { data, error } = await supabase
-        .from('rewards')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .order('created_at', { ascending: false })
+      // Two queries: a capped one for the displayed history list, and a
+      // separate lightweight (points-only, no row cap) one for the total —
+      // capping the total's own source rows would silently understate it.
+      const [{ data, error }, { data: allPoints, error: sumError }] = await Promise.all([
+        supabase.from('rewards').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(100),
+        supabase.from('rewards').select('points').eq('user_id', session.user.id),
+      ])
       if (error) console.error('rewards fetch failed:', error)
+      if (sumError) console.error('rewards total fetch failed:', sumError)
       const rows = data || []
       setHistory(rows)
-      setTotalPoints(rows.reduce((sum, r) => sum + r.points, 0))
+      setTotalPoints((allPoints || []).reduce((sum, r) => sum + r.points, 0))
       setLoading(false)
     })
   }, [])

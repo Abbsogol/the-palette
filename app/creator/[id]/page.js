@@ -44,20 +44,27 @@ export default function CreatorPage() {
       const me = session?.user || null
       setCurrentUser(me)
 
-      const [{ data: prof }, { data: d }, { count: followers }, { count: following }, { data: svcs }, { data: avail }, { data: revs }] = await Promise.all([
+      // Designs/reviews are capped for display, but totalSaves/avgRating are
+      // derived sums, so those get their own lightweight unbounded queries
+      // (single narrow column, no cap) — capping the display queries alone
+      // would otherwise silently understate both for a prolific creator.
+      const [{ data: prof }, { data: d }, { count: followers }, { count: following }, { data: svcs }, { data: avail }, { data: revs }, { data: allSaves }, { data: allRatings }] = await Promise.all([
         supabase.from('profiles').select('*, is_private, message_permission, show_saves').eq('id', id).single(),
-        supabase.from('designs').select('*').eq('created_by', id).eq('is_published', true).order('is_pinned', { ascending: false }).order('created_at', { ascending: false }),
+        supabase.from('designs').select('*').eq('created_by', id).eq('is_published', true).order('is_pinned', { ascending: false }).order('created_at', { ascending: false }).limit(100),
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', id),
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', id),
         supabase.from('services').select('*').eq('creator_id', id).eq('is_active', true).order('created_at', { ascending: true }),
         supabase.from('availability').select('*').eq('creator_id', id).eq('is_active', true).order('day_of_week', { ascending: true }),
-        supabase.from('reviews').select('id, rating, text, created_at, reviewer_id').eq('creator_id', id).order('created_at', { ascending: false }),
+        supabase.from('reviews').select('id, rating, text, created_at, reviewer_id').eq('creator_id', id).order('created_at', { ascending: false }).limit(100),
+        supabase.from('designs').select('saves_count').eq('created_by', id).eq('is_published', true),
+        supabase.from('reviews').select('rating').eq('creator_id', id),
       ])
 
-      const totalSaves = (d || []).reduce((sum, design) => sum + (design.saves_count || 0), 0)
+      const totalSaves = (allSaves || []).reduce((sum, design) => sum + (design.saves_count || 0), 0)
       const reviewList = revs || []
-      const avg = reviewList.length > 0
-        ? Math.round((reviewList.reduce((s, r) => s + r.rating, 0) / reviewList.length) * 10) / 10
+      const ratings = allRatings || []
+      const avg = ratings.length > 0
+        ? Math.round((ratings.reduce((s, r) => s + r.rating, 0) / ratings.length) * 10) / 10
         : null
 
       // Fetch reviewer display names

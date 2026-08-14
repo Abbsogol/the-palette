@@ -606,14 +606,16 @@ export default function AdminPage() {
 
   const loadDesigns = async () => {
     setLoadingDesigns(true)
-    const { data } = await supabase.from('designs').select('id, title, image_url, created_at, is_drop').order('created_at', { ascending: false })
+    const { data, error } = await supabase.from('designs').select('id, title, image_url, created_at, is_drop').order('created_at', { ascending: false }).limit(500)
+    if (error) console.error('admin designs fetch failed:', error)
     setAllDesigns(data || [])
     setLoadingDesigns(false)
   }
 
   const loadProducts = async () => {
     setLoadingProducts(true)
-    const { data } = await supabase.from('products').select('*').order('created_at', { ascending: false })
+    const { data, error } = await supabase.from('products').select('*').order('created_at', { ascending: false }).limit(500)
+    if (error) console.error('admin products fetch failed:', error)
     setAllProducts(data || [])
     setLoadingProducts(false)
   }

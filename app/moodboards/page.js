@@ -33,11 +33,13 @@ export default function MoodboardsPage() {
         .from('moodboards')
         .select('id, name, cover_image_url, is_public, created_at')
         .eq('user_id', uid)
-        .order('created_at', { ascending: false }),
+        .order('created_at', { ascending: false })
+        .limit(200),
       supabase
         .from('moodboard_members')
         .select('moodboard_id, moodboards(id, name, cover_image_url, is_public, created_at, user_id)')
-        .eq('user_id', uid),
+        .eq('user_id', uid)
+        .limit(200),
     ])
 
     const own = ownData || []

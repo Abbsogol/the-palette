@@ -77,7 +77,8 @@ export default function MoodboardDetailPage() {
         .from('moodboard_designs')
         .select('design_id, added_at, designs(id, title, image_url, shape, category)')
         .eq('moodboard_id', id)
-        .order('added_at', { ascending: false }),
+        .order('added_at', { ascending: false })
+        .limit(300),
       supabase
         .from('profiles')
         .select('display_name, username')

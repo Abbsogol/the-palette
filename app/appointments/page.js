@@ -95,15 +95,19 @@ export default function AppointmentsPage() {
       if (!user) { router.push('/profile'); return }
       setCurrentUser(user)
 
-      const { data, error } = await supabase
+      // Ordered newest-first + capped so the limit drops old history rather
+      // than cutting off upcoming appointments, then reversed for display.
+      const { data: rawData, error } = await supabase
         .from('bookings')
         .select('*, service:services(*)')
         .eq('client_id', user.id)
-        .order('booking_date', { ascending: true })
-        .order('start_time', { ascending: true })
+        .order('booking_date', { ascending: false })
+        .order('start_time', { ascending: false })
+        .limit(300)
       if (error) console.error('appointments fetch failed:', error)
 
-      if (!data) { setLoading(false); return }
+      if (!rawData) { setLoading(false); return }
+      const data = rawData.slice().reverse()
 
       // Fetch creator profiles
       const creatorIds = [...new Set(data.map(b => b.creator_id))]

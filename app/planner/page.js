@@ -55,14 +55,18 @@ export default function PlannerPage() {
         router.push('/profile'); return
       }
 
-      const { data, error } = await supabase
+      // Ordered newest-first + capped so the limit drops old history rather
+      // than cutting off upcoming bookings, then reversed for display.
+      const { data: rawData, error } = await supabase
         .from('bookings')
         .select('*, service:services(name, duration_minutes, price)')
         .eq('creator_id', user.id)
         .in('status', ['confirmed', 'pending'])
-        .order('booking_date', { ascending: true })
-        .order('start_time', { ascending: true })
+        .order('booking_date', { ascending: false })
+        .order('start_time', { ascending: false })
+        .limit(300)
       if (error) console.error('planner bookings fetch failed:', error)
+      const data = rawData ? rawData.slice().reverse() : rawData
 
       if (data && data.length > 0) {
         const clientIds = [...new Set(data.map(b => b.client_id))]

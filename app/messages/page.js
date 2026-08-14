@@ -70,6 +70,7 @@ function MessagesInner() {
       .select('*')
       .or(`client_id.eq.${userId},creator_id.eq.${userId}`)
       .order('last_message_at', { ascending: false })
+      .limit(100)
     if (error) console.error('conversations fetch failed:', error)
 
     if (!data || data.length === 0) { setConversations([]); return }

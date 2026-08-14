@@ -16,11 +16,13 @@ export default function FollowersPage() {
       if (!session?.user) { router.push('/profile'); return }
       setUserId(session.user.id)
       // Get follower IDs, then fetch their profiles
-      const { data: followRows } = await supabase
+      const { data: followRows, error: followError } = await supabase
         .from('follows')
         .select('follower_id')
         .eq('following_id', session.user.id)
         .order('created_at', { ascending: false })
+        .limit(500)
+      if (followError) console.error('followers fetch failed:', followError)
       const ids = (followRows || []).map(r => r.follower_id)
       let data = []
       if (ids.length > 0) {

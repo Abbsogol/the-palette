@@ -54,15 +54,17 @@ export default function ChatPage() {
 
       setOther(profile)
 
-      // Load messages
+      // Load the most recent messages — ordered newest-first so .limit()
+      // keeps the latest N, then reversed back to chronological for display.
       const { data: msgs, error: msgsError } = await supabase
         .from('messages')
         .select('*')
         .eq('conversation_id', id)
-        .order('created_at', { ascending: true })
+        .order('created_at', { ascending: false })
+        .limit(200)
       if (msgsError) console.error('messages fetch failed:', msgsError)
 
-      setMessages(msgs || [])
+      setMessages((msgs || []).slice().reverse())
 
       // Mark unread as read
       const { error: markReadError } = await supabase

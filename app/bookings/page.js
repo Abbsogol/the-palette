@@ -103,25 +103,29 @@ export default function BookingsPage() {
   }, [])
 
   const loadBookings = async (userId) => {
+    // Ordered newest-first + capped so the limit drops old history rather
+    // than cutting off upcoming bookings, then reversed back to
+    // chronological order for display.
     const { data, error } = await supabase
       .from('bookings')
       .select('*, service:services(*)')
       .eq('creator_id', userId)
-      .order('booking_date', { ascending: true })
-      .order('start_time', { ascending: true })
+      .order('booking_date', { ascending: false })
+      .order('start_time', { ascending: false })
+      .limit(300)
     if (error) console.error('bookings fetch failed:', error)
-
     if (!data) { setBookings([]); return }
+    const chronological = data.slice().reverse()
 
     // Fetch client profiles
-    const clientIds = [...new Set(data.map(b => b.client_id))]
+    const clientIds = [...new Set(chronological.map(b => b.client_id))]
     const { data: profiles } = await supabase
       .from('profiles')
       .select('id, display_name, username, avatar_url')
       .in('id', clientIds)
 
     const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
-    setBookings(data.map(b => ({ ...b, client: profileMap[b.client_id] || null })))
+    setBookings(chronological.map(b => ({ ...b, client: profileMap[b.client_id] || null })))
   }
 
   const today = new Date().toISOString().split('T')[0]

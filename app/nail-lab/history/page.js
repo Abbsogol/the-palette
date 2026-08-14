@@ -38,11 +38,13 @@ export default function NailLabHistoryPage() {
       setCurrentUser(session.user)
       setLoadingUser(false)
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('nail_lab_generations')
         .select('*')
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false })
+        .limit(100)
+      if (error) console.error('nail-lab history fetch failed:', error)
       const gens = data || []
       // nail-lab is a private bucket; resolve a fresh signed URL for each
       // stored reference so the images actually display.

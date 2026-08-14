@@ -64,6 +64,7 @@ export default function ChallengeDetailPage() {
         .select('*, profiles(id, display_name, avatar_url)')
         .eq('challenge_id', id)
         .order('created_at', { ascending: false })
+        .limit(500)
       if (subsError) console.error('challenge submissions fetch failed:', subsError)
 
       // Fetch vote counts
