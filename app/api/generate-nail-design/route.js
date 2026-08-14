@@ -160,15 +160,19 @@ DESIGN NAME: Choose a name that is ${nameHint}. Subtitle should reflect shape, l
     }
     const imageUrl = signedData.signedUrl
 
-    // Deduct 1 credit, or mark the free regen as used on its parent
+    // Deduct 1 credit, or mark the free regen as used on its parent. The
+    // image is already generated and uploaded by this point, so a failure
+    // here is logged for reconciliation rather than discarding the result.
     if (!freeRegen) {
-      await supabase.rpc('decrement_credits', { user_id: userId })
+      const { error: decError } = await supabase.rpc('decrement_credits', { user_id: userId })
+      if (decError) console.error('decrement_credits failed:', decError)
     } else {
-      await supabase.from('nail_lab_generations').update({ free_regen_used: true }).eq('id', parentGenerationId)
+      const { error: flagError } = await supabase.from('nail_lab_generations').update({ free_regen_used: true }).eq('id', parentGenerationId)
+      if (flagError) console.error('free_regen_used update failed:', flagError)
     }
 
     // Save generation record
-    const { data: generation } = await supabase
+    const { data: generation, error: insertError } = await supabase
       .from('nail_lab_generations')
       .insert({
         user_id: userId,
@@ -187,9 +191,20 @@ DESIGN NAME: Choose a name that is ${nameHint}. Subtitle should reflect shape, l
       .select()
       .single()
 
+    if (insertError || !generation) {
+      console.error('nail_lab_generations insert failed:', insertError)
+      // The generation record — the only durable reference to what was just
+      // charged for — was lost, so refund the credit rather than silently
+      // keeping the charge.
+      if (!freeRegen) {
+        await supabase.rpc('increment_credits', { user_id: userId, amount: 1 })
+      }
+      return Response.json({ error: 'Failed to save your generation. Please try again — you have not been charged.' }, { status: 500 })
+    }
+
     return Response.json({
       imageUrl,
-      generationId: generation?.id || null,
+      generationId: generation.id,
       creditsRemaining: freeRegen ? profile.credit_balance : profile.credit_balance - 1,
     })
 
