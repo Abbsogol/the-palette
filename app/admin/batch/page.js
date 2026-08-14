@@ -85,7 +85,8 @@ export default function BatchUploadPage() {
       .single()
     if (designErr) throw new Error(designErr.message)
     const designId = designRow.id
-      await supabase.from('designs').update({ slug }).eq('id', designId)
+    const { error: slugErr } = await supabase.from('designs').update({ slug }).eq('id', designId)
+    if (slugErr) throw new Error('Slug error: ' + slugErr.message)
 
     if (design.colours?.length) {
       const rows = design.colours.map(c => ({

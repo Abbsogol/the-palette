@@ -44,11 +44,16 @@ function MessagesInner() {
           .eq('creator_id', creatorId)
           .single()
 
-        const conversationId = existing?.id || (await supabase
-          .from('conversations')
-          .insert({ client_id: clientId, creator_id: creatorId })
-          .select('id')
-          .single()).data?.id
+        let conversationId = existing?.id
+        if (!conversationId) {
+          const { data: created, error: createError } = await supabase
+            .from('conversations')
+            .insert({ client_id: clientId, creator_id: creatorId })
+            .select('id')
+            .single()
+          if (createError) console.error('conversation create error:', createError)
+          conversationId = created?.id
+        }
 
         if (conversationId) { router.replace(`/messages/${conversationId}`); return }
       }

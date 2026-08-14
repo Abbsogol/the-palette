@@ -63,11 +63,12 @@ export default function NotificationsPage() {
       setLoading(false)
 
       // Mark all as read
-      await supabase
+      const { error: markReadError } = await supabase
         .from('notifications')
         .update({ read: true })
         .eq('user_id', session.user.id)
         .eq('read', false)
+      if (markReadError) console.error('mark-read error:', markReadError)
     })
   }, [])
 

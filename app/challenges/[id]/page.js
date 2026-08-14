@@ -112,17 +112,19 @@ export default function ChallengeDetailPage() {
     if (!uploadRes.ok || uploadJson.error) { setSubmitting(false); alert('Upload failed: ' + (uploadJson.error || 'Unknown error')); return }
     const publicUrl = uploadJson.publicUrl
 
-    const { data: sub } = await supabase.from('challenge_submissions').insert({
+    const { data: sub, error: subError } = await supabase.from('challenge_submissions').insert({
       challenge_id: id,
       user_id: currentUser.id,
       image_url: publicUrl,
       caption: caption.trim() || null,
     }).select('*, profiles(id, display_name, avatar_url)').single()
-    if (sub) {
-      setSubmissions(prev => [sub, ...prev])
-      setMySubmission(sub)
-    }
     setSubmitting(false)
+    if (subError || !sub) {
+      alert('Failed to submit entry: ' + (subError?.message || 'Unknown error'))
+      return
+    }
+    setSubmissions(prev => [sub, ...prev])
+    setMySubmission(sub)
     setSubmitOpen(false)
     setImageFile(null); setImagePreview(null); setCaption('')
   }
@@ -132,11 +134,13 @@ export default function ChallengeDetailPage() {
     if (submissionUserId === currentUser.id) return
     const voted = myVotes.has(subId)
     if (voted) {
-      await supabase.from('challenge_votes').delete().eq('submission_id', subId).eq('user_id', currentUser.id)
+      const { error } = await supabase.from('challenge_votes').delete().eq('submission_id', subId).eq('user_id', currentUser.id)
+      if (error) return
       setMyVotes(prev => { const s = new Set(prev); s.delete(subId); return s })
       setVoteCounts(prev => ({ ...prev, [subId]: Math.max(0, (prev[subId] || 1) - 1) }))
     } else {
-      await supabase.from('challenge_votes').insert({ submission_id: subId, user_id: currentUser.id })
+      const { error } = await supabase.from('challenge_votes').insert({ submission_id: subId, user_id: currentUser.id })
+      if (error) return
       setMyVotes(prev => new Set([...prev, subId]))
       setVoteCounts(prev => ({ ...prev, [subId]: (prev[subId] || 0) + 1 }))
     }

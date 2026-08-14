@@ -63,12 +63,13 @@ export default function ChatPage() {
       setMessages(msgs || [])
 
       // Mark unread as read
-      await supabase
+      const { error: markReadError } = await supabase
         .from('messages')
         .update({ is_read: true })
         .eq('conversation_id', id)
         .neq('sender_id', user.id)
         .eq('is_read', false)
+      if (markReadError) console.error('mark-read error:', markReadError)
 
       setLoading(false)
     }
@@ -92,6 +93,7 @@ export default function ChatPage() {
         // Mark as read if it's from the other person
         if (payload.new.sender_id !== currentUser?.id) {
           supabase.from('messages').update({ is_read: true }).eq('id', payload.new.id)
+            .then(({ error }) => { if (error) console.error('mark-read error:', error) })
         }
       })
       .subscribe()
@@ -129,17 +131,19 @@ export default function ChatPage() {
     }
 
     // Update last_message_at on conversation
-    await supabase
+    const { error: convError } = await supabase
       .from('conversations')
       .update({ last_message_at: new Date().toISOString() })
       .eq('id', id)
+    if (convError) console.error('conversation update error:', convError)
 
     // Notify the other person
-    await supabase.from('notifications').insert({
+    const { error: notifError } = await supabase.from('notifications').insert({
       user_id: other?.id,
       actor_id: currentUser.id,
       type: 'new_message',
     })
+    if (notifError) console.error('notification error:', notifError)
 
     setSending(false)
   }
