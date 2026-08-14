@@ -59,6 +59,7 @@ export default function BookPage() {
   const [availability, setAvailability] = useState([]) // active days
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
   const [done, setDone] = useState(false)
 
   // Inspiration design (from ?designId=)
@@ -163,11 +164,12 @@ export default function BookPage() {
   const handleSubmit = async () => {
     if (!selectedService || !selectedDate || !selectedSlot) return
     setSubmitting(true)
+    setSubmitError('')
 
     const dateStr = toLocalDateStr(selectedDate)
     const endTime = addMinutes(selectedSlot, selectedService.duration_minutes)
 
-    const { data: newBooking } = await supabase.from('bookings').insert({
+    const { data: newBooking, error } = await supabase.from('bookings').insert({
       client_id: currentUser.id,
       creator_id: creatorId,
       service_id: selectedService.id,
@@ -178,6 +180,12 @@ export default function BookPage() {
       notes: note.trim() || null,
     }).select().single()
 
+    if (error || !newBooking) {
+      setSubmitError('Failed to send booking request. Please try again.')
+      setSubmitting(false)
+      return
+    }
+
     // Notify the creator
     await supabase.from('notifications').insert({
       user_id: creatorId,
@@ -186,14 +194,12 @@ export default function BookPage() {
     })
 
     // Reward the client for booking
-    if (newBooking) {
-      const { data: { session } } = await supabase.auth.getSession()
-      fetch('/api/add-reward', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) },
-        body: JSON.stringify({ reason: 'book_appointment', ref_id: newBooking.id }),
-      })
-    }
+    const { data: { session } } = await supabase.auth.getSession()
+    fetch('/api/add-reward', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) },
+      body: JSON.stringify({ reason: 'book_appointment', ref_id: newBooking.id }),
+    })
 
     setSubmitting(false)
     setDone(true)
@@ -508,6 +514,9 @@ export default function BookPage() {
               />
             </div>
 
+            {submitError && (
+              <p style={{ color: '#E07070', fontSize: '13px', textAlign: 'center', marginBottom: '10px' }}>{submitError}</p>
+            )}
             <button
               onClick={handleSubmit}
               disabled={submitting}

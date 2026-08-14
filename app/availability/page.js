@@ -102,11 +102,15 @@ export default function AvailabilityPage() {
       end_time: schedule[d.value].end_time,
     }))
 
-    await supabase
+    const { error } = await supabase
       .from('availability')
       .upsert(rows, { onConflict: 'creator_id,day_of_week' })
 
     setSaving(false)
+    if (error) {
+      alert('Failed to save availability. Please try again.')
+      return
+    }
     setSaved(true)
   }
 

@@ -110,20 +110,29 @@ export default function AppointmentDetailPage() {
       rating: reviewRating,
       text: reviewText.trim() || null,
     }
+    let reviewError = null
     if (review) {
-      await supabase.from('reviews').update({ rating: reviewRating, text: reviewText.trim() || null }).eq('id', review.id)
+      const { error } = await supabase.from('reviews').update({ rating: reviewRating, text: reviewText.trim() || null }).eq('id', review.id)
+      reviewError = error
     } else {
-      await supabase.from('reviews').insert(payload)
-      // Reward for leaving a review (first time only)
-      const { data: { session } } = await supabase.auth.getSession()
-      fetch('/api/add-reward', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) },
-        body: JSON.stringify({ reason: 'leave_review', ref_id: booking.id }),
-      })
+      const { error } = await supabase.from('reviews').insert(payload)
+      reviewError = error
+      if (!error) {
+        // Reward for leaving a review (first time only)
+        const { data: { session } } = await supabase.auth.getSession()
+        fetch('/api/add-reward', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) },
+          body: JSON.stringify({ reason: 'leave_review', ref_id: booking.id }),
+        })
+      }
+    }
+    setReviewLoading(false)
+    if (reviewError) {
+      alert('Failed to submit review. Please try again.')
+      return
     }
     setReviewSubmitted(true)
-    setReviewLoading(false)
   }
 
   if (loading) return (

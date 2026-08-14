@@ -84,25 +84,33 @@ export default function BookingDetailPage() {
     if (!currentUser || noteSaving) return
     setNoteSaving(true)
     setNoteSaved(false)
+    let saveError = null
     if (noteId) {
-      await supabase.from('client_notes').update({ note: noteText, updated_at: new Date().toISOString() }).eq('id', noteId)
+      const { error } = await supabase.from('client_notes').update({ note: noteText, updated_at: new Date().toISOString() }).eq('id', noteId)
+      saveError = error
     } else {
-      const { data } = await supabase.from('client_notes').insert({
+      const { data, error } = await supabase.from('client_notes').insert({
         booking_id: booking.id,
         creator_id: currentUser.id,
         client_id: booking.client_id,
         note: noteText,
       }).select().single()
+      saveError = error
       if (data) setNoteId(data.id)
     }
     setNoteSaving(false)
+    if (saveError) {
+      alert('Failed to save note. Please try again.')
+      return
+    }
     setNoteSaved(true)
     setTimeout(() => setNoteSaved(false), 2000)
   }
 
   const handleAccept = async () => {
     setActing('accept')
-    await supabase.from('bookings').update({ status: 'confirmed' }).eq('id', booking.id)
+    const { error } = await supabase.from('bookings').update({ status: 'confirmed' }).eq('id', booking.id)
+    if (error) { alert('Failed to accept booking. Please try again.'); setActing(null); return }
     await supabase.from('notifications').insert({
       user_id: booking.client_id,
       actor_id: currentUser.id,
@@ -115,7 +123,8 @@ export default function BookingDetailPage() {
   const handleDecline = async () => {
     if (!confirm('Decline this booking request?')) return
     setActing('decline')
-    await supabase.from('bookings').update({ status: 'declined' }).eq('id', booking.id)
+    const { error } = await supabase.from('bookings').update({ status: 'declined' }).eq('id', booking.id)
+    if (error) { alert('Failed to decline booking. Please try again.'); setActing(null); return }
     await supabase.from('notifications').insert({
       user_id: booking.client_id,
       actor_id: currentUser.id,

@@ -43,7 +43,11 @@ function ServiceSheet({ service, onSave, onClose }) {
   const handleSave = async () => {
     if (!name.trim()) return
     setSaving(true)
-    await onSave({ name: name.trim(), description: description.trim(), duration_minutes: duration, price: parseFloat(price) || 0, deposit_amount: parseFloat(deposit) || 0 })
+    try {
+      await onSave({ name: name.trim(), description: description.trim(), duration_minutes: duration, price: parseFloat(price) || 0, deposit_amount: parseFloat(deposit) || 0 })
+    } catch (err) {
+      alert(err.message || 'Failed to save service. Please try again.')
+    }
     setSaving(false)
   }
 
@@ -186,11 +190,10 @@ export default function ServicesPage() {
   }
 
   const handleSave = async (fields) => {
-    if (editingService) {
-      await supabase.from('services').update(fields).eq('id', editingService.id)
-    } else {
-      await supabase.from('services').insert({ ...fields, creator_id: currentUser.id })
-    }
+    const { error } = editingService
+      ? await supabase.from('services').update(fields).eq('id', editingService.id)
+      : await supabase.from('services').insert({ ...fields, creator_id: currentUser.id })
+    if (error) throw new Error('Failed to save service. Please try again.')
     await loadServices(currentUser.id)
     setShowSheet(false)
     setEditingService(null)
@@ -198,13 +201,15 @@ export default function ServicesPage() {
 
   const handleDelete = async (service) => {
     setDeleting(service.id)
-    await supabase.from('services').update({ is_active: false }).eq('id', service.id)
+    const { error } = await supabase.from('services').update({ is_active: false }).eq('id', service.id)
+    if (error) { alert('Failed to delete service. Please try again.'); setDeleting(null); return }
     await loadServices(currentUser.id)
     setDeleting(null)
   }
 
   const handleToggle = async (service) => {
-    await supabase.from('services').update({ is_active: !service.is_active }).eq('id', service.id)
+    const { error } = await supabase.from('services').update({ is_active: !service.is_active }).eq('id', service.id)
+    if (error) { alert('Failed to update service. Please try again.'); return }
     await loadServices(currentUser.id)
   }
 
