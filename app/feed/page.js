@@ -485,7 +485,7 @@ export default function FeedPage() {
                     <div style={{ width: '60px', height: '60px', borderRadius: '50%', padding: '2px', background: viewed ? 'var(--border)' : 'linear-gradient(135deg, #D4A0C0 0%, #9B5E8A 100%)' }}>
                       <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'var(--bg-primary)', padding: '2px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'var(--bg-chip)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          {avatar ? <img src={avatar} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          {avatar ? <img src={avatar} alt={name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             : <span style={{ color: 'var(--accent)', fontSize: '20px', fontWeight: '500' }}>{name[0].toUpperCase()}</span>}
                         </div>
                       </div>
@@ -551,7 +551,7 @@ export default function FeedPage() {
                     >
                       <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '0.5px solid var(--border)', background: 'var(--bg-card)' }}>
                         {d.image_url
-                          ? <div style={{ width: '130px', height: '130px', overflow: 'hidden' }}><img src={d.image_url} alt={d.title} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} /></div>
+                          ? <div style={{ width: '130px', height: '130px', overflow: 'hidden' }}><img src={d.image_url} alt={d.title} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} /></div>
                           : <div style={{ width: '130px', height: '130px', background: 'var(--bg-chip)' }} />
                         }
                         <div style={{ position: 'absolute', top: '6px', left: '6px', background: i === 0 ? 'var(--accent)' : 'rgba(0,0,0,0.55)', color: i === 0 ? '#141414' : '#fff', fontSize: '10px', fontWeight: '700', width: '20px', height: '20px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -584,7 +584,7 @@ export default function FeedPage() {
                   >
                     <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '0.5px solid var(--accent)', background: 'var(--bg-card)' }}>
                       {d.image_url
-                        ? <div style={{ width: '130px', height: '130px', overflow: 'hidden' }}><img src={d.image_url} alt={d.title} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} /></div>
+                        ? <div style={{ width: '130px', height: '130px', overflow: 'hidden' }}><img src={d.image_url} alt={d.title} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} /></div>
                         : <div style={{ width: '130px', height: '130px', background: 'var(--bg-chip)' }} />
                       }
                       <div style={{ position: 'absolute', top: '6px', right: '6px', background: 'var(--accent)', color: '#2C0A1E', fontSize: '9px', fontWeight: '700', padding: '3px 7px', borderRadius: '8px' }}>
@@ -612,7 +612,7 @@ export default function FeedPage() {
                   >
                     <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '0.5px solid var(--border)', background: 'var(--bg-card)' }}>
                       {d.image_url
-                        ? <div style={{ width: '130px', height: '130px', overflow: 'hidden' }}><img src={d.image_url} alt={d.title} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} /></div>
+                        ? <div style={{ width: '130px', height: '130px', overflow: 'hidden' }}><img src={d.image_url} alt={d.title} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} /></div>
                         : <div style={{ width: '130px', height: '130px', background: 'var(--bg-chip)' }} />
                       }
                       <div style={{ position: 'absolute', top: '6px', left: '6px', background: 'rgba(44,10,30,0.75)', color: 'var(--text-secondary)', fontSize: '9px', fontWeight: '600', padding: '3px 7px', borderRadius: '8px', letterSpacing: '0.04em' }}>
@@ -639,7 +639,7 @@ export default function FeedPage() {
                   >
                     {design.image_url ? (
                       <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden' }}>
-                        <img src={design.image_url} alt={design.title} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+                        <img src={design.image_url} alt={design.title} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
                       </div>
                     ) : (
                       <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--bg-chip)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -739,7 +739,7 @@ export default function FeedPage() {
                       <Link href={`/creator/${post.creator_id}`} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
                         <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'var(--bg-chip)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           {avatar
-                            ? <img src={avatar} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ? <img src={avatar} alt={name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             : <span style={{ color: 'var(--accent)', fontSize: '15px', fontWeight: '600' }}>{name[0].toUpperCase()}</span>
                           }
                         </div>

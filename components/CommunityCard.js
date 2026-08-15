@@ -71,7 +71,7 @@ export default function CommunityCard({ design, currentUser, initiallyLiked }) {
             border: '0.5px solid var(--border)',
           }}>
             {creator?.avatar_url
-              ? <img src={creator.avatar_url} alt={creatorName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ? <img src={creator.avatar_url} alt={creatorName} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               : <span style={{ color: 'var(--accent)', fontSize: '15px', fontWeight: '500' }}>{creatorName[0].toUpperCase()}</span>
             }
           </div>
@@ -101,6 +101,8 @@ export default function CommunityCard({ design, currentUser, initiallyLiked }) {
             ? <img
                 src={design.image_url}
                 alt={design.title}
+                loading="lazy"
+                decoding="async"
                 style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
               />
             : <div style={{ width: '100%', height: '100%' }} />
