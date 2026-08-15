@@ -59,6 +59,7 @@ export default function BookPage() {
   const [services, setServices] = useState([])
   const [availability, setAvailability] = useState([]) // active days
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [done, setDone] = useState(false)
@@ -93,12 +94,22 @@ export default function BookPage() {
         }
       }
 
-      const [{ data: prof }, { data: svcs }, { data: avail }, { data: followRow }] = await Promise.all([
+      const [{ data: prof, error: profError }, { data: svcs, error: svcsError }, { data: avail }, { data: followRow }] = await Promise.all([
         supabase.from('profiles').select('id, display_name, avatar_url, account_type, is_private').eq('id', creatorId).single(),
         supabase.from('services').select('*').eq('creator_id', creatorId).eq('is_active', true).order('created_at', { ascending: true }),
         supabase.from('availability').select('*').eq('creator_id', creatorId).eq('is_active', true).order('day_of_week', { ascending: true }),
         creatorId === user.id ? { data: null } : supabase.from('follows').select('*').eq('follower_id', user.id).eq('following_id', creatorId).maybeSingle(),
       ])
+
+      // A real fetch failure previously rendered identically to "this
+      // creator has no bookable services" — surfaced distinctly instead,
+      // same as the existing submit-handler error treatment below.
+      if ((profError && profError.code !== 'PGRST116') || svcsError) {
+        console.error('book page load failed:', profError || svcsError)
+        setLoadError(true)
+        setLoading(false)
+        return
+      }
 
       setCreator(prof)
       setIsPrivateAndBlocked(!!prof?.is_private && creatorId !== user.id && !followRow)
@@ -235,6 +246,16 @@ export default function BookPage() {
   if (loading) return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <p style={{ color: 'var(--text-secondary)', fontFamily: "'DM Sans', sans-serif" }}>Loading…</p>
+    </div>
+  )
+
+  if (loadError) return (
+    <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '20px', textAlign: 'center' }}>
+      <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif" }}>Couldn't load booking details</p>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif" }}>Please try again in a moment.</p>
+      <button onClick={() => window.location.reload()} style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '12px 24px', fontSize: '14px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
+        Retry
+      </button>
     </div>
   )
 

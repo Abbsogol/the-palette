@@ -65,21 +65,28 @@ export default function BottomNav() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const { data: convs } = await supabase
+      const { data: convs, error: convsError } = await supabase
         .from('conversations')
         .select('id')
         .or(`client_id.eq.${user.id},creator_id.eq.${user.id}`)
 
-      if (!convs || convs.length === 0) return
+      // A passive background badge, not primary page content — on failure,
+      // log and leave the last-known count as-is rather than resetting to 0
+      // (a false "no unread messages" is worse than a stale-but-plausible
+      // number). Reruns on every route change anyway, so a transient blip
+      // self-heals on the next navigation without needing its own retry.
+      if (convsError) { console.error('unread count fetch failed:', convsError); return }
+      if (!convs || convs.length === 0) { setUnreadMessages(0); return }
 
       const convIds = convs.map(c => c.id)
-      const { count } = await supabase
+      const { count, error: countError } = await supabase
         .from('messages')
         .select('*', { count: 'exact', head: true })
         .in('conversation_id', convIds)
         .eq('is_read', false)
         .neq('sender_id', user.id)
 
+      if (countError) { console.error('unread count fetch failed:', countError); return }
       setUnreadMessages(count || 0)
     }
     fetchUnread()

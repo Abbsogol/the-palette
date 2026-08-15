@@ -16,6 +16,7 @@ export default function CreatorPage() {
   const [followerCount, setFollowerCount] = useState(0)
   const [followingCount, setFollowingCount] = useState(0)
   const [loading, setLoading]         = useState(true)
+  const [loadError, setLoadError]     = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
   const [totalSaves, setTotalSaves] = useState(0)
   const [services, setServices] = useState([])
@@ -48,7 +49,7 @@ export default function CreatorPage() {
       // derived sums, so those get their own lightweight unbounded queries
       // (single narrow column, no cap) — capping the display queries alone
       // would otherwise silently understate both for a prolific creator.
-      const [{ data: prof }, { data: d }, { count: followers }, { count: following }, { data: svcs }, { data: avail }, { data: revs }, { data: allSaves }, { data: allRatings }] = await Promise.all([
+      const [{ data: prof, error: profError }, { data: d }, { count: followers }, { count: following }, { data: svcs }, { data: avail }, { data: revs }, { data: allSaves }, { data: allRatings }] = await Promise.all([
         supabase.from('profiles').select('*, is_private, message_permission, show_saves').eq('id', id).single(),
         supabase.from('designs').select('*').eq('created_by', id).eq('is_published', true).order('is_pinned', { ascending: false }).order('created_at', { ascending: false }).limit(100),
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', id),
@@ -59,6 +60,17 @@ export default function CreatorPage() {
         supabase.from('designs').select('saves_count').eq('created_by', id).eq('is_published', true),
         supabase.from('reviews').select('rating').eq('creator_id', id),
       ])
+
+      // A real fetch failure (network drop, server error) must not be
+      // conflated with "this creator genuinely doesn't exist" — PGRST116
+      // ("no rows") from .single() is the real not-found case and falls
+      // through to the existing !profile branch unaffected.
+      if (profError && profError.code !== 'PGRST116') {
+        console.error('creator profile fetch failed:', profError)
+        setLoadError(true)
+        setLoading(false)
+        return
+      }
 
       const totalSaves = (allSaves || []).reduce((sum, design) => sum + (design.saves_count || 0), 0)
       const reviewList = revs || []
@@ -193,6 +205,16 @@ export default function CreatorPage() {
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
       <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Loading...</p>
+    </div>
+  )
+
+  if (loadError) return (
+    <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '20px', textAlign: 'center' }}>
+      <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif" }}>Couldn't load this profile</p>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif" }}>Please try again in a moment.</p>
+      <button onClick={() => window.location.reload()} style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '12px 24px', fontSize: '14px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
+        Retry
+      </button>
     </div>
   )
 
