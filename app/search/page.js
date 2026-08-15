@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
@@ -51,6 +51,7 @@ export default function SearchPage() {
 
   // Designs tab state
   const [query, setQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [activeFilters, setActiveFilters] = useState({})
   const [tagFilter, setTagFilter] = useState(null)
   const [designs, setDesigns] = useState([])
@@ -64,6 +65,7 @@ export default function SearchPage() {
   const [locationFilter, setLocationFilter] = useState('')
 
   // Read tag/query from URL on mount
+  const isFirstQuery = useRef(true)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const tag = params.get('tag')
@@ -72,11 +74,26 @@ export default function SearchPage() {
     if (q) setQuery(q)
   }, [])
 
+  // Debounce query → debouncedQuery (500ms, same semantics as the existing
+  // debounce in app/moodboards/[id]/page.js) so filter-chip/tag taps (which
+  // key off activeFilters/tagFilter directly, not this) stay instant while
+  // typing doesn't fire a request per keystroke. Skips the debounce for the
+  // very first value so a deep link (?q=...) still searches immediately.
+  useEffect(() => {
+    if (isFirstQuery.current) {
+      isFirstQuery.current = false
+      setDebouncedQuery(query)
+      return
+    }
+    const timer = setTimeout(() => setDebouncedQuery(query), 500)
+    return () => clearTimeout(timer)
+  }, [query])
+
   // People search — runs in parallel when query is non-empty
   useEffect(() => {
-    if (!query.trim()) { setPeople([]); return }
+    if (!debouncedQuery.trim()) { setPeople([]); return }
     const searchPeople = async () => {
-      const q = query.trim()
+      const q = debouncedQuery.trim()
       // Two separate .ilike() queries instead of one raw .or() string — a comma or
       // parenthesis typed into the search box could otherwise alter the filter logic.
       const [{ data: byName }, { data: byUsername }] = await Promise.all([
@@ -97,7 +114,7 @@ export default function SearchPage() {
       setPeople(merged.slice(0, 5))
     }
     searchPeople()
-  }, [query])
+  }, [debouncedQuery])
 
   useEffect(() => {
     const fetch = async () => {
@@ -109,8 +126,8 @@ export default function SearchPage() {
         .eq('is_published', true)
         .order('created_at', { ascending: false })
 
-      if (query.trim()) {
-        q = q.ilike('title', `%${query.trim()}%`)
+      if (debouncedQuery.trim()) {
+        q = q.ilike('title', `%${debouncedQuery.trim()}%`)
       }
 
       // Vibe filter — OR across category keywords
@@ -181,7 +198,7 @@ export default function SearchPage() {
     }
 
     fetch()
-  }, [query, activeFilters, tagFilter])
+  }, [debouncedQuery, activeFilters, tagFilter])
 
   const switchMainTab = async (tab) => {
     setMainTab(tab)
