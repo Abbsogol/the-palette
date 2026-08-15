@@ -307,7 +307,7 @@ export default function SearchPage() {
                     border: '0.5px solid var(--border)',
                   }}>
                     {salon.avatar_url
-                      ? <img src={salon.avatar_url} alt={salon.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ? <img src={salon.avatar_url} alt={salon.display_name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       : <span style={{ color: 'var(--accent)', fontSize: '19px', fontWeight: '500' }}>
                           {(salon.display_name || '?')[0].toUpperCase()}
                         </span>
@@ -486,7 +486,7 @@ export default function SearchPage() {
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
                       {person.avatar_url
-                        ? <img src={person.avatar_url} alt={person.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ? <img src={person.avatar_url} alt={person.display_name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         : <span style={{ color: 'var(--accent)', fontSize: '18px', fontWeight: '500' }}>
                             {(person.display_name || '?')[0].toUpperCase()}
                           </span>
@@ -535,7 +535,7 @@ export default function SearchPage() {
               >
                 {design.image_url ? (
                   <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden' }}>
-                    <img src={design.image_url} alt={design.title} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+                    <img src={design.image_url} alt={design.title} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
                   </div>
                 ) : (
                   <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--bg-chip)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

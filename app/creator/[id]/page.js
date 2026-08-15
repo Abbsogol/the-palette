@@ -616,7 +616,7 @@ export default function CreatorPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--bg-chip)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         {review.reviewer?.avatar_url
-                          ? <img src={review.reviewer.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ? <img src={review.reviewer.avatar_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           : <span style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '600' }}>{(review.reviewer?.display_name || '?')[0].toUpperCase()}</span>
                         }
                       </div>
@@ -663,7 +663,7 @@ export default function CreatorPage() {
                   style={{ background: 'var(--bg-card)', borderRadius: '12px', border: `0.5px solid ${design.is_pinned ? 'rgba(212,160,192,0.35)' : 'var(--border)'}`, overflow: 'hidden', textDecoration: 'none', display: 'block', position: 'relative' }}>
                   {design.image_url ? (
                     <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden' }}>
-                      <img src={design.image_url} alt={design.title} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+                      <img src={design.image_url} alt={design.title} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
                     </div>
                   ) : <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--bg-chip)' }} />}
                   {design.is_pinned && (

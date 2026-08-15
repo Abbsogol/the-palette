@@ -118,6 +118,7 @@ export default function MoodboardsPage() {
         <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--bg-chip)', overflow: 'hidden', position: 'relative' }}>
           {board.cover_image_url ? (
             <img src={board.cover_image_url} alt={board.name}
+              loading="lazy" decoding="async"
               style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : (
             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

@@ -262,7 +262,7 @@ export default function MoodboardDetailPage() {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
                   {searchResult.avatar_url
-                    ? <img src={searchResult.avatar_url} alt={searchResult.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ? <img src={searchResult.avatar_url} alt={searchResult.display_name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     : <span style={{ color: 'var(--accent)', fontSize: '16px', fontWeight: '600' }}>{(searchResult.display_name || '?')[0].toUpperCase()}</span>
                   }
                 </div>
@@ -297,7 +297,7 @@ export default function MoodboardDetailPage() {
                   <div key={m.user_id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: '0.5px solid var(--border)' }}>
                     <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--bg-chip)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {m.profile?.avatar_url
-                        ? <img src={m.profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ? <img src={m.profile.avatar_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         : <span style={{ color: 'var(--accent)', fontSize: '13px', fontWeight: '600' }}>{(m.profile?.display_name || '?')[0].toUpperCase()}</span>
                       }
                     </div>
@@ -396,7 +396,7 @@ export default function MoodboardDetailPage() {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
                   {m.profile?.avatar_url
-                    ? <img src={m.profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ? <img src={m.profile.avatar_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     : <span style={{ color: 'var(--accent)', fontSize: '9px', fontWeight: '700' }}>{(m.profile?.display_name || '?')[0].toUpperCase()}</span>
                   }
                 </div>
@@ -443,6 +443,7 @@ export default function MoodboardDetailPage() {
                 <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', background: 'var(--bg-chip)' }}>
                   {d.image_url && (
                     <img src={d.image_url} alt={d.title}
+                      loading="lazy" decoding="async"
                       style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
                   )}
                 </div>

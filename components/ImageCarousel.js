@@ -62,6 +62,8 @@ export default function ImageCarousel({ images, title }) {
               <img
                 src={src}
                 alt={`${title} ${i + 1}`}
+                loading={i === 0 ? 'eager' : 'lazy'}
+                decoding="async"
                 style={{
                   width: '100%',
                   height: 'auto',
