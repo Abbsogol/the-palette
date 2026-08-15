@@ -138,9 +138,18 @@ export default function SaveToBoard({ designId, designImageUrl, renderTrigger, e
     <>
       {/* Trigger — custom or default bookmark button */}
       {renderTrigger ? (
-        <span onClick={openSheet} style={{ display: 'contents', cursor: 'pointer' }}>
+        // Not display:'contents' — display:contents on interactive elements
+        // has a real history of being dropped from the accessibility tree
+        // in WebKit (this app's primary runtime, as an iOS PWA). A reset,
+        // zero-padding inline-flex button shrink-wraps to whatever
+        // renderTrigger returns without introducing a visible extra box.
+        <button
+          type="button"
+          onClick={openSheet}
+          style={{ display: 'inline-flex', background: 'none', border: 'none', padding: 0, margin: 0, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+        >
           {renderTrigger({ anyBoardSaved })}
-        </span>
+        </button>
       ) : (
         <button
           onClick={openSheet}

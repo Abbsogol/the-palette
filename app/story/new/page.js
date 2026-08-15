@@ -400,11 +400,24 @@ export default function NewStoryPage() {
               onTouchStart={e => startDrag(e, item.id)}
             >
               {item.text}
-              <span
-                onMouseDown={e => { e.stopPropagation(); removeItem(item.id) }}
-                onTouchStart={e => { e.stopPropagation(); e.preventDefault(); removeItem(item.id) }}
-                style={{ position: 'absolute', top: -10, right: -18, width: 20, height: 20, borderRadius: '50%', background: 'rgba(0,0,0,0.65)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, cursor: 'pointer' }}
-              >×</span>
+              {/* stopPropagation on mousedown/touchstart alone is what stops
+                  the parent sticker's own startDrag (line 399-400) from
+                  firing — no preventDefault here, since calling it on
+                  touchstart is exactly what would suppress the browser's
+                  synthesized click on release, meaning onClick (and with it,
+                  keyboard Enter/Space via native button semantics) would
+                  never fire on a real phone. The parent's touchAction:'none'
+                  already blocks default touch gestures for this button too,
+                  since touch-action is the intersection of an element and
+                  all its ancestors — nothing is lost by dropping it. */}
+              <button
+                type="button"
+                aria-label="Remove sticker"
+                onMouseDown={e => e.stopPropagation()}
+                onTouchStart={e => e.stopPropagation()}
+                onClick={e => { e.stopPropagation(); removeItem(item.id) }}
+                style={{ position: 'absolute', top: -10, right: -18, width: 20, height: 20, borderRadius: '50%', background: 'rgba(0,0,0,0.65)', border: 'none', padding: 0, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, cursor: 'pointer' }}
+              >×</button>
             </div>
           ))}
         </div>

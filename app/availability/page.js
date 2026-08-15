@@ -185,12 +185,16 @@ export default function AvailabilityPage() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: s.is_active ? '14px' : 0 }}>
                 <span style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '500' }}>{day.label}</span>
                 {/* Toggle switch */}
-                <div
+                <button
+                  type="button"
                   onClick={() => toggleDay(day.value)}
+                  aria-pressed={s.is_active}
+                  aria-label={`Toggle ${day.label} availability`}
                   style={{
                     width: '44px', height: '26px', borderRadius: '13px',
                     background: s.is_active ? 'var(--accent)' : 'var(--bg-chip)',
                     position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0,
+                    border: 'none', padding: 0,
                   }}
                 >
                   <div style={{
@@ -200,7 +204,7 @@ export default function AvailabilityPage() {
                     background: s.is_active ? '#2C0A1E' : 'var(--text-secondary)',
                     transition: 'left 0.2s',
                   }} />
-                </div>
+                </button>
               </div>
 
               {/* Time pickers — only when active */}
