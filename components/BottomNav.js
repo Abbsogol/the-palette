@@ -3,57 +3,18 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { HomeIcon, SearchIcon, MagicStarIcon, MessageIcon, HeartIcon, UserIcon } from '@/components/ui/icons'
 
+// Redesigned floating pill nav (Figma 280:7207): active tab is a gradient
+// pill with icon + label, other tabs are icon-only. Order and the new
+// Saved tab come from the redesign frames.
 const tabs = [
-  {
-    href: '/feed',
-    label: 'Home',
-    icon: (active) => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-        <polyline points="9 22 9 12 15 12 15 22" />
-      </svg>
-    ),
-  },
-  {
-    href: '/search',
-    label: 'Search',
-    icon: (active) => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="11" cy="11" r="8" />
-        <line x1="21" y1="21" x2="16.65" y2="16.65" />
-      </svg>
-    ),
-  },
-  {
-    href: '/nail-lab',
-    label: 'Lab',
-    icon: (active) => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M9 3h6M10 3v6l-4 8a1 1 0 00.9 1.5h10.2a1 1 0 00.9-1.5L14 9V3" />
-        <line x1="6.5" y1="14" x2="17.5" y2="14" />
-      </svg>
-    ),
-  },
-  {
-    href: '/messages',
-    label: 'Messages',
-    icon: (active) => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" fill={active ? 'currentColor' : 'none'} />
-      </svg>
-    ),
-  },
-  {
-    href: '/profile',
-    label: 'Profile',
-    icon: (active) => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
-        <circle cx="12" cy="7" r="4" />
-      </svg>
-    ),
-  },
+  { href: '/feed', label: 'Home', Icon: HomeIcon },
+  { href: '/search', label: 'Search', Icon: SearchIcon },
+  { href: '/nail-lab', label: 'Lab', Icon: MagicStarIcon },
+  { href: '/messages', label: 'Messages', Icon: MessageIcon },
+  { href: '/saved', label: 'Saved', Icon: HeartIcon },
+  { href: '/profile', label: 'Profile', Icon: UserIcon },
 ]
 
 export default function BottomNav() {
@@ -96,60 +57,87 @@ export default function BottomNav() {
   if (pathname === '/story/new' || pathname === '/onboarding' || pathname?.startsWith('/messages/') || pathname?.startsWith('/admin') || pathname === '/planner' || pathname?.startsWith('/settings/') || pathname?.startsWith('/nail-card/') || pathname === '/help') return null
 
   return (
-    <nav style={{
+    <nav aria-label="Main navigation" style={{
       position: 'fixed',
       bottom: 0,
       left: '50%',
       transform: 'translateX(-50%)',
       width: '100%',
       maxWidth: '480px',
-      backgroundColor: 'var(--bg-primary)',
-      borderTop: '0.5px solid var(--border)',
-      display: 'flex',
-      justifyContent: 'space-around',
-      alignItems: 'center',
-      padding: '10px 0 24px',
+      padding: '40px 24px calc(12px + env(safe-area-inset-bottom))',
+      background: 'linear-gradient(to top, var(--lq-nav-scrim), rgba(32, 5, 11, 0))',
+      backdropFilter: 'blur(10px)',
+      WebkitBackdropFilter: 'blur(10px)',
       zIndex: 100,
     }}>
-      {tabs.map((tab) => {
-        const isActive = pathname === tab.href || (tab.href === '/feed' && pathname === '/')
-        const isMessages = tab.href === '/messages'
-        return (
-          <Link
-            key={tab.href}
-            href={tab.href}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '4px',
-              textDecoration: 'none',
-              color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
-              fontSize: '10px',
-              fontFamily: "'DM Sans', sans-serif",
-              fontWeight: '500',
-              letterSpacing: '0.02em',
-              minWidth: '48px',
-              position: 'relative',
-            }}
-          >
-            {tab.icon(isActive)}
-            {isMessages && unreadMessages > 0 && (
-              <div style={{
-                position: 'absolute', top: '-2px', right: '4px',
-                width: '16px', height: '16px', borderRadius: '50%',
-                background: 'var(--accent)', display: 'flex',
-                alignItems: 'center', justifyContent: 'center',
-              }}>
-                <span style={{ color: '#2C0A1E', fontSize: '9px', fontWeight: '700' }}>
-                  {unreadMessages > 9 ? '9+' : unreadMessages}
-                </span>
-              </div>
-            )}
-            <span>{tab.label}</span>
-          </Link>
-        )
-      })}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        height: '60px',
+        padding: '8px 16px 8px 8px',
+        borderRadius: 'var(--lq-radius-pill)',
+        background: 'linear-gradient(90deg, rgba(92, 34, 48, 0.35), rgba(209, 94, 122, 0.35))',
+      }}>
+        {tabs.map(({ href, label, Icon }) => {
+          const isActive = pathname === href || (href === '/feed' && pathname === '/')
+          const isMessages = href === '/messages'
+          const badge = isMessages && unreadMessages > 0 && (
+            <span style={{
+              position: 'absolute', top: '2px', right: isActive ? '10px' : '2px',
+              minWidth: '16px', height: '16px', borderRadius: 'var(--lq-radius-pill)',
+              background: 'var(--lq-accent-b)', color: 'var(--lq-white)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '9px', fontWeight: 700, fontFamily: 'var(--lq-font-ui)',
+              padding: '0 3px',
+            }}>
+              {unreadMessages > 9 ? '9+' : unreadMessages}
+            </span>
+          )
+          if (isActive) {
+            return (
+              <Link
+                key={href}
+                href={href}
+                aria-current="page"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                  height: '44px', padding: '12px 20px',
+                  borderRadius: 'var(--lq-radius-pill)',
+                  background: 'var(--lq-accent-grad)',
+                  color: 'var(--lq-white)',
+                  textDecoration: 'none',
+                  fontFamily: 'var(--lq-font-ui)', fontSize: '14px', fontWeight: 400,
+                  position: 'relative',
+                  flexShrink: 0,
+                }}
+              >
+                <Icon size={20} />
+                <span>{label}</span>
+                {badge}
+              </Link>
+            )
+          }
+          return (
+            <Link
+              key={href}
+              href={href}
+              aria-label={label}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: '44px', height: '44px',
+                color: 'var(--lq-white-80)',
+                textDecoration: 'none',
+                position: 'relative',
+                flexShrink: 0,
+              }}
+            >
+              <Icon size={20} />
+              {badge}
+            </Link>
+          )
+        })}
+      </div>
     </nav>
   )
 }
