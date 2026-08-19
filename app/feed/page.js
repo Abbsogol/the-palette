@@ -435,7 +435,7 @@ export default function FeedPage() {
     gridItems.push(d)
   })
   const gridCols = [[], []]
-  gridItems.forEach((d, i) => gridCols[i % 2].push({ design: d, tall: (i % 4 === 0) || (i % 4 === 3) }))
+  gridItems.forEach((d, i) => gridCols[i % 2].push(d))
 
   const teaserPost = teaserPosts.find(p => p.image_url) || null
   const teaserAvatars = teaserPosts.map(p => p.profiles).filter(Boolean).slice(0, 3)
@@ -816,10 +816,10 @@ export default function FeedPage() {
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
                   {gridCols.map((col, ci) => (
                     <div key={ci} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--lq-space-lg)' }}>
-                      {col.map(({ design, tall }) => (
+                      {col.map(design => (
                         <DesignCard key={design.id + (design.__promoted ? '-promo' : '')} design={design}
                           tag={design.__promoted ? 'Promoted' : null}
-                          meta="tags" width="100%" imageHeight={tall ? 190 : 150}
+                          meta="tags" width="100%"
                           currentUser={currentUser} initiallySaved={savedDesignIds.has(design.id)}
                           onNavigate={rememberScroll} />
                       ))}

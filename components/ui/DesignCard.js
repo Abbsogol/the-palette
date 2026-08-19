@@ -13,15 +13,15 @@ function formatCount(n) {
 
 // Design card from the redesign: rounded image with a glass heart-save,
 // title below, and either "Nk saves" or CAPS "SHAPE · VIBE" metadata.
-// width=140 + imageHeight=222 is the drawn carousel size; the library grid
-// passes width='100%' and its own image height.
+// Images render at natural aspect ratio — design boards are compositions
+// with titles and detail panels, so any crop cuts content off; card height
+// follows the image (Sogol, Search/Home review).
 export default function DesignCard({
   design,
   rank = null,
   tag = null,            // small text badge top-left (e.g. 'Drop', 'Promoted')
   meta = 'saves',        // 'saves' | 'tags'
   width = 140,
-  imageHeight = 160,
   currentUser = null,
   initiallySaved = false,
   onNavigate,
@@ -33,13 +33,13 @@ export default function DesignCard({
 
   return (
     <div style={{ width: typeof width === 'number' ? `${width}px` : width, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 'var(--lq-space-sm)' }}>
-      <div style={{ position: 'relative', height: `${imageHeight}px`, borderRadius: 'var(--lq-radius-card-lg)', overflow: 'hidden' }}>
+      <div style={{ position: 'relative', borderRadius: 'var(--lq-radius-card-lg)', overflow: 'hidden' }}>
         <Link href={`/design/${design.id}`} onClick={onNavigate} aria-label={design.title || 'View design'}>
           <img
             src={design.image_url}
             alt={design.title || 'Nail design'}
             loading="lazy"
-            style={{ width: '100%', height: `${imageHeight}px`, objectFit: 'cover', display: 'block' }}
+            style={{ width: '100%', height: 'auto', display: 'block', background: 'rgba(255,255,255,0.06)' }}
           />
         </Link>
         {rank != null && (
