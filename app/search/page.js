@@ -9,7 +9,7 @@ import IconButton from '@/components/ui/IconButton'
 import PillButton from '@/components/ui/PillButton'
 import HeartSaveButton from '@/components/ui/HeartSaveButton'
 import Sheet from '@/components/ui/Sheet'
-import { LaqueWordmark } from '@/components/ui/icons'
+import { LaqueWordmark, CandleFilterIcon } from '@/components/ui/icons'
 
 // Filter taxonomy from the redesign's filter panel (117:1700). Occasion keeps
 // party/birthday/office beyond the drawn 18 — 72/46/53 published designs use
@@ -89,7 +89,10 @@ const countActive = (f) => Object.values(f).reduce((n, arr) => n + arr.length, 0
 
 // Builds the designs query for the current selections. Multi-select: OR
 // within a group, AND across groups. Color needs a pre-query against
-// design_colours; returns null when a selection provably matches nothing.
+// design_colours; resolves to { query } — wrapped, because the builder is
+// a thenable and returning it bare from an async function would execute it
+// (`await` adopts thenables). Resolves to null when a selection provably
+// matches nothing.
 async function buildDesignQuery({ filters, text, tagFilter, sort, forCount = false }) {
   let q = forCount
     ? supabase.from('designs').select('id', { count: 'exact', head: true })
@@ -135,7 +138,7 @@ async function buildDesignQuery({ filters, text, tagFilter, sort, forCount = fal
     q = q.in('id', ids)
   }
 
-  return q
+  return { query: q }
 }
 
 export default function SearchPage() {
@@ -221,19 +224,24 @@ export default function SearchPage() {
   useEffect(() => {
     const run = async () => {
       setLoading(true)
-      const q = await buildDesignQuery({ filters, text: debouncedQuery, tagFilter, sort })
-      if (!q) { setDesigns([]); setLoading(false); return }
-      const { data, error } = await q.limit(100)
-      if (error) console.error('search fetch failed:', error)
-      setDesigns(data || [])
-      setLoading(false)
-      if (currentUser && data?.length) {
-        const { data: savedRows } = await supabase
-          .from('saved_designs')
-          .select('design_id')
-          .eq('user_id', currentUser.id)
-          .in('design_id', data.map(d => d.id))
-        setSavedDesignIds(new Set((savedRows || []).map(r => r.design_id)))
+      try {
+        const built = await buildDesignQuery({ filters, text: debouncedQuery, tagFilter, sort })
+        if (!built) { setDesigns([]); return }
+        const { data, error } = await built.query.limit(100)
+        if (error) { console.error('search fetch failed:', error); return }
+        setDesigns(data || [])
+        if (currentUser && data?.length) {
+          const { data: savedRows } = await supabase
+            .from('saved_designs')
+            .select('design_id')
+            .eq('user_id', currentUser.id)
+            .in('design_id', data.map(d => d.id))
+          setSavedDesignIds(new Set((savedRows || []).map(r => r.design_id)))
+        }
+      } catch (err) {
+        console.error('search fetch failed:', err)
+      } finally {
+        setLoading(false)
       }
     }
     run()
@@ -244,10 +252,14 @@ export default function SearchPage() {
     if (!panelOpen) return
     setPanelCount(null)
     const timer = setTimeout(async () => {
-      const q = await buildDesignQuery({ filters: panelFilters, text: debouncedQuery, tagFilter, forCount: true })
-      if (!q) { setPanelCount(0); return }
-      const { count, error } = await q
-      if (!error) setPanelCount(count ?? 0)
+      try {
+        const built = await buildDesignQuery({ filters: panelFilters, text: debouncedQuery, tagFilter, forCount: true })
+        if (!built) { setPanelCount(0); return }
+        const { count, error } = await built.query
+        if (!error) setPanelCount(count ?? 0)
+      } catch (err) {
+        console.error('filter count failed:', err)
+      }
     }, 350)
     return () => clearTimeout(timer)
   }, [panelOpen, panelFilters, debouncedQuery, tagFilter])
@@ -287,8 +299,6 @@ export default function SearchPage() {
   const activeCount = countActive(filters)
   const hasActive = activeCount > 0 || query.trim() || tagFilter
 
-  const clearAll = () => { setFilters(EMPTY_FILTERS); setQuery(''); setTagFilter(null) }
-
   const metaLine = (d) => [
     d.shape, d.length,
     ...(d.technique || '').split(',').map(t => t.trim()).filter(Boolean).slice(0, 2),
@@ -310,14 +320,18 @@ export default function SearchPage() {
   }, [loading, designs])
 
   return (
-    <div style={{ position: 'relative', padding: 'calc(env(safe-area-inset-top) + 12px) 24px 24px' }}>
+    <div style={{ position: 'relative' }}>
 
-      {/* Fixed blurred-wine page background */}
+      {/* Fixed blurred-wine page background. z-index 0 + positioned content
+          above it — a negative z-index would paint it behind the body's own
+          background colour and the page would render flat dark. */}
       <div aria-hidden style={{
         position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)',
-        width: '100%', maxWidth: '480px', zIndex: -1,
+        width: '100%', maxWidth: '480px', zIndex: 0,
         background: '#29000A url(/redesign/bg-blur.png) center / cover no-repeat',
       }} />
+
+      <div style={{ position: 'relative', zIndex: 1, padding: 'calc(env(safe-area-inset-top) + 12px) 24px 24px' }}>
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--lq-white)', marginBottom: '16px' }}>
@@ -344,8 +358,6 @@ export default function SearchPage() {
             variant="solid"
             value={query}
             onChange={e => setQuery(e.target.value)}
-            onFilterClick={openPanel}
-            filterBadge={activeCount}
             label="Search designs"
           />
         ) : (
@@ -383,16 +395,27 @@ export default function SearchPage() {
           <p style={ui(300, 13, 'var(--lq-white-80)')} aria-live="polite">
             {loading ? 'Searching…' : `${designs.length} ${hasActive ? `result${designs.length !== 1 ? 's' : ''}` : `design${designs.length !== 1 ? 's' : ''}`}`}
           </p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            {hasActive && (
-              <button onClick={clearAll} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '10px 6px', ...ui(300, 12, 'var(--lq-white-80)'), textDecoration: 'underline' }}>
-                Clear all
-              </button>
-            )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '2px', color: 'var(--lq-white)' }}>
+            <IconButton
+              label={`Open search filters${activeCount > 0 ? `, ${activeCount} active` : ''}`}
+              onClick={openPanel}
+              variant="plain"
+              visualSize={32}
+              badge={activeCount > 0 ? (
+                <span style={{
+                  position: 'absolute', top: '-4px', right: '-4px', minWidth: '16px', height: '16px',
+                  borderRadius: 'var(--lq-radius-pill)', background: 'var(--lq-accent-b)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px',
+                  color: 'var(--lq-white)', fontSize: '9px', fontWeight: 700, fontFamily: 'var(--lq-font-ui)',
+                }}>{activeCount}</span>
+              ) : null}
+            >
+              <CandleFilterIcon size={22} />
+            </IconButton>
             <button
               onClick={() => setSort(s => s === 'newest' ? 'most_saved' : 'newest')}
               aria-label={`Sort: ${sort === 'newest' ? 'newest first' : 'most saved first'}. Tap to switch.`}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', cursor: 'pointer', padding: '10px 0 10px 6px', color: 'var(--lq-white)' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', cursor: 'pointer', padding: '10px 0 10px 6px', minHeight: '44px', color: 'var(--lq-white)' }}
             >
               <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                 <path d="M6 4v12M6 16l-2.5-2.5M6 16l2.5-2.5M14 16V4M14 4l-2.5 2.5M14 4l2.5 2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
@@ -525,6 +548,8 @@ export default function SearchPage() {
           )}
         </div>
       )}
+
+      </div>
 
       {/* ── FILTER PANEL ─────────────────────────────────────────────────── */}
       {panelOpen && (
