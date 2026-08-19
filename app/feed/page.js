@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import CommunityCard from '@/components/CommunityCard'
@@ -180,9 +180,15 @@ export default function FeedPage() {
     }
   }, [loadingExplore])
 
-  // Compact blur header once the hero has scrolled away
+  // Compact blur header once the hero is mostly scrolled away. Thresholded
+  // off the hero's real height so it always appears just before the sticky
+  // tab row pins beneath it (pin point ≈ heroHeight - 96 - safe-area).
+  const heroRef = useRef(null)
   useEffect(() => {
-    const onScroll = () => setCompactHeader(window.scrollY > 300)
+    const onScroll = () => {
+      const heroH = heroRef.current?.offsetHeight || 430
+      setCompactHeader(window.scrollY > heroH - 170)
+    }
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
@@ -540,7 +546,7 @@ export default function FeedPage() {
       )}
 
       {/* ── Hero ──────────────────────────────────────────────────────────── */}
-      <div style={{ position: 'relative', height: 'clamp(360px, 52vh, 500px)' }}>
+      <div ref={heroRef} style={{ position: 'relative', height: 'clamp(360px, 52vh, 500px)' }}>
         <img src="/redesign/hero.jpg" alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 25%' }} />
         <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(41,0,10,0.55) 0%, rgba(41,0,10,0.08) 30%, rgba(41,0,10,0.12) 62%, var(--lq-wine) 100%)' }} />
         <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: 'calc(env(safe-area-inset-top) + 16px) 24px 0' }}>
@@ -563,8 +569,16 @@ export default function FeedPage() {
         display: 'flex', flexDirection: 'column', gap: 'var(--lq-space-2xl)',
       }}>
 
-        {/* Tabs */}
-        <div role="tablist" aria-label="Feed sections" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        {/* Tabs — pinned under the compact header for the whole scroll */}
+        <div role="tablist" aria-label="Feed sections" style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+          position: 'sticky', top: 'calc(env(safe-area-inset-top) + 60px)', zIndex: 50,
+          margin: '0 -24px', padding: '0 24px',
+          background: compactHeader ? 'linear-gradient(to bottom, rgba(41, 0, 10, 0.92), rgba(41, 0, 10, 0.78))' : 'transparent',
+          backdropFilter: compactHeader ? 'blur(10px)' : 'none',
+          WebkitBackdropFilter: compactHeader ? 'blur(10px)' : 'none',
+          transition: 'background 0.2s ease',
+        }}>
           {[['explore', 'Explore'], ['community', 'Community'], ['following', 'Following'], ['updates', 'Updates']].map(([val, label]) => (
             <button
               key={val}
