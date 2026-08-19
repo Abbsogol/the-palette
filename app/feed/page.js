@@ -180,15 +180,28 @@ export default function FeedPage() {
     }
   }, [loadingExplore])
 
-  // Compact blur header once the hero is mostly scrolled away. Thresholded
-  // off the hero's real height so it always appears just before the sticky
-  // tab row pins beneath it (pin point ≈ heroHeight - 96 - safe-area).
+  // Sheet-over-hero scroll: the hero is fixed behind the sheet and drifts up
+  // at ~25% scroll speed (0 under prefers-reduced-motion) while the sheet
+  // travels over it. Once the sheet's edge reaches the viewport top the hero
+  // fades out (its translucent areas would otherwise leak it) and its
+  // controls stop hit-testing. Written to the DOM directly per frame —
+  // a state round-trip per scroll event would jank. The compact blur bar
+  // appears just before the sticky tab row pins beneath it.
   const heroRef = useRef(null)
   useEffect(() => {
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const onScroll = () => {
+      const y = window.scrollY
       const heroH = heroRef.current?.offsetHeight || 430
-      setCompactHeader(window.scrollY > heroH - 170)
+      if (heroRef.current) {
+        const covered = y >= heroH - 36
+        heroRef.current.style.transform = `translate(-50%, ${reducedMotion ? 0 : -y * 0.25}px)`
+        heroRef.current.style.opacity = covered ? '0' : '1'
+        heroRef.current.style.pointerEvents = covered ? 'none' : 'auto'
+      }
+      setCompactHeader(y > heroH - 170)
     }
+    onScroll()
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
@@ -545,8 +558,12 @@ export default function FeedPage() {
         </div>
       )}
 
-      {/* ── Hero ──────────────────────────────────────────────────────────── */}
-      <div ref={heroRef} style={{ position: 'relative', height: 'clamp(360px, 52vh, 500px)' }}>
+      {/* ── Hero — fixed behind the sheet, covered as the sheet slides up ── */}
+      <div ref={heroRef} inert={compactHeader || undefined} style={{
+        position: 'fixed', top: 0, left: '50%', transform: 'translate(-50%, 0)',
+        width: '100%', maxWidth: '480px', height: 'clamp(360px, 52vh, 500px)',
+        zIndex: 0, transition: 'opacity 0.3s ease', willChange: 'transform, opacity',
+      }}>
         <img src="/redesign/hero.jpg" alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 25%' }} />
         <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(41,0,10,0.55) 0%, rgba(41,0,10,0.08) 30%, rgba(41,0,10,0.12) 62%, var(--lq-wine) 100%)' }} />
         <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: 'calc(env(safe-area-inset-top) + 16px) 24px 0' }}>
@@ -559,10 +576,12 @@ export default function FeedPage() {
           {headerIcons}
         </div>
       </div>
+      {/* Spacer holding the sheet's start position in normal flow */}
+      <div aria-hidden style={{ height: 'clamp(360px, 52vh, 500px)' }} />
 
-      {/* ── Content sheet ─────────────────────────────────────────────────── */}
+      {/* ── Content sheet — travels up over the fixed hero ────────────────── */}
       <div style={{
-        position: 'relative', marginTop: '-36px',
+        position: 'relative', zIndex: 1, marginTop: '-36px',
         borderRadius: 'var(--lq-radius-sheet) var(--lq-radius-sheet) 0 0',
         background: 'linear-gradient(180deg, var(--lq-wine) 0%, rgba(60, 0, 14, 0.55) 55%, rgba(60, 0, 14, 0.25) 100%)',
         padding: '20px 24px 24px',
