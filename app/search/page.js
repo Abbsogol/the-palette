@@ -465,8 +465,10 @@ export default function SearchPage() {
                 <div style={{ position: 'relative', borderRadius: 'var(--lq-radius-card-lg)', overflow: 'hidden' }}>
                   <Link href={`/design/${design.id}?from=%2Fsearch`} onClick={rememberScroll} aria-label={design.title || 'View design'}>
                     {design.image_url ? (
+                      // Natural aspect ratio — design boards are wide compositions
+                      // with titles and side panels; cropping them cuts words off.
                       <img src={design.image_url} alt={design.title} loading="lazy" decoding="async"
-                        style={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'cover', display: 'block', background: 'rgba(255,255,255,0.06)' }} />
+                        style={{ width: '100%', height: 'auto', display: 'block', background: 'rgba(255,255,255,0.06)' }} />
                     ) : (
                       <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'rgba(255,255,255,0.06)' }} />
                     )}
@@ -521,24 +523,27 @@ export default function SearchPage() {
                 {filteredSalons.map(salon => (
                   <Link key={salon.id} href={`/creator/${salon.id}`} style={{
                     textDecoration: 'none',
-                    background: 'var(--lq-glass)', border: '1px solid var(--lq-glass-border)',
-                    borderRadius: 'var(--lq-radius-card-lg)', padding: '20px 12px 16px',
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px',
+                    background: 'var(--lq-wine)',
+                    borderRadius: 'var(--lq-radius-sheet)', padding: '16px 12px',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
                   }}>
-                    <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(255,255,255,0.15)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: '112px', height: '112px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '-8px' }}>
                       {salon.avatar_url
                         ? <img src={salon.avatar_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        : <span style={ui(400, 26)}>{(salon.display_name || '?')[0].toUpperCase()}</span>}
+                        : <span style={ui(400, 32)}>{(salon.display_name || '?')[0].toUpperCase()}</span>}
                     </div>
-                    <span style={{ background: 'var(--lq-accent-b)', color: 'var(--lq-white)', ...ui(500, 9), padding: '3px 10px', borderRadius: 'var(--lq-radius-pill)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                    <span style={{ background: 'linear-gradient(90deg, #FF517F 39.5%, #99314C 100%)', color: 'var(--lq-white)', ...ui(500, 10), padding: '4px 8px', borderRadius: 'var(--lq-radius-pill)', letterSpacing: '0.04em', textTransform: 'uppercase', position: 'relative' }}>
                       {salon.account_type === 'salon' ? 'Salon' : 'Nail Artist'}
                     </span>
-                    <p style={{ ...ui(400, 15), textAlign: 'center', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <p style={{ ...ui(400, 16), textAlign: 'center', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '12px' }}>
                       {salon.display_name || 'Salon'}
                     </p>
                     {salon.location && (
-                      <p style={{ ...ui(300, 12, 'var(--lq-white-80)'), margin: '-4px 0 0', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        📍 {salon.location}
+                      <p style={{ ...ui(300, 12), display: 'flex', alignItems: 'center', gap: '3px', margin: '8px 0 0', maxWidth: '100%', overflow: 'hidden' }}>
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
+                          <path fillRule="evenodd" clipRule="evenodd" d="M5.631 11.067C5.631 11.067 2 8.009 2 5C2 3.93913 2.42143 2.92172 3.17157 2.17157C3.92172 1.42143 4.93913 1 6 1C7.06087 1 8.07828 1.42143 8.82843 2.17157C9.57857 2.92172 10 3.93913 10 5C10 8.009 6.369 11.067 6.369 11.067C6.167 11.253 5.8345 11.251 5.631 11.067ZM6 6.75C6.9665 6.75 7.75 5.9665 7.75 5C7.75 4.0335 6.9665 3.25 6 3.25C5.0335 3.25 4.25 4.0335 4.25 5C4.25 5.9665 5.0335 6.75 6 6.75Z" fill="currentColor" />
+                        </svg>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{salon.location}</span>
                       </p>
                     )}
                   </Link>
