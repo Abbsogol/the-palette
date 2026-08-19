@@ -1,4 +1,5 @@
 import './globals.css'
+import { displayFont, uiFont } from './fonts'
 import BottomNav from '@/components/BottomNav'
 import { Analytics } from '@vercel/analytics/react'
 
@@ -34,11 +35,17 @@ export const metadata = {
   },
 }
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+}
+
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${displayFont.variable} ${uiFont.variable}`}>
       <body>
-        <main style={{ paddingBottom: '80px', minHeight: '100vh' }}>
+        <main style={{ paddingBottom: 'calc(80px + env(safe-area-inset-bottom))', minHeight: '100vh' }}>
           {children}
         </main>
         <BottomNav />

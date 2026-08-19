@@ -13,6 +13,35 @@
   --accent: #D4A0C0;
   --accent-text: #2C0A1E;
   --border: #2A2A2A;
+
+  /* Redesign tokens (namespaced --lq-* so un-redesigned pages keep the old
+     look until the phase-end cutover). Values from the Figma variables. */
+  --lq-wine: #3C000E;
+  --lq-wine-deep: #29000A;
+  --lq-scrim: rgba(41, 0, 10, 0.8);
+  --lq-nav-scrim: rgba(32, 5, 11, 0.8);
+  --lq-accent-a: #660007;
+  --lq-accent-b: #FF517F;
+  --lq-accent-grad: linear-gradient(90deg, #660007 47.8%, #FF517F 100%);
+  --lq-blush: #FFEBEB;
+  --lq-plum: #5C2230;
+  --lq-pink-soft: #DA9EAA;
+  --lq-white: #FFFFFF;
+  --lq-white-80: rgba(255, 255, 255, 0.8);
+  --lq-glass: rgba(255, 255, 255, 0.1);
+  --lq-glass-border: rgba(255, 255, 255, 0.2);
+  --lq-space-xs: 4px;
+  --lq-space-sm: 8px;
+  --lq-space-md: 12px;
+  --lq-space-lg: 16px;
+  --lq-space-2xl: 24px;
+  --lq-radius-tile: 16px;
+  --lq-radius-card: 20px;
+  --lq-radius-card-lg: 24px;
+  --lq-radius-sheet: 32px;
+  --lq-radius-pill: 999px;
+  --lq-font-display: var(--font-display), Georgia, serif;
+  --lq-font-ui: var(--font-ui), 'DM Sans', sans-serif;
 }
 
 * {
