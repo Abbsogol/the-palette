@@ -38,6 +38,8 @@ export default function SearchInput({
   filterHref,
   value,
   onChange,
+  onFilterClick,   // input mode: opens the filter panel
+  filterBadge = 0, // input mode: count of active filters shown on the trigger
   variant = 'solid',
   label = 'Search designs, nail artists, salons',
 }) {
@@ -84,7 +86,7 @@ export default function SearchInput({
   }
   return (
     <div style={{ position: 'relative', width: '100%' }}>
-      <label style={{ ...pillStyle, cursor: 'text' }}>
+      <label style={{ ...pillStyle, cursor: 'text', paddingRight: onFilterClick ? '52px' : '16px' }}>
         <span style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clipPath: 'inset(50%)' }}>{label}</span>
         <span style={{ ...v.icon, display: 'flex' }}><FieldSearchIcon /></span>
         <input
@@ -104,6 +106,26 @@ export default function SearchInput({
           }}
         />
       </label>
+      {onFilterClick && (
+        <span style={{ position: 'absolute', right: '4px', top: '50%', transform: 'translateY(-50%)', ...v.filterIcon }}>
+          <IconButton
+            label={`Open search filters${filterBadge > 0 ? `, ${filterBadge} active` : ''}`}
+            onClick={onFilterClick}
+            variant="plain"
+            visualSize={32}
+            badge={filterBadge > 0 ? (
+              <span style={{
+                position: 'absolute', top: '-4px', right: '-4px', minWidth: '16px', height: '16px',
+                borderRadius: 'var(--lq-radius-pill)', background: 'var(--lq-accent-b)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px',
+                color: 'var(--lq-white)', fontSize: '9px', fontWeight: 700, fontFamily: 'var(--lq-font-ui)',
+              }}>{filterBadge}</span>
+            ) : null}
+          >
+            <CandleFilterIcon size={22} />
+          </IconButton>
+        </span>
+      )}
     </div>
   )
 }
