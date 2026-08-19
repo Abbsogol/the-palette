@@ -18,21 +18,22 @@ function formatCount(n) {
 export default function DesignCard({
   design,
   rank = null,
+  tag = null,            // small text badge top-left (e.g. 'Drop', 'Promoted')
   meta = 'saves',        // 'saves' | 'tags'
   width = 140,
-  imageHeight = 222,
+  imageHeight = 160,
   currentUser = null,
   initiallySaved = false,
   onNavigate,
 }) {
-  const tagLine = [design.shape, design.vibe]
+  const tagLine = [design.shape, design.category]
     .filter(Boolean)
     .join(' · ')
     .toUpperCase()
 
   return (
     <div style={{ width: typeof width === 'number' ? `${width}px` : width, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 'var(--lq-space-sm)' }}>
-      <div style={{ position: 'relative', height: `${imageHeight}px`, borderRadius: 'var(--lq-radius-card)', overflow: 'hidden' }}>
+      <div style={{ position: 'relative', height: `${imageHeight}px`, borderRadius: 'var(--lq-radius-card-lg)', overflow: 'hidden' }}>
         <Link href={`/design/${design.id}`} onClick={onNavigate} aria-label={design.title || 'View design'}>
           <img
             src={design.image_url}
@@ -43,13 +44,25 @@ export default function DesignCard({
         </Link>
         {rank != null && (
           <span aria-label={`Rank ${rank}`} style={{
-            position: 'absolute', top: '8px', left: '8px',
+            position: 'absolute', top: '12px', left: '12px',
             width: '24px', height: '24px', borderRadius: 'var(--lq-radius-pill)',
-            background: 'var(--lq-accent-grad)', color: 'var(--lq-white)',
+            background: 'var(--lq-accent-b)', color: 'var(--lq-white)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontFamily: 'var(--lq-font-ui)', fontSize: '12px', fontWeight: 500,
           }}>
             {rank}
+          </span>
+        )}
+        {tag && rank == null && (
+          <span style={{
+            position: 'absolute', top: '12px', left: '12px',
+            padding: '3px 10px', borderRadius: 'var(--lq-radius-pill)',
+            background: tag === 'Drop' ? 'var(--lq-accent-b)' : 'rgba(32, 5, 11, 0.65)',
+            border: tag === 'Drop' ? 'none' : '1px solid var(--lq-glass-border)',
+            color: 'var(--lq-white)', backdropFilter: 'blur(4px)',
+            fontFamily: 'var(--lq-font-ui)', fontSize: '10px', fontWeight: 500, letterSpacing: '0.04em',
+          }}>
+            {tag}
           </span>
         )}
         <span style={{ position: 'absolute', bottom: '4px', right: '4px' }}>

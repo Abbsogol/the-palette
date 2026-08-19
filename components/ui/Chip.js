@@ -24,7 +24,7 @@ export default function Chip({ children, active = false, onClick }) {
         alignItems: 'center',
         padding: '8px 16px',
         borderRadius: 'var(--lq-radius-pill)',
-        background: active ? 'var(--lq-accent-grad)' : 'var(--lq-glass)',
+        background: active ? 'var(--lq-accent-b)' : 'var(--lq-glass)',
         border: active ? '1px solid transparent' : '1px solid var(--lq-glass-border)',
         color: 'var(--lq-white)',
         fontFamily: 'var(--lq-font-ui)',

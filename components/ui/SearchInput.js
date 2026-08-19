@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
 import IconButton from './IconButton'
+import { CandleFilterIcon } from './icons'
 
 function FieldSearchIcon() {
   return (
@@ -11,39 +12,21 @@ function FieldSearchIcon() {
   )
 }
 
-function FilterGlyph() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M3 6h9M16 6h1M3 14h1M8 14h9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-      <circle cx="14" cy="6" r="2" stroke="currentColor" strokeWidth="1.4" />
-      <circle cx="6" cy="14" r="2" stroke="currentColor" strokeWidth="1.4" />
-    </svg>
-  )
-}
-
-const pillStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 'var(--lq-space-sm)',
-  background: 'var(--lq-white)',
-  borderRadius: 'var(--lq-radius-pill)',
-  padding: '12px 16px',
-  minHeight: '48px',
-  width: '100%',
-  textDecoration: 'none',
-  border: 'none',
-}
-
-const placeholderStyle = {
-  fontFamily: 'var(--lq-font-ui)',
-  fontWeight: 300,
-  fontSize: '14px',
-  color: 'var(--lq-pink-soft)',
-  flex: 1,
-  textAlign: 'left',
-  whiteSpace: 'nowrap',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
+// variant 'solid': white pill with pink placeholder (Home main hero style).
+// variant 'glass': translucent pill on the wine background (feed style).
+const variantStyles = {
+  solid: {
+    pill: { background: 'var(--lq-white)', border: 'none' },
+    text: { color: 'var(--lq-pink-soft)' },
+    icon: { color: 'var(--lq-pink-soft)' },
+    filterIcon: { color: '#B36177' },
+  },
+  glass: {
+    pill: { background: 'rgba(255, 255, 255, 0.08)', border: '1px solid var(--lq-glass-border)' },
+    text: { color: 'var(--lq-white-80)' },
+    icon: { color: 'var(--lq-white-80)' },
+    filterIcon: { color: 'var(--lq-white-80)' },
+  },
 }
 
 // Two modes:
@@ -55,19 +38,44 @@ export default function SearchInput({
   filterHref,
   value,
   onChange,
+  variant = 'solid',
   label = 'Search designs, nail artists, salons',
 }) {
+  const v = variantStyles[variant]
+  const pillStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--lq-space-sm)',
+    borderRadius: 'var(--lq-radius-pill)',
+    padding: '12px 16px',
+    minHeight: '48px',
+    width: '100%',
+    textDecoration: 'none',
+    ...v.pill,
+  }
+  const placeholderStyle = {
+    fontFamily: 'var(--lq-font-ui)',
+    fontWeight: 300,
+    fontSize: '14px',
+    flex: 1,
+    textAlign: 'left',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    ...v.text,
+  }
+
   if (href) {
     return (
       <div style={{ position: 'relative', width: '100%' }}>
-        <Link href={href} aria-label={label} style={pillStyle}>
-          <span style={{ color: 'var(--lq-pink-soft)', display: 'flex' }}><FieldSearchIcon /></span>
+        <Link href={href} aria-label={label} style={{ ...pillStyle, paddingRight: filterHref ? '52px' : '16px' }}>
+          <span style={{ ...v.icon, display: 'flex' }}><FieldSearchIcon /></span>
           <span style={placeholderStyle}>{placeholder}</span>
         </Link>
         {filterHref && (
-          <span style={{ position: 'absolute', right: '4px', top: '50%', transform: 'translateY(-50%)', color: '#B36177' }}>
+          <span style={{ position: 'absolute', right: '4px', top: '50%', transform: 'translateY(-50%)', ...v.filterIcon }}>
             <IconButton label="Open search filters" href={filterHref} variant="plain" visualSize={32}>
-              <FilterGlyph />
+              <CandleFilterIcon size={22} />
             </IconButton>
           </span>
         )}
@@ -78,7 +86,7 @@ export default function SearchInput({
     <div style={{ position: 'relative', width: '100%' }}>
       <label style={{ ...pillStyle, cursor: 'text' }}>
         <span style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clipPath: 'inset(50%)' }}>{label}</span>
-        <span style={{ color: 'var(--lq-pink-soft)', display: 'flex' }}><FieldSearchIcon /></span>
+        <span style={{ ...v.icon, display: 'flex' }}><FieldSearchIcon /></span>
         <input
           type="search"
           value={value}
@@ -91,7 +99,7 @@ export default function SearchInput({
             flex: 1,
             fontFamily: 'var(--lq-font-ui)',
             fontSize: '14px',
-            color: 'var(--lq-plum)',
+            color: variant === 'glass' ? 'var(--lq-white)' : 'var(--lq-plum)',
             minWidth: 0,
           }}
         />

@@ -4,6 +4,12 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import CommunityCard from '@/components/CommunityCard'
+import IconButton from '@/components/ui/IconButton'
+import PillButton from '@/components/ui/PillButton'
+import Chip from '@/components/ui/Chip'
+import SearchInput from '@/components/ui/SearchInput'
+import DesignCard from '@/components/ui/DesignCard'
+import { BellIcon, StarIcon, LaqueWordmark, CardHeartIcon, CommentDotsIcon } from '@/components/ui/icons'
 
 const VIBE_TABS = ['All', 'Dark', 'Minimal', 'Glam', 'Y2K', 'Colourful', 'Bridal']
 
@@ -17,8 +23,21 @@ const VIBE_FILTER = {
   Bridal:    (d) => /bridal|wedding/i.test(d.category) || /bridal|wedding/i.test(d.occasion),
 }
 
+const ui = (weight, size, color = 'var(--lq-white)') => ({
+  fontFamily: 'var(--lq-font-ui)', fontWeight: weight, fontSize: `${size}px`, color, lineHeight: 1.2,
+})
+
+function formatCount(n) {
+  if (n == null) return '0'
+  if (n >= 1000) {
+    const k = n / 1000
+    return `${k >= 10 ? Math.round(k) : Math.round(k * 10) / 10}k`
+  }
+  return String(n)
+}
+
 export default function FeedPage() {
-  // Main tab: 'explore' | 'community'
+  // Main tab: 'explore' | 'community' | 'following' | 'updates'
   const [mainTab, setMainTab] = useState('explore')
 
   // Explore state
@@ -47,10 +66,14 @@ export default function FeedPage() {
   const [currentUser, setCurrentUser] = useState(null)
   const [userProfile, setUserProfile] = useState(null)
   const [likedDesignIds, setLikedDesignIds] = useState(new Set())
+  const [savedDesignIds, setSavedDesignIds] = useState(new Set())
   const [unreadCount, setUnreadCount] = useState(0)
   const [dropDesigns, setDropDesigns] = useState([])
   const [boostedDesigns, setBoostedDesigns] = useState([])
   const [activeChallenge, setActiveChallenge] = useState(null)
+  const [communityStats, setCommunityStats] = useState(null)
+  const [teaserPosts, setTeaserPosts] = useState([])
+  const [compactHeader, setCompactHeader] = useState(false)
 
   // Stories state
   const [stories, setStories]         = useState([])
@@ -78,16 +101,28 @@ export default function FeedPage() {
         setUserProfile(prof || null)
       }
 
-      const [{ data: curatedDesigns }, { data: drops }, { data: rawStories }, { data: challengeData }, { data: boosted }] = await Promise.all([
+      const [
+        { data: curatedDesigns },
+        { data: drops },
+        { data: rawStories },
+        { data: challengeData },
+        { data: boosted },
+        { count: artistCount },
+        { count: postCount },
+        { data: recentPosts },
+      ] = await Promise.all([
         supabase.from('designs').select('*').eq('is_published', true).eq('is_curated', true).order('created_at', { ascending: false }).limit(100),
-        supabase.from('designs').select('id, title, image_url').eq('is_published', true).eq('is_drop', true).order('created_at', { ascending: false }).limit(100),
+        supabase.from('designs').select('id, title, image_url, created_at, saves_count').eq('is_published', true).eq('is_drop', true).order('created_at', { ascending: false }).limit(100),
         supabase.from('stories')
           .select('*, profiles(id, display_name, avatar_url)')
           .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
           .order('created_at', { ascending: false })
           .limit(200),
         supabase.from('challenges').select('id, title, ends_at').gt('ends_at', new Date().toISOString()).order('ends_at', { ascending: true }).limit(1).maybeSingle(),
-        supabase.from('designs').select('id, title, image_url').eq('is_published', true).gt('boosted_until', new Date().toISOString()).order('boosted_until', { ascending: false }).limit(50),
+        supabase.from('designs').select('id, title, image_url, shape, category, occasion, saves_count').eq('is_published', true).gt('boosted_until', new Date().toISOString()).order('boosted_until', { ascending: false }).limit(50),
+        supabase.from('profiles').select('*', { count: 'exact', head: true }).in('account_type', ['creator', 'salon']),
+        supabase.from('designs').select('*', { count: 'exact', head: true }).eq('is_published', true).eq('is_curated', false),
+        supabase.from('designs').select('id, image_url, likes_count, comments_count, created_by, profiles(display_name, avatar_url)').eq('is_published', true).eq('is_curated', false).order('created_at', { ascending: false }).limit(3),
       ])
 
       // Deduplicate stories by user
@@ -101,8 +136,28 @@ export default function FeedPage() {
       setDropDesigns(drops || [])
       setBoostedDesigns(boosted || [])
       setActiveChallenge(challengeData || null)
+      setCommunityStats({ artists: artistCount || 0, posts: postCount || 0 })
+      setTeaserPosts(recentPosts || [])
       setStories(deduped)
       setLoadingExplore(false)
+
+      // One batched "did I save these" query for every visible design, so
+      // heart-save buttons mount with the right state without per-card queries.
+      if (u) {
+        const visibleIds = [...new Set([
+          ...(curatedDesigns || []).map(d => d.id),
+          ...(drops || []).map(d => d.id),
+          ...(boosted || []).map(d => d.id),
+        ])]
+        if (visibleIds.length > 0) {
+          const { data: savedRows } = await supabase
+            .from('saved_designs')
+            .select('design_id')
+            .eq('user_id', u.id)
+            .in('design_id', visibleIds)
+          setSavedDesignIds(new Set((savedRows || []).map(r => r.design_id)))
+        }
+      }
     }
     load()
   }, [])
@@ -124,6 +179,13 @@ export default function FeedPage() {
       }
     }
   }, [loadingExplore])
+
+  // Compact blur header once the hero has scrolled away
+  useEffect(() => {
+    const onScroll = () => setCompactHeader(window.scrollY > 300)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
 
   // One batched "did I like these" query for a whole visible set, instead
   // of each CommunityCard querying its own like status individually.
@@ -311,7 +373,9 @@ export default function FeedPage() {
     return score
   }
 
-  // ── Explore filtered/sorted ───────────────────────────────────────────────
+  const rememberScroll = () => sessionStorage.setItem('feed-scroll', window.scrollY.toString())
+
+  // ── Explore derived lists ─────────────────────────────────────────────────
   const filtered = designs
     .filter(VIBE_FILTER[activeTab])
     .sort((a, b) => {
@@ -320,8 +384,86 @@ export default function FeedPage() {
       return new Date(b.created_at) - new Date(a.created_at)
     })
 
+  const trending = [...designs].filter(d => (d.saves_count || 0) > 0).sort((a, b) => (b.saves_count || 0) - (a.saves_count || 0)).slice(0, 10)
+
+  // New This Week absorbs Trend Drops: drop cards get a "Drop" badge
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
+  const dropIds = new Set(dropDesigns.map(d => d.id))
+  const newThisWeek = [
+    ...dropDesigns.map(d => ({ ...d, __drop: true })),
+    ...designs.filter(d => new Date(d.created_at).getTime() >= weekAgo && !dropIds.has(d.id)),
+  ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 12)
+
+  // "Popular in Your Area" — no location data exists yet, so this is driven
+  // by saves on recent designs (deferred-list item) with the drawn title.
+  const monthAgo = Date.now() - 30 * 24 * 60 * 60 * 1000
+  const popular = [...designs]
+    .filter(d => new Date(d.created_at).getTime() >= monthAgo && (d.saves_count || 0) > 0)
+    .sort((a, b) => (b.saves_count || 0) - (a.saves_count || 0))
+    .slice(0, 10)
+
+  // Explore Library grid with Promoted (boosted) designs interleaved as
+  // labeled slots: first at position 2, then every 8 cards.
+  const boostedIds = new Set(boostedDesigns.map(d => d.id))
+  const gridItems = []
+  const organic = filtered.filter(d => !boostedIds.has(d.id))
+  let promoIdx = 0
+  organic.forEach((d, i) => {
+    if (boostedDesigns.length > 0 && (i === 2 || (i > 2 && (i - 2) % 8 === 0)) && promoIdx < boostedDesigns.length) {
+      gridItems.push({ ...boostedDesigns[promoIdx], __promoted: true })
+      promoIdx++
+    }
+    gridItems.push(d)
+  })
+  const gridCols = [[], []]
+  gridItems.forEach((d, i) => gridCols[i % 2].push({ design: d, tall: (i % 4 === 0) || (i % 4 === 3) }))
+
+  const teaserPost = teaserPosts.find(p => p.image_url) || null
+  const teaserAvatars = teaserPosts.map(p => p.profiles).filter(Boolean).slice(0, 3)
+  const tileImages = teaserPosts.filter(p => p.image_url).slice(0, 2)
+
+  const headerIcons = (
+    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+      {currentUser && (
+        <IconButton label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`} href="/notifications" visualSize={34} badge={unreadCount > 0 ? (
+          <span style={{
+            position: 'absolute', top: '-3px', right: '-3px', minWidth: '16px', height: '16px',
+            borderRadius: 'var(--lq-radius-pill)', background: 'var(--lq-accent-b)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px',
+            color: 'var(--lq-white)', fontSize: '9px', fontWeight: 700, fontFamily: 'var(--lq-font-ui)',
+          }}>{unreadCount > 9 ? '9+' : unreadCount}</span>
+        ) : null}>
+          <BellIcon size={17} />
+        </IconButton>
+      )}
+      <IconButton label="Pick My Set" href="/pick-my-set" visualSize={34}>
+        <StarIcon size={16} />
+      </IconButton>
+    </div>
+  )
+
+  const sectionHeader = (title, sub) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      <h2 style={{ ...ui(400, 18), letterSpacing: '0.02em' }}>{title}</h2>
+      {sub && <p style={ui(300, 14, 'var(--lq-white-80)')}>{sub}</p>}
+    </div>
+  )
+
+  const carousel = (children, gap = 16) => (
+    <div style={{ display: 'flex', gap: `${gap}px`, overflowX: 'auto', scrollbarWidth: 'none', margin: '0 -24px', padding: '0 24px' }}>
+      {children}
+    </div>
+  )
+
   return (
-    <div style={{ paddingBottom: '24px' }}>
+    <div style={{ position: 'relative' }}>
+
+      {/* Fixed blurred-wine page background (Figma page underlay) */}
+      <div aria-hidden style={{
+        position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)',
+        width: '100%', maxWidth: '480px', zIndex: -1,
+        background: '#29000A url(/redesign/bg-blur.png) center / cover no-repeat',
+      }} />
 
       {/* ── Full-screen story viewer ──────────────────────────────────────── */}
       {viewingStories && (() => {
@@ -342,10 +484,10 @@ export default function FeedPage() {
             </div>
             <div style={{ position: 'absolute', top: 30, left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', zIndex: 3 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#333', overflow: 'hidden', border: '1.5px solid #D4A0C0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#333', overflow: 'hidden', border: '1.5px solid var(--lq-accent-b)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   {story.profiles?.avatar_url
                     ? <img src={story.profiles.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <span style={{ color: '#D4A0C0', fontSize: '14px', fontWeight: '500' }}>{(story.profiles?.display_name || '?')[0].toUpperCase()}</span>
+                    : <span style={{ color: 'var(--lq-accent-b)', fontSize: '14px', fontWeight: '500' }}>{(story.profiles?.display_name || '?')[0].toUpperCase()}</span>
                   }
                 </div>
                 <div>
@@ -353,23 +495,23 @@ export default function FeedPage() {
                   <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '11px', marginTop: '3px' }}>{timeAgo(story.created_at)}</p>
                 </div>
               </div>
-              <button onClick={closeStories} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '22px', cursor: 'pointer', lineHeight: 1, padding: '4px' }}>✕</button>
+              <button onClick={closeStories} aria-label="Close stories" style={{ background: 'none', border: 'none', color: '#fff', fontSize: '22px', cursor: 'pointer', lineHeight: 1, padding: '11px', margin: '-7px' }}>✕</button>
             </div>
             <div style={{ position: 'absolute', left: 0, top: 0, width: '35%', height: '75%', zIndex: 2, cursor: 'pointer' }} onClick={prevStory} />
             <div style={{ position: 'absolute', right: 0, top: 0, width: '65%', height: '75%', zIndex: 2, cursor: 'pointer' }} onClick={nextStory} />
-            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '12px 20px 32px', zIndex: 3 }}>
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '12px 20px calc(32px + env(safe-area-inset-bottom))', zIndex: 3 }}>
               {story.caption && (
                 <p style={{ color: '#fff', fontSize: '14px', lineHeight: '1.5', marginBottom: '16px', textShadow: '0 1px 6px rgba(0,0,0,0.8)' }}>{story.caption}</p>
               )}
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <button onClick={toggleStoryLike} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.45)', border: '0.5px solid rgba(255,255,255,0.2)', borderRadius: '24px', padding: '10px 18px', color: '#fff', fontSize: '13px', fontWeight: '500', cursor: currentUser ? 'pointer' : 'default', backdropFilter: 'blur(8px)', fontFamily: "'DM Sans', sans-serif" }}>
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill={liked ? '#D4A0C0' : 'none'}>
-                    <path d="M8 13.5C8 13.5 1.5 9.5 1.5 5.5C1.5 3.5 3 2 5 2C6.2 2 7.2 2.6 8 3.5C8.8 2.6 9.8 2 11 2C13 2 14.5 3.5 14.5 5.5C14.5 9.5 8 13.5 8 13.5Z" stroke={liked ? '#D4A0C0' : '#fff'} strokeWidth="1.3" strokeLinejoin="round"/>
-                  </svg>
+                <button onClick={toggleStoryLike} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.45)', border: '0.5px solid rgba(255,255,255,0.2)', borderRadius: '24px', padding: '12px 18px', color: '#fff', fontSize: '13px', fontWeight: '500', cursor: currentUser ? 'pointer' : 'default', backdropFilter: 'blur(8px)', fontFamily: 'var(--lq-font-ui)' }}>
+                  <span style={{ color: liked ? 'var(--lq-accent-b)' : '#fff', display: 'flex' }}>
+                    <CardHeartIcon size={16} filled={liked} />
+                  </span>
                   {likeCount > 0 ? likeCount : 'Like'}
                 </button>
                 {isOwn && (
-                  <button onClick={deleteStory} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.45)', border: '0.5px solid rgba(255,255,255,0.2)', borderRadius: '24px', padding: '10px 18px', color: '#fff', fontSize: '13px', cursor: 'pointer', backdropFilter: 'blur(8px)', fontFamily: "'DM Sans', sans-serif" }}>
+                  <button onClick={deleteStory} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.45)', border: '0.5px solid rgba(255,255,255,0.2)', borderRadius: '24px', padding: '12px 18px', color: '#fff', fontSize: '13px', cursor: 'pointer', backdropFilter: 'blur(8px)', fontFamily: 'var(--lq-font-ui)' }}>
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
                       <path d="M3 4h10M6 4V3h4v1M5 4v8a1 1 0 001 1h4a1 1 0 001-1V4" stroke="#fff" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
@@ -382,421 +524,410 @@ export default function FeedPage() {
         )
       })()}
 
-      {/* ── Header ────────────────────────────────────────────────────────── */}
-      <div style={{ padding: '24px 20px 0', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <h1 style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '22px', letterSpacing: '-0.02em', marginBottom: '4px' }}>
-            Laque
-          </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
-            Nail & beauty design library
-          </p>
+      {/* ── Compact blur header (appears when the hero scrolls away) ──────── */}
+      {compactHeader && (
+        <div style={{
+          position: 'fixed', top: 0, left: '50%', transform: 'translateX(-50%)',
+          width: '100%', maxWidth: '480px', zIndex: 90,
+          padding: 'calc(env(safe-area-inset-top) + 8px) 24px 8px',
+          background: 'linear-gradient(to bottom, var(--lq-scrim), rgba(41, 0, 10, 0.55))',
+          backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}>
+          <span style={{ color: 'var(--lq-white)', display: 'flex' }}><LaqueWordmark height={17} /></span>
+          {headerIcons}
         </div>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px' }}>
-          <Link href="/pick-my-set" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '50%', background: 'var(--bg-card)', border: '0.5px solid var(--border)', textDecoration: 'none', flexShrink: 0 }} title="Pick My Set">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-            </svg>
-          </Link>
-        {currentUser && (
-          <Link href="/notifications" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '50%', background: 'var(--bg-card)', border: '0.5px solid var(--border)', textDecoration: 'none', flexShrink: 0 }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/>
-            </svg>
-            {unreadCount > 0 && (
-              <div style={{
-                position: 'absolute', top: '0px', right: '0px',
-                width: '16px', height: '16px', borderRadius: '50%',
-                background: 'var(--accent)', border: '2px solid var(--bg-primary)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <span style={{ color: '#2C0A1E', fontSize: '9px', fontWeight: '700', fontFamily: "'DM Sans', sans-serif", lineHeight: 1 }}>
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
+      )}
+
+      {/* ── Hero ──────────────────────────────────────────────────────────── */}
+      <div style={{ position: 'relative', height: 'clamp(360px, 52vh, 500px)' }}>
+        <img src="/redesign/hero.jpg" alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 25%' }} />
+        <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(41,0,10,0.55) 0%, rgba(41,0,10,0.08) 30%, rgba(41,0,10,0.12) 62%, var(--lq-wine) 100%)' }} />
+        <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: 'calc(env(safe-area-inset-top) + 16px) 24px 0' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <h1 style={{ color: 'var(--lq-white)', display: 'flex', margin: 0 }}>
+              <LaqueWordmark height={22} />
+            </h1>
+            <p style={ui(300, 12, 'var(--lq-white-80)')}>Nail & beauty design library</p>
+          </div>
+          {headerIcons}
+        </div>
+      </div>
+
+      {/* ── Content sheet ─────────────────────────────────────────────────── */}
+      <div style={{
+        position: 'relative', marginTop: '-36px',
+        borderRadius: 'var(--lq-radius-sheet) var(--lq-radius-sheet) 0 0',
+        background: 'linear-gradient(180deg, var(--lq-wine) 0%, rgba(60, 0, 14, 0.55) 55%, rgba(60, 0, 14, 0.25) 100%)',
+        padding: '20px 24px 24px',
+        display: 'flex', flexDirection: 'column', gap: 'var(--lq-space-2xl)',
+      }}>
+
+        {/* Tabs */}
+        <div role="tablist" aria-label="Feed sections" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          {[['explore', 'Explore'], ['community', 'Community'], ['following', 'Following'], ['updates', 'Updates']].map(([val, label]) => (
+            <button
+              key={val}
+              role="tab"
+              aria-selected={mainTab === val}
+              onClick={() => switchTab(val)}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer', padding: '10px 0',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
+                minHeight: '44px',
+              }}
+            >
+              <span style={ui(mainTab === val ? 400 : 300, 15, mainTab === val ? 'var(--lq-white)' : 'var(--lq-white-80)')}>{label}</span>
+              <span aria-hidden style={{ width: '24px', height: '2px', borderRadius: 'var(--lq-radius-pill)', background: mainTab === val ? 'var(--lq-accent-b)' : 'transparent' }} />
+            </button>
+          ))}
+        </div>
+
+        {/* ════════════════════════════════════════════════════════════════ */}
+        {/* EXPLORE TAB                                                     */}
+        {/* ════════════════════════════════════════════════════════════════ */}
+        {mainTab === 'explore' && (
+          <>
+            {/* Active challenge banner (kept feature — no frame in the redesign, styled to tokens) */}
+            {activeChallenge && (
+              <Link href={`/challenges/${activeChallenge.id}`} style={{ textDecoration: 'none', display: 'block' }}>
+                <div style={{ background: 'var(--lq-glass)', border: '1px solid var(--lq-glass-border)', borderRadius: 'var(--lq-radius-tile)', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <p style={{ ...ui(500, 10, 'var(--lq-accent-b)'), letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 3px' }}>✦ Active Challenge</p>
+                    <p style={{ ...ui(400, 13), margin: 0 }}>{activeChallenge.title}</p>
+                  </div>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 4L10 8L6 12" stroke="var(--lq-accent-b)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </div>
+              </Link>
+            )}
+
+            {/* Stories */}
+            {(stories.length > 0 || currentUser) && (
+              <div style={{ display: 'flex', gap: '14px', overflowX: 'auto', scrollbarWidth: 'none', margin: '0 -24px', padding: '0 24px' }}>
+                {currentUser && (
+                  <Link href="/story/new" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', textDecoration: 'none', flexShrink: 0 }}>
+                    <div style={{ border: '1.5px solid var(--lq-accent-b)', borderRadius: '50%', padding: '3px' }}>
+                      <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'var(--lq-glass)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span aria-hidden style={{ color: 'var(--lq-white)', fontSize: '22px', lineHeight: 1, fontWeight: 300 }}>+</span>
+                      </div>
+                    </div>
+                    <p style={{ ...ui(300, 11, 'var(--lq-white-80)'), maxWidth: '64px', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Your story</p>
+                  </Link>
+                )}
+                {stories.map(story => {
+                  const name   = story.profiles?.display_name || 'User'
+                  const avatar = story.profiles?.avatar_url
+                  const isMe   = story.user_id === currentUser?.id
+                  const viewed = viewedUsers.has(story.user_id)
+                  return (
+                    <button key={story.user_id} onClick={() => openStories(story.user_id)}
+                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', background: 'none', border: 'none', padding: 0, cursor: 'pointer', flexShrink: 0 }}
+                    >
+                      <div style={{ border: `1.5px solid ${viewed ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.53)'}`, borderRadius: '50%', padding: '3px' }}>
+                        <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'var(--lq-glass)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {avatar ? <img src={avatar} alt={name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            : <span style={{ color: 'var(--lq-white)', fontSize: '18px', fontWeight: '400' }}>{name[0].toUpperCase()}</span>}
+                        </div>
+                      </div>
+                      <p style={{ ...ui(300, 11, 'var(--lq-white-80)'), maxWidth: '64px', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {isMe ? 'You' : name}
+                      </p>
+                    </button>
+                  )
+                })}
               </div>
             )}
-          </Link>
-        )}
-        </div>
-      </div>
 
-      {/* ── Main tabs: Explore / Community ────────────────────────────────── */}
-      <div style={{
-        display: 'flex', borderBottom: '0.5px solid var(--border)',
-        padding: '0 20px', marginBottom: '0',
-      }}>
-        {[['explore', 'Explore'], ['community', 'Community'], ['following', 'Following'], ['updates', 'Updates']].map(([val, label]) => (
-          <button
-            key={val}
-            onClick={() => switchTab(val)}
-            style={{
-              flex: 1, background: 'none', border: 'none',
-              borderBottom: mainTab === val ? '2px solid var(--accent)' : '2px solid transparent',
-              color: mainTab === val ? 'var(--text-primary)' : 'var(--text-secondary)',
-              fontSize: '14px', fontWeight: mainTab === val ? '600' : '400',
-              fontFamily: "'DM Sans', sans-serif",
-              padding: '12px 0', cursor: 'pointer',
-              transition: 'color 0.15s',
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+            {/* Search pill → /search (filter icon deep-links to filters) */}
+            <SearchInput variant="glass" href="/search" filterHref="/search?filters=1" />
 
-      {/* ════════════════════════════════════════════════════════════════════ */}
-      {/* EXPLORE TAB                                                         */}
-      {/* ════════════════════════════════════════════════════════════════════ */}
-      {mainTab === 'explore' && (
-        <>
-          {/* Active challenge banner */}
-          {activeChallenge && (
-            <Link href={`/challenges/${activeChallenge.id}`} style={{ textDecoration: 'none', display: 'block', margin: '8px 20px 4px' }}>
-              <div style={{ background: 'linear-gradient(135deg, rgba(212,160,192,0.15) 0%, rgba(155,94,138,0.1) 100%)', border: '0.5px solid rgba(212,160,192,0.35)', borderRadius: '14px', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
-                  <p style={{ color: 'var(--accent)', fontSize: '10px', fontWeight: '700', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 2px' }}>✦ Active Challenge</p>
-                  <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '600', margin: 0 }}>{activeChallenge.title}</p>
-                </div>
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4L10 8L6 12" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              </div>
-            </Link>
-          )}
-
-          {/* Story circles */}
-          {(stories.length > 0 || currentUser) && (
-            <div style={{ display: 'flex', gap: '14px', overflowX: 'auto', padding: '16px 20px', scrollbarWidth: 'none' }}>
-              {currentUser && (
-                <Link href="/story/new" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', textDecoration: 'none', flexShrink: 0 }}>
-                  <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'var(--bg-card)', border: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ color: 'var(--accent)', fontSize: '26px', lineHeight: 1, marginTop: '-2px' }}>+</span>
-                  </div>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '10px', maxWidth: '60px', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Your story</p>
-                </Link>
-              )}
-              {stories.map(story => {
-                const name   = story.profiles?.display_name || 'User'
-                const avatar = story.profiles?.avatar_url
-                const isMe   = story.user_id === currentUser?.id
-                const viewed = viewedUsers.has(story.user_id)
-                return (
-                  <button key={story.user_id} onClick={() => openStories(story.user_id)}
-                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', background: 'none', border: 'none', padding: 0, cursor: 'pointer', flexShrink: 0 }}
-                  >
-                    <div style={{ width: '60px', height: '60px', borderRadius: '50%', padding: '2px', background: viewed ? 'var(--border)' : 'linear-gradient(135deg, #D4A0C0 0%, #9B5E8A 100%)' }}>
-                      <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'var(--bg-primary)', padding: '2px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'var(--bg-chip)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          {avatar ? <img src={avatar} alt={name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            : <span style={{ color: 'var(--accent)', fontSize: '20px', fontWeight: '500' }}>{name[0].toUpperCase()}</span>}
-                        </div>
-                      </div>
-                    </div>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '10px', maxWidth: '60px', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {isMe ? 'You' : name}
-                    </p>
-                  </button>
-                )
-              })}
+            {/* Vibe chips */}
+            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', scrollbarWidth: 'none', margin: '-12px -24px', padding: '0 24px' }}>
+              {VIBE_TABS.map(tab => (
+                <Chip key={tab} active={activeTab === tab} onClick={() => setActiveTab(tab)}>{tab}</Chip>
+              ))}
             </div>
-          )}
 
-          {/* Vibe tabs */}
-          <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', padding: '0 20px 12px', scrollbarWidth: 'none' }}>
-            {VIBE_TABS.map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)} style={{
-                flexShrink: 0,
-                background: activeTab === tab ? 'var(--accent)' : 'var(--bg-card)',
-                color: activeTab === tab ? '#2C0A1E' : 'var(--text-secondary)',
-                border: activeTab === tab ? 'none' : '0.5px solid var(--border)',
-                borderRadius: '20px', padding: '7px 16px',
-                fontSize: '13px', fontWeight: activeTab === tab ? '600' : '400',
-                fontFamily: "'DM Sans', sans-serif", cursor: 'pointer', whiteSpace: 'nowrap',
-              }}>{tab}</button>
-            ))}
-          </div>
-
-          {/* Sort row */}
-          <div style={{ padding: '0 20px 16px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <span style={{ color: 'var(--text-secondary)', fontSize: '12px', marginRight: '2px' }}>Sort:</span>
-            {[
-              ...(hasPrefs ? [['for_you', '✦ For you']] : []),
-              ['newest', 'Newest'],
-              ['most_saved', 'Most saved'],
-            ].map(([val, label]) => (
-              <button key={val} onClick={() => setSort(val)} style={{
-                background: sort === val ? (val === 'for_you' ? 'var(--accent)' : 'var(--bg-chip)') : 'none',
-                color: sort === val ? (val === 'for_you' ? '#2C0A1E' : 'var(--text-primary)') : 'var(--text-secondary)',
-                border: '0.5px solid ' + (sort === val ? (val === 'for_you' ? 'transparent' : 'var(--border)') : 'transparent'),
-                borderRadius: '20px', padding: '5px 12px',
-                fontSize: '12px', fontWeight: sort === val ? '500' : '400',
-                fontFamily: "'DM Sans', sans-serif", cursor: 'pointer',
-              }}>{label}</button>
-            ))}
-          </div>
-
-          {/* Trending row */}
-          {(() => {
-            const trending = [...designs].filter(d => (d.saves_count || 0) > 0).sort((a, b) => (b.saves_count || 0) - (a.saves_count || 0)).slice(0, 10)
-            if (trending.length === 0) return null
-            return (
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ padding: '0 20px 10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Trending</span>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>· Most saved right now</span>
-                </div>
-                <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', padding: '0 20px', scrollbarWidth: 'none' }}>
-                  {trending.map((d, i) => (
-                    <Link key={d.id} href={`/design/${d.id}?from=%2Ffeed`}
-                      onClick={() => sessionStorage.setItem('feed-scroll', window.scrollY.toString())}
-                      style={{ flexShrink: 0, width: '130px', textDecoration: 'none' }}
-                    >
-                      <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '0.5px solid var(--border)', background: 'var(--bg-card)' }}>
-                        {d.image_url
-                          ? <div style={{ width: '130px', height: '130px', overflow: 'hidden' }}><img src={d.image_url} alt={d.title} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} /></div>
-                          : <div style={{ width: '130px', height: '130px', background: 'var(--bg-chip)' }} />
-                        }
-                        <div style={{ position: 'absolute', top: '6px', left: '6px', background: i === 0 ? 'var(--accent)' : 'rgba(0,0,0,0.55)', color: i === 0 ? '#141414' : '#fff', fontSize: '10px', fontWeight: '700', width: '20px', height: '20px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          {i + 1}
-                        </div>
-                      </div>
-                      <div style={{ padding: '6px 2px 0' }}>
-                        <p style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500', lineHeight: '1.3', margin: '0 0 2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.title}</p>
-                        <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: 0 }}>{d.saves_count} {d.saves_count === 1 ? 'save' : 'saves'}</p>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )
-          })()}
-
-          {/* ✦ Trend Drops carousel */}
-          {dropDesigns.length > 0 && (
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ padding: '0 20px 10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase' }}>✦ This Week's Drops</span>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>· Curated just for you</span>
-              </div>
-              <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', padding: '0 20px', scrollbarWidth: 'none' }}>
-                {dropDesigns.map(d => (
-                  <Link key={d.id} href={`/design/${d.id}?from=%2Ffeed`}
-                    onClick={() => sessionStorage.setItem('feed-scroll', window.scrollY.toString())}
-                    style={{ flexShrink: 0, width: '130px', textDecoration: 'none' }}
-                  >
-                    <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '0.5px solid var(--accent)', background: 'var(--bg-card)' }}>
-                      {d.image_url
-                        ? <div style={{ width: '130px', height: '130px', overflow: 'hidden' }}><img src={d.image_url} alt={d.title} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} /></div>
-                        : <div style={{ width: '130px', height: '130px', background: 'var(--bg-chip)' }} />
-                      }
-                      <div style={{ position: 'absolute', top: '6px', right: '6px', background: 'var(--accent)', color: '#2C0A1E', fontSize: '9px', fontWeight: '700', padding: '3px 7px', borderRadius: '8px' }}>
-                        DROP
-                      </div>
-                    </div>
-                    <p style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500', lineHeight: '1.3', margin: '6px 2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.title}</p>
-                  </Link>
-                ))}
-              </div>
+            {/* Sort row */}
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', margin: '-8px 0' }}>
+              <span style={ui(300, 13, 'var(--lq-white-80)')}>Sort:</span>
+              {[
+                ...(hasPrefs ? [['for_you', '✦ For you']] : []),
+                ['newest', 'Newest'],
+                ['most_saved', 'Most saved'],
+              ].map(([val, label]) => (
+                <button key={val} onClick={() => setSort(val)} aria-pressed={sort === val} style={{
+                  background: 'none', border: 'none', padding: '8px 0', cursor: 'pointer', minHeight: '44px',
+                  display: 'flex', alignItems: 'center',
+                }}>
+                  <span style={{
+                    ...ui(sort === val ? 400 : 300, 13, sort === val ? 'var(--lq-white)' : 'var(--lq-white-80)'),
+                    padding: sort === val ? '6px 12px' : '6px 0',
+                    borderRadius: 'var(--lq-radius-pill)',
+                    background: sort === val ? 'var(--lq-glass)' : 'none',
+                    border: sort === val ? '1px solid var(--lq-glass-border)' : '1px solid transparent',
+                    whiteSpace: 'nowrap',
+                  }}>{label}</span>
+                </button>
+              ))}
             </div>
-          )}
 
-          {/* ✦ Promoted carousel */}
-          {boostedDesigns.length > 0 && (
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ padding: '0 20px 10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase' }}>✦ Promoted</span>
-              </div>
-              <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', padding: '0 20px', scrollbarWidth: 'none' }}>
-                {boostedDesigns.map(d => (
-                  <Link key={d.id} href={`/design/${d.id}?from=%2Ffeed`}
-                    onClick={() => sessionStorage.setItem('feed-scroll', window.scrollY.toString())}
-                    style={{ flexShrink: 0, width: '130px', textDecoration: 'none' }}
-                  >
-                    <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '0.5px solid var(--border)', background: 'var(--bg-card)' }}>
-                      {d.image_url
-                        ? <div style={{ width: '130px', height: '130px', overflow: 'hidden' }}><img src={d.image_url} alt={d.title} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} /></div>
-                        : <div style={{ width: '130px', height: '130px', background: 'var(--bg-chip)' }} />
-                      }
-                      <div style={{ position: 'absolute', top: '6px', left: '6px', background: 'rgba(44,10,30,0.75)', color: 'var(--text-secondary)', fontSize: '9px', fontWeight: '600', padding: '3px 7px', borderRadius: '8px', letterSpacing: '0.04em' }}>
-                        Promoted
-                      </div>
+            {/* TRENDING */}
+            {trending.length > 0 && (
+              <section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--lq-space-md)' }}>
+                {sectionHeader('TRENDING', '· Most saved right now')}
+                {carousel(trending.map((d, i) => (
+                  <DesignCard key={d.id} design={d} rank={i + 1} meta="saves" currentUser={currentUser}
+                    initiallySaved={savedDesignIds.has(d.id)} onNavigate={rememberScroll} />
+                )))}
+              </section>
+            )}
+
+            {/* New This Week (absorbs Trend Drops via badge) */}
+            {newThisWeek.length > 0 && (
+              <section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--lq-space-md)' }}>
+                {sectionHeader('New This Week')}
+                {carousel(newThisWeek.map(d => (
+                  <DesignCard key={d.id} design={d} tag={d.__drop ? 'Drop' : null} meta="saves" currentUser={currentUser}
+                    initiallySaved={savedDesignIds.has(d.id)} onNavigate={rememberScroll} />
+                )))}
+              </section>
+            )}
+
+            {/* Community teaser */}
+            {communityStats && (
+              <section style={{
+                background: 'var(--lq-blush)', borderRadius: 'var(--lq-radius-sheet)',
+                margin: '0 -16px', padding: '8px 8px 24px',
+                display: 'flex', flexDirection: 'column', gap: 'var(--lq-space-2xl)',
+              }}>
+                {teaserPost && (
+                  <div style={{ position: 'relative', borderRadius: 'var(--lq-radius-card-lg)', overflow: 'hidden', height: '280px' }}>
+                    <img src={teaserPost.image_url} alt="Recent community post" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    <div style={{
+                      position: 'absolute', left: '16px', bottom: '16px', display: 'flex', gap: '8px', alignItems: 'center',
+                      background: 'rgba(32, 5, 11, 0.4)', backdropFilter: 'blur(6px)', borderRadius: 'var(--lq-radius-pill)', padding: '8px 14px',
+                    }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--lq-white)' }}>
+                        <CardHeartIcon size={14} filled />
+                        <span style={ui(400, 12)}>{formatCount(teaserPost.likes_count)}</span>
+                      </span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--lq-white)' }}>
+                        <CommentDotsIcon size={14} />
+                        <span style={ui(400, 12)}>{formatCount(teaserPost.comments_count)}</span>
+                      </span>
                     </div>
-                    <p style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500', lineHeight: '1.3', margin: '6px 2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.title}</p>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Design grid */}
-          <div style={{ padding: '0 20px' }}>
-            {loadingExplore ? (
-              <p style={{ color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center', padding: '48px 0' }}>Loading...</p>
-            ) : filtered.length > 0 ? (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                {filtered.map(design => (
-                  <Link key={design.id} href={`/design/${design.id}?from=%2Ffeed`}
-                    onClick={() => sessionStorage.setItem('feed-scroll', window.scrollY.toString())}
-                    style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', overflow: 'hidden', textDecoration: 'none', display: 'block' }}
-                  >
-                    {design.image_url ? (
-                      <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden' }}>
-                        <img src={design.image_url} alt={design.title} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
-                      </div>
-                    ) : (
-                      <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--bg-chip)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>No image</span>
+                    {teaserAvatars.length > 0 && (
+                      <div style={{ position: 'absolute', right: '20px', bottom: '18px', display: 'flex' }}>
+                        {teaserAvatars.map((p, i) => (
+                          <div key={i} style={{
+                            width: '32px', height: '32px', borderRadius: '50%', border: '1px solid var(--lq-white)',
+                            overflow: 'hidden', background: 'rgba(255,255,255,0.2)', marginLeft: i > 0 ? '-10px' : 0,
+                            transform: `rotate(${[-12, 8, 16][i % 3]}deg)`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            {p.avatar_url
+                              ? <img src={p.avatar_url} alt={p.display_name || 'Member'} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              : <span style={ui(400, 13)}>{(p.display_name || '?')[0].toUpperCase()}</span>}
+                          </div>
+                        ))}
                       </div>
                     )}
-                    <div style={{ padding: '10px 12px 12px' }}>
-                      <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', marginBottom: '4px', lineHeight: '1.3' }}>{design.title}</p>
-                      <p style={{ color: 'var(--accent)', fontSize: '10px', fontWeight: '500', letterSpacing: '0.05em', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {[design.shape, design.occasion?.split(',')[0]?.trim()].filter(Boolean).join(' · ')}
-                      </p>
+                  </div>
+                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', padding: '0 16px' }}>
+                  <h2 style={{ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: '26px', lineHeight: 1.2, color: 'var(--lq-plum)' }}>
+                    Explore our community
+                  </h2>
+                  <p style={{ ...ui(300, 15, 'var(--lq-plum)'), lineHeight: 1.35 }}>
+                    Discover nail artists, share your designs, follow creators, and get inspired by the latest trends.
+                  </p>
+                </div>
+                {tileImages.length > 0 && (
+                  <div style={{ display: 'flex', gap: '8px', padding: '0 16px' }}>
+                    {[
+                      { img: tileImages[0], text: `${formatCount(communityStats.artists)} Artists` },
+                      { img: tileImages[1] || tileImages[0], text: `${formatCount(communityStats.posts)} Community Posts` },
+                    ].map((tile, i) => (
+                      <div key={i} style={{ flex: 1, position: 'relative', height: '124px', borderRadius: 'var(--lq-radius-tile)', overflow: 'hidden' }}>
+                        <img src={tile.img.image_url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'rgba(32, 5, 11, 0.35)' }} />
+                        <p style={{
+                          position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          textAlign: 'center', ...ui(400, 14), padding: '12px', whiteSpace: 'pre-line',
+                        }}>{tile.text.replace(' ', '\n')}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div style={{ padding: '0 16px' }}>
+                  <PillButton variant="wine" fullWidth onClick={() => { switchTab('community'); window.scrollTo({ top: 0 }) }}
+                    style={{ fontFamily: 'var(--lq-font-display)', fontSize: '16px' }}>
+                    Explore Community
+                  </PillButton>
+                </div>
+              </section>
+            )}
+
+            {/* Explore Library (Promoted slots interleaved) */}
+            <section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--lq-space-lg)' }}>
+              {sectionHeader('Explore Library')}
+              {loadingExplore ? (
+                <p style={{ ...ui(300, 14, 'var(--lq-white-80)'), textAlign: 'center', padding: '48px 0' }}>Loading...</p>
+              ) : gridItems.length > 0 ? (
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                  {gridCols.map((col, ci) => (
+                    <div key={ci} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--lq-space-lg)' }}>
+                      {col.map(({ design, tall }) => (
+                        <DesignCard key={design.id + (design.__promoted ? '-promo' : '')} design={design}
+                          tag={design.__promoted ? 'Promoted' : null}
+                          meta="tags" width="100%" imageHeight={tall ? 190 : 150}
+                          currentUser={currentUser} initiallySaved={savedDesignIds.has(design.id)}
+                          onNavigate={rememberScroll} />
+                      ))}
                     </div>
-                  </Link>
-                ))}
+                  ))}
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '48px 0' }}>
+                  <p style={ui(400, 14)}>No designs in this vibe yet</p>
+                  <p style={{ ...ui(300, 13, 'var(--lq-white-80)'), marginTop: '6px' }}>More coming soon</p>
+                </div>
+              )}
+            </section>
+
+            {/* Popular in Your Area — saves-driven until location data exists */}
+            {popular.length > 0 && (
+              <section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--lq-space-md)' }}>
+                {sectionHeader('Popular in Your Area')}
+                {carousel(popular.map(d => (
+                  <DesignCard key={d.id} design={d} meta="saves" currentUser={currentUser}
+                    initiallySaved={savedDesignIds.has(d.id)} onNavigate={rememberScroll} />
+                )))}
+              </section>
+            )}
+          </>
+        )}
+
+        {/* ════════════════════════════════════════════════════════════════ */}
+        {/* COMMUNITY TAB                                                   */}
+        {/* ════════════════════════════════════════════════════════════════ */}
+        {mainTab === 'community' && (
+          <div style={{ margin: '0 -24px' }}>
+            {loadingCommunity ? (
+              <p style={{ ...ui(300, 14, 'var(--lq-white-80)'), textAlign: 'center', padding: '48px 0' }}>Loading...</p>
+            ) : community.length === 0 ? (
+              <div style={{ padding: '48px 24px', textAlign: 'center' }}>
+                <p style={{ ...ui(400, 15), marginBottom: '8px' }}>No community posts yet</p>
+                <p style={{ ...ui(300, 13, 'var(--lq-white-80)'), lineHeight: 1.6, marginBottom: '20px' }}>
+                  Be the first to share your nail work with the Laque community.
+                </p>
+                {currentUser && (userProfile?.account_type === 'creator' || userProfile?.account_type === 'salon') ? (
+                  <PillButton href="/upload" style={{ display: 'inline-flex' }}>Post a design</PillButton>
+                ) : !currentUser ? (
+                  <PillButton href="/profile" style={{ display: 'inline-flex' }}>Sign in to post</PillButton>
+                ) : null}
               </div>
             ) : (
-              <div style={{ textAlign: 'center', padding: '48px 0' }}>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>No designs in this vibe yet</p>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '6px' }}>More coming soon</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '0 16px' }}>
+                {community.map(design => (
+                  <CommunityCard key={design.id} design={design} currentUser={currentUser} initiallyLiked={likedDesignIds.has(design.id)} />
+                ))}
               </div>
             )}
           </div>
-        </>
-      )}
+        )}
 
-      {/* ════════════════════════════════════════════════════════════════════ */}
-      {/* COMMUNITY TAB                                                       */}
-      {/* ════════════════════════════════════════════════════════════════════ */}
-      {mainTab === 'community' && (
-        <div>
-          {loadingCommunity ? (
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center', padding: '48px 0' }}>Loading...</p>
-          ) : community.length === 0 ? (
-            <div style={{ padding: '48px 20px', textAlign: 'center' }}>
-              <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '500', marginBottom: '8px' }}>
-                No community posts yet
-              </p>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: '1.6', marginBottom: '20px' }}>
-                Be the first to share your nail work with the Laque community.
-              </p>
-              {currentUser && (userProfile?.account_type === 'creator' || userProfile?.account_type === 'salon') ? (
-                <Link href="/upload" style={{ display: 'inline-block', background: 'var(--accent)', color: '#2C0A1E', borderRadius: '12px', padding: '12px 28px', fontSize: '14px', fontWeight: '600', textDecoration: 'none', fontFamily: "'DM Sans', sans-serif" }}>
-                  Post a design
-                </Link>
-              ) : !currentUser ? (
-                <Link href="/profile" style={{ display: 'inline-block', background: 'var(--accent)', color: '#2C0A1E', borderRadius: '12px', padding: '12px 28px', fontSize: '14px', fontWeight: '600', textDecoration: 'none', fontFamily: "'DM Sans', sans-serif" }}>
-                  Sign in to post
-                </Link>
-              ) : null}
-            </div>
-          ) : (
-            <div>
-              {community.map(design => (
-                <CommunityCard key={design.id} design={design} currentUser={currentUser} initiallyLiked={likedDesignIds.has(design.id)} />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ════════════════════════════════════════════════════════════════════ */}
-      {/* UPDATES TAB                                                         */}
-      {/* ════════════════════════════════════════════════════════════════════ */}
-      {mainTab === 'updates' && (
-        <div style={{ padding: '16px 20px' }}>
-          {!currentUser ? (
-            <div style={{ padding: '32px 0', textAlign: 'center' }}>
-              <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '500', marginBottom: '8px' }}>Sign in to see updates</p>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: '1.6', marginBottom: '20px' }}>
-                Follow salons and nail artists to get their latest news here.
-              </p>
-              <Link href="/profile" style={{ display: 'inline-block', background: 'var(--accent)', color: '#2C0A1E', borderRadius: '12px', padding: '12px 28px', fontSize: '14px', fontWeight: '600', textDecoration: 'none', fontFamily: "'DM Sans', sans-serif" }}>
-                Sign in
-              </Link>
-            </div>
-          ) : loadingUpdates ? (
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center', padding: '48px 0' }}>Loading...</p>
-          ) : updates.length === 0 ? (
-            <div style={{ padding: '32px 0', textAlign: 'center' }}>
-              <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '500', marginBottom: '8px' }}>No updates yet</p>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: '1.6' }}>
-                Updates from salons and artists you follow will appear here.
-              </p>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {updates.map(post => {
-                const name   = post.profiles?.display_name || 'Creator'
-                const avatar = post.profiles?.avatar_url
-                const diff   = Date.now() - new Date(post.created_at).getTime()
-                const h = Math.floor(diff / 3600000)
-                const d = Math.floor(diff / 86400000)
-                const ago = d >= 1 ? `${d}d ago` : h >= 1 ? `${h}h ago` : 'Just now'
-                return (
-                  <div key={post.id} style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '16px', padding: '16px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                      <Link href={`/creator/${post.creator_id}`} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
-                        <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'var(--bg-chip)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          {avatar
-                            ? <img src={avatar} alt={name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            : <span style={{ color: 'var(--accent)', fontSize: '15px', fontWeight: '600' }}>{name[0].toUpperCase()}</span>
-                          }
-                        </div>
-                        <div>
-                          <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '600', margin: 0 }}>{name}</p>
-                          <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: '2px 0 0' }}>{ago}</p>
-                        </div>
-                      </Link>
+        {/* ════════════════════════════════════════════════════════════════ */}
+        {/* UPDATES TAB                                                     */}
+        {/* ════════════════════════════════════════════════════════════════ */}
+        {mainTab === 'updates' && (
+          <div>
+            {!currentUser ? (
+              <div style={{ padding: '32px 0', textAlign: 'center' }}>
+                <p style={{ ...ui(400, 15), marginBottom: '8px' }}>Sign in to see updates</p>
+                <p style={{ ...ui(300, 13, 'var(--lq-white-80)'), lineHeight: 1.6, marginBottom: '20px' }}>
+                  Follow salons and nail artists to get their latest news here.
+                </p>
+                <PillButton href="/profile" style={{ display: 'inline-flex' }}>Sign in</PillButton>
+              </div>
+            ) : loadingUpdates ? (
+              <p style={{ ...ui(300, 14, 'var(--lq-white-80)'), textAlign: 'center', padding: '48px 0' }}>Loading...</p>
+            ) : updates.length === 0 ? (
+              <div style={{ padding: '32px 0', textAlign: 'center' }}>
+                <p style={{ ...ui(400, 15), marginBottom: '8px' }}>No updates yet</p>
+                <p style={{ ...ui(300, 13, 'var(--lq-white-80)'), lineHeight: 1.6 }}>
+                  Updates from salons and artists you follow will appear here.
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {updates.map(post => {
+                  const name   = post.profiles?.display_name || 'Creator'
+                  const avatar = post.profiles?.avatar_url
+                  const diff   = Date.now() - new Date(post.created_at).getTime()
+                  const h = Math.floor(diff / 3600000)
+                  const d = Math.floor(diff / 86400000)
+                  const ago = d >= 1 ? `${d}d ago` : h >= 1 ? `${h}h ago` : 'Just now'
+                  return (
+                    <div key={post.id} style={{ background: 'var(--lq-glass)', border: '1px solid var(--lq-glass-border)', borderRadius: 'var(--lq-radius-tile)', padding: '16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                        <Link href={`/creator/${post.creator_id}`} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
+                          <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'rgba(255,255,255,0.15)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {avatar
+                              ? <img src={avatar} alt={name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              : <span style={ui(400, 15)}>{name[0].toUpperCase()}</span>
+                            }
+                          </div>
+                          <div>
+                            <p style={{ ...ui(400, 13), margin: 0 }}>{name}</p>
+                            <p style={{ ...ui(300, 11, 'var(--lq-white-80)'), margin: '2px 0 0' }}>{ago}</p>
+                          </div>
+                        </Link>
+                      </div>
+                      <p style={{ ...ui(300, 14), lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}>{post.body}</p>
                     </div>
-                    <p style={{ color: 'var(--text-primary)', fontSize: '14px', lineHeight: '1.6', margin: 0, whiteSpace: 'pre-wrap' }}>{post.body}</p>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      )}
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
-      {/* ════════════════════════════════════════════════════════════════════ */}
-      {/* FOLLOWING TAB                                                       */}
-      {/* ════════════════════════════════════════════════════════════════════ */}
-      {mainTab === 'following' && (
-        <div>
-          {!currentUser ? (
-            <div style={{ padding: '48px 20px', textAlign: 'center' }}>
-              <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '500', marginBottom: '8px' }}>Sign in to see your feed</p>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: '1.6', marginBottom: '20px' }}>
-                Follow nail artists and salons to get their latest designs here.
-              </p>
-              <Link href="/profile" style={{ display: 'inline-block', background: 'var(--accent)', color: '#2C0A1E', borderRadius: '12px', padding: '12px 28px', fontSize: '14px', fontWeight: '600', textDecoration: 'none', fontFamily: "'DM Sans', sans-serif" }}>
-                Sign in
-              </Link>
-            </div>
-          ) : loadingFollowing ? (
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center', padding: '48px 0' }}>Loading...</p>
-          ) : followingFeed.length === 0 ? (
-            <div style={{ padding: '48px 20px', textAlign: 'center' }}>
-              <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '500', marginBottom: '8px' }}>
-                Your feed is empty
-              </p>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: '1.6', marginBottom: '20px' }}>
-                Follow nail artists and salons to see their latest designs here.
-              </p>
-              <Link href="/search" style={{ display: 'inline-block', background: 'var(--accent)', color: '#2C0A1E', borderRadius: '12px', padding: '12px 28px', fontSize: '14px', fontWeight: '600', textDecoration: 'none', fontFamily: "'DM Sans', sans-serif" }}>
-                Find creators
-              </Link>
-            </div>
-          ) : (
-            <div>
-              {followingFeed.map(design => (
-                <CommunityCard key={design.id} design={design} currentUser={currentUser} initiallyLiked={likedDesignIds.has(design.id)} />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+        {/* ════════════════════════════════════════════════════════════════ */}
+        {/* FOLLOWING TAB                                                   */}
+        {/* ════════════════════════════════════════════════════════════════ */}
+        {mainTab === 'following' && (
+          <div style={{ margin: '0 -24px' }}>
+            {!currentUser ? (
+              <div style={{ padding: '48px 24px', textAlign: 'center' }}>
+                <p style={{ ...ui(400, 15), marginBottom: '8px' }}>Sign in to see your feed</p>
+                <p style={{ ...ui(300, 13, 'var(--lq-white-80)'), lineHeight: 1.6, marginBottom: '20px' }}>
+                  Follow nail artists and salons to get their latest designs here.
+                </p>
+                <PillButton href="/profile" style={{ display: 'inline-flex' }}>Sign in</PillButton>
+              </div>
+            ) : loadingFollowing ? (
+              <p style={{ ...ui(300, 14, 'var(--lq-white-80)'), textAlign: 'center', padding: '48px 0' }}>Loading...</p>
+            ) : followingFeed.length === 0 ? (
+              <div style={{ padding: '48px 24px', textAlign: 'center' }}>
+                <p style={{ ...ui(400, 15), marginBottom: '8px' }}>Your feed is empty</p>
+                <p style={{ ...ui(300, 13, 'var(--lq-white-80)'), lineHeight: 1.6, marginBottom: '20px' }}>
+                  Follow nail artists and salons to see their latest designs here.
+                </p>
+                <PillButton href="/search" style={{ display: 'inline-flex' }}>Find creators</PillButton>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '0 16px' }}>
+                {followingFeed.map(design => (
+                  <CommunityCard key={design.id} design={design} currentUser={currentUser} initiallyLiked={likedDesignIds.has(design.id)} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
+      </div>
     </div>
   )
 }
