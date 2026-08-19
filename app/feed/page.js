@@ -778,9 +778,12 @@ export default function FeedPage() {
                 </div>
                 {tileImages.length > 0 && (
                   <div style={{ display: 'flex', gap: '8px', padding: '0 16px' }}>
+                    {/* Tiles stay label-only until counts read as social proof
+                        rather than emptiness; real numbers appear automatically
+                        past 50 artists / 100 posts (Sogol, 2026-08-19). */}
                     {[
-                      { img: tileImages[0], text: `${formatCount(communityStats.artists)} Artists` },
-                      { img: tileImages[1] || tileImages[0], text: `${formatCount(communityStats.posts)} Community Posts` },
+                      { img: tileImages[0], text: communityStats.artists >= 50 ? `${formatCount(communityStats.artists)} Artists` : 'Nail Artists' },
+                      { img: tileImages[1] || tileImages[0], text: communityStats.posts >= 100 ? `${formatCount(communityStats.posts)} Community Posts` : 'Community Posts' },
                     ].map((tile, i) => (
                       <div key={i} style={{ flex: 1, position: 'relative', height: '124px', borderRadius: 'var(--lq-radius-tile)', overflow: 'hidden' }}>
                         <img src={tile.img.image_url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
