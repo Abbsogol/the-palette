@@ -2,9 +2,13 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import SaveToBoard from './SaveToBoard'
 import CommentSheet from './CommentSheet'
+import { CardHeartIcon, CommentDotsIcon } from './ui/icons'
 
+// Community-post card, restyled to the redesign tokens. Community posts keep
+// like + comment (the redesign's heart-save applies to library designs, not
+// posts); the board bookmark moved out of the card row — collections are now
+// reached from the design page and /saved.
 export default function CommunityCard({ design, currentUser, initiallyLiked }) {
   const [liked, setLiked]               = useState(!!initiallyLiked)
   const [likesCount, setLikesCount]     = useState(design.likes_count || 0)
@@ -55,48 +59,53 @@ export default function CommunityCard({ design, currentUser, initiallyLiked }) {
   const creatorName = creator?.display_name || 'Creator'
   const accountType = creator?.account_type
 
+  const actionButton = { display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', cursor: 'pointer', minHeight: '44px', minWidth: '44px', padding: '6px 8px', fontFamily: 'var(--lq-font-ui)', fontSize: '13px' }
+
   return (
-    <div style={{ background: 'var(--bg-primary)', borderBottom: '6px solid var(--bg-card)' }}>
+    <article style={{
+      background: 'var(--lq-glass)',
+      border: '1px solid var(--lq-glass-border)',
+      borderRadius: 'var(--lq-radius-card-lg)',
+      padding: '12px 12px 14px',
+    }}>
 
       {/* ── Creator header ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px' }}>
-        <Link
-          href={`/creator/${design.created_by}`}
-          style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', flex: 1 }}
-        >
-          <div style={{
-            width: '36px', height: '36px', borderRadius: '50%',
-            background: 'var(--bg-chip)', overflow: 'hidden', flexShrink: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            border: '0.5px solid var(--border)',
-          }}>
-            {creator?.avatar_url
-              ? <img src={creator.avatar_url} alt={creatorName} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : <span style={{ color: 'var(--accent)', fontSize: '15px', fontWeight: '500' }}>{creatorName[0].toUpperCase()}</span>
-            }
-          </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500', margin: 0, lineHeight: 1.2 }}>
-                {creatorName}
-              </p>
-              {creator?.is_verified && (
-                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
-                  <circle cx="8" cy="8" r="7" fill="#D4A0C0"/>
-                  <path d="M5 8L7 10L11 6" stroke="#2C0A1E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              )}
-            </div>
-            <p style={{ color: 'var(--accent)', fontSize: '10px', fontWeight: '500', letterSpacing: '0.06em', textTransform: 'uppercase', margin: '2px 0 0' }}>
-              {accountType === 'salon' ? 'Salon' : 'Nail Artist'}
+      <Link
+        href={`/creator/${design.created_by}`}
+        style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', padding: '2px 4px 12px' }}
+      >
+        <div style={{
+          width: '36px', height: '36px', borderRadius: '50%',
+          background: 'rgba(255,255,255,0.15)', overflow: 'hidden', flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          border: '1px solid var(--lq-glass-border)',
+        }}>
+          {creator?.avatar_url
+            ? <img src={creator.avatar_url} alt={creatorName} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : <span style={{ color: 'var(--lq-white)', fontSize: '15px', fontWeight: '400', fontFamily: 'var(--lq-font-ui)' }}>{creatorName[0].toUpperCase()}</span>
+          }
+        </div>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <p style={{ color: 'var(--lq-white)', fontSize: '14px', fontWeight: '400', fontFamily: 'var(--lq-font-ui)', margin: 0, lineHeight: 1.2 }}>
+              {creatorName}
             </p>
+            {creator?.is_verified && (
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }} aria-label="Verified">
+                <circle cx="8" cy="8" r="7" fill="var(--lq-accent-b)"/>
+                <path d="M5 8L7 10L11 6" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            )}
           </div>
-        </Link>
-      </div>
+          <p style={{ color: 'var(--lq-accent-b)', fontSize: '10px', fontWeight: '500', fontFamily: 'var(--lq-font-ui)', letterSpacing: '0.06em', textTransform: 'uppercase', margin: '2px 0 0' }}>
+            {accountType === 'salon' ? 'Salon' : 'Nail Artist'}
+          </p>
+        </div>
+      </Link>
 
-      {/* ── Image ── */}
-      <Link href={`/design/${design.id}?from=%2Ffeed`} style={{ display: 'block', textDecoration: 'none' }}>
-        <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', background: 'var(--bg-chip)' }}>
+      {/* ── Image with counts overlay ── */}
+      <Link href={`/design/${design.id}?from=%2Ffeed`} style={{ display: 'block', textDecoration: 'none', position: 'relative' }}>
+        <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: 'var(--lq-radius-card)', background: 'rgba(255,255,255,0.06)' }}>
           {design.image_url
             ? <img
                 src={design.image_url}
@@ -108,86 +117,57 @@ export default function CommunityCard({ design, currentUser, initiallyLiked }) {
             : <div style={{ width: '100%', height: '100%' }} />
           }
         </div>
+        {(likesCount > 0 || commentsCount > 0) && (
+          <div style={{
+            position: 'absolute', left: '12px', bottom: '12px', display: 'flex', gap: '8px', alignItems: 'center',
+            background: 'rgba(32, 5, 11, 0.4)', backdropFilter: 'blur(6px)', borderRadius: 'var(--lq-radius-pill)', padding: '6px 12px',
+            color: 'var(--lq-white)',
+          }}>
+            {likesCount > 0 && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontFamily: 'var(--lq-font-ui)', fontSize: '12px' }}>
+                <CardHeartIcon size={13} filled />{likesCount}
+              </span>
+            )}
+            {commentsCount > 0 && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontFamily: 'var(--lq-font-ui)', fontSize: '12px' }}>
+                <CommentDotsIcon size={13} />{commentsCount}
+              </span>
+            )}
+          </div>
+        )}
       </Link>
 
-      {/* ── Action bar ── */}
-      <div style={{ padding: '10px 12px 4px', display: 'flex', alignItems: 'center', gap: '2px' }}>
-
-        {/* Like */}
+      {/* ── Action row ── */}
+      <div style={{ padding: '4px 0 0', display: 'flex', alignItems: 'center' }}>
         <button
           onClick={toggleLike}
           disabled={likeLoading}
-          title={liked ? 'Unlike' : 'Like'}
-          style={{
-            display: 'flex', alignItems: 'center',
-            background: 'none', border: 'none', cursor: 'pointer',
-            padding: '6px 10px 6px 4px',
-            color: liked ? 'var(--accent)' : 'var(--text-secondary)',
-            transition: 'color 0.15s',
-          }}
+          aria-label={liked ? 'Unlike' : 'Like'}
+          aria-pressed={liked}
+          style={{ ...actionButton, color: liked ? 'var(--lq-accent-b)' : 'var(--lq-white-80)' }}
         >
-          <svg width="24" height="24" viewBox="0 0 24 24"
-            fill={liked ? 'currentColor' : 'none'}
-            stroke="currentColor" strokeWidth="1.7"
-            strokeLinecap="round" strokeLinejoin="round"
-          >
-            <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
-          </svg>
+          <CardHeartIcon size={20} filled={liked} />
+          {likesCount > 0 && <span>{likesCount}</span>}
         </button>
-
-        {/* Comment */}
         <button
           onClick={() => setCommentOpen(true)}
-          title="Comments"
-          style={{
-            display: 'flex', alignItems: 'center',
-            background: 'none', border: 'none', cursor: 'pointer',
-            padding: '6px 10px',
-            color: 'var(--text-secondary)',
-          }}
+          aria-label={`Comments${commentsCount > 0 ? `, ${commentsCount}` : ''}`}
+          style={{ ...actionButton, color: 'var(--lq-white-80)' }}
         >
-          <svg width="24" height="24" viewBox="0 0 24 24"
-            fill="none" stroke="currentColor" strokeWidth="1.7"
-            strokeLinecap="round" strokeLinejoin="round"
-          >
-            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
-          </svg>
+          <CommentDotsIcon size={19} />
+          {commentsCount > 0 && <span>{commentsCount}</span>}
         </button>
-
-        {/* Save to board — pushed to right */}
-        <div style={{ marginLeft: 'auto' }}>
-          <SaveToBoard designId={design.id} designImageUrl={design.image_url} />
-        </div>
       </div>
 
-      {/* ── Counts ── */}
-      {(likesCount > 0 || commentsCount > 0) && (
-        <div style={{ padding: '0 16px 6px', display: 'flex', gap: '12px', alignItems: 'center' }}>
-          {likesCount > 0 && (
-            <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', margin: 0 }}>
-              {likesCount} {likesCount === 1 ? 'like' : 'likes'}
-            </p>
-          )}
-          {commentsCount > 0 && (
-            <button
-              onClick={() => setCommentOpen(true)}
-              style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer', padding: 0 }}
-            >
-              View {commentsCount} {commentsCount === 1 ? 'comment' : 'comments'}
-            </button>
-          )}
-        </div>
-      )}
-
       {/* ── Caption ── */}
-      <div style={{ padding: '0 16px 18px' }}>
+      <div style={{ padding: '2px 4px 0' }}>
         <Link href={`/design/${design.id}?from=%2Ffeed`} style={{ textDecoration: 'none' }}>
-          <span style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500' }}>{creatorName} </span>
-          <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>{design.title}</span>
+          <span style={{ color: 'var(--lq-white)', fontSize: '13px', fontWeight: '400', fontFamily: 'var(--lq-font-ui)', overflowWrap: 'break-word' }}>{creatorName} </span>
+          <span style={{ color: 'var(--lq-white-80)', fontSize: '13px', fontWeight: '300', fontFamily: 'var(--lq-font-ui)', overflowWrap: 'break-word' }}>{design.title}</span>
         </Link>
-        {(design.shape || design.occasion) && (
-          <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.05em', textTransform: 'uppercase', marginTop: '4px', marginBottom: 0 }}>
-            {[design.shape, design.occasion?.split(',')[0]?.trim()].filter(Boolean).join(' · ')}
+        {(design.shape || design.category) && (
+          <p style={{ color: 'var(--lq-white-80)', fontSize: '10px', fontWeight: '500', fontFamily: 'var(--lq-font-ui)', letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: '4px', marginBottom: 0 }}>
+            {[design.shape, design.category].filter(Boolean).join(' · ')}
           </p>
         )}
       </div>
@@ -202,6 +182,6 @@ export default function CommunityCard({ design, currentUser, initiallyLiked }) {
           onCommentDeleted={() => setCommentsCount(c => Math.max(0, c - 1))}
         />
       )}
-    </div>
+    </article>
   )
 }
