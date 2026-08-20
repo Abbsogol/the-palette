@@ -8,6 +8,7 @@ import SearchInput from '@/components/ui/SearchInput'
 import IconButton from '@/components/ui/IconButton'
 import PillButton from '@/components/ui/PillButton'
 import HeartSaveButton from '@/components/ui/HeartSaveButton'
+import FavouriteButton from '@/components/ui/FavouriteButton'
 import Sheet from '@/components/ui/Sheet'
 import { LaqueWordmark, CandleFilterIcon } from '@/components/ui/icons'
 
@@ -165,6 +166,11 @@ export default function SearchPage() {
   const [salons, setSalons] = useState([])
   const [salonsLoaded, setSalonsLoaded] = useState(false)
   const [locationFilter, setLocationFilter] = useState('')
+  const [favouriteIds, setFavouriteIds] = useState(new Set())
+  const [artistSort, setArtistSort] = useState('az')          // 'az' | 'newest'
+  const [artistFilters, setArtistFilters] = useState({ role: [], city: [] })
+  const [artistPanelFilters, setArtistPanelFilters] = useState({ role: [], city: [] })
+  const [artistPanelOpen, setArtistPanelOpen] = useState(false)
 
   // Read tag/query/filters from URL on mount
   const isFirstQuery = useRef(true)
@@ -278,23 +284,45 @@ export default function SearchPage() {
     if (tab === 'salons' && !salonsLoaded) {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, display_name, username, avatar_url, account_type, location, bio')
+        .select('id, display_name, username, avatar_url, account_type, location, bio, created_at')
         .in('account_type', ['nail_artist', 'creator', 'salon'])
         .order('display_name', { ascending: true })
         .limit(200)
       if (error) console.error('salons fetch failed:', error)
       setSalons(data || [])
       setSalonsLoaded(true)
+      if (currentUser && data?.length) {
+        const { data: favRows, error: favError } = await supabase
+          .from('favourite_creators')
+          .select('creator_id')
+          .eq('user_id', currentUser.id)
+          .in('creator_id', data.map(s => s.id))
+        if (favError) console.error('favourites fetch failed:', favError)
+        setFavouriteIds(new Set((favRows || []).map(r => r.creator_id)))
+      }
     }
   }
 
-  const filteredSalons = locationFilter.trim()
+  // Artists pipeline: text search -> role/city filters -> sort
+  const applyArtistFilters = (list, f) => list
+    .filter(s => f.role.length === 0 || f.role.includes(s.account_type === 'salon' ? 'salon' : 'nail artist'))
+    .filter(s => f.city.length === 0 || f.city.some(c => (s.location || '').trim().toLowerCase() === c.toLowerCase()))
+  const textFilteredSalons = locationFilter.trim()
     ? salons.filter(s =>
         s.location?.toLowerCase().includes(locationFilter.trim().toLowerCase()) ||
         s.display_name?.toLowerCase().includes(locationFilter.trim().toLowerCase()) ||
         s.username?.toLowerCase().includes(locationFilter.trim().toLowerCase())
       )
     : salons
+  const filteredSalons = applyArtistFilters(textFilteredSalons, artistFilters)
+    .sort((a, b) => artistSort === 'newest'
+      ? new Date(b.created_at) - new Date(a.created_at)
+      : (a.display_name || '').localeCompare(b.display_name || ''))
+  const artistCities = [...new Map(
+    salons.map(s => (s.location || '').trim()).filter(Boolean).map(c => [c.toLowerCase(), c])
+  ).values()].sort((a, b) => a.localeCompare(b))
+  const artistActiveCount = artistFilters.role.length + artistFilters.city.length
+  const artistPanelCount = applyArtistFilters(textFilteredSalons, artistPanelFilters).length
 
   const activeCount = countActive(filters)
   const hasActive = activeCount > 0 || query.trim() || tagFilter
@@ -516,37 +544,82 @@ export default function SearchPage() {
             </div>
           ) : (
             <>
-              <p style={{ ...ui(300, 13, 'var(--lq-white-80)'), marginBottom: '14px' }} aria-live="polite">
-                {filteredSalons.length} {filteredSalons.length === 1 ? 'item' : 'items'}
-              </p>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', minHeight: '32px' }}>
+                <p style={ui(300, 13, 'var(--lq-white-80)')} aria-live="polite">
+                  {filteredSalons.length} {filteredSalons.length === 1 ? 'item' : 'items'}
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '2px', color: 'var(--lq-white)' }}>
+                  <IconButton
+                    label={`Filter artists and salons${artistActiveCount > 0 ? `, ${artistActiveCount} active` : ''}`}
+                    onClick={() => { setArtistPanelFilters(artistFilters); setArtistPanelOpen(true) }}
+                    variant="plain"
+                    visualSize={32}
+                    badge={artistActiveCount > 0 ? (
+                      <span style={{
+                        position: 'absolute', top: '-4px', right: '-4px', minWidth: '16px', height: '16px',
+                        borderRadius: 'var(--lq-radius-pill)', background: 'var(--lq-accent-b)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px',
+                        color: 'var(--lq-white)', fontSize: '9px', fontWeight: 700, fontFamily: 'var(--lq-font-ui)',
+                      }}>{artistActiveCount}</span>
+                    ) : null}
+                  >
+                    <CandleFilterIcon size={22} />
+                  </IconButton>
+                  <button
+                    onClick={() => setArtistSort(s => s === 'az' ? 'newest' : 'az')}
+                    aria-label={`Sort: ${artistSort === 'az' ? 'alphabetical' : 'newest first'}. Tap to switch.`}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', cursor: 'pointer', padding: '10px 0 10px 6px', minHeight: '44px', color: 'var(--lq-white)' }}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                      <path d="M6 4v12M6 16l-2.5-2.5M6 16l2.5-2.5M14 16V4M14 4l-2.5 2.5M14 4l2.5 2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <span style={ui(300, 12)}>{artistSort === 'az' ? 'A–Z' : 'Newest'}</span>
+                  </button>
+                </div>
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 {filteredSalons.map(salon => (
-                  <Link key={salon.id} href={`/creator/${salon.id}`} style={{
-                    textDecoration: 'none',
-                    background: 'var(--lq-wine)',
-                    borderRadius: 'var(--lq-radius-sheet)', padding: '16px 12px',
-                    display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  }}>
-                    <div style={{ width: '112px', height: '112px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '-8px' }}>
-                      {salon.avatar_url
-                        ? <img src={salon.avatar_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        : <span style={ui(400, 32)}>{(salon.display_name || '?')[0].toUpperCase()}</span>}
-                    </div>
-                    <span style={{ background: 'linear-gradient(90deg, #FF517F 39.5%, #99314C 100%)', color: 'var(--lq-white)', ...ui(500, 10), padding: '4px 8px', borderRadius: 'var(--lq-radius-pill)', letterSpacing: '0.04em', textTransform: 'uppercase', position: 'relative' }}>
-                      {salon.account_type === 'salon' ? 'Salon' : 'Nail Artist'}
-                    </span>
-                    <p style={{ ...ui(400, 16), textAlign: 'center', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '12px' }}>
-                      {salon.display_name || 'Salon'}
-                    </p>
-                    {salon.location && (
-                      <p style={{ ...ui(300, 12), display: 'flex', alignItems: 'center', gap: '3px', margin: '8px 0 0', maxWidth: '100%', overflow: 'hidden' }}>
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
-                          <path fillRule="evenodd" clipRule="evenodd" d="M5.631 11.067C5.631 11.067 2 8.009 2 5C2 3.93913 2.42143 2.92172 3.17157 2.17157C3.92172 1.42143 4.93913 1 6 1C7.06087 1 8.07828 1.42143 8.82843 2.17157C9.57857 2.92172 10 3.93913 10 5C10 8.009 6.369 11.067 6.369 11.067C6.167 11.253 5.8345 11.251 5.631 11.067ZM6 6.75C6.9665 6.75 7.75 5.9665 7.75 5C7.75 4.0335 6.9665 3.25 6 3.25C5.0335 3.25 4.25 4.0335 4.25 5C4.25 5.9665 5.0335 6.75 6 6.75Z" fill="currentColor" />
-                        </svg>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{salon.location}</span>
+                  <div key={salon.id} style={{ position: 'relative' }}>
+                    <Link href={`/creator/${salon.id}`} style={{
+                      textDecoration: 'none',
+                      background: 'var(--lq-wine)',
+                      borderRadius: 'var(--lq-radius-sheet)', padding: '16px 12px',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    }}>
+                      <div style={{ width: '112px', height: '112px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '-8px' }}>
+                        {salon.avatar_url
+                          ? <img src={salon.avatar_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          : <span style={ui(400, 32)}>{(salon.display_name || '?')[0].toUpperCase()}</span>}
+                      </div>
+                      <span style={{ background: 'linear-gradient(90deg, #FF517F 39.5%, #99314C 100%)', color: 'var(--lq-white)', ...ui(500, 10), padding: '4px 8px', borderRadius: 'var(--lq-radius-pill)', letterSpacing: '0.04em', textTransform: 'uppercase', position: 'relative' }}>
+                        {salon.account_type === 'salon' ? 'Salon' : 'Nail Artist'}
+                      </span>
+                      <p style={{ ...ui(400, 16), textAlign: 'center', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '12px' }}>
+                        {salon.display_name || 'Salon'}
                       </p>
-                    )}
-                  </Link>
+                      <p style={{ ...ui(300, 12), display: 'flex', alignItems: 'center', gap: '10px', margin: '8px 0 0', maxWidth: '100%', overflow: 'hidden' }}>
+                        {salon.location && (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '3px', minWidth: 0 }}>
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
+                              <path fillRule="evenodd" clipRule="evenodd" d="M5.631 11.067C5.631 11.067 2 8.009 2 5C2 3.93913 2.42143 2.92172 3.17157 2.17157C3.92172 1.42143 4.93913 1 6 1C7.06087 1 8.07828 1.42143 8.82843 2.17157C9.57857 2.92172 10 3.93913 10 5C10 8.009 6.369 11.067 6.369 11.067C6.167 11.253 5.8345 11.251 5.631 11.067ZM6 6.75C6.9665 6.75 7.75 5.9665 7.75 5C7.75 4.0335 6.9665 3.25 6 3.25C5.0335 3.25 4.25 4.0335 4.25 5C4.25 5.9665 5.0335 6.75 6 6.75Z" fill="currentColor" />
+                            </svg>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{salon.location}</span>
+                          </span>
+                        )}
+                        {/* Ratings don't exist yet (gap register) — "★ New" is the
+                            honest no-ratings-yet state, per Sogol. */}
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
+                          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                            <path d="M7.8143 1.38595L6.14467 4.64873C6.04314 4.85424 5.89319 5.03201 5.70772 5.16672C5.52226 5.30143 5.30684 5.38906 5.08 5.42206L1.63667 5.9254L4.33867 10.2067L3.75133 13.6327L7.34267 12.3874C7.54552 12.2809 7.77121 12.2252 8.00033 12.2252C8.22945 12.2252 8.45514 12.2809 8.658 12.3874L12.2507 13.6327L11.6627 10.2061L14.3647 5.92606L10.9207 5.42206C10.6941 5.3888 10.479 5.30106 10.2937 5.16636C10.1085 5.03167 9.95879 4.85404 9.85733 4.64873L8.18703 1.38595H7.8143Z" fill="currentColor" />
+                          </svg>
+                          New
+                        </span>
+                      </p>
+                    </Link>
+                    <span style={{ position: 'absolute', top: '4px', right: '4px' }}>
+                      <FavouriteButton creatorId={salon.id} currentUser={currentUser} initiallyFavourited={favouriteIds.has(salon.id)} />
+                    </span>
+                  </div>
                 ))}
               </div>
             </>
@@ -583,7 +656,7 @@ export default function SearchPage() {
             </div>
           </div>
 
-          {Object.entries(FILTERS).map(([group, options]) => (
+          {Object.entries(FILTERS).map(([group, options]) => (   /* designs panel groups */
             <div key={group} style={{ marginBottom: '20px' }}>
               <p style={{ ...ui(400, 16), marginBottom: '10px' }}>
                 {GROUP_LABELS[group]}
@@ -612,6 +685,63 @@ export default function SearchPage() {
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0 8px' }}>
                   {options.map(option => (
                     <Chip key={option} active={panelFilters[group].includes(option)} onClick={() => togglePanelValue(group, option)}>
+                      <span style={{ textTransform: 'capitalize' }}>{option}</span>
+                    </Chip>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </Sheet>
+      )}
+
+      {/* ── ARTISTS FILTER PANEL ─────────────────────────────────────────── */}
+      {artistPanelOpen && (
+        <Sheet
+          fullScreen
+          title="Filter artists and salons"
+          onClose={() => setArtistPanelOpen(false)}
+          footer={
+            <PillButton variant="primary" fullWidth onClick={() => { setArtistFilters(artistPanelFilters); setArtistPanelOpen(false) }}>
+              {`Show ${artistPanelCount} Result${artistPanelCount !== 1 ? 's' : ''}`}
+            </PillButton>
+          }
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <h2 style={{ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: '30px', color: 'var(--lq-white)' }}>Filters</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <button onClick={() => setArtistPanelFilters({ role: [], city: [] })}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '12px 8px', ...ui(300, 13, 'var(--lq-white-80)'), textDecoration: 'underline' }}>
+                Clear All
+              </button>
+              <IconButton label="Close filters" onClick={() => setArtistPanelOpen(false)} variant="plain" visualSize={32}>
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                  <path d="M4 4L14 14M14 4L4 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </IconButton>
+            </div>
+          </div>
+
+          {[
+            ['role', 'Type', ['nail artist', 'salon']],
+            ['city', 'City', artistCities],
+          ].map(([group, label, options]) => (
+            <div key={group} style={{ marginBottom: '20px' }}>
+              <p style={{ ...ui(400, 16), marginBottom: '10px' }}>
+                {label}
+                <span style={ui(300, 14, 'var(--lq-white-80)')}> ( {artistPanelFilters[group].length} )</span>
+              </p>
+              {options.length === 0 ? (
+                <p style={ui(300, 13, 'var(--lq-white-80)')}>No cities on profiles yet</p>
+              ) : (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0 8px' }}>
+                  {options.map(option => (
+                    <Chip key={option}
+                      active={artistPanelFilters[group].includes(option)}
+                      onClick={() => setArtistPanelFilters(prev => {
+                        const has = prev[group].includes(option)
+                        return { ...prev, [group]: has ? prev[group].filter(v => v !== option) : [...prev[group], option] }
+                      })}>
                       <span style={{ textTransform: 'capitalize' }}>{option}</span>
                     </Chip>
                   ))}
