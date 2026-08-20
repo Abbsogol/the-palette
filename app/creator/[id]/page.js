@@ -319,6 +319,9 @@ export default function CreatorPage() {
   const showMessage = !isOwnProfile && !isBlocked && (currentUser ? canMessage : true)
   const canBook = services.length > 0 && !isOwnProfile && !isBlocked && !isPrivateAndNotFollowing
   const minPrice = services.length > 0 ? Math.min(...services.map(s => s.price || 0)) : null
+  // The heart must always sit inline with a primary action (frame 257:2206);
+  // when neither Book nor Message renders, Follow moves into the row.
+  const followIsRowPrimary = !canBook && !showMessage
 
   const glassBtnStyle = { background: PANEL, border: PANEL_BORDER }
 
@@ -477,6 +480,27 @@ export default function CreatorPage() {
                 {messagingLoading ? '…' : 'Message'}
               </button>
             )}
+            {followIsRowPrimary && currentUser && (
+              <button onClick={handleFollow} disabled={followLoading} style={{
+                flex: 1, height: '52px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: isFollowing ? PANEL : 'linear-gradient(90deg, rgba(229,142,162,0.25), rgba(158,60,83,0.25))',
+                border: isFollowing ? PANEL_BORDER : `1px solid rgba(229,142,162,0.4)`,
+                borderRadius: 'var(--lq-radius-pill)', cursor: followLoading ? 'not-allowed' : 'pointer',
+                opacity: followLoading ? 0.7 : 1, ...ui(600, 15, isFollowing ? MUTED : 'var(--lq-white)'),
+              }}>
+                {isFollowing ? '✓ Following' : 'Follow'}
+              </button>
+            )}
+            {followIsRowPrimary && !currentUser && (
+              <Link href="/profile" style={{
+                flex: 1, height: '52px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'linear-gradient(90deg, rgba(229,142,162,0.25), rgba(158,60,83,0.25))',
+                border: `1px solid rgba(229,142,162,0.4)`,
+                borderRadius: 'var(--lq-radius-pill)', textDecoration: 'none', ...ui(600, 15),
+              }}>
+                Sign in to follow
+              </Link>
+            )}
             {favouriteLoaded && (
               <FavouriteButton key={String(isFavourited)} creatorId={id} currentUser={currentUser} initiallyFavourited={isFavourited} shape="square" />
             )}
@@ -484,8 +508,9 @@ export default function CreatorPage() {
         )}
 
         {/* Follow — real feature (powers the Following feed); the frame omits
-            it, kept by Sogol's decision as an additive full-width pill. */}
-        {!isOwnProfile && currentUser && !isBlocked && (
+            it, kept by Sogol's decision as an additive full-width pill.
+            Skipped when Follow already serves as the row primary above. */}
+        {!isOwnProfile && currentUser && !isBlocked && !followIsRowPrimary && (
           <button onClick={handleFollow} disabled={followLoading} style={{
             width: '100%', marginTop: '12px', height: '48px',
             background: isFollowing ? PANEL : 'linear-gradient(90deg, rgba(229,142,162,0.25), rgba(158,60,83,0.25))',
@@ -496,7 +521,7 @@ export default function CreatorPage() {
             {isFollowing ? '✓ Following' : 'Follow'}
           </button>
         )}
-        {!isOwnProfile && !currentUser && (
+        {!isOwnProfile && !currentUser && !followIsRowPrimary && (
           <Link href="/profile" style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             width: '100%', marginTop: '12px', height: '48px',
