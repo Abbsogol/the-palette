@@ -314,6 +314,9 @@ export default function CreatorPage() {
     profile.message_permission === 'everyone' ||
     (profile.message_permission === 'followers' && isFollowing)
   )
+  // Frame draws Message on every profile: guests see it too and are routed
+  // to sign-in on tap (handleMessage already does that for !currentUser).
+  const showMessage = !isOwnProfile && !isBlocked && (currentUser ? canMessage : true)
   const canBook = services.length > 0 && !isOwnProfile && !isBlocked && !isPrivateAndNotFollowing
   const minPrice = services.length > 0 ? Math.min(...services.map(s => s.price || 0)) : null
 
@@ -465,7 +468,7 @@ export default function CreatorPage() {
                 Book Appointment
               </Link>
             )}
-            {canMessage && (
+            {showMessage && (
               <button onClick={handleMessage} disabled={messagingLoading} style={{
                 flex: 1, height: '52px', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 ...glassBtnStyle, borderRadius: 'var(--lq-radius-pill)',
