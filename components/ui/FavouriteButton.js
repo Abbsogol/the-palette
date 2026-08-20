@@ -6,7 +6,9 @@ import { CardHeartIcon } from './icons'
 // Heart = favourite an artist/salon (favourite_creators table). Distinct
 // from HeartSaveButton (designs -> saved_designs): no counters, no rewards,
 // just membership. `initiallyFavourited` comes from the page's batched query.
-export default function FavouriteButton({ creatorId, currentUser = null, initiallyFavourited = false, size = 28 }) {
+// shape 'circle': glass circle overlay for cards. shape 'square': the
+// 48px rounded-14 action-row variant from the artist profile frame.
+export default function FavouriteButton({ creatorId, currentUser = null, initiallyFavourited = false, size = 28, shape = 'circle' }) {
   const [favourited, setFavourited] = useState(initiallyFavourited)
   const [saving, setSaving] = useState(false)
 
@@ -32,6 +34,34 @@ export default function FavouriteButton({ creatorId, currentUser = null, initial
     } finally {
       setSaving(false)
     }
+  }
+
+  if (shape === 'square') {
+    return (
+      <button
+        type="button"
+        onClick={toggle}
+        disabled={saving}
+        aria-label={favourited ? 'Remove from favourites' : 'Add to favourites'}
+        aria-pressed={favourited}
+        style={{
+          width: '48px',
+          height: '48px',
+          flexShrink: 0,
+          borderRadius: '14px',
+          background: favourited ? 'var(--lq-accent-grad)' : 'rgba(255, 255, 255, 0.05)',
+          border: favourited ? '1px solid transparent' : '1px solid rgba(255, 255, 255, 0.07)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'var(--lq-white)',
+          cursor: saving ? 'default' : 'pointer',
+          padding: 0,
+        }}
+      >
+        <CardHeartIcon size={16} filled={favourited} />
+      </button>
+    )
   }
 
   return (

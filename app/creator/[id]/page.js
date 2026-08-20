@@ -4,9 +4,49 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import ShareButton from '@/components/ShareButton'
+import IconButton from '@/components/ui/IconButton'
+import PillButton from '@/components/ui/PillButton'
+import FavouriteButton from '@/components/ui/FavouriteButton'
+import Sheet from '@/components/ui/Sheet'
+import { MagicStarIcon } from '@/components/ui/icons'
+
+// Page-specific palette from the Artist Profile frame (257:2206): rose
+// accent + near-black plum ground, distinct from the feed's wine tokens.
+const ROSE = '#E58EA2'
+const MUTED = '#A38B95'
+const PANEL = 'rgba(255, 255, 255, 0.05)'
+const PANEL_BORDER = '1px solid rgba(255, 255, 255, 0.07)'
+const BTN_GRADIENT = 'linear-gradient(90deg, #E58EA2 0%, #9E3C53 100%)'
+
+const ui = (weight, size, color = 'var(--lq-white)') => ({
+  fontFamily: 'var(--lq-font-ui)', fontWeight: weight, fontSize: `${size}px`, color, lineHeight: 1.3,
+})
+
+function formatCount(n) {
+  if (n == null) return '0'
+  if (n >= 1000) {
+    const k = n / 1000
+    return `${k >= 10 ? Math.round(k) : Math.round(k * 10) / 10}K`
+  }
+  return String(n)
+}
+
+function fmtReply(min) {
+  if (min < 60) return `${Math.max(1, Math.round(min))} min`
+  if (min < 1440) return `${Math.round(min / 60)}h`
+  return `${Math.round(min / 1440)}d`
+}
 
 export default function CreatorPage() {
+  const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const fmt12 = (t) => {
+    if (!t) return ''
+    const [h, m] = t.slice(0, 5).split(':').map(Number)
+    const ampm = h < 12 ? 'am' : 'pm'
+    const h12 = h % 12 === 0 ? 12 : h % 12
+    return `${h12}${m > 0 ? `:${String(m).padStart(2,'0')}` : ''}${ampm}`
+  }
+
   const { id } = useParams()
   const router = useRouter()
   const [profile, setProfile]         = useState(null)
@@ -28,16 +68,12 @@ export default function CreatorPage() {
   const [isBlocked, setIsBlocked] = useState(false)       // viewer has blocked this profile
   const [blockedByThem, setBlockedByThem] = useState(false) // this profile has blocked viewer
   const [blockLoading, setBlockLoading] = useState(false)
-  const [showBlockMenu, setShowBlockMenu] = useState(false)
-
-  const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-  const fmt12 = (t) => {
-    if (!t) return ''
-    const [h, m] = t.slice(0, 5).split(':').map(Number)
-    const ampm = h < 12 ? 'am' : 'pm'
-    const h12 = h % 12 === 0 ? 12 : h % 12
-    return `${h12}${m > 0 ? `:${String(m).padStart(2,'0')}` : ''}${ampm}`
-  }
+  const [moreOpen, setMoreOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState('designs')
+  const [isFavourited, setIsFavourited] = useState(false)
+  const [favouriteLoaded, setFavouriteLoaded] = useState(false)
+  const [replyTime, setReplyTime] = useState(null)
+  const [shareCopied, setShareCopied] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -48,8 +84,17 @@ export default function CreatorPage() {
       // Designs/reviews are capped for display, but totalSaves/avgRating are
       // derived sums, so those get their own lightweight unbounded queries
       // (single narrow column, no cap) — capping the display queries alone
-      // would otherwise silently understate both for a prolific creator.
-      const [{ data: prof, error: profError }, { data: d }, { count: followers }, { count: following }, { data: svcs }, { data: avail }, { data: revs }, { data: allSaves }, { data: allRatings }] = await Promise.all([
+      const [
+        { data: prof, error: profError },
+        { data: d },
+        { count: followers },
+        { count: following },
+        { data: svcs },
+        { data: avail },
+        { data: revs },
+        { data: allSaves },
+        { data: allRatings },
+      ] = await Promise.all([
         supabase.from('profiles').select('*, is_private, message_permission, show_saves').eq('id', id).single(),
         supabase.from('designs').select('*').eq('created_by', id).eq('is_published', true).order('is_pinned', { ascending: false }).order('created_at', { ascending: false }).limit(100),
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', id),
@@ -102,17 +147,27 @@ export default function CreatorPage() {
       setAvgRating(avg)
 
       if (me) {
-        const [{ data: followRow }, { data: iBlockedThem }, { data: theyBlockedMe }] = await Promise.all([
+        const [{ data: followRow }, { data: iBlockedThem }, { data: theyBlockedMe }, { data: favRow }] = await Promise.all([
           supabase.from('follows').select('*').eq('follower_id', me.id).eq('following_id', id).maybeSingle(),
           supabase.from('blocks').select('id').eq('blocker_id', me.id).eq('blocked_id', id).maybeSingle(),
           supabase.from('blocks').select('id').eq('blocker_id', id).eq('blocked_id', me.id).maybeSingle(),
+          supabase.from('favourite_creators').select('creator_id').eq('user_id', me.id).eq('creator_id', id).maybeSingle(),
         ])
         setIsFollowing(!!followRow)
         setIsBlocked(!!iBlockedThem)
         setBlockedByThem(!!theyBlockedMe)
+        setIsFavourited(!!favRow)
       }
+      setFavouriteLoaded(true)
 
       setLoading(false)
+
+      // Real median first-reply time (aggregate only, computed server-side);
+      // rendered only at >= 3 samples — honest fallback otherwise.
+      fetch(`/api/creator-reply-time?creator=${id}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { if (data && !data.error) setReplyTime(data) })
+        .catch(() => {})
     }
     load()
   }, [id])
@@ -181,7 +236,7 @@ export default function CreatorPage() {
   const handleBlock = async () => {
     if (!currentUser) return
     setBlockLoading(true)
-    setShowBlockMenu(false)
+    setMoreOpen(false)
     if (isBlocked) {
       const { error } = await supabase.from('blocks').delete().eq('blocker_id', currentUser.id).eq('blocked_id', id)
       if (error) { alert('Failed to unblock. Please try again.'); setBlockLoading(false); return }
@@ -202,32 +257,53 @@ export default function CreatorPage() {
     setBlockLoading(false)
   }
 
-  if (loading) return (
+  const handleShare = async () => {
+    const url = window.location.href
+    const title = profile?.display_name ? `${profile.display_name} on Laque` : 'Creator on Laque'
+    if (navigator.share) {
+      try { await navigator.share({ title: `${title} — Laque`, url }) } catch {}
+    } else {
+      await navigator.clipboard.writeText(url)
+      setShareCopied(true)
+      setTimeout(() => setShareCopied(false), 2000)
+    }
+  }
+
+  const pageShell = (children) => (
+    <div style={{ position: 'relative', minHeight: '80vh' }}>
+      <div aria-hidden style={{
+        position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)',
+        width: '100%', maxWidth: '480px', zIndex: 0,
+        background: '#140308 url(/redesign/bg-blur.png) center / cover no-repeat',
+      }} />
+      <div style={{ position: 'relative', zIndex: 1 }}>{children}</div>
+    </div>
+  )
+
+  if (loading) return pageShell(
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Loading...</p>
+      <p style={ui(300, 14, 'var(--lq-white-80)')}>Loading...</p>
     </div>
   )
 
-  if (loadError) return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '20px', textAlign: 'center' }}>
-      <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif" }}>Couldn't load this profile</p>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif" }}>Please try again in a moment.</p>
-      <button onClick={() => window.location.reload()} style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '12px 24px', fontSize: '14px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
-        Retry
-      </button>
+  if (loadError) return pageShell(
+    <div style={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '20px', textAlign: 'center' }}>
+      <p style={ui(400, 15)}>Couldn't load this profile</p>
+      <p style={ui(300, 13, MUTED)}>Please try again in a moment.</p>
+      <PillButton onClick={() => window.location.reload()} style={{ background: BTN_GRADIENT }}>Retry</PillButton>
     </div>
   )
 
-  if (!profile) return (
-    <div style={{ padding: '24px 20px', color: 'var(--text-secondary)' }}>Creator not found.</div>
+  if (!profile) return pageShell(
+    <div style={{ padding: '24px 20px' }}><p style={ui(300, 14, MUTED)}>Creator not found.</p></div>
   )
 
   // Blocked-by-them guard
-  if (blockedByThem) return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', fontFamily: "'DM Sans', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', textAlign: 'center' }}>
-      <div style={{ fontSize: '28px', marginBottom: '16px' }}>✦</div>
-      <p style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '600', margin: '0 0 8px' }}>This profile is unavailable</p>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0 }}>You can't view this profile.</p>
+  if (blockedByThem) return pageShell(
+    <div style={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', textAlign: 'center' }}>
+      <div style={{ fontSize: '28px', marginBottom: '16px', color: ROSE }}>✦</div>
+      <p style={{ ...ui(400, 16), margin: '0 0 8px' }}>This profile is unavailable</p>
+      <p style={ui(300, 14, MUTED)}>You can't view this profile.</p>
     </div>
   )
 
@@ -238,487 +314,476 @@ export default function CreatorPage() {
     profile.message_permission === 'everyone' ||
     (profile.message_permission === 'followers' && isFollowing)
   )
+  const canBook = services.length > 0 && !isOwnProfile && !isBlocked && !isPrivateAndNotFollowing
+  const minPrice = services.length > 0 ? Math.min(...services.map(s => s.price || 0)) : null
+
+  const glassBtnStyle = { background: PANEL, border: PANEL_BORDER }
+
+  const specs = profile.specialties?.length > 0 ? profile.specialties : []
+
+  const tabs = [['designs', 'Designs'], ['services', 'Services'], ['reviews', 'Reviews'], ['about', 'About']]
+
+  const sectionCard = { background: PANEL, border: PANEL_BORDER, borderRadius: 'var(--lq-radius-tile)', padding: '14px 16px' }
 
   return (
-    <div style={{ paddingBottom: '32px' }}>
+    <div style={{ position: 'relative' }}>
 
-      {/* Back + Share + 3-dot */}
-      <div style={{ padding: '16px 20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '13px', fontWeight: '500' }}>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          Back
-        </Link>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', position: 'relative' }}>
-          <ShareButton title={profile?.display_name ? `${profile.display_name} on Laque` : 'Creator on Laque'} />
-          {!isOwnProfile && currentUser && (
-            <div style={{ position: 'relative' }}>
-              <button
-                onClick={() => setShowBlockMenu(v => !v)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', color: 'var(--text-secondary)' }}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                  <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
-                </svg>
-              </button>
-              {showBlockMenu && (
-                <div style={{ position: 'absolute', right: 0, top: '28px', background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', minWidth: '160px', zIndex: 100, boxShadow: '0 8px 24px rgba(0,0,0,0.4)', overflow: 'hidden' }}>
-                  <button
-                    onClick={handleBlock}
-                    disabled={blockLoading}
-                    style={{ width: '100%', padding: '13px 16px', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', color: isBlocked ? 'var(--text-primary)' : '#E07070', fontSize: '14px', fontWeight: '500', fontFamily: "'DM Sans', sans-serif" }}
-                  >
-                    {blockLoading ? '…' : isBlocked ? 'Unblock user' : 'Block user'}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+      {/* Blurred backdrop: the creator's own photo washed under a plum scrim */}
+      <div aria-hidden style={{
+        position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)',
+        width: '100%', maxWidth: '480px', zIndex: 0, overflow: 'hidden', background: '#140308',
+      }}>
+        {profile.avatar_url
+          ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'blur(48px)', transform: 'scale(1.3)' }} />
+          : <div style={{ width: '100%', height: '100%', background: 'url(/redesign/bg-blur.png) center / cover no-repeat' }} />}
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(26, 5, 13, 0.6)' }} />
       </div>
 
-      {/* ── SALON HEADER ─────────────────────────────────────────────────── */}
-      {isSalon ? (
-        <div style={{ padding: '16px 20px 0' }}>
-          {/* Banner */}
-          <div style={{
-            width: '100%', height: '140px', borderRadius: '16px',
-            background: profile.avatar_url ? 'var(--bg-chip)' : 'linear-gradient(135deg, rgba(212,160,192,0.2) 0%, rgba(212,160,192,0.05) 100%)',
-            border: '0.5px solid var(--border)', overflow: 'hidden',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            marginBottom: '16px', position: 'relative',
-          }}>
-            {profile.avatar_url ? (
-              <img src={profile.avatar_url} alt={profile.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              <span style={{ color: 'var(--accent)', fontSize: '40px', fontWeight: '300', opacity: 0.6 }}>✦</span>
-            )}
-          </div>
+      <div style={{ position: 'relative', zIndex: 1, padding: `calc(env(safe-area-inset-top) + 8px) 16px ${canBook ? '250px' : '160px'}` }}>
 
-          {/* Salon name + badge */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-            <h1 style={{ color: 'var(--text-primary)', fontSize: '20px', fontWeight: '700', margin: 0 }}>
-              {profile.display_name || 'Salon'}
-            </h1>
+        {/* ── Top bar: back / share / more ── */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: '56px' }}>
+          <IconButton label="Back" href="/" variant="glass" visualSize={34}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </IconButton>
+          <div style={{ display: 'flex', gap: '4px' }}>
+            <IconButton label={shareCopied ? 'Link copied' : 'Share profile'} onClick={handleShare} variant="glass" visualSize={34}>
+              {shareCopied ? (
+                <svg width="15" height="15" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                  <path d="M2.5 7L5.5 10L11.5 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              ) : (
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                </svg>
+              )}
+            </IconButton>
+            <IconButton label="More options" onClick={() => setMoreOpen(true)} variant="glass" visualSize={34}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>
+              </svg>
+            </IconButton>
+          </div>
+        </div>
+
+        {/* ── Identity header ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', paddingTop: '12px', position: 'relative' }}>
+          <div aria-hidden style={{ position: 'absolute', top: '-40px', left: '50%', transform: 'translateX(-50%)', width: '300px', height: '300px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(229,142,162,0.22) 0%, rgba(229,142,162,0) 65%)', pointerEvents: 'none' }} />
+          <div style={{ width: '104px', height: '104px', borderRadius: '50%', border: `2px solid ${ROSE}`, padding: '2px', marginBottom: '12px' }}>
+            <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: PANEL, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {profile.avatar_url
+                ? <img src={profile.avatar_url} alt={profile.display_name || 'Creator'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : <span style={ui(400, 34)}>{(profile.display_name || '?')[0].toUpperCase()}</span>}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <h1 style={{ ...ui(700, 28), margin: 0 }}>{profile.display_name || (isSalon ? 'Salon' : 'Creator')}</h1>
             {profile.is_verified && (
-              <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
-                <circle cx="8" cy="8" r="7" fill="#D4A0C0"/>
-                <path d="M5 8L7 10L11 6" stroke="#2C0A1E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-label="Verified">
+                <circle cx="8" cy="8" r="7" fill={ROSE}/>
+                <path d="M5 8L7 10L11 6" stroke="#140308" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             )}
+            <span style={{
+              background: 'linear-gradient(90deg, rgba(179,97,119,0.25), rgba(229,142,162,0.25))',
+              padding: '4px 10px', borderRadius: 'var(--lq-radius-pill)',
+              ...ui(700, 9), letterSpacing: '0.06em',
+            }}>
+              {isSalon ? 'SALON' : 'NAIL ARTIST'}
+            </span>
           </div>
-          <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 8px' }}>Salon</p>
-          {profile.username && (
-            <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '0 0 12px' }}>@{profile.username}</p>
+          {profile.username && <p style={ui(300, 14, MUTED)}>@{profile.username}</p>}
+          {profile.location && (
+            <p style={{ ...ui(500, 13, 'var(--lq-white-80)'), display: 'flex', alignItems: 'center', gap: '5px', marginTop: '6px' }}>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                <path fillRule="evenodd" clipRule="evenodd" d="M5.631 11.067C5.631 11.067 2 8.009 2 5C2 3.93913 2.42143 2.92172 3.17157 2.17157C3.92172 1.42143 4.93913 1 6 1C7.06087 1 8.07828 1.42143 8.82843 2.17157C9.57857 2.92172 10 3.93913 10 5C10 8.009 6.369 11.067 6.369 11.067C6.167 11.253 5.8345 11.251 5.631 11.067ZM6 6.75C6.9665 6.75 7.75 5.9665 7.75 5C7.75 4.0335 6.9665 3.25 6 3.25C5.0335 3.25 4.25 4.0335 4.25 5C4.25 5.9665 5.0335 6.75 6 6.75Z" fill="currentColor" />
+              </svg>
+              {profile.location}
+            </p>
           )}
           {profile.bio && (
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.6', margin: '0 0 16px' }}>{profile.bio}</p>
+            <p style={{ ...ui(300, 14, MUTED), lineHeight: 1.45, textAlign: 'center', marginTop: '6px', maxWidth: '340px', overflowWrap: 'break-word' }}>{profile.bio}</p>
           )}
-          {profile.specialties?.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px' }}>
-              {profile.specialties.map(s => (
-                <span key={s} style={{ background: 'var(--bg-chip)', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: '500', padding: '5px 10px', borderRadius: '20px', textTransform: 'capitalize' }}>{s}</span>
+
+          {/* Quick specs: real rating + real median reply time */}
+          <div style={{
+            display: 'flex', gap: '16px', alignItems: 'center', marginTop: '16px',
+            background: 'rgba(28, 20, 23, 0.25)', border: PANEL_BORDER,
+            borderRadius: 'var(--lq-radius-pill)', padding: '10px 16px',
+          }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: ROSE }}>
+              <MagicStarIcon size={16} />
+              {avgRating != null ? (
+                <>
+                  <span style={ui(600, 13)}>{avgRating}</span>
+                  <span style={ui(400, 13, MUTED)}>({reviews.length} review{reviews.length !== 1 ? 's' : ''})</span>
+                </>
+              ) : (
+                <span style={ui(400, 13)}>New</span>
+              )}
+            </span>
+            <span aria-hidden style={{ width: '1px', height: '12px', background: 'rgba(255,255,255,0.2)' }} />
+            <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={MUTED} strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>
+              </svg>
+              <span style={ui(400, 12, MUTED)}>
+                {replyTime && replyTime.samples >= 3 ? `Usually replies in ~${fmtReply(replyTime.medianMinutes)}` : 'New on Laque'}
+              </span>
+            </span>
+          </div>
+
+          {/* Specialties */}
+          {specs.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', marginTop: '16px' }}>
+              {specs.map(s => (
+                <span key={s} style={{
+                  background: 'rgba(255,255,255,0.03)', border: PANEL_BORDER,
+                  padding: '6px 12px', borderRadius: 'var(--lq-radius-pill)',
+                  ...ui(500, 12, MUTED), textTransform: 'capitalize',
+                }}>{s}</span>
               ))}
             </div>
           )}
-
-          {/* Location card with Get Directions */}
-          {profile.location && (
-            <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', padding: '14px 16px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path d="M8 1.5C5.79 1.5 4 3.29 4 5.5C4 8.5 8 14.5 8 14.5C8 14.5 12 8.5 12 5.5C12 3.29 10.21 1.5 8 1.5Z" fill="rgba(212,160,192,0.2)" stroke="var(--accent)" strokeWidth="1.2"/>
-                  <circle cx="8" cy="5.5" r="1.5" fill="var(--accent)"/>
-                </svg>
-                <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', margin: 0 }}>{profile.location}</p>
-              </div>
-              <a
-                href={`https://maps.google.com/?q=${encodeURIComponent(profile.location)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: 'var(--accent)', fontSize: '12px', fontWeight: '600', textDecoration: 'none', whiteSpace: 'nowrap', marginLeft: '12px' }}
-              >
-                Get Directions →
-              </a>
-            </div>
-          )}
         </div>
 
-      ) : (
-      // ── NAIL ARTIST HEADER ──────────────────────────────────────────────
-      <div style={{ padding: '20px 20px 0' }}>
-        {/* Avatar + name row */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', marginBottom: '16px' }}>
-          {/* Avatar with accent ring */}
-          <div style={{ flexShrink: 0, position: 'relative' }}>
-            <div style={{
-              width: '80px', height: '80px', borderRadius: '50%',
-              background: 'linear-gradient(135deg, #D4A0C0, #2C0A1E)',
-              padding: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <div style={{ width: '74px', height: '74px', borderRadius: '50%', background: 'var(--bg-card)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {profile.avatar_url ? (
-                  <img src={profile.avatar_url} alt={profile.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  <span style={{ color: 'var(--accent)', fontSize: '28px', fontWeight: '500' }}>
-                    {(profile.display_name || '?')[0].toUpperCase()}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Name + meta */}
-          <div style={{ flex: 1, paddingTop: '4px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px', flexWrap: 'wrap' }}>
-              <h1 style={{ color: 'var(--text-primary)', fontSize: '20px', fontWeight: '700', margin: 0, lineHeight: 1.2 }}>
-                {profile.display_name || 'Creator'}
-              </h1>
-              {profile.is_verified && (
-                <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
-                  <circle cx="8" cy="8" r="7" fill="#D4A0C0"/>
-                  <path d="M5 8L7 10L11 6" stroke="#2C0A1E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              )}
-            </div>
-            <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 4px' }}>
-              Nail Artist
-            </p>
-            {profile.username && (
-              <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '0 0 6px' }}>@{profile.username}</p>
+        {/* ── Actions ── */}
+        {!isOwnProfile && !isBlocked && (
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '24px' }}>
+            {canBook && (
+              <Link href={`/book/${id}`} style={{
+                flex: 1, height: '52px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: BTN_GRADIENT, borderRadius: 'var(--lq-radius-pill)',
+                textDecoration: 'none', ...ui(600, 15),
+              }}>
+                Book Appointment
+              </Link>
             )}
-            {/* Rating inline */}
-            {avgRating && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <span style={{ color: '#F5C842', fontSize: '13px' }}>★</span>
-                <span style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '600' }}>{avgRating}</span>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>({reviews.length} {reviews.length === 1 ? 'review' : 'reviews'})</span>
-              </div>
+            {canMessage && (
+              <button onClick={handleMessage} disabled={messagingLoading} style={{
+                flex: 1, height: '52px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                ...glassBtnStyle, borderRadius: 'var(--lq-radius-pill)',
+                cursor: 'pointer', ...ui(600, 15),
+              }}>
+                {messagingLoading ? '…' : 'Message'}
+              </button>
+            )}
+            {favouriteLoaded && (
+              <FavouriteButton key={String(isFavourited)} creatorId={id} currentUser={currentUser} initiallyFavourited={isFavourited} shape="square" />
             )}
           </div>
-        </div>
-
-        {profile.bio && (
-          <p style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.6', marginBottom: '12px' }}>{profile.bio}</p>
         )}
 
-        {/* Specialties chips */}
-        {profile.specialties?.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
-            {profile.specialties.map(s => (
-              <span key={s} style={{
-                background: 'rgba(212,160,192,0.1)', color: 'var(--accent)',
-                fontSize: '12px', fontWeight: '500', padding: '5px 12px',
-                borderRadius: '20px', textTransform: 'capitalize',
-                border: '0.5px solid rgba(212,160,192,0.25)',
-              }}>{s}</span>
-            ))}
-          </div>
-        )}
-
-        {profile.location && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '16px' }}>
-            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-              <path d="M6.5 1C4.567 1 3 2.567 3 4.5C3 7 6.5 12 6.5 12C6.5 12 10 7 10 4.5C10 2.567 8.433 1 6.5 1Z" stroke="#888888" strokeWidth="1.2"/>
-              <circle cx="6.5" cy="4.5" r="1.2" stroke="#888888" strokeWidth="1.2"/>
-            </svg>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>{profile.location}</p>
-          </div>
-        )}
-      </div>
-      )}
-
-      {/* ── SHARED CONTENT (both salon + nail artist) ──────────────────── */}
-      <div style={{ padding: '0 20px' }}>
-
-        {/* Follow button */}
-        {!isOwnProfile && currentUser && (
+        {/* Follow — real feature (powers the Following feed); the frame omits
+            it, kept by Sogol's decision as an additive full-width pill. */}
+        {!isOwnProfile && currentUser && !isBlocked && (
           <button onClick={handleFollow} disabled={followLoading} style={{
-            width: '100%', marginBottom: '16px',
-            background: isFollowing ? 'transparent' : 'var(--accent)',
-            color: isFollowing ? 'var(--text-secondary)' : '#2C0A1E',
-            border: isFollowing ? '0.5px solid var(--border)' : 'none',
-            borderRadius: '12px', padding: '13px',
-            fontSize: '14px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif",
-            cursor: followLoading ? 'not-allowed' : 'pointer',
-            opacity: followLoading ? 0.7 : 1,
-            transition: 'all 0.15s ease',
+            width: '100%', marginTop: '12px', height: '48px',
+            background: isFollowing ? PANEL : 'linear-gradient(90deg, rgba(229,142,162,0.25), rgba(158,60,83,0.25))',
+            border: isFollowing ? PANEL_BORDER : `1px solid rgba(229,142,162,0.4)`,
+            borderRadius: 'var(--lq-radius-pill)', cursor: followLoading ? 'not-allowed' : 'pointer',
+            opacity: followLoading ? 0.7 : 1, ...ui(600, 14, isFollowing ? MUTED : 'var(--lq-white)'),
           }}>
             {isFollowing ? '✓ Following' : 'Follow'}
           </button>
         )}
-
-        {/* Guest follow prompt */}
         {!isOwnProfile && !currentUser && (
           <Link href="/profile" style={{
-            display: 'block', width: '100%', marginBottom: '16px',
-            background: 'var(--accent)', color: '#2C0A1E',
-            borderRadius: '12px', padding: '13px',
-            fontSize: '14px', fontWeight: '600',
-            fontFamily: "'DM Sans', sans-serif",
-            textAlign: 'center', textDecoration: 'none',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: '100%', marginTop: '12px', height: '48px',
+            background: 'linear-gradient(90deg, rgba(229,142,162,0.25), rgba(158,60,83,0.25))',
+            border: `1px solid rgba(229,142,162,0.4)`,
+            borderRadius: 'var(--lq-radius-pill)', textDecoration: 'none', ...ui(600, 14),
           }}>
             Sign in to follow
           </Link>
         )}
 
-        {/* CTA buttons — Book + Message */}
-        {!isOwnProfile && currentUser && !isBlocked && (
-          <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-            {services.length > 0 && !isPrivateAndNotFollowing && (
-              <Link href={`/book/${id}`} style={{
-                flex: 1, display: 'block', background: 'var(--accent)', color: '#2C0A1E',
-                border: 'none', borderRadius: '12px', padding: '13px',
-                fontSize: '14px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif",
-                cursor: 'pointer', textDecoration: 'none', textAlign: 'center', boxSizing: 'border-box',
-              }}>
-                Book ✦
-              </Link>
-            )}
-            {canMessage && (
-              <button
-                onClick={handleMessage}
-                disabled={messagingLoading}
-                style={{
-                  flex: (services.length > 0 && !isPrivateAndNotFollowing) ? '0 0 auto' : 1,
-                  background: 'var(--bg-card)', color: 'var(--text-primary)',
-                  border: '0.5px solid var(--border)', borderRadius: '12px', padding: '13px 20px',
-                  fontSize: '14px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif",
-                  cursor: 'pointer', whiteSpace: 'nowrap',
-                }}
-              >
-                {messagingLoading ? '…' : 'Message'}
-              </button>
-            )}
-          </div>
-        )}
-        {/* Book only — logged out */}
-        {services.length > 0 && !isOwnProfile && !currentUser && !isPrivateAndNotFollowing && (
-          <div style={{ marginBottom: '20px' }}>
-            <Link href={`/book/${id}`} style={{
-              display: 'block', width: '100%', background: 'var(--accent)', color: '#2C0A1E',
-              border: 'none', borderRadius: '12px', padding: '13px',
-              fontSize: '14px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif",
-              textDecoration: 'none', textAlign: 'center', boxSizing: 'border-box',
-            }}>
-              Book an appointment ✦
-            </Link>
-          </div>
-        )}
-
-        {/* Share profile card — nail artists only, own profile or any visitor */}
-        {!isSalon && (
-          <Link href={`/nail-card/${id}`} style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
-            background: 'var(--bg-chip)', border: '0.5px solid var(--border)',
-            borderRadius: '12px', padding: '10px 16px', marginBottom: '16px',
-            color: 'var(--text-secondary)', fontSize: '13px', fontWeight: '500',
-            textDecoration: 'none',
-          }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-            </svg>
-            Share profile card
-          </Link>
-        )}
-
-        {/* Stats */}
-        <div style={{ display: 'flex', gap: '20px', marginBottom: '24px', padding: '16px', background: 'var(--bg-card)', borderRadius: '14px', border: '0.5px solid var(--border)' }}>
+        {/* ── Stats ── */}
+        <div style={{
+          display: 'flex', alignItems: 'center', marginTop: '20px',
+          ...glassBtnStyle, borderRadius: 'var(--lq-radius-pill)', padding: '14px 16px',
+        }}>
           {[
-            { value: designs.length, label: 'Designs' },
-            { value: followerCount, label: 'Followers' },
-            { value: followingCount, label: 'Following' },
-            { value: totalSaves, label: 'Saves' },
-          ].map(({ value, label }) => (
-            <div key={label} style={{ flex: 1, textAlign: 'center' }}>
-              <p style={{ color: 'var(--text-primary)', fontSize: '17px', fontWeight: '600', margin: '0 0 2px' }}>{value}</p>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: 0 }}>{label}</p>
+            [designs.length, 'Designs'],
+            [formatCount(followerCount), 'Followers'],
+            [avgRating != null ? avgRating : 'New', 'Rating'],
+          ].map(([value, label], i) => (
+            <div key={label} style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+              {i > 0 && <span aria-hidden style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.15)', marginRight: '16px' }} />}
+              <div style={{ flex: 1, textAlign: 'center' }}>
+                <p style={{ ...ui(700, 18), margin: '0 0 2px' }}>{value}</p>
+                <p style={{ ...ui(400, 12, MUTED), margin: 0 }}>{label}</p>
+              </div>
             </div>
           ))}
         </div>
 
-        {/* Services */}
-        {!isPrivateAndNotFollowing && services.length > 0 && (
-          <div style={{ marginBottom: '24px' }}>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '12px' }}>Services</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {services.map(service => (
-                <div key={service.id} style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '600', margin: '0 0 2px' }}>{service.name}</p>
-                    {service.description && (
-                      <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '0 0 6px', lineHeight: '1.4' }}>{service.description}</p>
-                    )}
-                    <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>
-                      {service.duration_minutes < 60 ? `${service.duration_minutes} min` : service.duration_minutes % 60 === 0 ? `${service.duration_minutes / 60} hr` : `${Math.floor(service.duration_minutes / 60)} hr ${service.duration_minutes % 60} min`}
-                    </span>
+        {/* ── Tabs ── */}
+        <div role="tablist" aria-label="Profile sections" style={{ display: 'flex', marginTop: '16px', background: PANEL, borderRadius: 'var(--lq-radius-pill)', border: PANEL_BORDER, padding: '2px' }}>
+          {tabs.map(([val, label]) => (
+            <button key={val} role="tab" aria-selected={activeTab === val} onClick={() => setActiveTab(val)} style={{
+              flex: 1, minHeight: '44px', border: 'none', cursor: 'pointer',
+              background: activeTab === val ? 'linear-gradient(90deg, rgba(229,142,162,0.25), rgba(201,100,124,0.25))' : 'none',
+              borderBottom: activeTab === val ? `2px solid ${ROSE}` : '2px solid transparent',
+              borderRadius: 'var(--lq-radius-pill)',
+              ...ui(activeTab === val ? 600 : 500, 14, activeTab === val ? 'var(--lq-white)' : 'rgba(255,255,255,0.5)'),
+            }}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Tab content ── */}
+        <div style={{ marginTop: '20px' }}>
+          {isPrivateAndNotFollowing ? (
+            <div style={{ ...sectionCard, padding: '32px 20px', textAlign: 'center' }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={MUTED} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block', margin: '0 auto 12px' }} aria-hidden="true">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+              <p style={{ ...ui(600, 15), margin: '0 0 6px' }}>This account is private</p>
+              <p style={{ ...ui(300, 13, MUTED), margin: 0 }}>Follow to see their designs and reviews.</p>
+            </div>
+          ) : (
+            <>
+              {/* DESIGNS */}
+              {activeTab === 'designs' && (
+                designs.length > 0 ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', alignItems: 'start' }}>
+                    {designs.map(design => (
+                      <Link key={design.id} href={`/design/${design.id}`} style={{
+                        background: 'rgba(24, 18, 21, 0.25)', border: PANEL_BORDER,
+                        borderRadius: 'var(--lq-radius-tile)', overflow: 'hidden',
+                        textDecoration: 'none', display: 'block', position: 'relative',
+                      }}>
+                        {design.image_url
+                          ? <img src={design.image_url} alt={design.title} loading="lazy" decoding="async" style={{ width: '100%', height: 'auto', display: 'block', background: 'rgba(255,255,255,0.04)' }} />
+                          : <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'rgba(255,255,255,0.04)' }} />}
+                        {design.is_pinned && (
+                          <span aria-label="Pinned" style={{ position: 'absolute', top: '8px', right: '8px', background: ROSE, borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="#140308" aria-hidden="true">
+                              <path d="M12 2L9 9H2l5.5 4-2 7L12 16l6.5 4-2-7L22 9h-7z"/>
+                            </svg>
+                          </span>
+                        )}
+                        <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start' }}>
+                          <p style={{ ...ui(600, 14), margin: 0, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{design.title}</p>
+                          {design.category && (
+                            <span style={{ background: 'rgba(255,255,255,0.04)', border: PANEL_BORDER, borderRadius: '6px', padding: '4px 8px', ...ui(500, 11, ROSE), textTransform: 'capitalize' }}>
+                              {design.category}
+                            </span>
+                          )}
+                        </div>
+                      </Link>
+                    ))}
                   </div>
-                  <span style={{ color: 'var(--accent)', fontSize: '14px', fontWeight: '600', marginLeft: '12px', whiteSpace: 'nowrap' }}>
-                    {service.price > 0 ? `AED ${service.price}` : 'Free'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+                ) : (
+                  <div style={{ ...sectionCard, padding: '24px', textAlign: 'center' }}>
+                    <p style={ui(300, 13, MUTED)}>No designs published yet</p>
+                  </div>
+                )
+              )}
 
-        {/* Availability / Opening Hours */}
-        {!isPrivateAndNotFollowing && availability.length > 0 && (
-          <div style={{ marginBottom: '24px' }}>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '12px' }}>
-              {isSalon ? 'Opening Hours' : 'Availability'}
-            </p>
-            <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {availability.map(a => (
-                <div key={a.day_of_week} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', width: '40px' }}>
-                    {DAY_NAMES[a.day_of_week]}
-                  </span>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-                    {fmt12(a.start_time)} – {fmt12(a.end_time)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Team — salon only */}
-        {isSalon && (
-          <div style={{ marginBottom: '24px' }}>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '12px' }}>Our Nail Artists</p>
-            <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', padding: '24px 16px', textAlign: 'center' }}>
-              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(212,160,192,0.1)', border: '0.5px solid rgba(212,160,192,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
-                  <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
-                </svg>
-              </div>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>Nail artist profiles coming soon</p>
-            </div>
-          </div>
-        )}
-
-        {/* Private account guard */}
-        {isPrivateAndNotFollowing ? (
-          <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '14px', padding: '32px 20px', textAlign: 'center', marginBottom: '24px' }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '12px', display: 'block', margin: '0 auto 12px' }}>
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-            </svg>
-            <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', margin: '0 0 6px' }}>This account is private</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>Follow to see their designs and reviews.</p>
-          </div>
-        ) : null}
-
-        {/* Reviews */}
-        {!isPrivateAndNotFollowing && reviews.length > 0 && (
-          <div style={{ marginBottom: '24px' }}>
-            {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', margin: 0 }}>Reviews</p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                {[1,2,3,4,5].map(i => (
-                  <svg key={i} width="12" height="12" viewBox="0 0 24 24" fill={i <= Math.round(avgRating) ? '#F5C842' : 'var(--bg-chip)'}>
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                  </svg>
-                ))}
-                <span style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '600', marginLeft: '3px' }}>{avgRating}</span>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>/ 5</span>
-              </div>
-            </div>
-
-            {/* Review cards */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {(showAllReviews ? reviews : reviews.slice(0, 5)).map(review => (
-                <div key={review.id} style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '14px', padding: '14px 16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--bg-chip)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {review.reviewer?.avatar_url
-                          ? <img src={review.reviewer.avatar_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          : <span style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '600' }}>{(review.reviewer?.display_name || '?')[0].toUpperCase()}</span>
-                        }
+              {/* SERVICES */}
+              {activeTab === 'services' && (
+                services.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {services.map(service => (
+                      <div key={service.id} style={{ ...sectionCard, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ minWidth: 0 }}>
+                          <p style={{ ...ui(600, 14), margin: '0 0 2px' }}>{service.name}</p>
+                          {service.description && (
+                            <p style={{ ...ui(300, 12, MUTED), margin: '0 0 6px', lineHeight: 1.4, overflowWrap: 'break-word' }}>{service.description}</p>
+                          )}
+                          <span style={ui(300, 12, MUTED)}>
+                            {service.duration_minutes < 60 ? `${service.duration_minutes} min` : service.duration_minutes % 60 === 0 ? `${service.duration_minutes / 60} hr` : `${Math.floor(service.duration_minutes / 60)} hr ${service.duration_minutes % 60} min`}
+                          </span>
+                        </div>
+                        <span style={{ ...ui(600, 14, ROSE), whiteSpace: 'nowrap', flexShrink: 0 }}>
+                          {service.price > 0 ? `AED ${service.price}` : 'Free'}
+                        </span>
                       </div>
-                      <span style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500' }}>
-                        {review.reviewer?.display_name || 'Client'}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ ...sectionCard, padding: '24px', textAlign: 'center' }}>
+                    <p style={ui(300, 13, MUTED)}>No services listed yet</p>
+                  </div>
+                )
+              )}
+
+              {/* REVIEWS */}
+              {activeTab === 'reviews' && (
+                reviews.length > 0 ? (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '5px', marginBottom: '12px' }}>
                       {[1,2,3,4,5].map(i => (
-                        <svg key={i} width="11" height="11" viewBox="0 0 24 24" fill={i <= review.rating ? '#F5C842' : 'var(--bg-chip)'}>
+                        <svg key={i} width="12" height="12" viewBox="0 0 24 24" fill={i <= Math.round(avgRating) ? ROSE : 'rgba(255,255,255,0.15)'} aria-hidden="true">
                           <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                         </svg>
                       ))}
+                      <span style={{ ...ui(600, 13), marginLeft: '3px' }}>{avgRating}</span>
+                      <span style={ui(300, 12, MUTED)}>/ 5</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {(showAllReviews ? reviews : reviews.slice(0, 5)).map(review => (
+                        <div key={review.id} style={sectionCard}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                {review.reviewer?.avatar_url
+                                  ? <img src={review.reviewer.avatar_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                  : <span style={ui(600, 11, ROSE)}>{(review.reviewer?.display_name || '?')[0].toUpperCase()}</span>}
+                              </div>
+                              <span style={ui(500, 13)}>{review.reviewer?.display_name || 'Client'}</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                              {[1,2,3,4,5].map(i => (
+                                <svg key={i} width="11" height="11" viewBox="0 0 24 24" fill={i <= review.rating ? ROSE : 'rgba(255,255,255,0.15)'} aria-hidden="true">
+                                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                </svg>
+                              ))}
+                            </div>
+                          </div>
+                          {review.text && (
+                            <p style={{ ...ui(300, 13, 'var(--lq-white-80)'), lineHeight: 1.55, margin: 0, overflowWrap: 'break-word' }}>{review.text}</p>
+                          )}
+                          <p style={{ ...ui(300, 11, MUTED), margin: '8px 0 0', opacity: 0.7 }}>
+                            {new Date(review.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                    {reviews.length > 5 && (
+                      <button onClick={() => setShowAllReviews(v => !v)} style={{ width: '100%', marginTop: '10px', background: 'none', border: 'none', cursor: 'pointer', minHeight: '44px', ...ui(500, 13, ROSE) }}>
+                        {showAllReviews ? 'Show less' : `See all ${reviews.length} reviews`}
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ ...sectionCard, padding: '24px', textAlign: 'center' }}>
+                    <p style={ui(300, 13, MUTED)}>No reviews yet</p>
+                  </div>
+                )
+              )}
+
+              {/* ABOUT */}
+              {activeTab === 'about' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {profile.bio && (
+                    <div style={sectionCard}>
+                      <p style={{ ...ui(500, 11, MUTED), letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 8px' }}>About</p>
+                      <p style={{ ...ui(300, 14, 'var(--lq-white-80)'), lineHeight: 1.6, margin: 0, overflowWrap: 'break-word' }}>{profile.bio}</p>
+                    </div>
+                  )}
+                  {profile.location && (
+                    <div style={{ ...sectionCard, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                      <p style={{ ...ui(500, 13), margin: 0 }}>📍 {profile.location}</p>
+                      <a href={`https://maps.google.com/?q=${encodeURIComponent(profile.location)}`} target="_blank" rel="noopener noreferrer"
+                        style={{ ...ui(600, 12, ROSE), textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                        Get Directions →
+                      </a>
+                    </div>
+                  )}
+                  {availability.length > 0 && (
+                    <div style={sectionCard}>
+                      <p style={{ ...ui(500, 11, MUTED), letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 10px' }}>
+                        {isSalon ? 'Opening Hours' : 'Availability'}
+                      </p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {availability.map(a => (
+                          <div key={a.day_of_week} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ ...ui(500, 13), width: '40px' }}>{DAY_NAMES[a.day_of_week]}</span>
+                            <span style={ui(300, 13, MUTED)}>{fmt12(a.start_time)} – {fmt12(a.end_time)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div style={sectionCard}>
+                    <p style={{ ...ui(500, 11, MUTED), letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 10px' }}>More stats</p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <p style={{ ...ui(300, 13, MUTED), margin: 0 }}>Following</p>
+                      <p style={{ ...ui(500, 13), margin: 0 }}>{formatCount(followingCount)}</p>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px' }}>
+                      <p style={{ ...ui(300, 13, MUTED), margin: 0 }}>Total design saves</p>
+                      <p style={{ ...ui(500, 13), margin: 0 }}>{formatCount(totalSaves)}</p>
                     </div>
                   </div>
-                  {review.text && (
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: '1.55', margin: 0 }}>{review.text}</p>
+                  {isSalon && (
+                    <div style={{ ...sectionCard, textAlign: 'center', padding: '24px 16px' }}>
+                      <p style={{ ...ui(500, 11, MUTED), letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 8px' }}>Our Nail Artists</p>
+                      <p style={{ ...ui(300, 13, MUTED), margin: 0 }}>Nail artist profiles coming soon</p>
+                    </div>
                   )}
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: '8px 0 0', opacity: 0.6 }}>
-                    {new Date(review.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </p>
+                  {!isSalon && (
+                    <Link href={`/nail-card/${id}`} style={{ ...sectionCard, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', textDecoration: 'none', ...ui(500, 13, MUTED) }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                      </svg>
+                      Share profile card
+                    </Link>
+                  )}
                 </div>
-              ))}
-            </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
 
-            {reviews.length > 5 && (
-              <button
-                onClick={() => setShowAllReviews(v => !v)}
-                style={{ width: '100%', marginTop: '10px', background: 'none', border: 'none', color: 'var(--accent)', fontSize: '13px', fontWeight: '500', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer', padding: '8px' }}
-              >
-                {showAllReviews ? 'Show less' : `See all ${reviews.length} reviews`}
+      {/* ── Sticky booking strip above the nav ── */}
+      {canBook && minPrice != null && (
+        <div style={{
+          position: 'fixed', bottom: 'calc(env(safe-area-inset-bottom) + 112px)', left: '50%', transform: 'translateX(-50%)',
+          width: '100%', maxWidth: '480px', zIndex: 90,
+          padding: '10px 24px',
+          background: 'linear-gradient(to top, rgba(32, 5, 11, 0.85), rgba(32, 5, 11, 0.4))',
+          backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
+        }}>
+          <div>
+            <p style={{ ...ui(500, 12, MUTED), margin: 0 }}>Starting Price</p>
+            <p style={{ ...ui(700, 16), margin: '2px 0 0' }}>{minPrice > 0 ? `AED ${minPrice}` : 'Free'}</p>
+          </div>
+          <Link href={`/book/${id}`} style={{
+            background: BTN_GRADIENT, borderRadius: 'var(--lq-radius-pill)',
+            padding: '12px 20px', textDecoration: 'none', ...ui(600, 13),
+          }}>
+            Book Appointment
+          </Link>
+        </div>
+      )}
+
+      {/* ── More sheet: share card / directions / block ── */}
+      {moreOpen && (
+        <Sheet title="More options" onClose={() => setMoreOpen(false)}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', paddingBottom: '8px' }}>
+            {!isSalon && (
+              <Link href={`/nail-card/${id}`} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 4px', textDecoration: 'none', ...ui(400, 15) }}>
+                Share profile card
+              </Link>
+            )}
+            {profile.location && (
+              <a href={`https://maps.google.com/?q=${encodeURIComponent(profile.location)}`} target="_blank" rel="noopener noreferrer"
+                style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 4px', textDecoration: 'none', ...ui(400, 15) }}>
+                Get directions
+              </a>
+            )}
+            {!isOwnProfile && currentUser && (
+              <button onClick={handleBlock} disabled={blockLoading}
+                style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 4px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', ...ui(500, 15, isBlocked ? 'var(--lq-white)' : '#E07070') }}>
+                {blockLoading ? '…' : isBlocked ? 'Unblock user' : 'Block user'}
               </button>
             )}
           </div>
-        )}
-
-        {/* Designs grid */}
-        {!isPrivateAndNotFollowing && designs.length > 0 ? (
-          <>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '12px' }}>Portfolio</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              {designs.map(design => (
-                <Link key={design.id} href={`/design/${design.id}`}
-                  style={{ background: 'var(--bg-card)', borderRadius: '12px', border: `0.5px solid ${design.is_pinned ? 'rgba(212,160,192,0.35)' : 'var(--border)'}`, overflow: 'hidden', textDecoration: 'none', display: 'block', position: 'relative' }}>
-                  {design.image_url ? (
-                    <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden' }}>
-                      <img src={design.image_url} alt={design.title} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
-                    </div>
-                  ) : <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--bg-chip)' }} />}
-                  {design.is_pinned && (
-                    <div style={{ position: 'absolute', top: '6px', right: '6px', background: 'var(--accent)', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="#2C0A1E">
-                        <path d="M12 2L9 9H2l5.5 4-2 7L12 16l6.5 4-2-7L22 9h-7z"/>
-                      </svg>
-                    </div>
-                  )}
-                  <div style={{ padding: '10px 12px 12px' }}>
-                    <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', marginBottom: '4px' }}>{design.title}</p>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <p style={{ color: 'var(--accent)', fontSize: '10px', fontWeight: '500', letterSpacing: '0.05em', textTransform: 'uppercase', margin: 0 }}>{[design.shape, design.occasion].filter(Boolean).join(' · ')}</p>
-                      {design.saves_count > 0 && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '3px', color: 'var(--text-secondary)' }}>
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
-                          </svg>
-                          <span style={{ fontSize: '10px' }}>{design.saves_count}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </>
-        ) : (!isPrivateAndNotFollowing && (
-          <div style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '24px', border: '0.5px solid var(--border)', textAlign: 'center' }}>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>No designs published yet</p>
-          </div>
-        ))}
-      </div>{/* end shared content */}
+        </Sheet>
+      )}
     </div>
   )
 }
