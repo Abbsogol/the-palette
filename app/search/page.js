@@ -167,6 +167,7 @@ export default function SearchPage() {
   const [salonsLoaded, setSalonsLoaded] = useState(false)
   const [locationFilter, setLocationFilter] = useState('')
   const [favouriteIds, setFavouriteIds] = useState(new Set())
+  const [creatorRatings, setCreatorRatings] = useState(new Map())
   const [artistSort, setArtistSort] = useState('az')          // 'az' | 'newest'
   const [artistFilters, setArtistFilters] = useState({ role: [], city: [] })
   const [artistPanelFilters, setArtistPanelFilters] = useState({ role: [], city: [] })
@@ -291,6 +292,19 @@ export default function SearchPage() {
       if (error) console.error('salons fetch failed:', error)
       setSalons(data || [])
       setSalonsLoaded(true)
+      if (data?.length) {
+        const { data: ratingRows, error: ratingError } = await supabase
+          .from('reviews')
+          .select('creator_id, rating')
+          .in('creator_id', data.map(s => s.id))
+        if (ratingError) console.error('ratings fetch failed:', ratingError)
+        const agg = new Map()
+        ;(ratingRows || []).forEach(r => {
+          const cur = agg.get(r.creator_id) || { sum: 0, count: 0 }
+          agg.set(r.creator_id, { sum: cur.sum + r.rating, count: cur.count + 1 })
+        })
+        setCreatorRatings(new Map([...agg].map(([cid, { sum, count }]) => [cid, { avg: Math.round((sum / count) * 10) / 10, count }])))
+      }
       if (currentUser && data?.length) {
         const { data: favRows, error: favError } = await supabase
           .from('favourite_creators')
@@ -606,13 +620,15 @@ export default function SearchPage() {
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{salon.location}</span>
                           </span>
                         )}
-                        {/* Ratings don't exist yet (gap register) — "★ New" is the
-                            honest no-ratings-yet state, per Sogol. */}
+                        {/* Real averages from the reviews table; "★ New" only
+                            for creators without reviews yet. */}
                         <span style={{ display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
                           <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                             <path d="M7.8143 1.38595L6.14467 4.64873C6.04314 4.85424 5.89319 5.03201 5.70772 5.16672C5.52226 5.30143 5.30684 5.38906 5.08 5.42206L1.63667 5.9254L4.33867 10.2067L3.75133 13.6327L7.34267 12.3874C7.54552 12.2809 7.77121 12.2252 8.00033 12.2252C8.22945 12.2252 8.45514 12.2809 8.658 12.3874L12.2507 13.6327L11.6627 10.2061L14.3647 5.92606L10.9207 5.42206C10.6941 5.3888 10.479 5.30106 10.2937 5.16636C10.1085 5.03167 9.95879 4.85404 9.85733 4.64873L8.18703 1.38595H7.8143Z" fill="currentColor" />
                           </svg>
-                          New
+                          {creatorRatings.has(salon.id)
+                            ? <>{creatorRatings.get(salon.id).avg} <span style={{ color: 'var(--lq-white-80)' }}>({creatorRatings.get(salon.id).count})</span></>
+                            : 'New'}
                         </span>
                       </p>
                     </Link>
