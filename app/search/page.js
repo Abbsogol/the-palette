@@ -619,13 +619,13 @@ export default function SearchPage() {
                       <div style={{ width: '112px', height: '112px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '-8px' }}>
                         {salon.avatar_url
                           ? <img src={salon.avatar_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          : <span style={ui(400, 32)}>{(salon.display_name || salon.username || '?')[0].toUpperCase()}</span>}
+                          : <span style={ui(400, 32)}>{(salon.display_name || salon.username) ? (salon.display_name || salon.username)[0].toUpperCase() : '?'}</span>}
                       </div>
                       <span style={{ background: 'linear-gradient(90deg, #FF517F 39.5%, #99314C 100%)', color: 'var(--lq-white)', ...ui(500, 10), padding: '4px 8px', borderRadius: 'var(--lq-radius-pill)', letterSpacing: '0.04em', textTransform: 'uppercase', position: 'relative' }}>
                         {salon.account_type === 'salon' ? 'Salon' : 'Nail Artist'}
                       </span>
                       <p style={{ ...ui(400, 16), textAlign: 'center', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '12px' }}>
-                        {salon.display_name || salon.username || (salon.account_type === 'salon' ? 'Salon' : 'Nail Artist')}
+                        {salon.display_name || salon.username || 'Unnamed Artist'}
                       </p>
                       <p style={{ ...ui(300, 12), display: 'flex', alignItems: 'center', gap: '10px', margin: '8px 0 0', maxWidth: '100%', overflow: 'hidden' }}>
                         {salon.location && (

@@ -323,8 +323,10 @@ export default function CreatorPage() {
   // when neither Book nor Message renders, Follow moves into the row.
   const followIsRowPrimary = !canBook && !showMessage
   // Same name fallback chain as the Search artist cards, so the two never
-  // disagree about what a profile is called.
-  const displayName = profile.display_name || profile.username || (isSalon ? 'Salon' : 'Nail Artist')
+  // disagree about what a profile is called. The final fallback is a literal
+  // (not the role label) so it can't duplicate the role badge beside it.
+  const realName = profile.display_name || profile.username
+  const displayName = realName || 'Unnamed Artist'
 
   const glassBtnStyle = { background: PANEL, border: PANEL_BORDER }
 
@@ -388,7 +390,7 @@ export default function CreatorPage() {
             <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: PANEL, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {profile.avatar_url
                 ? <img src={profile.avatar_url} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : <span style={ui(400, 34)}>{displayName[0].toUpperCase()}</span>}
+                : <span style={ui(400, 34)}>{realName ? realName[0].toUpperCase() : '?'}</span>}
             </div>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' }}>
