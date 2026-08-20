@@ -173,7 +173,10 @@ export default function SearchPage() {
   const [artistPanelFilters, setArtistPanelFilters] = useState({ role: [], city: [] })
   const [artistPanelOpen, setArtistPanelOpen] = useState(false)
 
-  // Read tag/query/filters from URL on mount
+  // Read tag/query/filters/tab from URL on mount. The tab param makes
+  // back-navigation from a creator profile and ?tab=artists deep links both
+  // land on the Artists tab; switching happens after the session resolves so
+  // the favourites batch can use the real user.
   const isFirstQuery = useRef(true)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -182,7 +185,11 @@ export default function SearchPage() {
     if (tag) setTagFilter(tag)
     if (q) setQuery(q)
     if (params.get('filters')) setPanelOpen(true)
-    supabase.auth.getSession().then(({ data: { session } }) => setCurrentUser(session?.user || null))
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const u = session?.user || null
+      setCurrentUser(u)
+      if (params.get('tab') === 'artists') switchMainTab('salons', u)
+    })
   }, [])
 
   // Debounce query → debouncedQuery (500ms, same semantics as the existing
@@ -280,8 +287,15 @@ export default function SearchPage() {
     })
   }
 
-  const switchMainTab = async (tab) => {
+  const switchMainTab = async (tab, userOverride) => {
     setMainTab(tab)
+    // Keep the tab in the URL so back/deep-link restore it
+    const params = new URLSearchParams(window.location.search)
+    if (tab === 'salons') params.set('tab', 'artists')
+    else params.delete('tab')
+    const qs = params.toString()
+    window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
+    const user = userOverride !== undefined ? userOverride : currentUser
     if (tab === 'salons' && !salonsLoaded) {
       const { data, error } = await supabase
         .from('profiles')
@@ -305,11 +319,11 @@ export default function SearchPage() {
         })
         setCreatorRatings(new Map([...agg].map(([cid, { sum, count }]) => [cid, { avg: Math.round((sum / count) * 10) / 10, count }])))
       }
-      if (currentUser && data?.length) {
+      if (user && data?.length) {
         const { data: favRows, error: favError } = await supabase
           .from('favourite_creators')
           .select('creator_id')
-          .eq('user_id', currentUser.id)
+          .eq('user_id', user.id)
           .in('creator_id', data.map(s => s.id))
         if (favError) console.error('favourites fetch failed:', favError)
         setFavouriteIds(new Set((favRows || []).map(r => r.creator_id)))
