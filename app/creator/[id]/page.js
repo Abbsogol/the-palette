@@ -348,7 +348,7 @@ export default function CreatorPage() {
         <div style={{ position: 'absolute', inset: 0, background: profile.avatar_url ? 'rgba(41, 0, 10, 0.78)' : 'rgba(26, 5, 13, 0.6)' }} />
       </div>
 
-      <div style={{ position: 'relative', zIndex: 1, padding: `calc(env(safe-area-inset-top) + 8px) 16px ${canBook ? '250px' : '160px'}` }}>
+      <div style={{ position: 'relative', zIndex: 1, padding: `calc(env(safe-area-inset-top) + 8px) 16px ${canBook ? 'calc(env(safe-area-inset-bottom) + 170px)' : 'calc(env(safe-area-inset-bottom) + 100px)'}` }}>
 
         {/* ── Top bar: back / share / more ── */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: '56px' }}>
@@ -777,10 +777,12 @@ export default function CreatorPage() {
       {/* ── Sticky booking strip above the nav ── */}
       {canBook && minPrice != null && (
         <div style={{
-          position: 'fixed', bottom: 'calc(env(safe-area-inset-bottom) + 112px)', left: '50%', transform: 'translateX(-50%)',
+          // Sits directly on the nav pill's top edge (12 + 60 safe-area
+          // offset) with a solid matching surface — no floating gap.
+          position: 'fixed', bottom: 'calc(env(safe-area-inset-bottom) + 74px)', left: '50%', transform: 'translateX(-50%)',
           width: '100%', maxWidth: '480px', zIndex: 90,
           padding: '10px 24px',
-          background: 'linear-gradient(to top, rgba(32, 5, 11, 0.85), rgba(32, 5, 11, 0.4))',
+          background: 'rgba(32, 5, 11, 0.88)',
           backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
         }}>
