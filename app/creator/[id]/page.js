@@ -333,10 +333,13 @@ export default function CreatorPage() {
         position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)',
         width: '100%', maxWidth: '480px', zIndex: 0, overflow: 'hidden', background: '#140308',
       }}>
+        {/* Avatar-derived backdrop is desaturated and clamped under a wine
+            scrim so any avatar colour stays inside the Laque palette; the
+            avatar-less fallback keeps its original lighter scrim untouched. */}
         {profile.avatar_url
-          ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'blur(48px)', transform: 'scale(1.3)' }} />
+          ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'blur(48px) saturate(0.5)', transform: 'scale(1.3)' }} />
           : <div style={{ width: '100%', height: '100%', background: 'url(/redesign/bg-blur.png) center / cover no-repeat' }} />}
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(26, 5, 13, 0.6)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: profile.avatar_url ? 'rgba(41, 0, 10, 0.78)' : 'rgba(26, 5, 13, 0.6)' }} />
       </div>
 
       <div style={{ position: 'relative', zIndex: 1, padding: `calc(env(safe-area-inset-top) + 8px) 16px ${canBook ? '250px' : '160px'}` }}>
