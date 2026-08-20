@@ -322,6 +322,9 @@ export default function CreatorPage() {
   // The heart must always sit inline with a primary action (frame 257:2206);
   // when neither Book nor Message renders, Follow moves into the row.
   const followIsRowPrimary = !canBook && !showMessage
+  // Same name fallback chain as the Search artist cards, so the two never
+  // disagree about what a profile is called.
+  const displayName = profile.display_name || profile.username || (isSalon ? 'Salon' : 'Nail Artist')
 
   const glassBtnStyle = { background: PANEL, border: PANEL_BORDER }
 
@@ -384,12 +387,12 @@ export default function CreatorPage() {
           <div style={{ width: '104px', height: '104px', borderRadius: '50%', border: `2px solid ${ROSE}`, padding: '2px', marginBottom: '12px' }}>
             <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: PANEL, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {profile.avatar_url
-                ? <img src={profile.avatar_url} alt={profile.display_name || 'Creator'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : <span style={ui(400, 34)}>{(profile.display_name || '?')[0].toUpperCase()}</span>}
+                ? <img src={profile.avatar_url} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : <span style={ui(400, 34)}>{displayName[0].toUpperCase()}</span>}
             </div>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <h1 style={{ ...ui(700, 28), margin: 0 }}>{profile.display_name || (isSalon ? 'Salon' : 'Creator')}</h1>
+            <h1 style={{ ...ui(700, 28), margin: 0 }}>{displayName}</h1>
             {profile.is_verified && (
               <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-label="Verified">
                 <circle cx="8" cy="8" r="7" fill={ROSE}/>
