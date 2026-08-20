@@ -434,15 +434,21 @@ export default function CreatorPage() {
                 <span style={ui(400, 13)}>New</span>
               )}
             </span>
-            <span aria-hidden style={{ width: '1px', height: '12px', background: 'rgba(255,255,255,0.2)' }} />
-            <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={MUTED} strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>
-              </svg>
-              <span style={ui(400, 12, MUTED)}>
-                {replyTime && replyTime.samples >= 3 ? `Usually replies in ~${fmtReply(replyTime.medianMinutes)}` : 'New on Laque'}
-              </span>
-            </span>
+            {/* Reply segment is dropped when it would only echo the rating
+                segment's "New" — no "New | New on Laque" stutter. */}
+            {((replyTime && replyTime.samples >= 3) || avgRating != null) && (
+              <>
+                <span aria-hidden style={{ width: '1px', height: '12px', background: 'rgba(255,255,255,0.2)' }} />
+                <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={MUTED} strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>
+                  </svg>
+                  <span style={ui(400, 12, MUTED)}>
+                    {replyTime && replyTime.samples >= 3 ? `Usually replies in ~${fmtReply(replyTime.medianMinutes)}` : 'New on Laque'}
+                  </span>
+                </span>
+              </>
+            )}
           </div>
 
           {/* Specialties */}
