@@ -516,14 +516,16 @@ export default function SearchPage() {
           <p style={{ ...ui(300, 14, 'var(--lq-white-80)'), textAlign: 'center', padding: '32px 0' }}>Loading...</p>
         ) : designs.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            {designs.map(design => (
+            {designs.map((design, i) => (
               <article key={design.id}>
                 <div style={{ position: 'relative', borderRadius: 'var(--lq-radius-card-lg)', overflow: 'hidden' }}>
                   <Link href={`/design/${design.id}?from=%2Fsearch`} onClick={rememberScroll} aria-label={design.title || 'View design'}>
                     {design.image_url ? (
                       // Natural aspect ratio — design boards are wide compositions
                       // with titles and side panels; cropping them cuts words off.
-                      <img src={design.image_url} alt={design.title} loading="lazy" decoding="async"
+                      // First cards load eagerly so the fold never sits blank.
+                      <img src={design.image_url} alt={design.title} loading={i < 2 ? 'eager' : 'lazy'}
+                        fetchPriority={i === 0 ? 'high' : undefined} decoding="async"
                         style={{ width: '100%', height: 'auto', display: 'block', background: 'rgba(255,255,255,0.06)' }} />
                     ) : (
                       <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'rgba(255,255,255,0.06)' }} />
