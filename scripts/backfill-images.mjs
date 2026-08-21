@@ -146,10 +146,17 @@ async function main() {
     const { data: rows, error } = await supabase.from('image_backfill_map').select('*')
       .not('verified_at', 'is', null).is('switched_at', null).order('id')
     if (error) die(error.message)
-    const slice = has('--all') ? rows : rows.slice(0, CANARY)
-    console.log(has('--all')
-      ? `flipping ALL remaining ${slice.length} verified rows…`
-      : `CANARY: flipping first ${slice.length} of ${rows.length} verified rows, then stopping for Sogol's live check…`)
+    // --ids 1,2,3 flips exactly those map rows (deliberate canary selection);
+    // otherwise first-5 canary / --all as before.
+    const idsIdx = args.indexOf('--ids')
+    const wanted = idsIdx >= 0 ? new Set(args[idsIdx + 1].split(',').map(Number)) : null
+    const slice = wanted ? rows.filter(r => wanted.has(r.id)) : has('--all') ? rows : rows.slice(0, CANARY)
+    if (wanted && slice.length !== wanted.size) die(`--ids matched ${slice.length} of ${wanted.size} requested rows (already switched or unknown id?)`)
+    console.log(wanted
+      ? `CANARY (deliberate): flipping ${slice.length} selected rows [${[...wanted].join(', ')}], then stopping…`
+      : has('--all')
+        ? `flipping ALL remaining ${slice.length} verified rows…`
+        : `CANARY: flipping first ${slice.length} of ${rows.length} verified rows, then stopping for Sogol's live check…`)
     for (const r of slice) {
       const { error: upErr } = await supabase.from(r.table_name).update({ [r.column_name]: r.new_url }).eq(r.column_name, r.old_url)
       if (upErr) die(`flip ${r.old_url.slice(-40)}: ${upErr.message}`)
