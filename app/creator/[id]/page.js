@@ -782,12 +782,13 @@ export default function CreatorPage() {
       {/* ── Sticky booking strip above the nav ── */}
       {canBook && minPrice != null && (
         <div style={{
-          // Sits directly on the nav pill's top edge (12 + 60 safe-area
-          // offset) with a solid matching surface — no floating gap.
-          position: 'fixed', bottom: 'calc(env(safe-area-inset-bottom) + 74px)', left: '50%', transform: 'translateX(-50%)',
-          width: '100%', maxWidth: '480px', zIndex: 90,
-          padding: '10px 24px',
-          background: 'rgba(32, 5, 11, 0.88)',
+          // Bottom edge flush with the nav pill's top (12 + 60 + safe-area);
+          // z-index ABOVE the nav (100) — the nav's backdrop-blur zone
+          // otherwise paints over the strip and smears its lower half.
+          position: 'fixed', bottom: 'calc(env(safe-area-inset-bottom) + 72px)', left: '50%', transform: 'translateX(-50%)',
+          width: '100%', maxWidth: '480px', zIndex: 110,
+          minHeight: '68px', padding: '12px 24px', boxSizing: 'border-box',
+          background: 'rgba(32, 5, 11, 0.92)',
           backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
         }}>
