@@ -627,7 +627,7 @@ export default function ProfilePage() {
   }
 
   const handleGoogleSignIn = async () => {
-    await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: 'https://laque.app/profile', queryParams: { prompt: 'select_account' } } })
+    await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/profile`, queryParams: { prompt: 'select_account' } } })
   }
 
   const handleSetGoogleAccountType = async () => {
