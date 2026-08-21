@@ -1,5 +1,5 @@
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
-import { transformDesignImage, toUploadBody } from '@/lib/imageTransform'
+import { transformDesignImage, toUploadBody, sniffImageFormat } from '@/lib/imageTransform'
 
 export const runtime = 'nodejs' // sharp requires the Node runtime, not Edge
 
@@ -7,7 +7,6 @@ export const runtime = 'nodejs' // sharp requires the Node runtime, not Edge
 // bucket directly from the client (raw, untransformed). Each purpose pins
 // its own longest-edge target and storage prefix; everything goes through
 // the shared pipeline in lib/imageTransform.js.
-const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
 const MAX_SIZE_BYTES = 10 * 1024 * 1024
 
 const PURPOSES = {
@@ -39,14 +38,18 @@ export async function POST(request) {
   if (!file || typeof file === 'string' || typeof file.arrayBuffer !== 'function') {
     return Response.json({ error: 'No file provided' }, { status: 400 })
   }
-  if (!ALLOWED_TYPES.has(file.type)) return Response.json({ error: 'Unsupported file type' }, { status: 400 })
   if (file.size > MAX_SIZE_BYTES) return Response.json({ error: 'File is too large (max 10MB)' }, { status: 400 })
 
   const slug = String(formData.get('slug') || 'image').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'image'
 
+  // Format decided by magic bytes, not the client-declared MIME — sharp
+  // accepts more formats (SVG, TIFF, ...) than we ever want to ingest.
+  const rawBuffer = Buffer.from(await file.arrayBuffer())
+  if (!sniffImageFormat(rawBuffer)) return Response.json({ error: 'Unsupported file type' }, { status: 400 })
+
   let webpBuffer
   try {
-    webpBuffer = await transformDesignImage(Buffer.from(await file.arrayBuffer()), { maxDimension: purpose.maxDimension })
+    webpBuffer = await transformDesignImage(rawBuffer, { maxDimension: purpose.maxDimension })
   } catch (err) {
     console.error('Image processing error:', err)
     return Response.json({ error: 'Failed to process image' }, { status: 400 })
