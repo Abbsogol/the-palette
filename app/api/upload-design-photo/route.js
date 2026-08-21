@@ -1,11 +1,10 @@
-import sharp from 'sharp'
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
+import { transformDesignImage, toUploadBody } from '@/lib/imageTransform'
 
 export const runtime = 'nodejs' // sharp requires the Node runtime, not Edge
 
 const ALLOWED_TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' }
 const MAX_SIZE_BYTES = 10 * 1024 * 1024 // 10MB — input cap, pre-resize
-const MAX_DIMENSION = 1600 // longest edge, post-resize — no stored photo needs to be bigger than this for a ≤480px column at up to ~3x DPR
 
 export async function POST(request) {
   const user = await getSessionUser(request)
@@ -54,29 +53,18 @@ export async function POST(request) {
   // Resize + re-encode to WebP regardless of input format — a raw phone
   // camera photo (commonly 3000x4000px, several MB) was previously stored
   // and served byte-for-byte unmodified for every 130-180px thumbnail
-  // across the app. Single output format (no dual-storage/negotiation
-  // needed — WebP has had universal support, including Safari, for years).
+  // across the app. The transform (and the Uint8Array upload-body rule that
+  // fixed the Vercel binary corruption) lives in lib/imageTransform.js,
+  // shared with the legacy-image backfill.
   let webpBuffer
   try {
-    webpBuffer = await sharp(rawBuffer)
-      .resize({ width: MAX_DIMENSION, height: MAX_DIMENSION, fit: 'inside', withoutEnlargement: true })
-      .webp({ quality: 85 })
-      .toBuffer()
+    webpBuffer = await transformDesignImage(rawBuffer)
   } catch (err) {
     console.error('Image processing error:', err)
     return Response.json({ error: 'Failed to process image' }, { status: 400 })
   }
 
-  // Attempt 1 of the Vercel-runtime binary-corruption fix: pass a plain
-  // Uint8Array instead of a Node Buffer to the upload call. A real, known
-  // class of gotcha is a Buffer (Node's Buffer subclass) being serialized
-  // differently than a plain Uint8Array by some fetch/undici implementations
-  // — this was corrupting every upload in production when tested as a raw
-  // Buffer (confirmed deterministic and specific to the deployed Vercel
-  // environment; not reproducible locally in dev, a production build, or an
-  // isolated supabase-js round-trip — see the plan doc for the full
-  // diagnostic trail). Being tested here on a preview deployment, not main.
-  const uploadBody = new Uint8Array(webpBuffer)
+  const uploadBody = toUploadBody(webpBuffer)
 
   const { error: uploadError } = await supabase.storage
     .from('designs')
