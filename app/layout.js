@@ -42,9 +42,15 @@ export const viewport = {
 }
 
 export default function RootLayout({ children }) {
+  const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL
   return (
     <html lang="en" className={`${displayFont.variable} ${uiFont.variable}`}>
       <body>
+        {/* Warm the storage origin before the first design image request —
+            saves DNS+TLS on the largest first-paint asset. React hoists
+            these into <head>. */}
+        {supabaseOrigin && <link rel="preconnect" href={supabaseOrigin} crossOrigin="" />}
+        {supabaseOrigin && <link rel="dns-prefetch" href={supabaseOrigin} />}
         <main style={{ paddingBottom: 'calc(80px + env(safe-area-inset-bottom))', minHeight: '100vh' }}>
           {children}
         </main>
