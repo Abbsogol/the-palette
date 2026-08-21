@@ -504,11 +504,20 @@ export default function ProfilePage() {
     setCropFile(null)
     if (!user) return
     setUploadingAvatar(true)
-    const path = `avatars/${user.id}/${Date.now()}.jpg`
-    const { error: uploadError } = await supabase.storage.from('designs').upload(path, croppedFile, { upsert: false })
-    if (uploadError) { alert('Upload failed: ' + uploadError.message); setUploadingAvatar(false); return }
-    const { data: { publicUrl } } = supabase.storage.from('designs').getPublicUrl(path)
-    const bustedUrl = `${publicUrl}?t=${Date.now()}`
+    // Through /api/upload-image (shared resize+WebP pipeline) — direct
+    // client uploads previously stored the raw crop untransformed.
+    const { data: { session } } = await supabase.auth.getSession()
+    const fd = new FormData()
+    fd.append('file', croppedFile)
+    fd.append('purpose', 'avatar')
+    const res = await fetch('/api/upload-image', {
+      method: 'POST',
+      headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
+      body: fd,
+    })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok || json.error) { alert('Upload failed: ' + (json.error || res.status)); setUploadingAvatar(false); return }
+    const bustedUrl = `${json.publicUrl}?t=${Date.now()}`
     await saveField('avatar_url', bustedUrl)
     setUploadingAvatar(false)
   }
@@ -1019,11 +1028,18 @@ export default function ProfilePage() {
                 <label style={{ cursor: 'pointer', display: 'inline-block' }}>
                   <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async (e) => {
                     const file = e.target.files[0]; if (!file) return
-                    const path = `hand-photos/${user.id}/${Date.now()}.jpg`
-                    const { error } = await supabase.storage.from('designs').upload(path, file, { upsert: false })
-                    if (error) { alert('Upload failed: ' + error.message); return }
-                    const { data: { publicUrl } } = supabase.storage.from('designs').getPublicUrl(path)
-                    await saveField('hand_photo_url', publicUrl)
+                    const { data: { session } } = await supabase.auth.getSession()
+                    const fd = new FormData()
+                    fd.append('file', file)
+                    fd.append('purpose', 'hand-photo')
+                    const res = await fetch('/api/upload-image', {
+                      method: 'POST',
+                      headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
+                      body: fd,
+                    })
+                    const json = await res.json().catch(() => ({}))
+                    if (!res.ok || json.error) { alert('Upload failed: ' + (json.error || res.status)); return }
+                    await saveField('hand_photo_url', json.publicUrl)
                     e.target.value = ''
                   }} />
                   <div style={{ width: '140px', height: '100px', background: 'var(--bg-chip)', borderRadius: '10px', border: '0.5px dashed var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>

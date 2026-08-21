@@ -1,4 +1,7 @@
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
+import { transformDesignImage, toUploadBody } from '@/lib/imageTransform'
+
+export const runtime = 'nodejs' // sharp requires the Node runtime, not Edge
 
 const ALLOWED_TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' }
 const MAX_SIZE_BYTES = 10 * 1024 * 1024 // 10MB
@@ -48,12 +51,18 @@ export async function POST(request) {
     return Response.json({ error: 'This challenge has ended' }, { status: 403 })
   }
 
-  const path = `challenges/${challengeId}/${user.id}-${Date.now()}.${ext}`
-  const buffer = Buffer.from(await file.arrayBuffer())
+  const path = `challenges/${challengeId}/${user.id}-${Date.now()}.webp`
+  let buffer
+  try {
+    buffer = await transformDesignImage(Buffer.from(await file.arrayBuffer()))
+  } catch (err) {
+    console.error('Image processing error:', err)
+    return Response.json({ error: 'Failed to process image' }, { status: 400 })
+  }
 
   const { error: uploadError } = await supabase.storage
     .from('designs')
-    .upload(path, buffer, { upsert: false, contentType: file.type })
+    .upload(path, toUploadBody(buffer), { cacheControl: '3600', upsert: false, contentType: 'image/webp' })
 
   if (uploadError) {
     return Response.json({ error: 'Failed to upload image' }, { status: 500 })

@@ -50,13 +50,22 @@ export default function BatchUploadPage() {
     }))
   }
 
+  // Through /api/upload-image (shared resize+WebP pipeline) — the random
+  // component keeps batch filenames collision-free as before.
   const uploadFile = async (file, slug) => {
-    const ext = file.name.split('.').pop()
-    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}-${slug}.${ext}`
-    const { error } = await supabase.storage.from('designs').upload(fileName, file, { cacheControl: '3600', upsert: false })
-    if (error) throw new Error('Image upload failed: ' + error.message)
-    const { data: { publicUrl } } = supabase.storage.from('designs').getPublicUrl(fileName)
-    return publicUrl
+    const { data: { session } } = await supabase.auth.getSession()
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('purpose', 'admin-design')
+    fd.append('slug', `${Math.random().toString(36).slice(2)}-${slug}`)
+    const res = await fetch('/api/upload-image', {
+      method: 'POST',
+      headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
+      body: fd,
+    })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok || json.error) throw new Error('Image upload failed: ' + (json.error || res.status))
+    return json.publicUrl
   }
 
   const upsertTag = async (name) => {

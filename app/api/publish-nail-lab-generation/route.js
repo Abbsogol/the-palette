@@ -1,4 +1,7 @@
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
+import { transformDesignImage, toUploadBody } from '@/lib/imageTransform'
+
+export const runtime = 'nodejs' // sharp requires the Node runtime, not Edge
 
 // nail-lab is a private bucket; publishing a generation to the public feed
 // requires copying the file into the public designs bucket first, then
@@ -88,12 +91,14 @@ export async function POST(request) {
       return Response.json({ error: 'Failed to load generated image' }, { status: 500 })
     }
 
-    const destPath = `published/${user.id}/${Date.now()}.png`
-    const buffer = Buffer.from(await fileData.arrayBuffer())
+    // Through the shared pipeline — the raw AI PNG is ~2.5MB; publishing it
+    // byte-for-byte was the systemic source of the oversized library.
+    const destPath = `published/${user.id}/${Date.now()}.webp`
+    const buffer = await transformDesignImage(Buffer.from(await fileData.arrayBuffer()))
 
     const { error: uploadError } = await supabase.storage
       .from('designs')
-      .upload(destPath, buffer, { contentType: 'image/png', upsert: false })
+      .upload(destPath, toUploadBody(buffer), { cacheControl: '3600', contentType: 'image/webp', upsert: false })
 
     if (uploadError) {
       console.error('designs upload error:', uploadError)
