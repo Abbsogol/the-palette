@@ -172,6 +172,8 @@ export default function SearchPage() {
   const [artistFilters, setArtistFilters] = useState({ role: [], city: [] })
   const [artistPanelFilters, setArtistPanelFilters] = useState({ role: [], city: [] })
   const [artistPanelOpen, setArtistPanelOpen] = useState(false)
+  // ?favourites=1 (profile "Favorites" tile): show only favourited creators
+  const [favouritesOnly, setFavouritesOnly] = useState(false)
 
   // Read tag/query/filters/tab from URL on mount. The tab param makes
   // back-navigation from a creator profile and ?tab=artists deep links both
@@ -188,7 +190,16 @@ export default function SearchPage() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       const u = session?.user || null
       setCurrentUser(u)
-      if (params.get('tab') === 'artists') switchMainTab('salons', u)
+      const wantsFavourites = params.get('favourites') === '1'
+      if (wantsFavourites && u) setFavouritesOnly(true)
+      if (wantsFavourites && !u) {
+        // Guests have no favourites list — drop the param instead of
+        // silently showing an unfiltered grid under a "favourites" URL.
+        params.delete('favourites')
+        const qs = params.toString()
+        window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
+      }
+      if (params.get('tab') === 'artists' || wantsFavourites) switchMainTab('salons', u)
     })
   }, [])
 
@@ -292,7 +303,11 @@ export default function SearchPage() {
     // Keep the tab in the URL so back/deep-link restore it
     const params = new URLSearchParams(window.location.search)
     if (tab === 'salons') params.set('tab', 'artists')
-    else params.delete('tab')
+    else {
+      params.delete('tab')
+      params.delete('favourites')
+      setFavouritesOnly(false)
+    }
     const qs = params.toString()
     window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
     const user = userOverride !== undefined ? userOverride : currentUser
@@ -331,17 +346,26 @@ export default function SearchPage() {
     }
   }
 
-  // Artists pipeline: text search -> role/city filters -> sort
+  const clearFavourites = () => {
+    setFavouritesOnly(false)
+    const params = new URLSearchParams(window.location.search)
+    params.delete('favourites')
+    const qs = params.toString()
+    window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
+  }
+
+  // Artists pipeline: favourites scope -> text search -> role/city filters -> sort
   const applyArtistFilters = (list, f) => list
     .filter(s => f.role.length === 0 || f.role.includes(s.account_type === 'salon' ? 'salon' : 'nail artist'))
     .filter(s => f.city.length === 0 || f.city.some(c => (s.location || '').trim().toLowerCase() === c.toLowerCase()))
+  const favouriteScopedSalons = favouritesOnly ? salons.filter(s => favouriteIds.has(s.id)) : salons
   const textFilteredSalons = locationFilter.trim()
-    ? salons.filter(s =>
+    ? favouriteScopedSalons.filter(s =>
         s.location?.toLowerCase().includes(locationFilter.trim().toLowerCase()) ||
         s.display_name?.toLowerCase().includes(locationFilter.trim().toLowerCase()) ||
         s.username?.toLowerCase().includes(locationFilter.trim().toLowerCase())
       )
-    : salons
+    : favouriteScopedSalons
   const filteredSalons = applyArtistFilters(textFilteredSalons, artistFilters)
     .sort((a, b) => artistSort === 'newest'
       ? new Date(b.created_at) - new Date(a.created_at)
@@ -561,15 +585,32 @@ export default function SearchPage() {
       {/* ── ARTISTS & SALONS TAB ─────────────────────────────────────────── */}
       {mainTab === 'salons' && (
         <div>
+          {favouritesOnly && (
+            <div style={{ display: 'flex', marginBottom: '14px' }}>
+              <button
+                onClick={clearFavourites}
+                aria-label="Showing your favourites only. Tap to show all artists and salons."
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '8px', minHeight: '44px',
+                  background: 'linear-gradient(90deg, #FF517F 39.5%, #99314C 100%)',
+                  border: 'none', borderRadius: 'var(--lq-radius-pill)', padding: '8px 16px',
+                  cursor: 'pointer', color: 'var(--lq-white)',
+                }}
+              >
+                <span style={ui(500, 13)}>♥ My Favourites</span>
+                <span aria-hidden="true" style={ui(400, 13, 'var(--lq-white-80)')}>✕</span>
+              </button>
+            </div>
+          )}
           {!salonsLoaded ? (
             <p style={{ ...ui(300, 14, 'var(--lq-white-80)'), textAlign: 'center', padding: '48px 0' }}>Loading...</p>
           ) : filteredSalons.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '48px 0' }}>
               <p style={{ ...ui(400, 15), marginBottom: '8px' }}>
-                {locationFilter.trim() ? 'No artists or salons found' : 'No salons yet'}
+                {favouritesOnly ? 'No favourites yet' : locationFilter.trim() ? 'No artists or salons found' : 'No salons yet'}
               </p>
               <p style={ui(300, 13, 'var(--lq-white-80)')}>
-                {locationFilter.trim() ? 'Try a different name or city.' : 'Salons will appear here once they sign up.'}
+                {favouritesOnly ? 'Tap the heart on an artist or salon to add them here.' : locationFilter.trim() ? 'Try a different name or city.' : 'Salons will appear here once they sign up.'}
               </p>
             </div>
           ) : (
