@@ -811,7 +811,7 @@ export default function NailLabPage() {
       )}
 
       <LabShell>
-        <div style={{ padding: 'calc(env(safe-area-inset-top) + 12px) 24px calc(env(safe-area-inset-bottom) + 230px)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div style={{ padding: 'calc(env(safe-area-inset-top) + 12px) 24px calc(env(safe-area-inset-bottom) + 260px)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
           {/* ── Header App Row ── */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '44px' }}>
@@ -1053,8 +1053,10 @@ export default function NailLabPage() {
         </div>
       </LabShell>
 
-      {/* ── Sticky action area — above BottomNav ── */}
-      <div style={{ position: 'fixed', bottom: 'calc(env(safe-area-inset-bottom) + 72px)', left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '480px', padding: '16px 24px 20px', background: 'linear-gradient(180deg, rgba(38,13,20,0) 0%, rgba(32,5,11,0.9) 40%)', zIndex: 99, display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center', boxSizing: 'border-box' }}>
+      {/* ── Sticky action area — opaque, stacked ABOVE the nav (z-110 vs
+             nav z-100, price-strip precedent a188e5c): the transparent
+             gradient let content read through and the nav clipped the CTA ── */}
+      <div style={{ position: 'fixed', bottom: 'calc(env(safe-area-inset-bottom) + 72px)', left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '480px', padding: '16px 24px 20px', background: 'rgba(32,5,11,0.94)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', zIndex: 110, display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center', boxSizing: 'border-box' }}>
         {(vibes.length === 0 || !shape || !length) && (
           <p style={{ ...ui(400, 13, MUTED50), lineHeight: '16px', margin: 0, textAlign: 'center' }}>
             Select vibe, shape & length to generate
