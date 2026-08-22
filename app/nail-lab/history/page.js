@@ -3,6 +3,20 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase, getNailLabSignedUrls } from '@/lib/supabase'
 import SaveToBoard from '@/components/SaveToBoard'
+import { LaqueWordmark } from '@/components/ui/icons'
+
+// ── Page palette from the Lab frames (237:1752 / 239:1800) ─────────────────
+const LAB_ACCENT = '#D98CAB'
+const PANEL = 'rgba(255, 255, 255, 0.06)'
+const PANEL_BORDER = '1px solid rgba(255, 255, 255, 0.1)'
+const MUTED50 = 'rgba(255, 255, 255, 0.5)'
+const MUTED60 = 'rgba(255, 255, 255, 0.6)'
+const WHITE80 = 'rgba(255, 255, 255, 0.8)'
+const BTN_GRADIENT = 'linear-gradient(90deg, #660007 47.832%, #FF517F 100%)'
+
+const ui = (weight, size, color = 'var(--lq-white)') => ({
+  fontFamily: 'var(--lq-font-ui)', fontWeight: weight, fontSize: `${size}px`, color, lineHeight: 1.3,
+})
 
 function timeAgo(dateStr) {
   const diff = Date.now() - new Date(dateStr).getTime()
@@ -13,6 +27,23 @@ function timeAgo(dateStr) {
   const days = Math.floor(hrs / 24)
   if (days < 7) return `${days}d ago`
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+// Same fixed rosy-blur backdrop as the Lab builder (frame 239:1800).
+function LabShell({ children }) {
+  return (
+    <div style={{ position: 'relative' }}>
+      <div aria-hidden style={{
+        position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)',
+        width: '100%', maxWidth: '480px', zIndex: 0, overflow: 'hidden', background: '#260D14',
+      }}>
+        <img src="/redesign/lab-bg.webp" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      </div>
+      <div style={{ position: 'relative', zIndex: 1 }}>
+        {children}
+      </div>
+    </div>
+  )
 }
 
 export default function NailLabHistoryPage() {
@@ -106,15 +137,21 @@ export default function NailLabHistoryPage() {
   }
 
   if (loadingUser) {
-    return <div style={{ padding: '48px 20px', textAlign: 'center' }}><p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Loading...</p></div>
+    return (
+      <LabShell>
+        <div style={{ padding: '48px 24px', textAlign: 'center' }}><p style={ui(300, 14, MUTED60)}>Loading...</p></div>
+      </LabShell>
+    )
   }
 
   if (!currentUser) {
     return (
-      <div style={{ padding: '64px 32px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-        <h2 style={{ color: 'var(--text-primary)', fontSize: '20px', fontWeight: '600', margin: 0 }}>Sign in to view your history</h2>
-        <Link href="/profile" style={{ display: 'inline-block', background: 'var(--accent)', color: '#2C0A1E', borderRadius: '14px', padding: '13px 32px', fontSize: '14px', fontWeight: '600', textDecoration: 'none', marginTop: '8px', fontFamily: "'DM Sans', sans-serif" }}>Sign in</Link>
-      </div>
+      <LabShell>
+        <div style={{ padding: 'calc(env(safe-area-inset-top) + 64px) 32px 140px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+          <h2 style={{ ...ui(600, 20), margin: 0 }}>Sign in to view your history</h2>
+          <Link href="/profile" style={{ display: 'inline-block', background: BTN_GRADIENT, borderRadius: '24px', padding: '13px 32px', ...ui(600, 14), textDecoration: 'none', marginTop: '8px' }}>Sign in</Link>
+        </div>
+      </LabShell>
     )
   }
 
@@ -124,24 +161,59 @@ export default function NailLabHistoryPage() {
   const publishStatus = selected ? publishStatuses[selected.id] : null
   const publishedDesignId = selected ? publishedIds[selected.id] : null
 
+  // Two flex columns per frame 239:1800 (masonry-style split, not grid rows)
+  const colA = generations.filter((_, i) => i % 2 === 0)
+  const colB = generations.filter((_, i) => i % 2 === 1)
+
+  const genCard = (gen) => {
+    const vibes = Array.isArray(gen.vibe) ? gen.vibe : [gen.vibe]
+    const status = publishStatuses[gen.id]
+    return (
+      <button
+        key={gen.id}
+        onClick={() => setSelected(gen)}
+        style={{ background: PANEL, border: PANEL_BORDER, borderRadius: '24px', padding: '12px', cursor: 'pointer', textAlign: 'left', position: 'relative', display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', boxSizing: 'border-box' }}
+      >
+        <div style={{ aspectRatio: '4/3', background: 'rgba(255,255,255,0.08)', overflow: 'hidden', borderRadius: '12px', width: '100%', position: 'relative' }}>
+          {gen.image_url && (
+            <img src={gen.image_url} alt="Generated design" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          )}
+          {status && (
+            <span style={{ position: 'absolute', top: '8px', right: '8px', background: status === 'published' ? LAB_ACCENT : 'rgba(20,3,8,0.75)', color: status === 'published' ? '#260D14' : WHITE80, fontSize: '9px', fontWeight: '600', borderRadius: '8px', padding: '3px 7px', fontFamily: 'var(--lq-font-ui)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+              {status === 'published' ? '✦ Live' : 'Draft'}
+            </span>
+          )}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '100%' }}>
+          <p style={{ ...ui(500, 14), margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+            {vibes.join(' + ')}
+          </p>
+          <p style={{ ...ui(300, 13, WHITE80), margin: 0 }}>
+            {gen.shape} · {gen.length} · {timeAgo(gen.created_at)}
+          </p>
+        </div>
+      </button>
+    )
+  }
+
   return (
     <>
       {/* ── NAIL TECH SHEET ── */}
       {showNailTechSheet && selected && (
         <div onClick={() => setShowNailTechSheet(false)}
-          style={{ position: 'fixed', inset: 0, zIndex: 400, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', background: 'rgba(0,0,0,0.7)' }}
+          style={{ position: 'fixed', inset: 0, zIndex: 400, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', background: 'rgba(20,3,8,0.7)' }}
         >
           <div onClick={e => e.stopPropagation()}
-            style={{ background: 'var(--bg-primary)', borderRadius: '20px 20px 0 0', padding: '0 0 48px', maxHeight: '80vh', overflowY: 'auto' }}
+            style={{ background: 'linear-gradient(180deg, #29000A 0%, #260D14 100%)', borderRadius: '24px 24px 0 0', padding: '0 0 48px', maxHeight: '80vh', overflowY: 'auto' }}
           >
             <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 4px' }}>
-              <div style={{ width: '36px', height: '4px', background: 'var(--border)', borderRadius: '2px' }} />
+              <div style={{ width: '36px', height: '4px', background: 'rgba(255,255,255,0.2)', borderRadius: '2px' }} />
             </div>
-            <div style={{ padding: '12px 20px 16px', borderBottom: '0.5px solid var(--border)' }}>
-              <p style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '600', margin: 0, fontFamily: "'DM Sans', sans-serif" }}>Design Specs</p>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '3px 0 0' }}>Share this with your nail tech</p>
+            <div style={{ padding: '12px 24px 16px', borderBottom: PANEL_BORDER }}>
+              <p style={{ ...ui(600, 16), margin: 0 }}>Design Specs</p>
+              <p style={{ ...ui(300, 12, MUTED50), margin: '3px 0 0' }}>Share this with your nail tech</p>
             </div>
-            <div style={{ padding: '8px 20px' }}>
+            <div style={{ padding: '8px 24px' }}>
               {[
                 { label: 'Vibe', value: selectedVibes.join(', ') },
                 { label: 'Shape', value: selected.shape },
@@ -149,33 +221,33 @@ export default function NailLabHistoryPage() {
                 selectedOccasions.length > 0 ? { label: 'Occasion', value: selectedOccasions.join(', ') } : null,
                 selected.custom_text ? { label: 'Notes', value: selected.custom_text } : null,
               ].filter(Boolean).map(({ label, value }) => (
-                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '13px 0', borderBottom: '0.5px solid var(--border)' }}>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", flexShrink: 0 }}>{label}</span>
-                  <span style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', fontFamily: "'DM Sans', sans-serif", textAlign: 'right', maxWidth: '220px' }}>{value}</span>
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '13px 0', borderBottom: PANEL_BORDER }}>
+                  <span style={{ ...ui(300, 13, MUTED60), flexShrink: 0 }}>{label}</span>
+                  <span style={{ ...ui(500, 13), textAlign: 'right', maxWidth: '220px' }}>{value}</span>
                 </div>
               ))}
               {selectedColors.length > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 0', borderBottom: '0.5px solid var(--border)' }}>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif" }}>Colours</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 0', borderBottom: PANEL_BORDER }}>
+                  <span style={ui(300, 13, MUTED60)}>Colours</span>
                   <div style={{ display: 'flex', gap: '8px' }}>
                     {selectedColors.map(hex => (
                       <div key={hex} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: hex, border: '1px solid var(--border)' }} />
-                        <span style={{ color: 'var(--text-secondary)', fontSize: '9px', fontFamily: 'monospace' }}>{hex.toUpperCase()}</span>
+                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: hex, border: PANEL_BORDER }} />
+                        <span style={{ ...ui(300, 9, MUTED50), fontFamily: 'monospace' }}>{hex.toUpperCase()}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
             </div>
-            <div style={{ padding: '8px 20px 0' }}>
+            <div style={{ padding: '8px 24px 0' }}>
               <button
                 onClick={() => {
                   const specs = [`Vibe: ${selectedVibes.join(', ')}`, `Shape: ${selected.shape}`, `Length: ${selected.length}`, selectedColors.length > 0 && `Colours: ${selectedColors.join(', ')}`, selectedOccasions.length > 0 && `Occasion: ${selectedOccasions.join(', ')}`, selected.custom_text && `Notes: ${selected.custom_text}`].filter(Boolean).join('\n')
                   navigator.clipboard?.writeText(specs)
                   setShowNailTechSheet(false)
                 }}
-                style={{ width: '100%', background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}
+                style={{ width: '100%', background: BTN_GRADIENT, border: 'none', borderRadius: '24px', padding: '14px', ...ui(600, 14), cursor: 'pointer' }}
               >
                 Copy specs
               </button>
@@ -187,31 +259,31 @@ export default function NailLabHistoryPage() {
       {/* ── PUBLISH SHEET ── */}
       {showPublishSheet && selected && (
         <div onClick={() => setShowPublishSheet(false)}
-          style={{ position: 'fixed', inset: 0, zIndex: 400, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', background: 'rgba(0,0,0,0.7)' }}
+          style={{ position: 'fixed', inset: 0, zIndex: 400, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', background: 'rgba(20,3,8,0.7)' }}
         >
           <div onClick={e => e.stopPropagation()}
-            style={{ background: 'var(--bg-primary)', borderRadius: '20px 20px 0 0', padding: '0 20px 48px' }}
+            style={{ background: 'linear-gradient(180deg, #29000A 0%, #260D14 100%)', borderRadius: '24px 24px 0 0', padding: '0 24px 48px' }}
           >
             <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 4px' }}>
-              <div style={{ width: '36px', height: '4px', background: 'var(--border)', borderRadius: '2px' }} />
+              <div style={{ width: '36px', height: '4px', background: 'rgba(255,255,255,0.2)', borderRadius: '2px' }} />
             </div>
-            <p style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '600', margin: '12px 0 4px', fontFamily: "'DM Sans', sans-serif" }}>Save or publish</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '0 0 20px' }}>Where do you want this design to live?</p>
+            <p style={{ ...ui(600, 16), margin: '12px 0 4px' }}>Save or publish</p>
+            <p style={{ ...ui(300, 13, MUTED50), margin: '0 0 20px' }}>Where do you want this design to live?</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <button onClick={() => publishDesign(true)} disabled={publishing}
-                style={{ width: '100%', background: publishStatus === 'draft' ? 'rgba(212,160,192,0.08)' : 'var(--bg-card)', border: publishStatus === 'draft' ? '1.5px solid var(--accent)' : '0.5px solid var(--border)', borderRadius: '14px', padding: '16px 18px', textAlign: 'left', cursor: 'pointer' }}
+                style={{ width: '100%', background: PANEL, border: publishStatus === 'draft' ? `1.5px solid ${LAB_ACCENT}` : PANEL_BORDER, borderRadius: '16px', padding: '16px 18px', textAlign: 'left', cursor: 'pointer' }}
               >
-                <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '600', margin: '0 0 3px', fontFamily: "'DM Sans', sans-serif" }}>Save as Draft {publishStatus === 'draft' && '✓'}</p>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: 0 }}>Saved to your profile · only you can see it</p>
+                <p style={{ ...ui(600, 14), margin: '0 0 3px' }}>Save as Draft {publishStatus === 'draft' && '✓'}</p>
+                <p style={{ ...ui(300, 12, MUTED50), margin: 0 }}>Saved to your profile · only you can see it</p>
               </button>
               <button onClick={() => publishDesign(false)} disabled={publishing}
-                style={{ width: '100%', background: publishStatus === 'published' ? 'rgba(212,160,192,0.08)' : 'var(--bg-card)', border: publishStatus === 'published' ? '1.5px solid var(--accent)' : '0.5px solid var(--border)', borderRadius: '14px', padding: '16px 18px', textAlign: 'left', cursor: 'pointer' }}
+                style={{ width: '100%', background: PANEL, border: publishStatus === 'published' ? `1.5px solid ${LAB_ACCENT}` : PANEL_BORDER, borderRadius: '16px', padding: '16px 18px', textAlign: 'left', cursor: 'pointer' }}
               >
-                <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '600', margin: '0 0 3px', fontFamily: "'DM Sans', sans-serif" }}>Publish to Laque {publishStatus === 'published' && '✓'}</p>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: 0 }}>Goes live on the feed — everyone can see it</p>
+                <p style={{ ...ui(600, 14), margin: '0 0 3px' }}>Publish to Laque {publishStatus === 'published' && '✓'}</p>
+                <p style={{ ...ui(300, 12, MUTED50), margin: 0 }}>Goes live on the feed — everyone can see it</p>
               </button>
             </div>
-            {publishing && <p style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: '13px', marginTop: '14px' }}>Saving...</p>}
+            {publishing && <p style={{ ...ui(300, 13, MUTED50), textAlign: 'center', marginTop: '14px' }}>Saving...</p>}
           </div>
         </div>
       )}
@@ -230,34 +302,34 @@ export default function NailLabHistoryPage() {
       {/* ── EXPANDED DETAIL SHEET ── */}
       {selected && !showPublishSheet && !showNailTechSheet && !showSaveBoard && (
         <div onClick={() => setSelected(null)}
-          style={{ position: 'fixed', inset: 0, zIndex: 300, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', background: 'rgba(0,0,0,0.75)' }}
+          style={{ position: 'fixed', inset: 0, zIndex: 300, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', background: 'rgba(20,3,8,0.75)' }}
         >
           <div onClick={e => e.stopPropagation()}
-            style={{ background: 'var(--bg-primary)', borderRadius: '20px 20px 0 0', maxHeight: '92vh', overflowY: 'auto', paddingBottom: '40px' }}
+            style={{ background: 'linear-gradient(180deg, #29000A 0%, #260D14 100%)', borderRadius: '24px 24px 0 0', maxHeight: '92vh', overflowY: 'auto', paddingBottom: '40px' }}
           >
             {/* Handle + close */}
             <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 4px' }}>
-              <div style={{ width: '36px', height: '4px', background: 'var(--border)', borderRadius: '2px' }} />
+              <div style={{ width: '36px', height: '4px', background: 'rgba(255,255,255,0.2)', borderRadius: '2px' }} />
             </div>
 
             {/* Image */}
             <div style={{ padding: '0 16px 16px' }}>
-              <div style={{ borderRadius: '14px', overflow: 'hidden', border: '0.5px solid var(--border)', background: 'var(--bg-card)' }}>
+              <div style={{ borderRadius: '16px', overflow: 'hidden', border: PANEL_BORDER, background: PANEL }}>
                 <img src={selected.image_url} alt="Generated design" style={{ width: '100%', height: 'auto', display: 'block' }} />
               </div>
             </div>
 
             {/* Tags */}
-            <div style={{ padding: '0 16px 16px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+            <div style={{ padding: '0 16px 16px', display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
               {[...selectedVibes, selected.shape, selected.length, ...selectedOccasions].filter(Boolean).map(tag => (
-                <span key={tag} style={{ background: 'var(--bg-chip)', color: 'var(--text-secondary)', borderRadius: '12px', padding: '4px 10px', fontSize: '11px', fontFamily: "'DM Sans', sans-serif" }}>{tag}</span>
+                <span key={tag} style={{ background: PANEL, border: PANEL_BORDER, borderRadius: '12px', padding: '4px 10px', ...ui(300, 11, MUTED60) }}>{tag}</span>
               ))}
               {publishStatus && (
-                <span style={{ background: publishStatus === 'published' ? 'rgba(212,160,192,0.15)' : 'var(--bg-chip)', color: publishStatus === 'published' ? 'var(--accent)' : 'var(--text-secondary)', borderRadius: '12px', padding: '4px 10px', fontSize: '11px', border: publishStatus === 'published' ? '0.5px solid var(--accent)' : 'none', fontFamily: "'DM Sans', sans-serif" }}>
+                <span style={{ background: publishStatus === 'published' ? 'rgba(217,140,171,0.2)' : PANEL, color: publishStatus === 'published' ? LAB_ACCENT : MUTED60, borderRadius: '12px', padding: '4px 10px', fontSize: '11px', border: publishStatus === 'published' ? `1px solid ${LAB_ACCENT}` : PANEL_BORDER, fontFamily: 'var(--lq-font-ui)' }}>
                   {publishStatus === 'published' ? '✦ Published' : 'Draft'}
                 </span>
               )}
-              <span style={{ color: 'var(--text-secondary)', fontSize: '11px', padding: '4px 2px', fontFamily: "'DM Sans', sans-serif" }}>{timeAgo(selected.created_at)}</span>
+              <span style={{ ...ui(300, 11, MUTED50), padding: '4px 2px' }}>{timeAgo(selected.created_at)}</span>
             </div>
 
             {/* 4 action buttons */}
@@ -265,46 +337,46 @@ export default function NailLabHistoryPage() {
               {/* Save to Board */}
               <button
                 onClick={async () => { setSavingToBoard(true); const id = await ensureDesignId(selected); setSavingToBoard(false); if (id) setShowSaveBoard(true) }}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '14px', padding: '14px 8px', cursor: 'pointer' }}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', background: PANEL, border: PANEL_BORDER, borderRadius: '16px', padding: '14px 8px', cursor: 'pointer', color: 'var(--lq-white)' }}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
                 </svg>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '10px', fontFamily: "'DM Sans', sans-serif" }}>{savingToBoard ? '...' : 'Board'}</span>
+                <span style={ui(300, 10, MUTED60)}>{savingToBoard ? '...' : 'Board'}</span>
               </button>
 
               {/* Share */}
               <button
                 onClick={() => { if (navigator.share) { navigator.share({ title: `${selectedVibes.join(' + ')} nails · Laque`, url: selected.image_url }) } else { navigator.clipboard?.writeText(selected.image_url) } }}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '14px', padding: '14px 8px', cursor: 'pointer' }}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', background: PANEL, border: PANEL_BORDER, borderRadius: '16px', padding: '14px 8px', cursor: 'pointer', color: 'var(--lq-white)' }}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
                   <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
                 </svg>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '10px', fontFamily: "'DM Sans', sans-serif" }}>Share</span>
+                <span style={ui(300, 10, MUTED60)}>Share</span>
               </button>
 
               {/* Nail Tech */}
               <button
                 onClick={() => setShowNailTechSheet(true)}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '14px', padding: '14px 8px', cursor: 'pointer' }}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', background: PANEL, border: PANEL_BORDER, borderRadius: '16px', padding: '14px 8px', cursor: 'pointer', color: 'var(--lq-white)' }}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
                 </svg>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '10px', fontFamily: "'DM Sans', sans-serif" }}>Nail Tech</span>
+                <span style={ui(300, 10, MUTED60)}>Nail Tech</span>
               </button>
 
               {/* Save / Publish */}
               <button
                 onClick={() => setShowPublishSheet(true)}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', background: publishStatus ? 'rgba(212,160,192,0.08)' : 'var(--bg-card)', border: publishStatus ? '0.5px solid var(--accent)' : '0.5px solid var(--border)', borderRadius: '14px', padding: '14px 8px', cursor: 'pointer' }}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', background: publishStatus ? 'rgba(217,140,171,0.12)' : PANEL, border: publishStatus ? `1px solid ${LAB_ACCENT}` : PANEL_BORDER, borderRadius: '16px', padding: '14px 8px', cursor: 'pointer', color: publishStatus ? LAB_ACCENT : 'var(--lq-white)' }}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={publishStatus ? 'var(--accent)' : 'var(--text-primary)'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
                 </svg>
-                <span style={{ color: publishStatus ? 'var(--accent)' : 'var(--text-secondary)', fontSize: '10px', fontFamily: "'DM Sans', sans-serif" }}>
+                <span style={ui(300, 10, publishStatus ? LAB_ACCENT : MUTED60)}>
                   {publishStatus === 'published' ? 'Published' : publishStatus === 'draft' ? 'Draft' : 'Save'}
                 </span>
               </button>
@@ -313,7 +385,7 @@ export default function NailLabHistoryPage() {
             {/* Close */}
             <div style={{ padding: '0 16px' }}>
               <button onClick={() => setSelected(null)}
-                style={{ width: '100%', background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '13px', color: 'var(--text-secondary)', fontSize: '14px', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}
+                style={{ width: '100%', background: PANEL, border: PANEL_BORDER, borderRadius: '16px', padding: '13px', ...ui(400, 14, MUTED60), cursor: 'pointer' }}
               >
                 Close
               </button>
@@ -323,74 +395,51 @@ export default function NailLabHistoryPage() {
       )}
 
       {/* ── MAIN PAGE ── */}
-      <div style={{ paddingBottom: '100px' }}>
-        {/* Header */}
-        <div style={{ padding: '24px 20px 16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <Link href="/nail-lab" style={{ display: 'flex', alignItems: 'center', color: 'var(--text-secondary)', textDecoration: 'none' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="15 18 9 12 15 6"/>
-            </svg>
-          </Link>
-          <div>
-            <h1 style={{ color: 'var(--text-primary)', fontSize: '20px', fontWeight: '500', letterSpacing: '-0.02em', margin: 0 }}>My Generations</h1>
-            {!loadingGens && <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '2px 0 0' }}>{generations.length} design{generations.length !== 1 ? 's' : ''}</p>}
+      <LabShell>
+        <div style={{ padding: 'calc(env(safe-area-inset-top) + 12px) 24px calc(env(safe-area-inset-bottom) + 120px)', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+          {/* Header row: back / wordmark / spacer (frame 239:1800) */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Link href="/nail-lab" aria-label="Back to Nail Lab"
+                style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '100px', padding: '8px', display: 'flex', color: 'var(--lq-white)' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="15 18 9 12 15 6"/>
+                </svg>
+              </Link>
+              <span style={{ color: 'var(--lq-white)', display: 'flex' }}><LaqueWordmark height={24} /></span>
+              <span style={{ width: '32px' }} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <h1 style={{ ...ui(500, 28), margin: 0 }}>My Generations</h1>
+              {!loadingGens && <p style={{ ...ui(300, 16, WHITE80), margin: 0 }}>{generations.length} design{generations.length !== 1 ? 's' : ''}</p>}
+            </div>
           </div>
+
+          {/* Grid */}
+          {loadingGens ? (
+            <p style={{ ...ui(300, 14, MUTED60), textAlign: 'center', padding: '48px 0' }}>Loading your designs...</p>
+          ) : generations.length === 0 ? (
+            <div style={{ padding: '48px 8px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+              <span style={{ color: LAB_ACCENT, fontSize: '36px' }}>✦</span>
+              <p style={{ ...ui(500, 16), margin: 0 }}>No designs yet</p>
+              <p style={{ ...ui(300, 14, MUTED60), margin: 0 }}>Generate your first design in the Nail Lab</p>
+              <Link href="/nail-lab" style={{ display: 'inline-block', marginTop: '8px', background: BTN_GRADIENT, borderRadius: '24px', padding: '12px 28px', ...ui(600, 14), textDecoration: 'none' }}>
+                Go to Nail Lab
+              </Link>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {colA.map(genCard)}
+              </div>
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {colB.map(genCard)}
+              </div>
+            </div>
+          )}
         </div>
-
-        {/* Grid */}
-        {loadingGens ? (
-          <div style={{ padding: '48px 20px', textAlign: 'center' }}>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Loading your designs...</p>
-          </div>
-        ) : generations.length === 0 ? (
-          <div style={{ padding: '64px 32px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-            <div style={{ fontSize: '40px' }}>✦</div>
-            <p style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '500', margin: 0 }}>No designs yet</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0 }}>Generate your first design in the Nail Lab</p>
-            <Link href="/nail-lab" style={{ display: 'inline-block', marginTop: '8px', background: 'var(--accent)', color: '#2C0A1E', borderRadius: '14px', padding: '12px 28px', fontSize: '14px', fontWeight: '600', textDecoration: 'none', fontFamily: "'DM Sans', sans-serif" }}>
-              Go to Nail Lab
-            </Link>
-          </div>
-        ) : (
-          <div style={{ padding: '0 16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-            {generations.map(gen => {
-              const vibes = Array.isArray(gen.vibe) ? gen.vibe : [gen.vibe]
-              const status = publishStatuses[gen.id]
-              return (
-                <button
-                  key={gen.id}
-                  onClick={() => setSelected(gen)}
-                  style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '14px', overflow: 'hidden', padding: 0, cursor: 'pointer', textAlign: 'left', position: 'relative' }}
-                >
-                  {/* Image */}
-                  <div style={{ aspectRatio: '3/2', background: 'var(--bg-chip)', overflow: 'hidden' }}>
-                    {gen.image_url && (
-                      <img src={gen.image_url} alt="Generated design" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                    )}
-                  </div>
-
-                  {/* Status badge */}
-                  {status && (
-                    <div style={{ position: 'absolute', top: '8px', right: '8px', background: status === 'published' ? 'var(--accent)' : 'rgba(20,20,20,0.75)', color: status === 'published' ? '#2C0A1E' : 'var(--text-secondary)', fontSize: '9px', fontWeight: '600', borderRadius: '8px', padding: '3px 7px', fontFamily: "'DM Sans', sans-serif", letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                      {status === 'published' ? '✦ Live' : 'Draft'}
-                    </div>
-                  )}
-
-                  {/* Info */}
-                  <div style={{ padding: '10px 12px 12px' }}>
-                    <p style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500', margin: '0 0 3px', fontFamily: "'DM Sans', sans-serif", whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {vibes.join(' + ')}
-                    </p>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: 0, fontFamily: "'DM Sans', sans-serif" }}>
-                      {gen.shape} · {gen.length} · {timeAgo(gen.created_at)}
-                    </p>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        )}
-      </div>
+      </LabShell>
     </>
   )
 }
