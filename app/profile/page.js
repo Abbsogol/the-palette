@@ -976,10 +976,12 @@ export default function ProfilePage() {
   const designCard = (design, { showState = false, showPin = false } = {}) => (
     <article key={design.id} style={{ position: 'relative' }}>
       <Link href={`/design/${design.id}`} style={{ textDecoration: 'none', display: 'block' }}>
-        <div style={{ position: 'relative', width: '100%', height: '160px', borderRadius: '24px', overflow: 'hidden', background: PANEL, border: PANEL_BORDER }}>
+        {/* Natural aspect, no crop — settled 2026-08-19 for design boards
+            (baked-in titles get sliced by fixed-height crops). */}
+        <div style={{ position: 'relative', width: '100%', borderRadius: '24px', overflow: 'hidden', background: PANEL, border: PANEL_BORDER }}>
           {design.image_url
-            ? <img src={design.image_url} alt={design.title || 'Design'} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            : <div style={{ width: '100%', height: '100%' }} />}
+            ? <img src={design.image_url} alt={design.title || 'Design'} loading="lazy" decoding="async" style={{ width: '100%', height: 'auto', display: 'block' }} />
+            : <div style={{ width: '100%', aspectRatio: '1 / 1' }} />}
           {design.category && (
             <span style={{
               position: 'absolute', top: '8px', left: '8px',
@@ -1497,7 +1499,7 @@ export default function ProfilePage() {
                   )}
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', alignItems: 'start' }}>
                   {myDesigns.map(d => designCard(d, { showState: true, showPin: true }))}
                 </div>
               )}
@@ -1515,7 +1517,7 @@ export default function ProfilePage() {
               </div>
             ) : (
               <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', alignItems: 'start' }}>
                   {savedDesigns.map(d => designCard(d))}
                 </div>
                 <Link href="/saved" style={{ display: 'block', textAlign: 'center', ...ui(500, 13, ACCENT), textDecoration: 'none', marginTop: '16px' }}>
@@ -1536,13 +1538,13 @@ export default function ProfilePage() {
               </div>
             ) : (
               <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', alignItems: 'start' }}>
                   {boards.map(b => (
                     <Link key={b.id} href={`/moodboards/${b.id}`} style={{ textDecoration: 'none', display: 'block' }}>
-                      <div style={{ width: '100%', height: '160px', borderRadius: '24px', overflow: 'hidden', background: PANEL, border: PANEL_BORDER }}>
+                      <div style={{ width: '100%', borderRadius: '24px', overflow: 'hidden', background: PANEL, border: PANEL_BORDER }}>
                         {b.cover_image_url
-                          ? <img src={b.cover_image_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: MUTED }}><FolderIcon size={24} /></div>}
+                          ? <img src={b.cover_image_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: 'auto', display: 'block' }} />
+                          : <div style={{ width: '100%', aspectRatio: '1 / 1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: MUTED }}><FolderIcon size={24} /></div>}
                       </div>
                       <p style={{ ...ui(600, 15), margin: '8px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</p>
                       <p style={{ ...ui(300, 11, MUTED), margin: '2px 0 0' }}>{boardCounts[b.id] || 0} design{(boardCounts[b.id] || 0) !== 1 ? 's' : ''}</p>
