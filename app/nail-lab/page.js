@@ -12,6 +12,8 @@ const PANEL = 'rgba(255, 255, 255, 0.06)'
 const PANEL_BORDER = '1px solid rgba(255, 255, 255, 0.1)'
 const MUTED60 = 'rgba(255, 255, 255, 0.6)'
 const MUTED50 = 'rgba(255, 255, 255, 0.5)'
+const WHITE80 = 'rgba(255, 255, 255, 0.8)'
+const WHITE85 = 'rgba(255, 255, 255, 0.85)'
 const BTN_GRADIENT = 'linear-gradient(90deg, #660007 47.832%, #FF517F 100%)'
 
 const ui = (weight, size, color = 'var(--lq-white)') => ({
@@ -651,9 +653,10 @@ export default function NailLabPage() {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
               </button>
               <div style={{ background: 'rgba(255,255,255,0.11)', display: 'flex', gap: '4px', alignItems: 'center', padding: '6px 12px', borderRadius: '100px' }}>
-                {/* White, not #D98CAB: legibility exception (Sogol 2026-08-22) */}
+                {/* White / white-85, not #D98CAB / white-60: legibility
+                    exception (Sogol 2026-08-22) */}
                 <span style={ui(700, 12)}>{credits}</span>
-                <span style={{ ...ui(600, 10, MUTED60), letterSpacing: '0.5px' }}>CREDIT{credits !== 1 ? 'S' : ''} LEFT</span>
+                <span style={{ ...ui(600, 10, WHITE85), letterSpacing: '0.5px' }}>CREDIT{credits !== 1 ? 'S' : ''} LEFT</span>
               </div>
             </div>
 
@@ -825,9 +828,10 @@ export default function NailLabPage() {
                 History
               </Link>
               <div style={{ background: 'rgba(255,255,255,0.11)', display: 'flex', gap: '4px', alignItems: 'center', padding: '6px 12px', borderRadius: '100px' }}>
-                {/* White, not #D98CAB: legibility exception (Sogol 2026-08-22) */}
+                {/* White / white-85, not #D98CAB / white-60: legibility
+                    exception (Sogol 2026-08-22) */}
                 <span style={ui(700, 12)}>{credits ?? '—'}</span>
-                <span style={{ ...ui(600, 10, MUTED60), letterSpacing: '0.5px' }}>CREDITS</span>
+                <span style={{ ...ui(600, 10, WHITE85), letterSpacing: '0.5px' }}>CREDITS</span>
               </div>
             </div>
           </div>
@@ -835,7 +839,10 @@ export default function NailLabPage() {
           {/* ── Title ── */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <h1 style={{ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: '42px', lineHeight: '48px', color: 'var(--lq-white)', margin: 0 }}>Nail Lab</h1>
-            <p style={{ ...ui(300, 16, MUTED60), lineHeight: '20px', margin: 0 }}>Generate a custom nail design with AI</p>
+            {/* white/85, not the frame's white/60: legibility exception
+                extension (Sogol 2026-08-22) — white/60 washes out on the
+                rendered rosy backdrop. */}
+            <p style={{ ...ui(300, 16, WHITE85), lineHeight: '20px', margin: 0 }}>Generate a custom nail design with AI</p>
           </div>
 
           {/* ── Zero-credit banner: live /buy-credits link (frame drew
@@ -1058,35 +1065,46 @@ export default function NailLabPage() {
         </div>
       </LabShell>
 
-      {/* ── Sticky action area — opaque, stacked ABOVE the nav (z-110 vs
-             nav z-100, price-strip precedent a188e5c): the transparent
-             gradient let content read through and the nav clipped the CTA ── */}
-      <div style={{ position: 'fixed', bottom: 'calc(env(safe-area-inset-bottom) + 72px)', left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '480px', padding: '16px 24px 20px', background: 'rgba(32,5,11,0.94)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', zIndex: 110, display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center', boxSizing: 'border-box' }}>
-        {(vibes.length === 0 || !shape || !length) && (
-          <p style={{ ...ui(400, 13, MUTED50), lineHeight: '16px', margin: 0, textAlign: 'center' }}>
-            Select vibe, shape & length to generate
-          </p>
-        )}
-        {credits === 0 ? (
-          // Live purchase path, not the frame's disabled "coming soon" state.
-          <Link href="/buy-credits" style={{ width: '100%', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: BTN_GRADIENT, borderRadius: '24px', ...ui(500, 15), textDecoration: 'none', boxSizing: 'border-box' }}>
-            Get more credits ✦
-          </Link>
-        ) : (
-          <button
-            onClick={generate}
-            disabled={!canGenerate}
-            style={{
-              width: '100%', height: '48px',
-              background: canGenerate ? BTN_GRADIENT : 'none',
-              border: canGenerate ? 'none' : '1px solid rgba(255,255,255,0.12)',
-              borderRadius: '24px', ...ui(500, 15, canGenerate ? 'var(--lq-white)' : 'rgba(255,255,255,0.4)'),
-              cursor: canGenerate ? 'pointer' : 'default', transition: 'all 0.15s',
-            }}
-          >
-            {generating ? 'Generating…' : 'Generate ✦'}
-          </button>
-        )}
+      {/* ── Sticky action area — a soft wine wash, not a panel: background
+             and blur both fade in through the same vertical ramp (mask on
+             the backdrop-filter layer) so no top edge exists. The button
+             carries its own fill; the helper sits in the transparent zone.
+             z-110 above the nav + scroll clearance kept from 826ac8a. ── */}
+      <div style={{ position: 'fixed', bottom: 'calc(env(safe-area-inset-bottom) + 72px)', left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '480px', padding: '28px 24px 20px', zIndex: 110, boxSizing: 'border-box' }}>
+        <div aria-hidden style={{
+          position: 'absolute', inset: 0,
+          background: 'linear-gradient(180deg, rgba(38,13,20,0) 0%, rgba(38,13,20,0.35) 30%, rgba(38,13,20,0.75) 60%, rgba(38,13,20,0.92) 100%)',
+          backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+          maskImage: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 45%)',
+          WebkitMaskImage: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 45%)',
+        }} />
+        <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
+          {(vibes.length === 0 || !shape || !length) && (
+            <p style={{ ...ui(400, 13, WHITE80), lineHeight: '16px', margin: 0, textAlign: 'center' }}>
+              Select vibe, shape & length to generate
+            </p>
+          )}
+          {credits === 0 ? (
+            // Live purchase path, not the frame's disabled "coming soon" state.
+            <Link href="/buy-credits" style={{ width: '100%', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: BTN_GRADIENT, borderRadius: '24px', ...ui(500, 15), textDecoration: 'none', boxSizing: 'border-box' }}>
+              Get more credits ✦
+            </Link>
+          ) : (
+            <button
+              onClick={generate}
+              disabled={!canGenerate}
+              style={{
+                width: '100%', height: '48px',
+                background: canGenerate ? BTN_GRADIENT : 'none',
+                border: canGenerate ? 'none' : '1px solid rgba(255,255,255,0.12)',
+                borderRadius: '24px', ...ui(500, 15, canGenerate ? 'var(--lq-white)' : 'rgba(255,255,255,0.4)'),
+                cursor: canGenerate ? 'pointer' : 'default', transition: 'all 0.15s',
+              }}
+            >
+              {generating ? 'Generating…' : 'Generate ✦'}
+            </button>
+          )}
+        </div>
       </div>
     </>
   )
