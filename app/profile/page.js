@@ -1653,11 +1653,11 @@ export default function ProfilePage() {
               <span style={{ color: MUTED, display: 'flex' }}><ChevronRight /></span>
             </button>
           ) : (
-            <div style={{ ...menuRow, opacity: 0.55 }}>
+            <Link href="/upgrade" style={menuRow}>
               <span style={{ color: 'var(--lq-white)', display: 'flex' }}><CardIcon /></span>
               <span style={{ ...ui(400, 15), flex: 1 }}>Payment Methods</span>
-              <span style={{ background: CHIP_BG, color: MUTED, fontSize: '10px', fontWeight: 500, padding: '3px 8px', borderRadius: 'var(--lq-radius-pill)', fontFamily: 'var(--lq-font-ui)' }}>Soon</span>
-            </div>
+              <span style={{ color: MUTED, display: 'flex' }}><ChevronRight /></span>
+            </Link>
           )}
           <Link href="/help" style={menuRow}>
             <span style={{ color: 'var(--lq-white)', display: 'flex' }}><HelpIcon /></span>
