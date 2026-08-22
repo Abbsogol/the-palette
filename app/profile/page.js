@@ -1427,7 +1427,7 @@ export default function ProfilePage() {
           <div style={{ background: PANEL, border: '1px solid #660007', borderRadius: '24px', padding: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
               <p style={{ ...ui(600, 15), margin: 0 }}>Upcoming Appointment</p>
-              <span style={{ background: apptStatus.bg, color: apptStatus.color, ...ui(600, 10), padding: '3px 8px', borderRadius: '6px', letterSpacing: '0.03em' }}>
+              <span style={{ background: apptStatus.bg, ...ui(600, 10, apptStatus.color), padding: '3px 8px', borderRadius: '6px', letterSpacing: '0.03em' }}>
                 {apptStatus.label}
               </span>
             </div>
