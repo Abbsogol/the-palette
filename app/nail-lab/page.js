@@ -234,7 +234,10 @@ function CardHeader({ title, required }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
       <p style={{ ...ui(500, 18), lineHeight: '22px', margin: 0 }}>{title}</p>
-      <span style={{ ...ui(600, 12, required ? LAB_ACCENT : MUTED50), letterSpacing: '0.5px', textTransform: 'uppercase', lineHeight: '14px' }}>
+      {/* White, not the frame's #D98CAB / white-50: deliberate legibility
+          exception (Sogol 2026-08-22) — the drawn colours vanish against
+          the rosy backdrop on a real screen. Size/weight as drawn. */}
+      <span style={{ ...ui(600, 12), letterSpacing: '0.5px', textTransform: 'uppercase', lineHeight: '14px' }}>
         {required ? 'Required' : 'Optional'}
       </span>
     </div>
@@ -648,7 +651,8 @@ export default function NailLabPage() {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
               </button>
               <div style={{ background: 'rgba(255,255,255,0.11)', display: 'flex', gap: '4px', alignItems: 'center', padding: '6px 12px', borderRadius: '100px' }}>
-                <span style={ui(700, 12, LAB_ACCENT)}>{credits}</span>
+                {/* White, not #D98CAB: legibility exception (Sogol 2026-08-22) */}
+                <span style={ui(700, 12)}>{credits}</span>
                 <span style={{ ...ui(600, 10, MUTED60), letterSpacing: '0.5px' }}>CREDIT{credits !== 1 ? 'S' : ''} LEFT</span>
               </div>
             </div>
@@ -821,7 +825,8 @@ export default function NailLabPage() {
                 History
               </Link>
               <div style={{ background: 'rgba(255,255,255,0.11)', display: 'flex', gap: '4px', alignItems: 'center', padding: '6px 12px', borderRadius: '100px' }}>
-                <span style={ui(700, 12, LAB_ACCENT)}>{credits ?? '—'}</span>
+                {/* White, not #D98CAB: legibility exception (Sogol 2026-08-22) */}
+                <span style={ui(700, 12)}>{credits ?? '—'}</span>
                 <span style={{ ...ui(600, 10, MUTED60), letterSpacing: '0.5px' }}>CREDITS</span>
               </div>
             </div>
