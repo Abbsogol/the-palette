@@ -794,7 +794,7 @@ export default function ProfilePage() {
 
   // ── Choose account type ────────────────────────────────────────────────
   const accountTypes = [
-    { type: 'user',    label: 'Design Lover',           desc: 'Browse, save, and discover nail designs' },
+    { type: 'user',    label: 'Nail Lover',             desc: 'Browse, save, and discover nail designs' },
     { type: 'creator', label: 'Nail Artist / Nail Tech', desc: 'Publish your work and build your portfolio' },
     { type: 'salon',   label: 'Salon Owner',             desc: "Showcase your salon's designs and manage your team" },
   ]
@@ -986,7 +986,9 @@ export default function ProfilePage() {
             : <div style={{ width: '100%', aspectRatio: '1 / 1' }} />}
           {design.category && (
             <span style={{
-              position: 'absolute', top: '8px', left: '8px',
+              // Bottom-left, not top-left: boards print their titles in the
+              // artwork's upper area and the chip was covering them.
+              position: 'absolute', bottom: '8px', left: '8px',
               background: 'rgba(38,13,20,0.55)', backdropFilter: 'blur(6px)',
               padding: '4px 8px', borderRadius: 'var(--lq-radius-pill)',
               ...ui(500, 9), letterSpacing: '0.04em', textTransform: 'capitalize',
