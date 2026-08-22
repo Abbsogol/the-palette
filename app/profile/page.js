@@ -1024,8 +1024,10 @@ export default function ProfilePage() {
   )
 
   return (
-    <Shell avatarUrl={profile?.avatar_url}>
-
+    <>
+      {/* Overlays live OUTSIDE Shell: its zIndex:1 content wrapper is a
+          stacking context, which resolved every overlay below the z-100
+          bottom nav — the nav painted over the sheet's bottom rows. */}
       {cropFile && <CropModal file={cropFile} onCrop={handleCroppedUpload} onCancel={() => setCropFile(null)} />}
 
       {/* ── Post update modal ──────────────────────────────────────────── */}
@@ -1098,9 +1100,11 @@ export default function ProfilePage() {
               <span style={{ ...ui(400, 15, '#E07070'), flex: 1 }}>Delete account</span>
             </button>
           </div>
-          <p style={{ ...ui(300, 12, MUTED), textAlign: 'center', marginTop: '20px' }}>Laque · Version 0.2 · Beta</p>
+          <p style={{ ...ui(300, 12, MUTED), textAlign: 'center', margin: '20px 0 0', paddingBottom: 'env(safe-area-inset-bottom)' }}>Laque · Version 0.2 · Beta</p>
         </Sheet>
       )}
+
+      <Shell avatarUrl={profile?.avatar_url}>
 
       <div style={{ padding: 'calc(env(safe-area-inset-top) + 12px) 24px calc(env(safe-area-inset-bottom) + 140px)', display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
@@ -1716,6 +1720,7 @@ export default function ProfilePage() {
         )}
 
       </div>
-    </Shell>
+      </Shell>
+    </>
   )
 }
