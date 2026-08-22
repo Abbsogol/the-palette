@@ -960,7 +960,9 @@ export default function ProfilePage() {
     { key: 'saved',       label: 'Saved',       count: savedCount,       href: '/saved',        icon: <BookmarkIcon /> },
     { key: 'favorites',   label: 'Favorites',   count: favouritesCount,  href: '/search?tab=artists&favourites=1', icon: <HeartIcon size={16} /> },
     { key: 'collections', label: 'Collections', count: collectionsCount, href: '/moodboards',   icon: <FolderIcon /> },
-    { key: 'credits',     label: 'Credits',     count: profile?.credit_balance ?? 0, href: '/nail-lab', icon: <MagicStarIcon size={16} /> },
+    // /buy-credits, not /nail-lab: the lab shows the balance but has no
+    // purchase entry, and this tile replaced the old wallet's only Buy CTA.
+    { key: 'credits',     label: 'Credits',     count: profile?.credit_balance ?? 0, href: '/buy-credits', icon: <MagicStarIcon size={16} /> },
   ]
 
   const Tile = ({ t }) => (
