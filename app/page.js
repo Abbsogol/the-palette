@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { LaqueWordmark } from '@/components/ui/icons'
 
 // ── Deck: stacked → fanned positions ─────────────────────────────────────────
 const DECK_STACK = [
@@ -443,11 +444,9 @@ export default function LandingPage() {
               </div>
 
               <h1 style={{
-                fontSize: 'clamp(68px, 20vw, 92px)', fontWeight: '500',
-                color: 'var(--text-primary)', letterSpacing: '-0.045em',
-                lineHeight: '0.9', marginBottom: '14px',
+                color: 'var(--text-primary)', lineHeight: '0.9', marginBottom: '14px',
                 animation: 'fadeUp 0.6s ease 0.2s both',
-              }}>Laque</h1>
+              }}><LaqueWordmark height={72} /></h1>
 
               <p style={{
                 fontSize: '15px', color: 'var(--text-secondary)',
