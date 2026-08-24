@@ -77,13 +77,10 @@ body {
   mix-blend-mode: overlay;
 }
 
-/* The wine-blur backdrop as pure CSS — replaces the 1.5MB bg-blur.png
-   bitmap (857px wide, upscaled at 2x DPR, banding-prone). Stops sampled
-   from the original image. */
+/* The Search/Home backdrop — the frames' real background is an IMAGE fill
+   (node 275:5912, source 857×1835): served here as Figma's own 3× render of
+   the framed crop (1179×4017, WebP q85, 34KB) so no browser upscaling ever
+   happens. Grain overlay stays on top. */
 .lq-bg-wine {
-  background:
-    radial-gradient(38% 42% at 64% 40%, rgba(245, 184, 184, 0.9) 0%, rgba(245, 184, 184, 0) 70%),
-    radial-gradient(70% 40% at 50% 0%, rgba(198, 104, 109, 0.8) 0%, rgba(198, 104, 109, 0) 75%),
-    radial-gradient(50% 40% at 90% 88%, rgba(173, 84, 90, 0.6) 0%, rgba(173, 84, 90, 0) 70%),
-    linear-gradient(190deg, #96525a 0%, #7d3f4b 40%, #4a2530 75%, #2c1e25 100%);
+  background: #260D14 url(/redesign/bg-wine.webp) center / cover no-repeat;
 }

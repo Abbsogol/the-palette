@@ -482,7 +482,7 @@ export default function FeedPage() {
           and the sheet's translucent reaches would show flat dark instead. */}
       <div aria-hidden className="lq-bg-wine" style={{
         position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)',
-        width: '100%', maxWidth: '480px', zIndex: 0, backgroundColor: '#29000A',
+        width: '100%', maxWidth: '480px', zIndex: 0,
       }}>
         <div className="lq-grain" />
       </div>
