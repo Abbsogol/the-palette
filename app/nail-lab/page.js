@@ -12,8 +12,6 @@ const PANEL = 'rgba(255, 255, 255, 0.06)'
 const PANEL_BORDER = '1px solid rgba(255, 255, 255, 0.1)'
 const MUTED60 = 'rgba(255, 255, 255, 0.6)'
 const MUTED50 = 'rgba(255, 255, 255, 0.5)'
-const WHITE80 = 'rgba(255, 255, 255, 0.8)'
-const WHITE85 = 'rgba(255, 255, 255, 0.85)'
 const BTN_GRADIENT = 'linear-gradient(90deg, #660007 47.832%, #FF517F 100%)'
 
 const ui = (weight, size, color = 'var(--lq-white)') => ({
@@ -236,10 +234,10 @@ function CardHeader({ title, required }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
       <p style={{ ...ui(500, 18), lineHeight: '22px', margin: 0 }}>{title}</p>
-      {/* White, not the frame's #D98CAB / white-50: deliberate legibility
-          exception (Sogol 2026-08-22) — the drawn colours vanish against
-          the rosy backdrop on a real screen. Size/weight as drawn. */}
-      <span style={{ ...ui(600, 12), letterSpacing: '0.5px', textTransform: 'uppercase', lineHeight: '14px' }}>
+      {/* Frame colours restored (Sogol 2026-08-24): the 08-22 white
+          legibility exception existed for the light backdrop, which is
+          now dark wine — #D98CAB / white-50 are legible again. */}
+      <span style={{ ...ui(600, 12, required ? LAB_ACCENT : MUTED50), letterSpacing: '0.5px', textTransform: 'uppercase', lineHeight: '14px' }}>
         {required ? 'Required' : 'Optional'}
       </span>
     </div>
@@ -256,10 +254,15 @@ function LabShell({ children }) {
     <div style={{ position: 'relative' }}>
       <div aria-hidden style={{
         position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)',
-        width: '100%', maxWidth: '480px', zIndex: 0, overflow: 'hidden', background: '#260D14',
-      }}>
-        <img src="/redesign/lab-bg.webp" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-      </div>
+        width: '100%', maxWidth: '480px', zIndex: 0, overflow: 'hidden',
+        // Dark wine base (Sogol 2026-08-24) with the Lab's rosy vertical
+        // glow kept as gradient character — replaces the light bitmap.
+        background: [
+          'radial-gradient(70% 42% at 62% 30%, rgba(217,140,171,0.18) 0%, rgba(217,140,171,0) 65%)',
+          'radial-gradient(90% 55% at 25% 85%, rgba(102,0,7,0.5) 0%, rgba(102,0,7,0) 70%)',
+          'linear-gradient(180deg, #2E1119 0%, #260D14 55%, #1C0910 100%)',
+        ].join(', '),
+      }} />
       <div style={{ position: 'relative', zIndex: 1 }}>
         {children}
       </div>
@@ -653,10 +656,8 @@ export default function NailLabPage() {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
               </button>
               <div style={{ background: 'rgba(255,255,255,0.11)', display: 'flex', gap: '4px', alignItems: 'center', padding: '6px 12px', borderRadius: '100px' }}>
-                {/* White / white-85, not #D98CAB / white-60: legibility
-                    exception (Sogol 2026-08-22) */}
-                <span style={ui(700, 12)}>{credits}</span>
-                <span style={{ ...ui(600, 10, WHITE85), letterSpacing: '0.5px' }}>CREDIT{credits !== 1 ? 'S' : ''} LEFT</span>
+                <span style={ui(700, 12, LAB_ACCENT)}>{credits}</span>
+                <span style={{ ...ui(600, 10, MUTED60), letterSpacing: '0.5px' }}>CREDIT{credits !== 1 ? 'S' : ''} LEFT</span>
               </div>
             </div>
 
@@ -828,10 +829,8 @@ export default function NailLabPage() {
                 History
               </Link>
               <div style={{ background: 'rgba(255,255,255,0.11)', display: 'flex', gap: '4px', alignItems: 'center', padding: '6px 12px', borderRadius: '100px' }}>
-                {/* White / white-85, not #D98CAB / white-60: legibility
-                    exception (Sogol 2026-08-22) */}
-                <span style={ui(700, 12)}>{credits ?? '—'}</span>
-                <span style={{ ...ui(600, 10, WHITE85), letterSpacing: '0.5px' }}>CREDITS</span>
+                <span style={ui(700, 12, LAB_ACCENT)}>{credits ?? '—'}</span>
+                <span style={{ ...ui(600, 10, MUTED60), letterSpacing: '0.5px' }}>CREDITS</span>
               </div>
             </div>
           </div>
@@ -839,10 +838,7 @@ export default function NailLabPage() {
           {/* ── Title ── */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <h1 style={{ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: '42px', lineHeight: '48px', color: 'var(--lq-white)', margin: 0 }}>Nail Lab</h1>
-            {/* white/85, not the frame's white/60: legibility exception
-                extension (Sogol 2026-08-22) — white/60 washes out on the
-                rendered rosy backdrop. */}
-            <p style={{ ...ui(300, 16, WHITE85), lineHeight: '20px', margin: 0 }}>Generate a custom nail design with AI</p>
+            <p style={{ ...ui(300, 16, MUTED60), lineHeight: '20px', margin: 0 }}>Generate a custom nail design with AI</p>
           </div>
 
           {/* ── Zero-credit banner: live /buy-credits link (frame drew
@@ -1080,7 +1076,7 @@ export default function NailLabPage() {
         }} />
         <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
           {(vibes.length === 0 || !shape || !length) && (
-            <p style={{ ...ui(400, 13, WHITE80), lineHeight: '16px', margin: 0, textAlign: 'center' }}>
+            <p style={{ ...ui(400, 13, MUTED50), lineHeight: '16px', margin: 0, textAlign: 'center' }}>
               Select vibe, shape & length to generate
             </p>
           )}

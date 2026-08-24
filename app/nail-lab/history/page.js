@@ -35,10 +35,15 @@ function LabShell({ children }) {
     <div style={{ position: 'relative' }}>
       <div aria-hidden style={{
         position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)',
-        width: '100%', maxWidth: '480px', zIndex: 0, overflow: 'hidden', background: '#260D14',
-      }}>
-        <img src="/redesign/lab-bg.webp" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-      </div>
+        width: '100%', maxWidth: '480px', zIndex: 0, overflow: 'hidden',
+        // Dark wine base (Sogol 2026-08-24) with the Lab's rosy vertical
+        // glow kept as gradient character — replaces the light bitmap.
+        background: [
+          'radial-gradient(70% 42% at 62% 30%, rgba(217,140,171,0.18) 0%, rgba(217,140,171,0) 65%)',
+          'radial-gradient(90% 55% at 25% 85%, rgba(102,0,7,0.5) 0%, rgba(102,0,7,0) 70%)',
+          'linear-gradient(180deg, #2E1119 0%, #260D14 55%, #1C0910 100%)',
+        ].join(', '),
+      }} />
       <div style={{ position: 'relative', zIndex: 1 }}>
         {children}
       </div>
