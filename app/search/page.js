@@ -405,11 +405,12 @@ export default function SearchPage() {
       {/* Fixed blurred-wine page background. z-index 0 + positioned content
           above it — a negative z-index would paint it behind the body's own
           background colour and the page would render flat dark. */}
-      <div aria-hidden style={{
+      <div aria-hidden className="lq-bg-wine" style={{
         position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)',
-        width: '100%', maxWidth: '480px', zIndex: 0,
-        background: '#29000A url(/redesign/bg-blur.png) center / cover no-repeat',
-      }} />
+        width: '100%', maxWidth: '480px', zIndex: 0, backgroundColor: '#29000A',
+      }}>
+        <div className="lq-grain" />
+      </div>
 
       <div style={{ position: 'relative', zIndex: 1, padding: 'calc(env(safe-area-inset-top) + 12px) 24px 24px' }}>
 

@@ -62,3 +62,28 @@ body {
   margin: 0 auto;
   min-height: 100vh;
 }
+
+/* ── Backdrop quality (2026-08-24) ────────────────────────────────────── */
+/* Fine tiled feTurbulence grain, overlay-blended at low opacity: dissolves
+   the 8-bit banding that large smooth gradients step into. Place inside a
+   backdrop container as its last child. */
+.lq-grain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+}
+
+/* The wine-blur backdrop as pure CSS — replaces the 1.5MB bg-blur.png
+   bitmap (857px wide, upscaled at 2x DPR, banding-prone). Stops sampled
+   from the original image. */
+.lq-bg-wine {
+  background:
+    radial-gradient(38% 42% at 64% 40%, rgba(245, 184, 184, 0.9) 0%, rgba(245, 184, 184, 0) 70%),
+    radial-gradient(70% 40% at 50% 0%, rgba(198, 104, 109, 0.8) 0%, rgba(198, 104, 109, 0) 75%),
+    radial-gradient(50% 40% at 90% 88%, rgba(173, 84, 90, 0.6) 0%, rgba(173, 84, 90, 0) 70%),
+    linear-gradient(190deg, #96525a 0%, #7d3f4b 40%, #4a2530 75%, #2c1e25 100%);
+}

@@ -480,11 +480,12 @@ export default function FeedPage() {
       {/* Fixed blurred-wine page background (Figma page underlay). z-index 0,
           not -1 — negative would paint it behind the body's own background
           and the sheet's translucent reaches would show flat dark instead. */}
-      <div aria-hidden style={{
+      <div aria-hidden className="lq-bg-wine" style={{
         position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)',
-        width: '100%', maxWidth: '480px', zIndex: 0,
-        background: '#29000A url(/redesign/bg-blur.png) center / cover no-repeat',
-      }} />
+        width: '100%', maxWidth: '480px', zIndex: 0, backgroundColor: '#29000A',
+      }}>
+        <div className="lq-grain" />
+      </div>
 
       {/* ── Full-screen story viewer ──────────────────────────────────────── */}
       {viewingStories && (() => {

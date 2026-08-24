@@ -317,6 +317,7 @@ function Shell({ avatarUrl, children }) {
           <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'blur(56px) saturate(0.5)', transform: 'scale(1.3)' }} />
         )}
         <div style={{ position: 'absolute', inset: 0, background: avatarUrl ? 'rgba(38, 13, 20, 0.88)' : 'radial-gradient(120% 60% at 50% 0%, rgba(102,0,7,0.25) 0%, rgba(38,13,20,0) 70%)' }} />
+        <div className="lq-grain" />
       </div>
       <div style={{ position: 'relative', zIndex: 1 }}>
         {children}

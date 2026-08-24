@@ -262,7 +262,9 @@ function LabShell({ children }) {
           'radial-gradient(90% 55% at 25% 85%, rgba(102,0,7,0.5) 0%, rgba(102,0,7,0) 70%)',
           'linear-gradient(180deg, #2E1119 0%, #260D14 55%, #1C0910 100%)',
         ].join(', '),
-      }} />
+      }}>
+        <div className="lq-grain" />
+      </div>
       <div style={{ position: 'relative', zIndex: 1 }}>
         {children}
       </div>
