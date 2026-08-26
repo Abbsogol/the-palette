@@ -26,10 +26,19 @@ export default function BottomNav() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const { data: convs, error: convsError } = await supabase
+      // muted_by ships before its column may exist — try the mute-aware
+      // select first and fall back so the badge never breaks pre-SQL.
+      let convs, convsError
+      ;({ data: convs, error: convsError } = await supabase
         .from('conversations')
-        .select('id')
-        .or(`client_id.eq.${user.id},creator_id.eq.${user.id}`)
+        .select('id, muted_by')
+        .or(`client_id.eq.${user.id},creator_id.eq.${user.id}`))
+      if (convsError) {
+        ;({ data: convs, error: convsError } = await supabase
+          .from('conversations')
+          .select('id')
+          .or(`client_id.eq.${user.id},creator_id.eq.${user.id}`))
+      }
 
       // A passive background badge, not primary page content — on failure,
       // log and leave the last-known count as-is rather than resetting to 0
@@ -39,7 +48,8 @@ export default function BottomNav() {
       if (convsError) { console.error('unread count fetch failed:', convsError); return }
       if (!convs || convs.length === 0) { setUnreadMessages(0); return }
 
-      const convIds = convs.map(c => c.id)
+      const convIds = convs.filter(c => !(c.muted_by || []).includes(user.id)).map(c => c.id)
+      if (convIds.length === 0) { setUnreadMessages(0); return }
       const { count, error: countError } = await supabase
         .from('messages')
         .select('*', { count: 'exact', head: true })
@@ -53,8 +63,23 @@ export default function BottomNav() {
     fetchUnread()
   }, [pathname])
 
+  // Track presence app-wide on the shared online-users channel — the chat
+  // header's "Active now" is only ever derived from this being literally
+  // true. No last_seen writes anywhere.
+  useEffect(() => {
+    let channel
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      channel = supabase.channel('online-users', { config: { presence: { key: user.id } } })
+      channel.subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') await channel.track({ at: Date.now() })
+      })
+    })
+    return () => { if (channel) supabase.removeChannel(channel) }
+  }, [])
+
   // Hide on full-screen flows
-  if (pathname === '/story/new' || pathname === '/onboarding' || pathname?.startsWith('/messages/') || pathname?.startsWith('/admin') || pathname === '/planner' || pathname?.startsWith('/settings/') || pathname?.startsWith('/nail-card/') || pathname === '/help') return null
+  if (pathname === '/story/new' || pathname === '/onboarding' || (pathname?.startsWith('/messages/') && pathname !== '/messages/new') || pathname?.startsWith('/admin') || pathname === '/planner' || pathname?.startsWith('/settings/') || pathname?.startsWith('/nail-card/') || pathname === '/help') return null
 
   return (
     <nav aria-label="Main navigation" style={{
