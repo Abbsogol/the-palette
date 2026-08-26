@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { startPresence } from '@/lib/presence'
 import { HomeIcon, SearchIcon, MagicStarIcon, MessageIcon, HeartIcon, UserIcon } from '@/components/ui/icons'
 
 // Redesigned floating pill nav (Figma 280:7207): active tab is a gradient
@@ -63,19 +64,13 @@ export default function BottomNav() {
     fetchUnread()
   }, [pathname])
 
-  // Track presence app-wide on the shared online-users channel — the chat
-  // header's "Active now" is only ever derived from this being literally
-  // true. No last_seen writes anywhere.
+  // Track presence app-wide via the shared singleton (lib/presence) — the
+  // chat header's "Active now" is only ever derived from this being
+  // literally true. No last_seen writes anywhere.
   useEffect(() => {
-    let channel
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return
-      channel = supabase.channel('online-users', { config: { presence: { key: user.id } } })
-      channel.subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') await channel.track({ at: Date.now() })
-      })
+      if (user) startPresence(user.id)
     })
-    return () => { if (channel) supabase.removeChannel(channel) }
   }, [])
 
   // Hide on full-screen flows

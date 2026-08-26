@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import Sheet from '@/components/ui/Sheet'
+import { startPresence, onPresence } from '@/lib/presence'
 
 // ── Chat palette from frames 242:2385 / 249:2208 / 249:2052 ────────────────
 const PANEL = 'rgba(255, 255, 255, 0.06)'
@@ -184,21 +185,14 @@ export default function ChatPage() {
     return () => supabase.removeChannel(channel)
   }, [id, currentUser])
 
-  // Honest presence: the shared online-users channel (tracked app-wide from
-  // BottomNav). "Active now" renders only while the peer is actually
-  // present; otherwise the line simply doesn't exist. No last_seen writes.
+  // Honest presence via the shared singleton (lib/presence): the channel is
+  // owned there — a second handle on the same topic would throw ("cannot add
+  // presence callbacks after subscribe"). "Active now" renders only while
+  // the peer is actually present; otherwise the line doesn't exist.
   useEffect(() => {
     if (!currentUser || !other?.id) return
-    const channel = supabase.channel('online-users', { config: { presence: { key: currentUser.id } } })
-    const sync = () => setPeerOnline(!!channel.presenceState()[other.id])
-    channel
-      .on('presence', { event: 'sync' }, sync)
-      .on('presence', { event: 'join' }, sync)
-      .on('presence', { event: 'leave' }, sync)
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') await channel.track({ at: Date.now() })
-      })
-    return () => supabase.removeChannel(channel)
+    startPresence(currentUser.id)
+    return onPresence((state) => setPeerOnline(!!state[other.id]))
   }, [currentUser, other])
 
   // Scroll to bottom when messages change
