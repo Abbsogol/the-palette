@@ -6,11 +6,11 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 const PLANS = {
   pro_creator: {
     priceId: 'price_1TnxOG14PyqGjXgeKYmTKhQf',
-    name: 'Laque Pro Creator',
+    name: 'laQue Pro Creator',
   },
   premium: {
     priceId: 'price_1TnxOq14PyqGjXgedydlYqto',
-    name: 'Laque Premium',
+    name: 'laQue Premium',
   },
 }
 

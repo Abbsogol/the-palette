@@ -46,7 +46,7 @@ export async function POST(request) {
             currency: 'aed',
             product_data: {
               name: `Boost "${design.title}"`,
-              description: `Promoted placement in the Laque feed for ${days} day${days > 1 ? 's' : ''}`,
+              description: `Promoted placement in the laQue feed for ${days} day${days > 1 ? 's' : ''}`,
             },
             unit_amount: expectedPrice * 100, // AED to fils
           },

@@ -259,9 +259,9 @@ export default function CreatorPage() {
 
   const handleShare = async () => {
     const url = window.location.href
-    const title = profile?.display_name ? `${profile.display_name} on Laque` : 'Creator on Laque'
+    const title = profile?.display_name ? `${profile.display_name} on laQue` : 'Creator on laQue'
     if (navigator.share) {
-      try { await navigator.share({ title: `${title} — Laque`, url }) } catch {}
+      try { await navigator.share({ title: `${title} — laQue`, url }) } catch {}
     } else {
       await navigator.clipboard.writeText(url)
       setShareCopied(true)

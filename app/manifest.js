@@ -1,7 +1,7 @@
 export default function manifest() {
   return {
-    name: 'Laque',
-    short_name: 'Laque',
+    name: 'laQue',
+    short_name: 'laQue',
     description: 'A curated library of nail & beauty designs — browse, save, and discover with full specs.',
     start_url: '/',
     display: 'standalone',

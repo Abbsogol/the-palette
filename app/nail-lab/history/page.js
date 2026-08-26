@@ -354,7 +354,7 @@ export default function NailLabHistoryPage() {
 
               {/* Share */}
               <button
-                onClick={() => { if (navigator.share) { navigator.share({ title: `${selectedVibes.join(' + ')} nails · Laque`, url: selected.image_url }) } else { navigator.clipboard?.writeText(selected.image_url) } }}
+                onClick={() => { if (navigator.share) { navigator.share({ title: `${selectedVibes.join(' + ')} nails · laQue`, url: selected.image_url }) } else { navigator.clipboard?.writeText(selected.image_url) } }}
                 style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', background: PANEL, border: PANEL_BORDER, borderRadius: '16px', padding: '14px 8px', cursor: 'pointer', color: 'var(--lq-white)' }}
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">

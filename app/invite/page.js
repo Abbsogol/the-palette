@@ -73,7 +73,7 @@ export default function InvitePage() {
   const share = async () => {
     if (navigator.share) {
       navigator.share({
-        title: 'Join me on Laque',
+        title: 'Join me on laQue',
         text: `Discover the most beautiful nail designs on Laque. Use my code ${code} when you sign up and we both get rewards! 💅`,
         url: shareUrl,
       }).catch(() => {})
