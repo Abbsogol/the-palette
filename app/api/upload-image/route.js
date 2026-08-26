@@ -15,6 +15,10 @@ const PURPOSES = {
   // Hand photos are a stored reference photo (profile field), viewed at
   // phone width — 1024 preserves usable detail at a fraction of the bytes.
   'hand-photo':  { maxDimension: 1024, adminOnly: false, path: (u) => `hand-photos/${u.id}/${Date.now()}.webp` },
+  // Chat photos render in a ≤260px bubble and at most full-viewport when
+  // opened (≤480px column) — 1280 covers 480px at high-DPR with headroom
+  // while staying ~40% lighter than the 1600 design pipeline.
+  'chat-photo':  { maxDimension: 1280, adminOnly: false, path: (u) => `chat-photos/${u.id}/${Date.now()}.webp` },
   'admin-design': { maxDimension: 1600, adminOnly: true, path: (_u, slug) => `${Date.now()}-${slug}.webp` },
   'admin-product': { maxDimension: 1600, adminOnly: true, path: () => `product-${Date.now()}.webp` },
 }
