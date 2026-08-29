@@ -393,7 +393,7 @@ export default function ChatPage() {
                 Manage appointment
               </Link>
             ) : (iAmClient && otherIsCreator) ? (
-              <Link href={`/book/${other.id}`} onClick={() => setSheetOpen(false)}
+              <Link href={`/book/${other.id}?from=chat:${id}`} onClick={() => setSheetOpen(false)}
                 style={{ background: BTN_GRADIENT, borderRadius: '24px', padding: '14px', ...ui(600, 15), textAlign: 'center', textDecoration: 'none', marginBottom: '12px' }}>
                 Book appointment
               </Link>

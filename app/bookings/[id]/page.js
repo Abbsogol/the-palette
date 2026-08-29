@@ -41,6 +41,7 @@ export default function BookingDetailPage() {
   const { id } = useParams()
   const router = useRouter()
   const [booking, setBooking] = useState(null)
+  const [refDesign, setRefDesign] = useState(null)
   const [loading, setLoading] = useState(true)
   const [acting, setActing] = useState(null)
   const [currentUser, setCurrentUser] = useState(null)
@@ -72,6 +73,12 @@ export default function BookingDetailPage() {
       if (existingNote) {
         setNoteId(existingNote.id)
         setNoteText(existingNote.note)
+      }
+
+      // Client-attached reference design, when the booking carries one
+      if (data.reference_design_id) {
+        const { data: ref } = await supabase.from('designs').select('id, title, image_url').eq('id', data.reference_design_id).maybeSingle()
+        if (ref) setRefDesign(ref)
       }
 
       setBooking({ ...data, client })
@@ -197,11 +204,25 @@ export default function BookingDetailPage() {
           )}
         </div>
 
-        {/* Note */}
-        {booking.notes && (
+        {/* Note + attached reference design */}
+        {(booking.notes || refDesign) && (
           <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '16px', padding: '16px', marginBottom: '20px' }}>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 8px' }}>Client note</p>
-            <p style={{ color: 'var(--text-primary)', fontSize: '14px', lineHeight: '1.6', margin: 0 }}>{booking.notes}</p>
+            {booking.notes && (
+              <>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 8px' }}>Client note</p>
+                <p style={{ color: 'var(--text-primary)', fontSize: '14px', lineHeight: '1.6', margin: refDesign ? '0 0 14px' : 0 }}>{booking.notes}</p>
+              </>
+            )}
+            {refDesign && (
+              <Link href={`/design/${refDesign.id}`} style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
+                <img src={refDesign.image_url} alt={refDesign.title} style={{ width: '44px', height: '44px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '10px', fontWeight: '600', letterSpacing: '0.06em', textTransform: 'uppercase', margin: '0 0 2px' }}>Reference design</p>
+                  <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{refDesign.title}</p>
+                </div>
+                <span style={{ color: 'var(--text-secondary)', fontSize: '16px' }}>›</span>
+              </Link>
+            )}
           </div>
         )}
 
