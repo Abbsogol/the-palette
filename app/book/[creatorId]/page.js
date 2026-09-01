@@ -528,7 +528,7 @@ function BookPageInner() {
                           height: '32px', borderRadius: '8px',
                           background: isSelected ? ACCENT : isToday ? 'rgba(255,255,255,0.1)' : 'transparent',
                           border: 'none',
-                          ...ui(isSelected ? 600 : 400, 14, isSelected ? 'var(--lq-white)' : item.available ? WHITE80 : 'rgba(255,255,255,0.2)'),
+                          ...ui(isSelected ? 600 : item.available ? 500 : 400, 14, (isSelected || item.available) ? 'var(--lq-white)' : 'rgba(255,255,255,0.22)'),
                           cursor: item.available ? 'pointer' : 'default',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}
