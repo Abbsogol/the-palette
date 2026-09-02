@@ -74,7 +74,7 @@ export default function BottomNav() {
   }, [])
 
   // Hide on full-screen flows
-  if (pathname === '/story/new' || pathname === '/onboarding' || pathname?.startsWith('/book/') || (pathname?.startsWith('/messages/') && pathname !== '/messages/new') || pathname?.startsWith('/admin') || pathname === '/planner' || pathname?.startsWith('/settings/') || pathname?.startsWith('/nail-card/') || pathname === '/help') return null
+  if (pathname === '/' || pathname === '/story/new' || pathname === '/onboarding' || pathname?.startsWith('/book/') || (pathname?.startsWith('/messages/') && pathname !== '/messages/new') || pathname?.startsWith('/admin') || pathname === '/planner' || pathname?.startsWith('/settings/') || pathname?.startsWith('/nail-card/') || pathname === '/help') return null
 
   return (
     <nav aria-label="Main navigation" style={{
