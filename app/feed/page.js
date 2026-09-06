@@ -61,6 +61,7 @@ export default function FeedPage() {
   const [updates, setUpdates]               = useState([])
   const [loadingUpdates, setLoadingUpdates] = useState(false)
   const [updatesLoaded, setUpdatesLoaded]   = useState(false)
+  const [followsCount, setFollowsCount]     = useState(null)
 
   // Shared
   const [currentUser, setCurrentUser] = useState(null)
@@ -246,6 +247,7 @@ export default function FeedPage() {
         .select('following_id')
         .eq('follower_id', currentUser.id)
       const ids = (followRows || []).map(r => r.following_id)
+      setFollowsCount(ids.length)
       if (ids.length > 0) {
         const { data } = await supabase
           .from('designs')
@@ -267,6 +269,7 @@ export default function FeedPage() {
         .select('following_id')
         .eq('follower_id', currentUser.id)
       const followedIds = (followRows || []).map(r => r.following_id)
+      setFollowsCount(followedIds.length)
       const ids = [...new Set([currentUser.id, ...followedIds])]
       const { data: postsData } = await supabase
         .from('salon_posts')
@@ -894,10 +897,13 @@ export default function FeedPage() {
               <p style={{ ...ui(300, 14, 'var(--lq-white-80)'), textAlign: 'center', padding: '48px 0' }}>Loading...</p>
             ) : updates.length === 0 ? (
               <div style={{ padding: '32px 0', textAlign: 'center' }}>
-                <p style={{ ...ui(400, 15), marginBottom: '8px' }}>No updates yet</p>
-                <p style={{ ...ui(300, 13, 'var(--lq-white-80)'), lineHeight: 1.6 }}>
-                  Updates from salons and artists you follow will appear here.
+                <p style={{ ...ui(400, 15), marginBottom: '8px' }}>No updates from your artists</p>
+                <p style={{ ...ui(300, 13, 'var(--lq-white-80)'), lineHeight: 1.6, marginBottom: followsCount === 0 ? '20px' : 0 }}>
+                  When artists and salons you follow post studio news, it lands here.
                 </p>
+                {followsCount === 0 && (
+                  <PillButton href="/search?tab=artists" style={{ display: 'inline-flex' }}>Find artists</PillButton>
+                )}
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -950,11 +956,11 @@ export default function FeedPage() {
               <p style={{ ...ui(300, 14, 'var(--lq-white-80)'), textAlign: 'center', padding: '48px 0' }}>Loading...</p>
             ) : followingFeed.length === 0 ? (
               <div style={{ padding: '48px 24px', textAlign: 'center' }}>
-                <p style={{ ...ui(400, 15), marginBottom: '8px' }}>Your feed is empty</p>
+                <p style={{ ...ui(400, 15), marginBottom: '8px' }}>You&apos;re not following anyone yet</p>
                 <p style={{ ...ui(300, 13, 'var(--lq-white-80)'), lineHeight: 1.6, marginBottom: '20px' }}>
-                  Follow nail artists and salons to see their latest designs here.
+                  Follow nail artists and salons to see their new work the moment they post it.
                 </p>
-                <PillButton href="/search" style={{ display: 'inline-flex' }}>Find creators</PillButton>
+                <PillButton href="/search?tab=artists" style={{ display: 'inline-flex' }}>Find artists</PillButton>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '0 16px' }}>
