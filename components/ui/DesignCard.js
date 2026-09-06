@@ -25,6 +25,7 @@ export default function DesignCard({
   currentUser = null,
   initiallySaved = false,
   onNavigate,
+  onSaveToggle,
 }) {
   const tagLine = [design.shape, design.category]
     .filter(Boolean)
@@ -66,7 +67,7 @@ export default function DesignCard({
           </span>
         )}
         <span style={{ position: 'absolute', bottom: '4px', right: '4px' }}>
-          <HeartSaveButton designId={design.id} currentUser={currentUser} initiallySaved={initiallySaved} />
+          <HeartSaveButton designId={design.id} currentUser={currentUser} initiallySaved={initiallySaved} onToggle={onSaveToggle} />
         </span>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>

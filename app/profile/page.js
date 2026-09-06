@@ -960,7 +960,7 @@ export default function ProfilePage() {
     { key: 'upcoming',    label: 'Upcoming',    count: upcomingCount,    href: '/appointments', icon: <CalendarIcon /> },
     { key: 'saved',       label: 'Saved',       count: savedCount,       href: '/saved',        icon: <BookmarkIcon /> },
     { key: 'favorites',   label: 'Favorites',   count: favouritesCount,  href: '/search?tab=artists&favourites=1', icon: <HeartIcon size={16} /> },
-    { key: 'collections', label: 'Collections', count: collectionsCount, href: '/moodboards',   icon: <FolderIcon /> },
+    { key: 'collections', label: 'Collections', count: collectionsCount, href: '/saved',        icon: <FolderIcon /> },
     // /buy-credits, not /nail-lab: the lab shows the balance but has no
     // purchase entry, and this tile replaced the old wallet's only Buy CTA.
     { key: 'credits',     label: 'Credits',     count: profile?.credit_balance ?? 0, href: '/buy-credits', icon: <MagicStarIcon size={16} /> },
@@ -1527,10 +1527,10 @@ export default function ProfilePage() {
             ) : (
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', alignItems: 'start' }}>
-                  {savedDesigns.map(d => designCard(d))}
+                  {savedDesigns.slice(0, 4).map(d => designCard(d))}
                 </div>
                 <Link href="/saved" style={{ display: 'block', textAlign: 'center', ...ui(500, 13, ACCENT), textDecoration: 'none', marginTop: '16px' }}>
-                  Open Saved →
+                  See all {savedCount} →
                 </Link>
               </>
             )
@@ -1543,12 +1543,12 @@ export default function ProfilePage() {
             ) : boards.length === 0 ? (
               <div style={{ ...sectionCard, padding: '28px 20px', textAlign: 'center' }}>
                 <p style={{ ...ui(400, 13, MUTED), marginBottom: '8px' }}>No collections yet</p>
-                <Link href="/moodboards" style={{ ...ui(500, 13, ACCENT), textDecoration: 'none' }}>Create a collection →</Link>
+                <Link href="/saved" style={{ ...ui(500, 13, ACCENT), textDecoration: 'none' }}>Create a collection →</Link>
               </div>
             ) : (
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', alignItems: 'start' }}>
-                  {boards.map(b => (
+                  {boards.slice(0, 4).map(b => (
                     <Link key={b.id} href={`/moodboards/${b.id}`} style={{ textDecoration: 'none', display: 'block' }}>
                       <div style={{ width: '100%', borderRadius: '24px', overflow: 'hidden', background: PANEL, border: PANEL_BORDER }}>
                         {b.cover_image_url
@@ -1560,8 +1560,8 @@ export default function ProfilePage() {
                     </Link>
                   ))}
                 </div>
-                <Link href="/moodboards" style={{ display: 'block', textAlign: 'center', ...ui(500, 13, ACCENT), textDecoration: 'none', marginTop: '16px' }}>
-                  Manage collections →
+                <Link href="/saved" style={{ display: 'block', textAlign: 'center', ...ui(500, 13, ACCENT), textDecoration: 'none', marginTop: '16px' }}>
+                  See all {collectionsCount} →
                 </Link>
               </>
             )

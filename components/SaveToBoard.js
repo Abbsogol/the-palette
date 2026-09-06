@@ -181,46 +181,47 @@ export default function SaveToBoard({ designId, designImageUrl, renderTrigger, e
           onClick={(e) => { if (e.target === e.currentTarget) setOpen(false) }}
           style={{
             position: 'fixed', inset: 0,
-            background: 'rgba(0,0,0,0.75)',
+            background: 'rgba(0,0,0,0.6)',
             zIndex: 300,
             display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
           }}
         >
           <div style={{
-            background: 'var(--bg-card)',
-            borderRadius: '20px 20px 0 0',
+            background: '#2E1119',
+            borderRadius: '24px 24px 0 0',
+            border: '1px solid rgba(255,255,255,0.1)', borderBottom: 'none',
             width: '100%', maxWidth: '480px',
             padding: '0 0 40px 0',
             maxHeight: '85vh', overflowY: 'auto',
           }}>
             {/* Handle */}
             <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 6px' }}>
-              <div style={{ width: '36px', height: '4px', background: 'var(--border)', borderRadius: '2px' }} />
+              <div style={{ width: '36px', height: '4px', background: 'rgba(255,255,255,0.25)', borderRadius: '2px' }} />
             </div>
 
-            <div style={{ padding: '8px 20px 20px', borderBottom: '0.5px solid var(--border)' }}>
-              <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '2px' }}>
+            <div style={{ padding: '8px 20px 20px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+              <p style={{ color: '#FF517F', fontSize: '11px', fontWeight: '500', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '2px', fontFamily: 'var(--lq-font-ui)' }}>
                 Save to Board
               </p>
             </div>
 
             {!user ? (
               <div style={{ padding: '24px 20px', textAlign: 'center' }}>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '16px' }}>
+                <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', marginBottom: '16px', fontFamily: 'var(--lq-font-ui)', fontWeight: 300 }}>
                   Sign in to save designs to your boards.
                 </p>
                 <a href="/profile" style={{
-                  display: 'inline-block', padding: '12px 24px',
-                  background: 'var(--accent)', color: '#141414',
-                  borderRadius: '10px', textDecoration: 'none',
-                  fontSize: '14px', fontWeight: '600',
-                }}>Sign In</a>
+                  display: 'inline-block', padding: '13px 28px',
+                  background: 'linear-gradient(90deg, #660007 47.832%, #FF517F 100%)', color: '#fff',
+                  borderRadius: '1000px', textDecoration: 'none',
+                  fontSize: '14px', fontWeight: '500', fontFamily: 'var(--lq-font-ui)',
+                }}>Sign in</a>
               </div>
             ) : (
               <>
                 {/* Create new board */}
-                <div style={{ padding: '16px 20px', borderBottom: '0.5px solid var(--border)' }}>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginBottom: '10px' }}>Create new board</p>
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                  <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px', marginBottom: '10px', fontFamily: 'var(--lq-font-ui)', fontWeight: 300 }}>Create new board</p>
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <input
                       value={newName}
@@ -228,21 +229,21 @@ export default function SaveToBoard({ designId, designImageUrl, renderTrigger, e
                       onKeyDown={e => e.key === 'Enter' && createBoard()}
                       placeholder="Board name..."
                       style={{
-                        flex: 1, background: 'var(--bg-primary)', border: '0.5px solid var(--border)',
-                        borderRadius: '10px', padding: '10px 14px',
-                        color: 'var(--text-primary)', fontSize: '14px',
-                        fontFamily: "'DM Sans', sans-serif", outline: 'none',
+                        flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '12px', padding: '10px 14px',
+                        color: '#fff', fontSize: '14px',
+                        fontFamily: 'var(--lq-font-ui)', outline: 'none',
                       }}
                     />
                     <button
                       onClick={createBoard}
                       disabled={!newName.trim() || creating}
                       style={{
-                        background: newName.trim() ? 'var(--accent)' : 'var(--bg-chip)',
-                        color: newName.trim() ? '#141414' : 'var(--text-secondary)',
-                        border: 'none', borderRadius: '10px',
-                        padding: '10px 16px', fontSize: '13px', fontWeight: '600',
-                        fontFamily: "'DM Sans', sans-serif", cursor: 'pointer',
+                        background: newName.trim() ? 'linear-gradient(90deg, #660007 47.832%, #FF517F 100%)' : 'rgba(255,255,255,0.08)',
+                        color: newName.trim() ? '#fff' : 'rgba(255,255,255,0.5)',
+                        border: 'none', borderRadius: '1000px',
+                        padding: '10px 16px', fontSize: '13px', fontWeight: '500',
+                        fontFamily: 'var(--lq-font-ui)', cursor: 'pointer',
                         whiteSpace: 'nowrap', transition: 'background 0.2s',
                       }}
                     >
@@ -253,15 +254,15 @@ export default function SaveToBoard({ designId, designImageUrl, renderTrigger, e
 
                 {/* Board list */}
                 {loading ? (
-                  <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '14px' }}>
+                  <div style={{ padding: '24px', textAlign: 'center', color: 'rgba(255,255,255,0.6)', fontSize: '14px', fontFamily: 'var(--lq-font-ui)', fontWeight: 300 }}>
                     Loading boards...
                   </div>
                 ) : loadError ? (
-                  <div style={{ padding: '24px 20px', color: 'var(--text-secondary)', fontSize: '14px' }}>
+                  <div style={{ padding: '24px 20px', color: 'rgba(255,255,255,0.6)', fontSize: '14px', fontFamily: 'var(--lq-font-ui)', fontWeight: 300 }}>
                     Couldn't load your boards. Please try again.
                   </div>
                 ) : boards.length === 0 ? (
-                  <div style={{ padding: '24px 20px', color: 'var(--text-secondary)', fontSize: '14px' }}>
+                  <div style={{ padding: '24px 20px', color: 'rgba(255,255,255,0.6)', fontSize: '14px', fontFamily: 'var(--lq-font-ui)', fontWeight: 300 }}>
                     No boards yet — create one above.
                   </div>
                 ) : (
@@ -276,9 +277,9 @@ export default function SaveToBoard({ designId, designImageUrl, renderTrigger, e
                           disabled={isToggling}
                           style={{
                             display: 'flex', alignItems: 'center', gap: '12px',
-                            background: isSaved ? 'rgba(212,160,192,0.1)' : 'var(--bg-primary)',
-                            border: isSaved ? '0.5px solid var(--accent)' : '0.5px solid var(--border)',
-                            borderRadius: '12px', padding: '10px 12px',
+                            background: isSaved ? 'rgba(255,81,127,0.12)' : 'rgba(255,255,255,0.04)',
+                            border: isSaved ? '1px solid #FF517F' : '1px solid rgba(255,255,255,0.1)',
+                            borderRadius: '14px', padding: '10px 12px',
                             cursor: isToggling ? 'default' : 'pointer', textAlign: 'left', width: '100%',
                             opacity: isToggling ? 0.6 : 1,
                             transition: 'background 0.15s, border-color 0.15s',
@@ -286,8 +287,8 @@ export default function SaveToBoard({ designId, designImageUrl, renderTrigger, e
                         >
                           {/* Cover */}
                           <div style={{
-                            width: '44px', height: '44px', borderRadius: '8px',
-                            background: 'var(--bg-chip)', overflow: 'hidden', flexShrink: 0,
+                            width: '44px', height: '44px', borderRadius: '10px',
+                            background: 'rgba(255,255,255,0.08)', overflow: 'hidden', flexShrink: 0,
                           }}>
                             {board.cover_image_url && (
                               <img src={board.cover_image_url} alt={board.name}
@@ -296,15 +297,15 @@ export default function SaveToBoard({ designId, designImageUrl, renderTrigger, e
                           </div>
                           <span style={{
                             flex: 1,
-                            color: isSaved ? 'var(--accent)' : 'var(--text-primary)',
-                            fontSize: '14px', fontWeight: '500',
-                            fontFamily: "'DM Sans', sans-serif",
+                            color: isSaved ? '#FF517F' : '#fff',
+                            fontSize: '14px', fontWeight: '400',
+                            fontFamily: 'var(--lq-font-ui)',
                           }}>
                             {board.name}
                           </span>
                           {/* Check */}
                           {isSaved && (
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF517F" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                               <polyline points="20 6 9 17 4 12"/>
                             </svg>
                           )}
@@ -322,10 +323,10 @@ export default function SaveToBoard({ designId, designImageUrl, renderTrigger, e
                 onClick={() => setOpen(false)}
                 style={{
                   width: '100%', padding: '14px',
-                  background: 'var(--bg-chip)', color: 'var(--text-primary)',
-                  border: '0.5px solid var(--border)', borderRadius: '12px',
-                  fontSize: '14px', fontWeight: '600',
-                  fontFamily: "'DM Sans', sans-serif", cursor: 'pointer',
+                  background: 'rgba(255,255,255,0.08)', color: '#fff',
+                  border: '1px solid rgba(255,255,255,0.15)', borderRadius: '1000px',
+                  fontSize: '14px', fontWeight: '500',
+                  fontFamily: 'var(--lq-font-ui)', cursor: 'pointer',
                 }}
               >
                 Done

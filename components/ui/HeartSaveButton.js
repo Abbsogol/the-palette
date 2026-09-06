@@ -7,7 +7,7 @@ import { CardHeartIcon } from './icons'
 // Writes saved_designs + the saves_count RPCs + the loyalty reward hook,
 // same flow as components/SaveButton.js. `initiallySaved` comes from the
 // page's batched saved-ids query so cards don't each hit the DB.
-export default function HeartSaveButton({ designId, initiallySaved = false, currentUser = null, size = 28 }) {
+export default function HeartSaveButton({ designId, initiallySaved = false, currentUser = null, size = 28, onToggle }) {
   const [saved, setSaved] = useState(initiallySaved)
   const [saving, setSaving] = useState(false)
 
@@ -27,6 +27,7 @@ export default function HeartSaveButton({ designId, initiallySaved = false, curr
         const { error } = await supabase.from('saved_designs').insert({ user_id: currentUser.id, design_id: designId })
         if (error) { alert('Failed to save. Please try again.'); return }
         setSaved(true)
+        onToggle?.(true)
         await supabase.rpc('increment_saves', { design_id: designId })
         const { data: { session } } = await supabase.auth.getSession()
         fetch('/api/add-reward', {
@@ -38,6 +39,7 @@ export default function HeartSaveButton({ designId, initiallySaved = false, curr
         const { error } = await supabase.from('saved_designs').delete().eq('user_id', currentUser.id).eq('design_id', designId)
         if (error) { alert('Failed to unsave. Please try again.'); return }
         setSaved(false)
+        onToggle?.(false)
         await supabase.rpc('decrement_saves', { design_id: designId })
       }
     } finally {
