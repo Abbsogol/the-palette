@@ -219,6 +219,16 @@ export default function FeedPage() {
   }
 
   // ── Load community / following tabs on first switch ─────────────────────
+  // A tab tapped before auth resolves skips its signed-in load and would
+  // otherwise sit on a false empty state ("not following anyone" while a
+  // follow exists). Re-run the pending load once currentUser lands.
+  useEffect(() => {
+    if (!currentUser) return
+    if (mainTab === 'following' && !followingLoaded && !loadingFollowing) switchTab('following')
+    else if (mainTab === 'updates' && !updatesLoaded && !loadingUpdates) switchTab('updates')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser])
+
   const switchTab = async (tab) => {
     setMainTab(tab)
     if (tab === 'community' && !communityLoaded) {
