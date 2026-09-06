@@ -4,8 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-const F = "'DM Sans', sans-serif"
-const COLORS = ['#FFFFFF', '#000000', '#D4A0C0', '#FFD166', '#06D6A0']
+const F = 'var(--lq-font-ui)'
+const COLORS = ['#FFFFFF', '#000000', '#FF517F', '#FFD166', '#06D6A0']
 
 function IconBtn({ onClick, children }) {
   return (
@@ -26,16 +26,16 @@ function IconBtn({ onClick, children }) {
 function NextPill({ onClick, label = 'Next' }) {
   return (
     <button onClick={onClick} style={{
-      background: '#fff', color: '#000',
-      border: 'none', borderRadius: 22,
-      padding: '10px 22px',
-      fontSize: 14, fontWeight: 700, fontFamily: F,
+      background: 'linear-gradient(90deg, #660007 47.832%, #FF517F 100%)', color: '#fff',
+      border: 'none', borderRadius: 1000,
+      padding: '11px 22px',
+      fontSize: 14, fontWeight: 500, fontFamily: F,
       cursor: 'pointer',
       display: 'flex', alignItems: 'center', gap: 5,
     }}>
       {label}
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <path d="M5 2L10 7L5 12" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M5 2L10 7L5 12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     </button>
   )
@@ -213,7 +213,7 @@ export default function NewStoryPage() {
 
       if (items.length) {
         const fs = Math.round(W * D * 0.065)
-        ctx.font = `700 ${fs}px DM Sans, sans-serif`
+        ctx.font = `700 ${fs}px Jost, sans-serif`
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
         items.forEach(({ x, y, color, text }) => {
           ctx.shadowColor = 'rgba(0,0,0,0.75)'; ctx.shadowBlur = 14
@@ -339,7 +339,7 @@ export default function NewStoryPage() {
           <input
             type="range" min="0.5" max="4" step="0.01" value={cropZoom}
             onChange={e => setCropZoom(parseFloat(e.target.value))}
-            style={{ flex: 1, accentColor: '#D4A0C0', pointerEvents: 'auto' }}
+            style={{ flex: 1, accentColor: '#FF517F', pointerEvents: 'auto' }}
           />
           {/* large icon */}
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
@@ -478,7 +478,7 @@ export default function NewStoryPage() {
             </div>
             <div style={{ display: 'flex', gap: 10, width: '100%', maxWidth: 340 }}>
               <button onClick={() => { setShowInput(false); setDraft('') }} style={{ flex: 1, background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 12, padding: '13px 0', color: 'rgba(255,255,255,0.75)', fontSize: 14, fontFamily: F, cursor: 'pointer' }}>Cancel</button>
-              <button onClick={addItem} disabled={!draft.trim()} style={{ flex: 2, background: draft.trim() ? '#D4A0C0' : 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 12, padding: '13px 0', color: draft.trim() ? '#2C0A1E' : 'rgba(255,255,255,0.25)', fontSize: 14, fontWeight: 700, fontFamily: F, cursor: draft.trim() ? 'pointer' : 'default' }}>Add</button>
+              <button onClick={addItem} disabled={!draft.trim()} style={{ flex: 2, background: draft.trim() ? 'linear-gradient(90deg, #660007 47.832%, #FF517F 100%)' : 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 12, padding: '13px 0', color: draft.trim() ? '#fff' : 'rgba(255,255,255,0.25)', fontSize: 14, fontWeight: 500, fontFamily: F, cursor: draft.trim() ? 'pointer' : 'default' }}>Add</button>
             </div>
           </div>
         )}
@@ -490,7 +490,7 @@ export default function NewStoryPage() {
   // CAPTION
   // ════════════════════════════════════════════════════════════════════════
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: '#0a0a0a', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: '#260D14', display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', alignItems: 'center', padding: '52px 16px 16px', gap: 12, flexShrink: 0 }}>
         <IconBtn onClick={() => setStep('edit')}>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -509,11 +509,11 @@ export default function NewStoryPage() {
           value={caption}
           onChange={e => setCaption(e.target.value)}
           maxLength={200} rows={3}
-          style={{ background: 'rgba(255,255,255,0.06)', border: '0.5px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '14px 16px', color: '#F5EDE0', fontSize: 15, fontFamily: F, outline: 'none', resize: 'none', lineHeight: 1.55, flexShrink: 0 }}
+          style={{ background: 'rgba(255,255,255,0.06)', border: '0.5px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '14px 16px', color: '#fff', fontSize: 15, fontFamily: F, outline: 'none', resize: 'none', lineHeight: 1.55, flexShrink: 0 }}
         />
-        {err && <p style={{ color: '#E07070', fontSize: 13, fontFamily: F, margin: 0 }}>{err}</p>}
+        {err && <p style={{ color: '#FF8DA8', fontSize: 13, fontFamily: F, margin: 0 }}>{err}</p>}
         <div style={{ flex: 1 }} />
-        <button onClick={post} disabled={posting} style={{ background: posting ? 'rgba(212,160,192,0.45)' : '#D4A0C0', color: '#2C0A1E', border: 'none', borderRadius: 16, padding: '16px 0', fontSize: 16, fontWeight: 700, fontFamily: F, cursor: posting ? 'not-allowed' : 'pointer', flexShrink: 0 }}>
+        <button onClick={post} disabled={posting} style={{ background: 'linear-gradient(90deg, #660007 47.832%, #FF517F 100%)', opacity: posting ? 0.6 : 1, color: '#fff', border: 'none', borderRadius: 1000, padding: '16px 0', fontSize: 16, fontWeight: 500, fontFamily: F, cursor: posting ? 'not-allowed' : 'pointer', flexShrink: 0 }}>
           {posting ? 'Posting...' : 'Post to story'}
         </button>
       </div>
