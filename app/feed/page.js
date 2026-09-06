@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import CommunityCard from '@/components/CommunityCard'
+import StoryViewer from '@/components/StoryViewer'
 import IconButton from '@/components/ui/IconButton'
 import PillButton from '@/components/ui/PillButton'
 import Chip from '@/components/ui/Chip'
@@ -79,12 +80,9 @@ export default function FeedPage() {
   // Stories state
   const [stories, setStories]         = useState([])
   const [viewingStories, setViewingStories] = useState(null)
-  const [storyIndex, setStoryIndex]   = useState(0)
   const [viewedUsers, setViewedUsers] = useState(() => {
     try { return new Set(JSON.parse(localStorage.getItem('viewed-stories') || '[]')) } catch { return new Set() }
   })
-  const [storyLikes, setStoryLikes]   = useState(new Set())
-  const [likeCounts, setLikeCounts]   = useState({})
 
   // ── Initial load ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -308,63 +306,10 @@ export default function FeedPage() {
     setViewedUsers(next)
     localStorage.setItem('viewed-stories', JSON.stringify([...next]))
 
-    const ids = data.map(s => s.id)
-    const [{ data: myLikes }, { data: counts }] = await Promise.all([
-      currentUser
-        ? supabase.from('story_likes').select('story_id').eq('user_id', currentUser.id).in('story_id', ids)
-        : Promise.resolve({ data: [] }),
-      supabase.from('story_likes').select('story_id').in('story_id', ids),
-    ])
-    setStoryLikes(new Set(myLikes?.map(l => l.story_id) || []))
-    const countMap = {}
-    counts?.forEach(l => { countMap[l.story_id] = (countMap[l.story_id] || 0) + 1 })
-    setLikeCounts(countMap)
     setViewingStories(data)
-    setStoryIndex(0)
   }
 
-  const closeStories = () => { setViewingStories(null); setStoryIndex(0) }
-  const nextStory = () => { if (storyIndex < viewingStories.length - 1) setStoryIndex(i => i + 1); else closeStories() }
-  const prevStory = () => { if (storyIndex > 0) setStoryIndex(i => i - 1) }
-
-  const toggleStoryLike = async (e) => {
-    e.stopPropagation()
-    if (!currentUser || !viewingStories) return
-    const storyId = viewingStories[storyIndex].id
-    const liked = storyLikes.has(storyId)
-    if (liked) {
-      const { error } = await supabase.from('story_likes').delete().eq('story_id', storyId).eq('user_id', currentUser.id)
-      if (error) return
-      setStoryLikes(prev => { const s = new Set(prev); s.delete(storyId); return s })
-      setLikeCounts(prev => ({ ...prev, [storyId]: Math.max(0, (prev[storyId] || 1) - 1) }))
-    } else {
-      const { error } = await supabase.from('story_likes').insert({ story_id: storyId, user_id: currentUser.id })
-      if (error) return
-      setStoryLikes(prev => new Set([...prev, storyId]))
-      setLikeCounts(prev => ({ ...prev, [storyId]: (prev[storyId] || 0) + 1 }))
-    }
-  }
-
-  const deleteStory = async (e) => {
-    e.stopPropagation()
-    if (!viewingStories) return
-    const story = viewingStories[storyIndex]
-    if (!confirm('Delete this story?')) return
-    const { error } = await supabase.from('stories').delete().eq('id', story.id)
-    if (error) { alert('Failed to delete story. Please try again.'); return }
-    const remaining = viewingStories.filter((_, i) => i !== storyIndex)
-    if (remaining.length === 0) { closeStories(); setStories(prev => prev.filter(s => s.user_id !== story.user_id)) }
-    else { setViewingStories(remaining); setStoryIndex(Math.min(storyIndex, remaining.length - 1)) }
-  }
-
-  const timeAgo = (iso) => {
-    const diff = Date.now() - new Date(iso).getTime()
-    const h = Math.floor(diff / 3600000)
-    const m = Math.floor(diff / 60000)
-    if (h >= 1) return `${h}h ago`
-    if (m >= 1) return `${m}m ago`
-    return 'Just now'
-  }
+  const closeStories = () => setViewingStories(null)
 
   // ── Personalization score ─────────────────────────────────────────────────
   const hasPrefs = userProfile && (
@@ -491,63 +436,14 @@ export default function FeedPage() {
       </div>
 
       {/* ── Full-screen story viewer ──────────────────────────────────────── */}
-      {viewingStories && (() => {
-        const story = viewingStories[storyIndex]
-        const isOwn = story.user_id === currentUser?.id
-        const liked = storyLikes.has(story.id)
-        const likeCount = likeCounts[story.id] || 0
-        return (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#000', overflow: 'hidden' }}>
-            <img src={story.image_url} alt="story"
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '140px', background: 'linear-gradient(to bottom, rgba(0,0,0,0.55), transparent)', zIndex: 1, pointerEvents: 'none' }} />
-            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '180px', background: 'linear-gradient(to top, rgba(0,0,0,0.72), transparent)', zIndex: 1, pointerEvents: 'none' }} />
-            <div style={{ position: 'absolute', top: 14, left: 12, right: 12, display: 'flex', gap: '4px', zIndex: 3 }}>
-              {viewingStories.map((_, i) => (
-                <div key={i} style={{ flex: 1, height: '2px', borderRadius: '2px', background: i <= storyIndex ? '#fff' : 'rgba(255,255,255,0.35)' }} />
-              ))}
-            </div>
-            <div style={{ position: 'absolute', top: 30, left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', zIndex: 3 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#333', overflow: 'hidden', border: '1.5px solid var(--lq-accent-b)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  {story.profiles?.avatar_url
-                    ? <img src={story.profiles.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <span style={{ color: 'var(--lq-accent-b)', fontSize: '14px', fontWeight: '500' }}>{(story.profiles?.display_name || '?')[0].toUpperCase()}</span>
-                  }
-                </div>
-                <div>
-                  <p style={{ color: '#fff', fontSize: '14px', fontWeight: '500', lineHeight: 1 }}>{story.profiles?.display_name || 'User'}</p>
-                  <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '11px', marginTop: '3px' }}>{timeAgo(story.created_at)}</p>
-                </div>
-              </div>
-              <button onClick={closeStories} aria-label="Close stories" style={{ background: 'none', border: 'none', color: '#fff', fontSize: '22px', cursor: 'pointer', lineHeight: 1, padding: '11px', margin: '-7px' }}>✕</button>
-            </div>
-            <div style={{ position: 'absolute', left: 0, top: 0, width: '35%', height: '75%', zIndex: 2, cursor: 'pointer' }} onClick={prevStory} />
-            <div style={{ position: 'absolute', right: 0, top: 0, width: '65%', height: '75%', zIndex: 2, cursor: 'pointer' }} onClick={nextStory} />
-            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '12px 20px calc(32px + env(safe-area-inset-bottom))', zIndex: 3 }}>
-              {story.caption && (
-                <p style={{ color: '#fff', fontSize: '14px', lineHeight: '1.5', marginBottom: '16px', textShadow: '0 1px 6px rgba(0,0,0,0.8)' }}>{story.caption}</p>
-              )}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <button onClick={toggleStoryLike} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.45)', border: '0.5px solid rgba(255,255,255,0.2)', borderRadius: '24px', padding: '12px 18px', color: '#fff', fontSize: '13px', fontWeight: '500', cursor: currentUser ? 'pointer' : 'default', backdropFilter: 'blur(8px)', fontFamily: 'var(--lq-font-ui)' }}>
-                  <span style={{ color: liked ? 'var(--lq-accent-b)' : '#fff', display: 'flex' }}>
-                    <CardHeartIcon size={16} filled={liked} />
-                  </span>
-                  {likeCount > 0 ? likeCount : 'Like'}
-                </button>
-                {isOwn && (
-                  <button onClick={deleteStory} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.45)', border: '0.5px solid rgba(255,255,255,0.2)', borderRadius: '24px', padding: '12px 18px', color: '#fff', fontSize: '13px', cursor: 'pointer', backdropFilter: 'blur(8px)', fontFamily: 'var(--lq-font-ui)' }}>
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                      <path d="M3 4h10M6 4V3h4v1M5 4v8a1 1 0 001 1h4a1 1 0 001-1V4" stroke="#fff" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    Delete
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        )
-      })()}
+      {viewingStories && (
+        <StoryViewer
+          stories={viewingStories}
+          currentUser={currentUser}
+          onClose={closeStories}
+          onAllDeleted={(userId) => setStories(prev => prev.filter(s => s.user_id !== userId))}
+        />
+      )}
 
       {/* ── Compact blur header (appears when the hero scrolls away) ──────── */}
       {compactHeader && (
