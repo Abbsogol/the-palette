@@ -162,7 +162,7 @@ export default function OnboardingPage() {
             width: '312px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
           }}>
             <h1 style={{ margin: 0, color: 'var(--lq-white)' }}>
-              <LaqueWordmark height={100} />
+              <LaqueWordmark height={115.4} />
             </h1>
             <p style={{ ...ui(300, 20), lineHeight: 1.1, margin: 0, whiteSpace: 'pre-line' }}>
               {'Your next nail set, designed,\ntried on, and booked'}
