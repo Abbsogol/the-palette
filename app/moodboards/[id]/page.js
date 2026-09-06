@@ -1,9 +1,54 @@
 'use client'
+
+// Board detail, restyled to tokens (extrapolated — no frame). Collaborative
+// wiring (privacy guard, invite-by-username, remove/leave) byte-identical;
+// adds owner-only board delete with confirm, and the public/private toggle
+// relocated from the old /moodboards index (which now redirects to /saved).
+
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import ShareButton from '@/components/ShareButton'
+import Sheet from '@/components/ui/Sheet'
+
+const PANEL = 'rgba(255, 255, 255, 0.06)'
+const PANEL_BORDER = '1px solid rgba(255, 255, 255, 0.1)'
+const WHITE60 = 'rgba(255, 255, 255, 0.6)'
+const ACCENT = '#FF517F'
+const DANGER = '#FF8DA8'
+const BTN_GRADIENT = 'linear-gradient(90deg, #660007 47.832%, #FF517F 100%)'
+
+const ui = (weight, size, color = 'var(--lq-white)') => ({
+  fontFamily: 'var(--lq-font-ui)', fontWeight: weight, fontSize: `${size}px`, color, lineHeight: 1.3,
+})
+const display = (size, color = 'var(--lq-white)') => ({
+  fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: `${size}px`, color,
+})
+
+function Shell({ children }) {
+  return (
+    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
+      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      <div style={{ position: 'relative' }}>{children}</div>
+    </div>
+  )
+}
+
+const Avatar = ({ profile, size = 32, ring = false }) => (
+  <div style={{
+    width: `${size}px`, height: `${size}px`, borderRadius: '50%',
+    background: 'rgba(255,255,255,0.15)', overflow: 'hidden', flexShrink: 0,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    border: ring ? '1.5px solid #260D14' : PANEL_BORDER,
+  }}>
+    {profile?.avatar_url
+      ? <img src={profile.avatar_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      : <span style={ui(400, Math.round(size * 0.4))}>{(profile?.display_name || '?')[0].toUpperCase()}</span>
+    }
+  </div>
+)
 
 export default function MoodboardDetailPage() {
   const { id } = useParams()
@@ -17,15 +62,21 @@ export default function MoodboardDetailPage() {
   const [isOwner, setIsOwner] = useState(false)
   const [isMember, setIsMember] = useState(false)
 
-  // Members state
+  // Members / manage state
   const [members, setMembers] = useState([])
-  const [showShareModal, setShowShareModal] = useState(false)
+  const [manageOpen, setManageOpen] = useState(false)
   const [searchUsername, setSearchUsername] = useState('')
   const [searchResult, setSearchResult] = useState(null)
   const [searchLoading, setSearchLoading] = useState(false)
   const [searchError, setSearchError] = useState('')
   const [addingMember, setAddingMember] = useState(false)
   const searchTimeout = useRef(null)
+
+  // Delete / privacy state
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+  const [togglingPrivacy, setTogglingPrivacy] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -49,7 +100,6 @@ export default function MoodboardDetailPage() {
     const owner = currentUserId === boardData.user_id
     setIsOwner(owner)
 
-    // Check if current user is a member
     let member = false
     if (currentUserId && !owner) {
       const { data: memberRow } = await supabase
@@ -71,7 +121,6 @@ export default function MoodboardDetailPage() {
 
     setBoard(boardData)
 
-    // Load designs, creator profile, and members in parallel
     const [{ data: boardDesigns }, { data: profile }, { data: memberRows }] = await Promise.all([
       supabase
         .from('moodboard_designs')
@@ -93,7 +142,6 @@ export default function MoodboardDetailPage() {
     setDesigns(boardDesigns?.map(r => r.designs).filter(Boolean) || [])
     setCreatorName(profile?.display_name || profile?.username || null)
 
-    // Fetch member profiles separately (FK → auth.users pattern)
     if (memberRows?.length) {
       const memberIds = memberRows.map(m => m.user_id)
       const { data: memberProfiles } = await supabase
@@ -149,7 +197,6 @@ export default function MoodboardDetailPage() {
       setAddingMember(false)
       return
     }
-    // Send notification
     await supabase.from('notifications').insert({
       user_id: searchResult.id,
       actor_id: currentUser.id,
@@ -161,7 +208,6 @@ export default function MoodboardDetailPage() {
     setSearchUsername('')
     setSearchError('')
     setAddingMember(false)
-    setShowShareModal(false)
   }
 
   const removeMember = async (memberId, memberUserId) => {
@@ -173,243 +219,143 @@ export default function MoodboardDetailPage() {
     setMembers(prev => prev.filter(m => m.user_id !== memberUserId))
     // If current user just removed themselves, redirect
     if (memberUserId === currentUser?.id) {
-      window.location.href = '/moodboards'
+      window.location.href = '/saved'
     }
   }
 
+  // Public/private toggle — relocated from the old /moodboards index (same update)
+  const togglePrivacy = async () => {
+    if (!isOwner || togglingPrivacy) return
+    setTogglingPrivacy(true)
+    const newVal = !board.is_public
+    const { error } = await supabase.from('moodboards').update({ is_public: newVal }).eq('id', id)
+    if (!error) setBoard(prev => ({ ...prev, is_public: newVal }))
+    setTogglingPrivacy(false)
+  }
+
+  // Owner-only board delete with confirm. Child rows first so a missing FK
+  // cascade can't leave orphans, board row last (scoped to the owner).
+  const deleteBoard = async () => {
+    if (!isOwner || deleting) return
+    setDeleting(true)
+    setDeleteError('')
+    await supabase.from('moodboard_designs').delete().eq('moodboard_id', id)
+    await supabase.from('moodboard_members').delete().eq('moodboard_id', id)
+    const { error } = await supabase.from('moodboards').delete().eq('id', id).eq('user_id', currentUser.id)
+    if (error) {
+      setDeleteError('Failed to delete board. Please try again.')
+      setDeleting(false)
+      return
+    }
+    window.location.href = '/saved'
+  }
+
+  const input = {
+    width: '100%', boxSizing: 'border-box',
+    background: PANEL, border: PANEL_BORDER, borderRadius: '14px',
+    padding: '13px 16px', ...ui(400, 15), outline: 'none',
+  }
+
   if (loading) return (
-    <div style={{ padding: '40px 20px', color: 'var(--text-secondary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif" }}>
-      Loading...
-    </div>
+    <Shell>
+      <div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={ui(300, 14, WHITE60)}>Loading…</p>
+      </div>
+    </Shell>
   )
 
   if (isPrivate) return (
-    <div style={{ padding: '24px 20px', textAlign: 'center', paddingTop: '80px', fontFamily: "'DM Sans', sans-serif" }}>
-      <p style={{ fontSize: '28px', marginBottom: '12px' }}>🔒</p>
-      <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '500', marginBottom: '6px' }}>This board is private</p>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '20px' }}>Only the owner can view this board.</p>
-      <Link href="/feed" style={{ color: 'var(--accent)', fontSize: '14px', textDecoration: 'none' }}>← Browse designs</Link>
-    </div>
+    <Shell>
+      <div style={{ minHeight: '70vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center' }}>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={WHITE60} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '14px' }}>
+          <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        <p style={{ ...ui(600, 15), margin: '0 0 6px' }}>This board is private</p>
+        <p style={{ ...ui(300, 13, WHITE60), margin: '0 0 24px' }}>Only the owner and collaborators can view it.</p>
+        <Link href="/feed" style={{ background: BTN_GRADIENT, borderRadius: '1000px', padding: '13px 28px', ...ui(500, 14), textDecoration: 'none' }}>
+          Browse designs
+        </Link>
+      </div>
+    </Shell>
   )
 
   if (notFound || !board) return (
-    <div style={{ padding: '24px 20px', textAlign: 'center', paddingTop: '60px', fontFamily: "'DM Sans', sans-serif" }}>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '15px', marginBottom: '16px' }}>Board not found.</p>
-      <Link href="/moodboards" style={{ color: 'var(--accent)', fontSize: '14px', textDecoration: 'none' }}>← Back to My Boards</Link>
-    </div>
+    <Shell>
+      <div style={{ minHeight: '70vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center' }}>
+        <p style={{ ...ui(400, 15), margin: '0 0 20px' }}>Board not found.</p>
+        <Link href="/saved" style={{ ...ui(500, 14, ACCENT), textDecoration: 'none' }}>← Back to Saved</Link>
+      </div>
+    </Shell>
   )
 
   return (
-    <div style={{ paddingBottom: '32px', fontFamily: "'DM Sans', sans-serif" }}>
+    <Shell>
+      <div style={{ padding: 'calc(env(safe-area-inset-top) + 16px) 24px calc(env(safe-area-inset-bottom) + 120px)' }}>
 
-      {/* Share modal */}
-      {showShareModal && (
-        <div
-          onClick={e => e.target === e.currentTarget && setShowShareModal(false)}
-          style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 200,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px',
-          }}
-        >
-          <div style={{
-            background: 'var(--bg-card)', borderRadius: '20px', padding: '24px 20px',
-            width: '100%', maxWidth: '400px', boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+        {/* Header row */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <Link href="/saved" aria-label="Back to Saved" style={{
+            display: 'inline-flex', alignItems: 'center', gap: '6px',
+            ...ui(400, 13, WHITE60), textDecoration: 'none', padding: '10px 10px 10px 0', minHeight: '44px',
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ color: 'var(--text-primary)', fontSize: '17px', fontWeight: '600', margin: 0 }}>Invite collaborator</h2>
-              <button onClick={() => setShowShareModal(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '20px', cursor: 'pointer', padding: '2px 6px', lineHeight: 1 }}>
-                ×
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Saved
+          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {board.is_public && <ShareButton title={board.name} />}
+            {isOwner && (
+              <button
+                onClick={() => { setManageOpen(true); setConfirmDelete(false); setDeleteError(''); setSearchError('') }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  background: PANEL, border: PANEL_BORDER, borderRadius: '1000px',
+                  padding: '9px 16px', minHeight: '38px', ...ui(500, 12), cursor: 'pointer',
+                }}
+              >
+                Manage
+                {members.length > 0 && (
+                  <span style={{ background: ACCENT, borderRadius: '10px', padding: '1px 7px', ...ui(600, 10) }}>
+                    {members.length}
+                  </span>
+                )}
               </button>
-            </div>
-
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '0 0 14px', lineHeight: '1.5' }}>
-              Enter someone's username to give them access to this board.
-            </p>
-
-            <input
-              autoFocus
-              value={searchUsername}
-              onChange={e => handleUsernameChange(e.target.value)}
-              placeholder="@username"
-              style={{
-                width: '100%', boxSizing: 'border-box',
-                background: 'var(--bg-primary)', border: '0.5px solid var(--border)',
-                borderRadius: '12px', padding: '12px 14px',
-                color: 'var(--text-primary)', fontSize: '15px',
-                fontFamily: "'DM Sans', sans-serif", outline: 'none',
-                marginBottom: '12px',
-              }}
-            />
-
-            {searchLoading && (
-              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '0 0 12px' }}>Searching…</p>
-            )}
-
-            {searchError && (
-              <p style={{ color: '#E07070', fontSize: '13px', margin: '0 0 12px' }}>{searchError}</p>
-            )}
-
-            {searchResult && (
-              <div style={{
-                background: 'var(--bg-primary)', border: '0.5px solid var(--border)',
-                borderRadius: '12px', padding: '12px 14px',
-                display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px',
-              }}>
-                <div style={{
-                  width: '38px', height: '38px', borderRadius: '50%',
-                  background: 'var(--bg-chip)', overflow: 'hidden', flexShrink: 0,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  {searchResult.avatar_url
-                    ? <img src={searchResult.avatar_url} alt={searchResult.display_name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <span style={{ color: 'var(--accent)', fontSize: '16px', fontWeight: '600' }}>{(searchResult.display_name || '?')[0].toUpperCase()}</span>
-                  }
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500', margin: '0 0 2px' }}>{searchResult.display_name}</p>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: 0 }}>@{searchResult.username}</p>
-                </div>
-              </div>
-            )}
-
-            <button
-              onClick={addMember}
-              disabled={!searchResult || addingMember}
-              style={{
-                width: '100%', padding: '13px',
-                background: searchResult ? 'var(--accent)' : 'var(--bg-chip)',
-                color: searchResult ? '#2C0A1E' : 'var(--text-secondary)',
-                border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: '600',
-                fontFamily: "'DM Sans', sans-serif",
-                cursor: searchResult && !addingMember ? 'pointer' : 'not-allowed',
-                opacity: addingMember ? 0.7 : 1,
-              }}
-            >
-              {addingMember ? 'Adding…' : 'Give access'}
-            </button>
-
-            {/* Existing collaborators */}
-            {members.length > 0 && (
-              <div style={{ marginTop: '20px' }}>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 10px' }}>Collaborators</p>
-                {members.map(m => (
-                  <div key={m.user_id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: '0.5px solid var(--border)' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--bg-chip)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {m.profile?.avatar_url
-                        ? <img src={m.profile.avatar_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        : <span style={{ color: 'var(--accent)', fontSize: '13px', fontWeight: '600' }}>{(m.profile?.display_name || '?')[0].toUpperCase()}</span>
-                      }
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', margin: 0 }}>{m.profile?.display_name || m.profile?.username}</p>
-                    </div>
-                    <button
-                      onClick={() => removeMember(m.id, m.user_id)}
-                      style={{ background: 'none', border: 'none', color: '#E07070', fontSize: '12px', cursor: 'pointer', padding: '4px 8px', fontFamily: "'DM Sans', sans-serif" }}>
-                      Remove
-                    </button>
-                  </div>
-                ))}
-              </div>
             )}
           </div>
         </div>
-      )}
 
-      {/* Header */}
-      <div style={{ padding: '16px 20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Link href="/moodboards" style={{
-          display: 'inline-flex', alignItems: 'center', gap: '6px',
-          color: 'var(--text-secondary)', textDecoration: 'none',
-          fontSize: '13px', fontWeight: '500',
-        }}>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          Boards
-        </Link>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {board.is_public && <ShareButton title={board.name} />}
-          {/* Invite button — owner only */}
-          {isOwner && (
-            <button
-              onClick={() => setShowShareModal(true)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '5px',
-                background: 'var(--bg-chip)', border: '0.5px solid var(--border)',
-                borderRadius: '20px', padding: '6px 12px',
-                color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500',
-                fontFamily: "'DM Sans', sans-serif", cursor: 'pointer',
-              }}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-                <circle cx="9" cy="7" r="4"/>
-                <line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/>
-              </svg>
-              Invite
-              {members.length > 0 && (
-                <span style={{ background: 'var(--accent)', color: '#2C0A1E', borderRadius: '10px', padding: '1px 6px', fontSize: '10px', fontWeight: '700' }}>
-                  {members.length}
-                </span>
-              )}
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div style={{ padding: '20px 20px 0' }}>
-        <h1 style={{ color: 'var(--text-primary)', fontSize: '24px', fontWeight: '500', letterSpacing: '-0.02em', margin: '0 0 6px' }}>
-          {board.name}
-        </h1>
+        {/* Title + meta */}
+        <h1 style={{ ...display(26), margin: '0 0 8px' }}>{board.name}</h1>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-            {designs.length} {designs.length === 1 ? 'design' : 'designs'}
-          </span>
-          {creatorName && (
-            <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>· by {creatorName}</span>
-          )}
+          <span style={ui(300, 13, WHITE60)}>{designs.length} design{designs.length !== 1 ? 's' : ''}</span>
+          {creatorName && <span style={ui(300, 13, WHITE60)}>· by {creatorName}</span>}
           {board.is_public && (
             <span style={{
-              background: 'rgba(212,160,192,0.15)', color: 'var(--accent)',
-              fontSize: '11px', fontWeight: '600', letterSpacing: '0.06em',
-              padding: '3px 8px', borderRadius: '6px', textTransform: 'uppercase',
+              background: 'rgba(255,81,127,0.15)', color: ACCENT,
+              ...ui(500, 10), letterSpacing: '0.06em', textTransform: 'uppercase',
+              padding: '3px 9px', borderRadius: '1000px',
             }}>Public</span>
           )}
         </div>
 
         {/* Collaborator avatars */}
         {members.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '10px' }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="2">
-              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-              <circle cx="9" cy="7" r="4"/>
-              <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
-            </svg>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
             <div style={{ display: 'flex' }}>
               {members.slice(0, 5).map((m, i) => (
-                <div key={m.user_id} style={{
-                  width: '22px', height: '22px', borderRadius: '50%',
-                  background: 'var(--bg-chip)', border: '1.5px solid var(--bg-primary)',
-                  overflow: 'hidden', marginLeft: i > 0 ? '-6px' : 0,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  {m.profile?.avatar_url
-                    ? <img src={m.profile.avatar_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <span style={{ color: 'var(--accent)', fontSize: '9px', fontWeight: '700' }}>{(m.profile?.display_name || '?')[0].toUpperCase()}</span>
-                  }
+                <div key={m.user_id} style={{ marginLeft: i > 0 ? '-8px' : 0 }}>
+                  <Avatar profile={m.profile} size={24} ring />
                 </div>
               ))}
             </div>
-            <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>
+            <span style={ui(300, 12, WHITE60)}>
               {members.length} collaborator{members.length !== 1 ? 's' : ''}
             </span>
-            {/* Non-owner member: show "Leave board" */}
             {isMember && !isOwner && (
               <button
                 onClick={() => removeMember(null, currentUser?.id)}
-                style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#E07070', fontSize: '12px', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", padding: 0 }}
+                style={{ marginLeft: 'auto', background: 'none', border: 'none', ...ui(400, 12, DANGER), cursor: 'pointer', padding: '10px 0', minHeight: '44px' }}
               >
                 Leave board
               </button>
@@ -418,50 +364,162 @@ export default function MoodboardDetailPage() {
         )}
 
         {board.description && (
-          <p style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.6', marginTop: '10px' }}>
-            {board.description}
-          </p>
+          <p style={{ ...ui(300, 14, 'rgba(255,255,255,0.8)'), lineHeight: 1.6, marginTop: '12px' }}>{board.description}</p>
         )}
-      </div>
 
-      <div style={{ padding: '20px 20px 0' }}>
-        {designs.length === 0 ? (
-          <div style={{ padding: '40px 0', textAlign: 'center' }}>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '8px' }}>No designs yet.</p>
-            <Link href="/feed" style={{ color: 'var(--accent)', fontSize: '14px', textDecoration: 'none', fontWeight: '500' }}>
-              Browse designs →
-            </Link>
-          </div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-            {designs.map(d => (
-              <Link key={d.id} href={`/design/${d.id}?from=${encodeURIComponent(`/moodboards/${id}`)}`} style={{
-                background: 'var(--bg-card)', borderRadius: '12px',
-                border: '0.5px solid var(--border)', overflow: 'hidden',
-                textDecoration: 'none', display: 'block',
-              }}>
-                <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', background: 'var(--bg-chip)' }}>
-                  {d.image_url && (
-                    <img src={d.image_url} alt={d.title}
-                      loading="lazy" decoding="async"
-                      style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
-                  )}
-                </div>
-                <div style={{ padding: '8px 10px 10px' }}>
-                  <p style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500', lineHeight: '1.3', margin: '0 0 3px' }}>
-                    {d.title}
-                  </p>
+        {/* Designs */}
+        <div style={{ marginTop: '24px' }}>
+          {designs.length === 0 ? (
+            <div style={{ background: PANEL, border: PANEL_BORDER, borderRadius: '16px', padding: '36px 20px', textAlign: 'center' }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '10px' }}>
+                <path d="M12 3l1.9 5.6 5.6 1.4-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4z"/>
+              </svg>
+              <p style={{ ...ui(400, 15), marginBottom: '8px' }}>This board is empty</p>
+              <p style={{ ...ui(300, 13, WHITE60), lineHeight: 1.6, marginBottom: '20px' }}>Open any design and choose Save to board to start filling it.</p>
+              <Link href="/feed" style={{ display: 'inline-block', background: BTN_GRADIENT, borderRadius: '1000px', padding: '13px 28px', ...ui(500, 14), textDecoration: 'none' }}>
+                Explore designs
+              </Link>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', alignItems: 'start' }}>
+              {designs.map(d => (
+                <Link key={d.id} href={`/design/${d.id}?from=${encodeURIComponent(`/moodboards/${id}`)}`} style={{ textDecoration: 'none', display: 'block' }}>
+                  <div style={{ borderRadius: '16px', overflow: 'hidden', background: PANEL, border: PANEL_BORDER }}>
+                    {d.image_url
+                      ? <img src={d.image_url} alt={d.title} loading="lazy" decoding="async" style={{ width: '100%', height: 'auto', display: 'block' }} />
+                      : <div style={{ width: '100%', aspectRatio: '1 / 1' }} />
+                    }
+                  </div>
+                  <p style={{ ...ui(400, 13), margin: '8px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.title}</p>
                   {(d.shape || d.category) && (
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: 0 }}>
+                    <p style={{ ...ui(500, 10, WHITE60), letterSpacing: '0.06em', textTransform: 'uppercase', margin: '3px 0 0' }}>
                       {[d.shape, d.category].filter(Boolean).join(' · ')}
                     </p>
                   )}
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+
+      {/* Manage sheet — owner only: invite, collaborators, privacy, delete */}
+      {manageOpen && isOwner && (
+        <Sheet onClose={() => setManageOpen(false)} title="Manage board">
+          <div style={{ padding: '8px 20px calc(env(safe-area-inset-bottom) + 24px)' }}>
+            <h2 style={{ ...display(22), margin: '0 0 16px' }}>Manage board</h2>
+
+            {/* Invite */}
+            <p style={{ ...ui(500, 11, ACCENT), letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 10px' }}>Invite collaborator</p>
+            <input
+              value={searchUsername}
+              onChange={e => handleUsernameChange(e.target.value)}
+              placeholder="@username"
+              aria-label="Username to invite"
+              style={{ ...input, marginBottom: '10px' }}
+            />
+            {searchLoading && <p style={{ ...ui(300, 13, WHITE60), margin: '0 0 10px' }}>Searching…</p>}
+            {searchError && <p style={{ ...ui(300, 13, DANGER), margin: '0 0 10px' }}>{searchError}</p>}
+            {searchResult && (
+              <div style={{ background: PANEL, border: PANEL_BORDER, borderRadius: '14px', padding: '12px 14px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                <Avatar profile={searchResult} size={38} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ ...ui(500, 14), margin: '0 0 2px' }}>{searchResult.display_name}</p>
+                  <p style={{ ...ui(300, 12, WHITE60), margin: 0 }}>@{searchResult.username}</p>
+                </div>
+                <button
+                  onClick={addMember}
+                  disabled={addingMember}
+                  style={{ background: BTN_GRADIENT, border: 'none', borderRadius: '1000px', padding: '10px 18px', ...ui(500, 13), cursor: 'pointer', opacity: addingMember ? 0.7 : 1 }}
+                >
+                  {addingMember ? 'Adding…' : 'Give access'}
+                </button>
+              </div>
+            )}
+
+            {/* Collaborators */}
+            {members.length > 0 && (
+              <div style={{ marginTop: '8px' }}>
+                <p style={{ ...ui(500, 11, ACCENT), letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 6px' }}>Collaborators</p>
+                {members.map(m => (
+                  <div key={m.user_id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                    <Avatar profile={m.profile} size={32} />
+                    <p style={{ ...ui(400, 13), margin: 0, flex: 1, minWidth: 0 }}>{m.profile?.display_name || m.profile?.username}</p>
+                    <button
+                      onClick={() => removeMember(m.id, m.user_id)}
+                      style={{ background: 'none', border: 'none', ...ui(400, 12, DANGER), cursor: 'pointer', padding: '10px', minHeight: '44px' }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Privacy */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 0 6px', marginTop: '8px' }}>
+              <div>
+                <p style={{ ...ui(400, 14), margin: '0 0 2px' }}>Public board</p>
+                <p style={{ ...ui(300, 12, WHITE60), margin: 0 }}>{board.is_public ? 'Anyone with the link can view' : 'Only you and collaborators can view'}</p>
+              </div>
+              <button
+                onClick={togglePrivacy}
+                disabled={togglingPrivacy}
+                role="switch"
+                aria-checked={board.is_public}
+                aria-label="Public board"
+                style={{
+                  width: '48px', height: '28px', borderRadius: '1000px', border: 'none', cursor: 'pointer',
+                  background: board.is_public ? ACCENT : 'rgba(255,255,255,0.15)',
+                  position: 'relative', transition: 'background 0.15s', flexShrink: 0,
+                  opacity: togglingPrivacy ? 0.6 : 1,
+                }}
+              >
+                <span style={{
+                  position: 'absolute', top: '3px', left: board.is_public ? '23px' : '3px',
+                  width: '22px', height: '22px', borderRadius: '50%', background: '#fff',
+                  transition: 'left 0.15s',
+                }} />
+              </button>
+            </div>
+
+            {/* Delete — confirm step */}
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', marginTop: '14px', paddingTop: '14px' }}>
+              {!confirmDelete ? (
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  style={{ background: 'none', border: 'none', ...ui(500, 14, DANGER), cursor: 'pointer', padding: '10px 0', minHeight: '44px' }}
+                >
+                  Delete board
+                </button>
+              ) : (
+                <div>
+                  <p style={{ ...ui(400, 14), margin: '0 0 4px' }}>Delete &ldquo;{board.name}&rdquo;?</p>
+                  <p style={{ ...ui(300, 12, WHITE60), margin: '0 0 14px' }}>
+                    The board and its collaborator access are removed for everyone. Saved designs themselves aren&apos;t deleted. This can&apos;t be undone.
+                  </p>
+                  {deleteError && <p style={{ ...ui(300, 13, DANGER), margin: '0 0 10px' }}>{deleteError}</p>}
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                      onClick={() => setConfirmDelete(false)}
+                      style={{ flex: 1, height: '48px', background: PANEL, border: PANEL_BORDER, borderRadius: '1000px', ...ui(500, 14), cursor: 'pointer' }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={deleteBoard}
+                      disabled={deleting}
+                      style={{ flex: 1, height: '48px', background: 'rgba(255,81,127,0.18)', border: `1px solid ${DANGER}`, borderRadius: '1000px', ...ui(500, 14, DANGER), cursor: 'pointer', opacity: deleting ? 0.7 : 1 }}
+                    >
+                      {deleting ? 'Deleting…' : 'Delete board'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </Sheet>
+      )}
+    </Shell>
   )
 }
