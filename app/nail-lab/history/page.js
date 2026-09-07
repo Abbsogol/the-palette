@@ -181,9 +181,9 @@ export default function NailLabHistoryPage() {
         onClick={() => setSelected(gen)}
         style={{ background: PANEL, border: PANEL_BORDER, borderRadius: '24px', padding: '12px', cursor: 'pointer', textAlign: 'left', position: 'relative', display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', boxSizing: 'border-box' }}
       >
-        <div style={{ aspectRatio: '4/3', background: 'rgba(255,255,255,0.08)', overflow: 'hidden', borderRadius: '12px', width: '100%', position: 'relative' }}>
+        <div style={{ background: 'rgba(255,255,255,0.08)', overflow: 'hidden', borderRadius: '12px', width: '100%', position: 'relative' }}>
           {gen.image_url && (
-            <img src={gen.image_url} alt="Generated design" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            <img src={gen.image_url} alt="Generated design" style={{ width: '100%', height: 'auto', display: 'block' }} />
           )}
           {status && (
             <span style={{ position: 'absolute', top: '8px', right: '8px', background: status === 'published' ? LAB_ACCENT : 'rgba(20,3,8,0.75)', color: status === 'published' ? '#260D14' : WHITE80, fontSize: '9px', fontWeight: '600', borderRadius: '8px', padding: '3px 7px', fontFamily: 'var(--lq-font-ui)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>

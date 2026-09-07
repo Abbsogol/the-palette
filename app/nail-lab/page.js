@@ -783,16 +783,18 @@ export default function NailLabPage() {
             {allDesigns.length === 0 ? (
               <p style={{ ...ui(300, 14, MUTED50), textAlign: 'center', padding: '32px 0' }}>Loading designs...</p>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
-                {allDesigns.map(d => {
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                {[0, 1].map(ci => (
+                  <div key={ci} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {allDesigns.filter((_, i) => i % 2 === ci).map(d => {
                   const selected = refDesigns.find(r => r.id === d.id)
                   return (
                     <button key={d.id} onClick={() => toggleRefDesign(d)}
-                      style={{ position: 'relative', background: PANEL, border: selected ? `2px solid ${LAB_ACCENT}` : PANEL_BORDER, borderRadius: '12px', overflow: 'hidden', padding: 0, cursor: 'pointer', aspectRatio: '1/1' }}
+                      style={{ position: 'relative', background: PANEL, border: selected ? `2px solid ${LAB_ACCENT}` : PANEL_BORDER, borderRadius: '12px', overflow: 'hidden', padding: 0, cursor: 'pointer' }}
                     >
                       {d.image_url
-                        ? <img src={d.image_url} alt={d.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                        : <div style={{ width: '100%', height: '100%', background: 'rgba(255,255,255,0.08)' }} />
+                        ? <img src={d.image_url} alt={d.title} style={{ width: '100%', height: 'auto', display: 'block' }} />
+                        : <div style={{ width: '100%', aspectRatio: '1/1', background: 'rgba(255,255,255,0.08)' }} />
                       }
                       {selected && (
                         <div style={{ position: 'absolute', top: '6px', right: '6px', width: '20px', height: '20px', borderRadius: '50%', background: LAB_ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -802,6 +804,8 @@ export default function NailLabPage() {
                     </button>
                   )
                 })}
+                  </div>
+                ))}
               </div>
             )}
           </div>

@@ -105,16 +105,16 @@ export default function CommunityCard({ design, currentUser, initiallyLiked }) {
 
       {/* ── Image with counts overlay ── */}
       <Link href={`/design/${design.id}?from=%2Ffeed`} style={{ display: 'block', textDecoration: 'none', position: 'relative' }}>
-        <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: 'var(--lq-radius-card)', background: 'rgba(255,255,255,0.06)' }}>
+        <div style={{ width: '100%', overflow: 'hidden', borderRadius: 'var(--lq-radius-card)', background: 'rgba(255,255,255,0.06)' }}>
           {design.image_url
             ? <img
                 src={design.image_url}
                 alt={design.title}
                 loading="lazy"
                 decoding="async"
-                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                style={{ width: '100%', height: 'auto', display: 'block' }}
               />
-            : <div style={{ width: '100%', height: '100%' }} />
+            : <div style={{ width: '100%', aspectRatio: '1 / 1' }} />
           }
         </div>
         {(likesCount > 0 || commentsCount > 0) && (
