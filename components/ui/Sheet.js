@@ -15,11 +15,19 @@ export default function Sheet({
   const panelRef = useRef(null)
   const previouslyFocused = useRef(null)
 
+  // Escape reads onClose through a ref so the open/focus effect can run on
+  // MOUNT ONLY. Callers pass inline arrows, so with [onClose] as the dep the
+  // effect re-ran on every parent render — and its panelRef.focus() stole
+  // focus from whatever the user was typing in (each keystroke re-renders
+  // the parent, so the mobile keyboard closed after every character).
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+
   useEffect(() => {
     previouslyFocused.current = document.activeElement
     panelRef.current?.focus()
 
-    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e) => { if (e.key === 'Escape') onCloseRef.current() }
     document.addEventListener('keydown', onKey)
 
     const prevOverflow = document.body.style.overflow
@@ -30,7 +38,7 @@ export default function Sheet({
       document.body.style.overflow = prevOverflow
       if (previouslyFocused.current?.focus) previouslyFocused.current.focus()
     }
-  }, [onClose])
+  }, [])
 
   return (
     <div
