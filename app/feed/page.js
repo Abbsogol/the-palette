@@ -121,7 +121,7 @@ export default function FeedPage() {
         supabase.from('designs').select('id, title, image_url, image_width, image_height, shape, category, occasion, saves_count').eq('is_published', true).gt('boosted_until', new Date().toISOString()).order('boosted_until', { ascending: false }).limit(50),
         supabase.from('profiles').select('*', { count: 'exact', head: true }).in('account_type', ['creator', 'salon']),
         supabase.from('designs').select('*', { count: 'exact', head: true }).eq('is_published', true).eq('is_curated', false),
-        supabase.from('designs').select('id, image_url, likes_count, comments_count, created_by, profiles(display_name, avatar_url)').eq('is_published', true).eq('is_curated', false).order('created_at', { ascending: false }).limit(3),
+        supabase.from('designs').select('id, image_url, image_width, image_height, likes_count, comments_count, created_by, profiles(display_name, avatar_url)').eq('is_published', true).eq('is_curated', false).order('created_at', { ascending: false }).limit(3),
       ])
 
       // Deduplicate stories by user
@@ -647,8 +647,8 @@ export default function FeedPage() {
                 display: 'flex', flexDirection: 'column', gap: 'var(--lq-space-2xl)',
               }}>
                 {teaserPost && (
-                  <div style={{ position: 'relative', borderRadius: 'var(--lq-radius-card-lg)', overflow: 'hidden', height: '280px' }}>
-                    <img src={teaserPost.image_url} alt="Recent community post" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  <div style={{ position: 'relative', borderRadius: 'var(--lq-radius-card-lg)', overflow: 'hidden' }}>
+                    <img src={teaserPost.image_url} alt="Recent community post" loading="lazy" width={teaserPost.image_width || undefined} height={teaserPost.image_height || undefined} style={{ width: '100%', height: 'auto', aspectRatio: teaserPost.image_width && teaserPost.image_height ? `${teaserPost.image_width} / ${teaserPost.image_height}` : undefined, display: 'block', background: 'rgba(32,5,11,0.15)' }} />
                     <div style={{
                       position: 'absolute', left: '16px', bottom: '16px', display: 'flex', gap: '8px', alignItems: 'center',
                       background: 'rgba(32, 5, 11, 0.4)', backdropFilter: 'blur(6px)', borderRadius: 'var(--lq-radius-pill)', padding: '8px 14px',
@@ -697,8 +697,8 @@ export default function FeedPage() {
                       { img: tileImages[0], text: communityStats.artists >= 50 ? `${formatCount(communityStats.artists)} Artists` : 'Nail Artists' },
                       { img: tileImages[1] || tileImages[0], text: communityStats.posts >= 100 ? `${formatCount(communityStats.posts)} Community Posts` : 'Community Posts' },
                     ].map((tile, i) => (
-                      <div key={i} style={{ flex: 1, position: 'relative', height: '124px', borderRadius: 'var(--lq-radius-tile)', overflow: 'hidden' }}>
-                        <img src={tile.img.image_url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      <div key={i} style={{ flex: 1, position: 'relative', borderRadius: 'var(--lq-radius-tile)', overflow: 'hidden' }}>
+                        <img src={tile.img.image_url} alt="" loading="lazy" width={tile.img.image_width || undefined} height={tile.img.image_height || undefined} style={{ width: '100%', height: 'auto', aspectRatio: tile.img.image_width && tile.img.image_height ? `${tile.img.image_width} / ${tile.img.image_height}` : undefined, display: 'block', background: 'rgba(32,5,11,0.15)' }} />
                         <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'rgba(32, 5, 11, 0.35)' }} />
                         <p style={{
                           position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
