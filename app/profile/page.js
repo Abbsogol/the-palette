@@ -351,22 +351,20 @@ function ProfileInner() {
   // pops it and lands on the profile untouched. Deep-linked ?sheet= (depth
   // 1) closes via replace instead, so close never exits the app.
   const searchParams = useSearchParams()
-  const [sheetClosedLocally, setSheetClosedLocally] = useState(false)
-  const sheetParam = user && !sheetClosedLocally ? searchParams.get('sheet') : null
+  const sheetParam = user ? searchParams.get('sheet') : null
   const sheetPushedRef = useRef(false)
   const openTileSheet = (key) => {
     sheetPushedRef.current = true
-    setSheetClosedLocally(false)
     router.push(`/profile?sheet=${key}`, { scroll: false })
   }
   const closeTileSheet = () => {
     if (sheetPushedRef.current) { sheetPushedRef.current = false; router.back(); return }
-    // Deep-linked sheet (no pushed entry to pop): a same-route query-only
+    // Deep-linked sheet (no pushed entry to pop). A same-route query-only
     // router.replace never commits on this static+Suspense page (verified
-    // live 2026-09-08), so close locally and sync the URL bar directly —
-    // replaceState keeps depth semantics via the navHistory wrapper.
-    setSheetClosedLocally(true)
-    try { window.history.replaceState(window.history.state, '', '/profile') } catch {}
+    // live 2026-09-08) while push does — so close by pushing the bare
+    // profile URL. Back then reopens the sheet: standard URL-sheet
+    // semantics, and closing can never exit the app.
+    router.push('/profile', { scroll: false })
   }
   const [favourites, setFavourites] = useState([])
   const [favouritesLoading, setFavouritesLoading] = useState(false)
