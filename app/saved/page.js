@@ -95,6 +95,14 @@ export default function SavedPage() {
     setDesigns(saved?.map(d => d.designs).filter(Boolean) || [])
 
     const shared = (memberRows || []).map(r => r.moodboards).filter(Boolean).filter(b => b.user_id !== userId)
+    // Covers are always a design's image (SaveToBoard is the only writer),
+    // so their dims resolve from designs by URL — no duplicated columns.
+    const coverUrls = [...new Set([...(ownBoards || []), ...shared].map(b => b.cover_image_url).filter(Boolean))]
+    let coverDims = {}
+    if (coverUrls.length) {
+      const { data: dimRows } = await supabase.from('designs').select('image_url, image_width, image_height').in('image_url', coverUrls)
+      dimRows?.forEach(d => { coverDims[d.image_url] = d })
+    }
     let ownerNames = {}
     if (shared.length) {
       const { data: owners } = await supabase.from('profiles').select('id, display_name, username').in('id', [...new Set(shared.map(b => b.user_id))])
@@ -103,7 +111,7 @@ export default function SavedPage() {
     const all = [
       ...(ownBoards || []).map(b => ({ ...b, __shared: false })),
       ...shared.map(b => ({ ...b, __shared: true, __ownerName: ownerNames[b.user_id] || 'someone' })),
-    ]
+    ].map(b => ({ ...b, __coverDims: coverDims[b.cover_image_url] || null }))
     setBoards(all)
 
     if (all.length) {
@@ -207,9 +215,11 @@ export default function SavedPage() {
                 flexShrink: 0, width: '132px', background: PANEL, borderRadius: '16px',
                 border: PANEL_BORDER, overflow: 'hidden', textDecoration: 'none', display: 'block',
               }}>
-                <div style={{ width: '132px', height: '99px', background: 'rgba(255,255,255,0.04)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: '132px', background: 'rgba(255,255,255,0.04)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: board.cover_image_url ? undefined : '88px' }}>
                   {board.cover_image_url
-                    ? <img src={board.cover_image_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ? <img src={board.cover_image_url} alt="" loading="lazy" decoding="async"
+                        width={board.__coverDims?.image_width || undefined} height={board.__coverDims?.image_height || undefined}
+                        style={{ width: '100%', height: 'auto', aspectRatio: board.__coverDims ? `${board.__coverDims.image_width} / ${board.__coverDims.image_height}` : undefined, display: 'block' }} />
                     : <span style={{ color: WHITE60, display: 'flex' }}><FolderIcon size={22} /></span>
                   }
                 </div>

@@ -487,9 +487,18 @@ export default function ProfilePage() {
     if (boardsLoadedRef.current) return
     boardsLoadedRef.current = true
     setBoardsLoading(true)
-    const { data, error: boardsError } = await supabase
+    const { data: rawBoards, error: boardsError } = await supabase
       .from('moodboards').select('id, name, cover_image_url')
       .eq('user_id', uid).order('created_at', { ascending: false }).limit(100)
+    // Covers are always a design's image (SaveToBoard is the only writer) —
+    // dims resolve from designs by URL, same as the /saved rail.
+    const coverUrls = [...new Set((rawBoards || []).map(b => b.cover_image_url).filter(Boolean))]
+    let coverDims = {}
+    if (coverUrls.length) {
+      const { data: dimRows } = await supabase.from('designs').select('image_url, image_width, image_height').in('image_url', coverUrls)
+      dimRows?.forEach(d => { coverDims[d.image_url] = d })
+    }
+    const data = (rawBoards || []).map(b => ({ ...b, __coverDims: coverDims[b.cover_image_url] || null }))
     if (boardsError) console.error('moodboards fetch failed:', boardsError)
     setBoards(data || [])
     if (data?.length) {
@@ -1552,7 +1561,7 @@ export default function ProfilePage() {
                     <Link key={b.id} href={`/moodboards/${b.id}`} style={{ textDecoration: 'none', display: 'block' }}>
                       <div style={{ width: '100%', borderRadius: '24px', overflow: 'hidden', background: PANEL, border: PANEL_BORDER }}>
                         {b.cover_image_url
-                          ? <img src={b.cover_image_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: 'auto', display: 'block' }} />
+                          ? <img src={b.cover_image_url} alt="" loading="lazy" decoding="async" width={b.__coverDims?.image_width || undefined} height={b.__coverDims?.image_height || undefined} style={{ width: '100%', height: 'auto', aspectRatio: b.__coverDims ? `${b.__coverDims.image_width} / ${b.__coverDims.image_height}` : undefined, display: 'block' }} />
                           : <div style={{ width: '100%', aspectRatio: '1 / 1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: MUTED }}><FolderIcon size={24} /></div>}
                       </div>
                       <p style={{ ...ui(600, 15), margin: '8px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</p>
