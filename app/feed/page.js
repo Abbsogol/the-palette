@@ -212,11 +212,14 @@ export default function FeedPage() {
   // otherwise sit on a false empty state ("not following anyone" while a
   // follow exists). Re-run the pending load once currentUser lands.
   useEffect(() => {
+    // Covers both the auth race (tab tapped before session resolved) and a
+    // session-restored tab whose lazy loader never ran on this mount.
+    if (mainTab === 'community' && !communityLoaded && !loadingCommunity) switchTab('community')
     if (!currentUser) return
     if (mainTab === 'following' && !followingLoaded && !loadingFollowing) switchTab('following')
     else if (mainTab === 'updates' && !updatesLoaded && !loadingUpdates) switchTab('updates')
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser])
+  }, [currentUser, mainTab])
 
   const switchTab = async (tab) => {
     setMainTab(tab)
