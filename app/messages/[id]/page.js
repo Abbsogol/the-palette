@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import Sheet from '@/components/ui/Sheet'
 import { startPresence, onPresence } from '@/lib/presence'
+import BackButton from '@/components/ui/BackButton'
 
 // ── Chat palette from frames 242:2385 / 249:2208 / 249:2052 ────────────────
 const PANEL = 'rgba(255, 255, 255, 0.06)'
@@ -470,9 +471,7 @@ export default function ChatPage() {
         <div style={{ position: 'relative', zIndex: 2, flexShrink: 0, paddingTop: 'env(safe-area-inset-top)', background: 'linear-gradient(0deg, rgba(32,5,11,0) 0%, rgba(32,5,11,0.8) 100%)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '60px', padding: '8px 16px 8px 12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-              <Link href="/messages" aria-label="Back to messages" style={{ width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--lq-white)', flexShrink: 0 }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-              </Link>
+              <BackButton fallback="/messages" label="Back to messages" style={{ width: '44px', height: '44px', background: 'none', border: 'none' }} />
               <Link href={`/creator/${other?.id}`} style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', minWidth: 0 }}>
                 <div style={{ width: '36px', height: '36px', borderRadius: '18px', background: other?.avatar_url ? 'transparent' : BTN_GRADIENT, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {other?.avatar_url

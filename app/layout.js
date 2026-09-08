@@ -1,6 +1,7 @@
 import './globals.css'
 import { displayFont, uiFont } from './fonts'
 import BottomNav from '@/components/BottomNav'
+import NavigationTracker from '@/components/NavigationTracker'
 import { Analytics } from '@vercel/analytics/react'
 
 const APP_URL = 'https://laque.app'
@@ -46,6 +47,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${displayFont.variable} ${uiFont.variable}`}>
       <body>
+        <NavigationTracker />
         {/* Warm the storage origin before the first design image request —
             saves DNS+TLS on the largest first-paint asset. React hoists
             these into <head>. */}

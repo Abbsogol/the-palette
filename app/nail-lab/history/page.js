@@ -5,6 +5,8 @@ import { supabase, getNailLabSignedUrls } from '@/lib/supabase'
 import SaveToBoard from '@/components/SaveToBoard'
 import { LaqueWordmark } from '@/components/ui/icons'
 import { GENERATION_WIDTH, GENERATION_HEIGHT } from '@/lib/nailLab'
+import BackButton from '@/components/ui/BackButton'
+import { useScrollMemory } from '@/lib/scrollMemory'
 
 // ── Page palette from the Lab frames (237:1752 / 239:1800) ─────────────────
 const LAB_ACCENT = '#D98CAB'
@@ -59,6 +61,7 @@ export default function NailLabHistoryPage() {
   const [loadingUser, setLoadingUser] = useState(true)
   const [generations, setGenerations] = useState([])
   const [loadingGens, setLoadingGens] = useState(true)
+  useScrollMemory(null, !loadingGens)
 
   // Expanded item sheet
   const [selected, setSelected] = useState(null) // generation object
@@ -409,12 +412,7 @@ export default function NailLabHistoryPage() {
           {/* Header row: back / wordmark / spacer (frame 239:1800) */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Link href="/nail-lab" aria-label="Back to Nail Lab"
-                style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '100px', padding: '8px', display: 'flex', color: 'var(--lq-white)' }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="15 18 9 12 15 6"/>
-                </svg>
-              </Link>
+              <BackButton fallback="/nail-lab" label="Back" />
               <span style={{ color: 'var(--lq-white)', display: 'flex' }}><LaqueWordmark height={24} /></span>
               <span style={{ width: '32px' }} />
             </div>

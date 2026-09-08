@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import BackButton from '@/components/ui/BackButton'
 
 // ── Palette from the booking frames (250:2526 Confirmed is the model) ──────
 const PANEL = 'rgba(255, 255, 255, 0.06)'
@@ -265,10 +266,7 @@ export default function AppointmentDetailPage() {
     <>
       {/* ── Header ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', minHeight: '44px' }}>
-        <Link href="/appointments" aria-label="Back to appointments"
-          style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '100px', padding: '8px', display: 'flex', color: 'var(--lq-white)' }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-        </Link>
+        <BackButton fallback="/appointments" label="Back to appointments" />
         <h1 style={{ ...display(18), margin: 0, flex: 1 }}>Appointment</h1>
         <span style={{ background: s.bg, color: s.color, ...ui(600, 12, s.color), padding: '4px 12px', borderRadius: '100px' }}>
           {s.label}

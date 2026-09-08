@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { LaqueWordmark } from '@/components/ui/icons'
+import BackButton from '@/components/ui/BackButton'
+import { useScrollMemory } from '@/lib/scrollMemory'
 
 // ── List palette from frame 242:1994 ───────────────────────────────────────
 const PANEL = 'rgba(255, 255, 255, 0.06)'
@@ -42,6 +44,7 @@ function MessagesInner() {
   const [currentUser, setCurrentUser] = useState(null)
   const [conversations, setConversations] = useState([])
   const [loading, setLoading] = useState(true)
+  useScrollMemory(null, !loading)
   const [query, setQuery] = useState('')
   const [tab, setTab] = useState('all') // 'all' | 'unread'
 
@@ -158,10 +161,7 @@ function MessagesInner() {
       {/* ── Header row ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <Link href="/feed" aria-label="Back"
-            style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '100px', padding: '8px', display: 'flex', color: 'var(--lq-white)' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-          </Link>
+          <BackButton fallback="/feed" />
           <div>
             <span style={{ color: 'var(--lq-white)', display: 'flex' }}><LaqueWordmark height={24} /></span>
             <p style={{ ...ui(300, 12, WHITE80), margin: '4px 0 0' }}>Conversations</p>

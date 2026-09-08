@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { LaqueWordmark } from '@/components/ui/icons'
+import BackButton from '@/components/ui/BackButton'
 
 // New-message picker (frame 242:2175): recent contacts = peers of existing
 // conversations; search = profiles by name/@username/city. Tapping a person
@@ -108,10 +109,7 @@ export default function NewMessagePage() {
       <div style={{ position: 'relative', zIndex: 1, padding: 'calc(env(safe-area-inset-top) + 12px) 24px calc(env(safe-area-inset-bottom) + 120px)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <Link href="/messages" aria-label="Back to messages"
-            style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '100px', padding: '8px', display: 'flex', color: 'var(--lq-white)' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-          </Link>
+          <BackButton fallback="/messages" label="Back to messages" />
           <span style={{ color: 'var(--lq-white)', display: 'flex' }}><LaqueWordmark height={24} /></span>
         </div>
 

@@ -11,6 +11,8 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import ShareButton from '@/components/ShareButton'
 import Sheet from '@/components/ui/Sheet'
+import BackButton from '@/components/ui/BackButton'
+import { useScrollMemory } from '@/lib/scrollMemory'
 
 const PANEL = 'rgba(255, 255, 255, 0.06)'
 const PANEL_BORDER = '1px solid rgba(255, 255, 255, 0.1)'
@@ -56,6 +58,7 @@ export default function MoodboardDetailPage() {
   const [designs, setDesigns] = useState([])
   const [creatorName, setCreatorName] = useState(null)
   const [loading, setLoading] = useState(true)
+  useScrollMemory(null, !loading)
   const [notFound, setNotFound] = useState(false)
   const [isPrivate, setIsPrivate] = useState(false)
   const [currentUser, setCurrentUser] = useState(null)
@@ -294,15 +297,12 @@ export default function MoodboardDetailPage() {
 
         {/* Header row */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <Link href="/saved" aria-label="Back to Saved" style={{
-            display: 'inline-flex', alignItems: 'center', gap: '6px',
-            ...ui(400, 13, WHITE60), textDecoration: 'none', padding: '10px 10px 10px 0', minHeight: '44px',
-          }}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            Saved
-          </Link>
+          <BackButton fallback="/saved" style={{ background: 'none', border: 'none', padding: '10px 10px 10px 0', minHeight: '44px', justifyContent: 'flex-start' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'var(--lq-font-ui)', fontWeight: 400, fontSize: '13px', color: 'rgba(255,255,255,0.6)' }}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              Back
+            </span>
+          </BackButton>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             {board.is_public && <ShareButton title={board.name} />}
             {isOwner && (

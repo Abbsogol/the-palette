@@ -9,6 +9,8 @@ import PillButton from '@/components/ui/PillButton'
 import FavouriteButton from '@/components/ui/FavouriteButton'
 import Sheet from '@/components/ui/Sheet'
 import { MagicStarIcon } from '@/components/ui/icons'
+import { canGoBack } from '@/lib/navHistory'
+import { useScrollMemory } from '@/lib/scrollMemory'
 
 // Page-specific palette from the Artist Profile frame (257:2206): rose
 // accent + near-black plum ground, distinct from the feed's wine tokens.
@@ -70,6 +72,7 @@ export default function CreatorPage() {
   const [blockLoading, setBlockLoading] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('designs')
+  useScrollMemory(activeTab, !loading)
   const [isFavourited, setIsFavourited] = useState(false)
   const [favouriteLoaded, setFavouriteLoaded] = useState(false)
   const [replyTime, setReplyTime] = useState(null)
@@ -358,7 +361,7 @@ export default function CreatorPage() {
 
         {/* ── Top bar: back / share / more ── */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: '56px' }}>
-          <IconButton label="Back" href="/" variant="glass" visualSize={34}>
+          <IconButton label="Back" onClick={() => canGoBack() ? router.back() : router.replace('/search?tab=artists')} variant="glass" visualSize={34}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>

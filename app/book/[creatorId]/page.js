@@ -432,7 +432,7 @@ function BookPageInner() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '60px', padding: '8px 16px 8px 12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button
-                onClick={() => step > 1 ? setStep(step - 1) : router.back()}
+                onClick={() => step > 1 ? setStep(step - 1) : (canGoBack() ? router.back() : router.replace(`/creator/${creatorId}`))}
                 aria-label={step > 1 ? 'Previous step' : 'Back'}
                 style={{ width: '44px', height: '44px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--lq-white)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
               >
