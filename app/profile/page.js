@@ -420,7 +420,13 @@ function ProfileInner() {
   const [myDesigns, setMyDesigns]         = useState([])
 
   // Tabs: My Designs / Saved / Collections (saved + collections lazy-load)
-  const [activeTab, setActiveTab] = useState(null)
+  const [activeTab, setActiveTabState] = useState(() => {
+    try { return sessionStorage.getItem('lq-tab:/profile') } catch { return null }
+  })
+  const setActiveTab = (t) => {
+    setActiveTabState(t)
+    try { sessionStorage.setItem('lq-tab:/profile', t) } catch {}
+  }
   const [savedDesigns, setSavedDesigns] = useState([])
   const [boards, setBoards] = useState([])
   const [boardCounts, setBoardCounts] = useState({})

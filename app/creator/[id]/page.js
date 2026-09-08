@@ -71,7 +71,13 @@ export default function CreatorPage() {
   const [blockedByThem, setBlockedByThem] = useState(false) // this profile has blocked viewer
   const [blockLoading, setBlockLoading] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState('designs')
+  const [activeTab, setActiveTabState] = useState(() => {
+    try { return sessionStorage.getItem(`lq-tab:${location.pathname}`) || 'designs' } catch { return 'designs' }
+  })
+  const setActiveTab = (t) => {
+    setActiveTabState(t)
+    try { sessionStorage.setItem(`lq-tab:${location.pathname}`, t) } catch {}
+  }
   useScrollMemory(activeTab, !loading)
   const [isFavourited, setIsFavourited] = useState(false)
   const [favouriteLoaded, setFavouriteLoaded] = useState(false)

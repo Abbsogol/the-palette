@@ -11,6 +11,7 @@ import Chip from '@/components/ui/Chip'
 import SearchInput from '@/components/ui/SearchInput'
 import DesignCard from '@/components/ui/DesignCard'
 import { BellIcon, StarIcon, LaqueWordmark, CardHeartIcon, CommentDotsIcon } from '@/components/ui/icons'
+import { useScrollMemory } from '@/lib/scrollMemory'
 
 const VIBE_TABS = ['All', 'Dark', 'Minimal', 'Glam', 'Y2K', 'Colourful', 'Bridal']
 
@@ -39,7 +40,11 @@ function formatCount(n) {
 
 export default function FeedPage() {
   // Main tab: 'explore' | 'community' | 'following' | 'updates'
-  const [mainTab, setMainTab] = useState('explore')
+  // Active tab persists per session so back/return lands on the same tab
+  // (scroll memory is keyed per tab; the tab itself must survive too).
+  const [mainTab, setMainTab] = useState(() => {
+    try { return sessionStorage.getItem('lq-tab:/feed') || 'explore' } catch { return 'explore' }
+  })
 
   // Explore state
   const [designs, setDesigns]       = useState([])
@@ -162,22 +167,6 @@ export default function FeedPage() {
   }, [])
 
   // Auto-select "for you" sort when profile has preferences
-  useEffect(() => {
-    if (!sortInitialized && userProfile && hasPrefs) {
-      setSort('for_you')
-      setSortInitialized(true)
-    }
-  }, [userProfile])
-
-  // Restore scroll on back navigation
-  useEffect(() => {
-    if (!loadingExplore) {
-      const saved = sessionStorage.getItem('feed-scroll')
-      if (saved) {
-        setTimeout(() => { window.scrollTo(0, parseInt(saved)); sessionStorage.removeItem('feed-scroll') }, 50)
-      }
-    }
-  }, [loadingExplore])
 
   // Sheet-over-hero scroll: the hero is fixed behind the sheet and drifts up
   // at ~25% scroll speed (0 under prefers-reduced-motion) while the sheet
@@ -231,6 +220,7 @@ export default function FeedPage() {
 
   const switchTab = async (tab) => {
     setMainTab(tab)
+    try { sessionStorage.setItem('lq-tab:/feed', tab) } catch {}
     if (tab === 'community' && !communityLoaded) {
       setLoadingCommunity(true)
       const { data } = await supabase
@@ -350,7 +340,9 @@ export default function FeedPage() {
     return score
   }
 
-  const rememberScroll = () => sessionStorage.setItem('feed-scroll', window.scrollY.toString())
+  // Continuous anchor-based scroll memory replaced the on-click writer
+  useScrollMemory(mainTab, mainTab === 'explore' ? !loadingExplore : mainTab === 'community' ? communityLoaded : mainTab === 'following' ? followingLoaded : updatesLoaded)
+  const rememberScroll = () => {}
 
   // ── Explore derived lists ─────────────────────────────────────────────────
   const filtered = designs
