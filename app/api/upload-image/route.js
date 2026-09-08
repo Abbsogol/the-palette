@@ -1,5 +1,5 @@
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
-import { transformDesignImage, toUploadBody, sniffImageFormat } from '@/lib/imageTransform'
+import { transformDesignImageMeta, toUploadBody, sniffImageFormat } from '@/lib/imageTransform'
 
 export const runtime = 'nodejs' // sharp requires the Node runtime, not Edge
 
@@ -51,9 +51,9 @@ export async function POST(request) {
   const rawBuffer = Buffer.from(await file.arrayBuffer())
   if (!sniffImageFormat(rawBuffer)) return Response.json({ error: 'Unsupported file type' }, { status: 400 })
 
-  let webpBuffer
+  let webpBuffer, imageWidth, imageHeight
   try {
-    webpBuffer = await transformDesignImage(rawBuffer, { maxDimension: purpose.maxDimension })
+    ({ buffer: webpBuffer, width: imageWidth, height: imageHeight } = await transformDesignImageMeta(rawBuffer, { maxDimension: purpose.maxDimension }))
   } catch (err) {
     console.error('Image processing error:', err)
     return Response.json({ error: 'Failed to process image' }, { status: 400 })
@@ -66,5 +66,5 @@ export async function POST(request) {
   if (uploadError) return Response.json({ error: 'Failed to upload image' }, { status: 500 })
 
   const { data: { publicUrl } } = supabase.storage.from('designs').getPublicUrl(path)
-  return Response.json({ ok: true, publicUrl })
+  return Response.json({ ok: true, publicUrl, width: imageWidth, height: imageHeight })
 }

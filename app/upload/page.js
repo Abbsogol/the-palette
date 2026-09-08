@@ -107,12 +107,14 @@ export default function UploadPage() {
       const uploadJson = await uploadRes.json().catch(() => ({}))
       if (!uploadRes.ok || uploadJson.error) throw new Error('Photo upload failed: ' + (uploadJson.error || 'Unknown error'))
       const publicUrl = uploadJson.publicUrl
+      const uploadedDims = { image_width: uploadJson.width ?? null, image_height: uploadJson.height ?? null }
 
       // Insert design row
       const { data: design, error: designErr } = await supabase.from('designs').insert({
         title:       title.trim(),
         description: description.trim() || null,
         image_url:   publicUrl,
+        ...uploadedDims,
         shape:       shape   || null,
         length:      length  || null,
         occasion:    occasions.join(', ')  || null,

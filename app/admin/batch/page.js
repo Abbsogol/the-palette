@@ -65,7 +65,7 @@ export default function BatchUploadPage() {
     })
     const json = await res.json().catch(() => ({}))
     if (!res.ok || json.error) throw new Error('Image upload failed: ' + (json.error || res.status))
-    return json.publicUrl
+    return json
   }
 
   const upsertTag = async (name) => {
@@ -78,7 +78,12 @@ export default function BatchUploadPage() {
     const slug = design.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
 
     let imageUrl = null
-    if (imgs?.main) imageUrl = await uploadFile(imgs.main, slug)
+    let imageDims = {}
+    if (imgs?.main) {
+      const up = await uploadFile(imgs.main, slug)
+      imageUrl = up.publicUrl
+      imageDims = { image_width: up.width ?? null, image_height: up.height ?? null }
+    }
 
     const occasion = Array.isArray(design.occasions)
       ? design.occasions.join(', ')
@@ -89,7 +94,7 @@ export default function BatchUploadPage() {
 
     const { data: designRow, error: designErr } = await supabase
       .from('designs')
-      .insert({ title: design.title, description: design.description || null, image_url: imageUrl, shape: design.shape || null, length: design.length || null, occasion, technique })
+      .insert({ title: design.title, description: design.description || null, image_url: imageUrl, ...imageDims, shape: design.shape || null, length: design.length || null, occasion, technique })
       .select('id')
       .single()
     if (designErr) throw new Error(designErr.message)

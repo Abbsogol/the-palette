@@ -1,5 +1,5 @@
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
-import { transformDesignImage, toUploadBody } from '@/lib/imageTransform'
+import { transformDesignImageMeta, toUploadBody } from '@/lib/imageTransform'
 
 export const runtime = 'nodejs' // sharp requires the Node runtime, not Edge
 
@@ -56,9 +56,9 @@ export async function POST(request) {
   // across the app. The transform (and the Uint8Array upload-body rule that
   // fixed the Vercel binary corruption) lives in lib/imageTransform.js,
   // shared with the legacy-image backfill.
-  let webpBuffer
+  let webpBuffer, imageWidth, imageHeight
   try {
-    webpBuffer = await transformDesignImage(rawBuffer)
+    ({ buffer: webpBuffer, width: imageWidth, height: imageHeight } = await transformDesignImageMeta(rawBuffer))
   } catch (err) {
     console.error('Image processing error:', err)
     return Response.json({ error: 'Failed to process image' }, { status: 400 })
@@ -76,5 +76,5 @@ export async function POST(request) {
 
   const { data: { publicUrl } } = supabase.storage.from('designs').getPublicUrl(fileName)
 
-  return Response.json({ ok: true, publicUrl })
+  return Response.json({ ok: true, publicUrl, width: imageWidth, height: imageHeight })
 }

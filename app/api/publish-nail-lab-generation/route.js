@@ -1,5 +1,5 @@
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
-import { transformDesignImage, toUploadBody } from '@/lib/imageTransform'
+import { transformDesignImageMeta, toUploadBody } from '@/lib/imageTransform'
 
 export const runtime = 'nodejs' // sharp requires the Node runtime, not Edge
 
@@ -94,7 +94,7 @@ export async function POST(request) {
     // Through the shared pipeline — the raw AI PNG is ~2.5MB; publishing it
     // byte-for-byte was the systemic source of the oversized library.
     const destPath = `published/${user.id}/${Date.now()}.webp`
-    const buffer = await transformDesignImage(Buffer.from(await fileData.arrayBuffer()))
+    const { buffer, width: imageWidth, height: imageHeight } = await transformDesignImageMeta(Buffer.from(await fileData.arrayBuffer()))
 
     const { error: uploadError } = await supabase.storage
       .from('designs')
@@ -119,6 +119,8 @@ export async function POST(request) {
         is_curated: false,
         created_by: user.id,
         source_generation_id: generationId,
+        image_width: imageWidth,
+        image_height: imageHeight,
       })
       .select('id')
       .single()

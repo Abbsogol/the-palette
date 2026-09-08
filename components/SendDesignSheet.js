@@ -56,6 +56,8 @@ export default function SendDesignSheet({ design, onClose }) {
       id: design.id,
       title: design.title,
       image_url: design.image_url,
+      image_width: design.image_width ?? null,
+      image_height: design.image_height ?? null,
     })
 
     const { error } = await supabase.from('messages').insert({

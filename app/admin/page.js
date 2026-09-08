@@ -19,7 +19,7 @@ async function uploadViaApi(file, purpose, slug) {
   const res = await fetch('/api/upload-image', { method: 'POST', headers: await authHeaders(), body: fd })
   const json = await res.json().catch(() => ({}))
   if (!res.ok || json.error) throw new Error('Image upload failed: ' + (json.error || res.status))
-  return json.publicUrl
+  return json
 }
 
 const SHAPES = ['Round', 'Square', 'Oval', 'Coffin', 'Almond', 'Stiletto', 'Ballerina', 'Squoval']
@@ -103,11 +103,17 @@ function DesignForm({ initial, onSave, onCancel, saveLabel }) {
       const allTechniques = [...selectedTechniques]
       if (customTechnique.trim()) allTechniques.push(customTechnique.trim())
       let mainUrl = mainImagePreview
-      if (mainImageFile) mainUrl = await uploadImage(mainImageFile, slug)
+      let mainDims = {}
+      if (mainImageFile) {
+        const up = await uploadImage(mainImageFile, slug)
+        mainUrl = up.publicUrl
+        mainDims = { image_width: up.width ?? null, image_height: up.height ?? null }
+      }
       await onSave({
         title: title.trim(),
         description: description.trim() || null,
         image_url: mainUrl,
+        ...mainDims,
         shape: shape || null,
         length: length || null,
         occasion: allOccasions.join(', ') || null,
@@ -249,7 +255,7 @@ function ProductForm({ initial, onSave, onCancel, saveLabel }) {
     try {
       let imageUrl = imagePreview
       if (imageFile) {
-        imageUrl = await uploadViaApi(imageFile, 'admin-product')
+        imageUrl = (await uploadViaApi(imageFile, 'admin-product')).publicUrl
       }
       await onSave({
         name: name.trim(),
@@ -676,17 +682,17 @@ export default function AdminPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const saveNew = async ({ title, description, image_url, shape, length, occasion, technique, colours, tagNames, newExtraFiles, slug }) => {
+  const saveNew = async ({ title, description, image_url, image_width = null, image_height = null, shape, length, occasion, technique, colours, tagNames, newExtraFiles, slug }) => {
     if (!image_url) throw new Error('Please select a main photo')
 
     const uploadImage = (file, name) => uploadViaApi(file, 'admin-design', name)
 
     const { data: { session } } = await supabase.auth.getSession()
-    const { data: design, error } = await supabase.from('designs').insert({ title, description, image_url, shape, length, occasion, technique, is_published: true, is_curated: true, created_by: session?.user?.id || null }).select().single()
+    const { data: design, error } = await supabase.from('designs').insert({ title, description, image_url, image_width, image_height, shape, length, occasion, technique, is_published: true, is_curated: true, created_by: session?.user?.id || null }).select().single()
     if (error) throw new Error(error.message)
 
     for (let i = 0; i < newExtraFiles.length; i++) {
-      const url = await uploadImage(newExtraFiles[i].file, `${slug}-extra-${i + 1}`)
+      const url = (await uploadImage(newExtraFiles[i].file, `${slug}-extra-${i + 1}`)).publicUrl
       const { error: imgErr } = await supabase.from('design_images').insert({ design_id: design.id, image_url: url, image_order: i + 1 })
       if (imgErr) throw new Error('Failed to save extra image: ' + imgErr.message)
     }
@@ -721,7 +727,7 @@ export default function AdminPage() {
     }
     const existingCount = editingDesign.extraImages.filter(img => !removedExtraIds.includes(img.id)).length
     for (let i = 0; i < newExtraFiles.length; i++) {
-      const url = await uploadImage(newExtraFiles[i].file, `${slug}-extra-${existingCount + i + 1}`)
+      const url = (await uploadImage(newExtraFiles[i].file, `${slug}-extra-${existingCount + i + 1}`)).publicUrl
       const { error: imgErr } = await supabase.from('design_images').insert({ design_id: id, image_url: url, image_order: existingCount + i + 1 })
       if (imgErr) throw new Error('Failed to save extra image: ' + imgErr.message)
     }
