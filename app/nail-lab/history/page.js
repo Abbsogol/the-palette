@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { supabase, getNailLabSignedUrls } from '@/lib/supabase'
 import SaveToBoard from '@/components/SaveToBoard'
 import { LaqueWordmark } from '@/components/ui/icons'
+import { GENERATION_WIDTH, GENERATION_HEIGHT } from '@/lib/nailLab'
 
 // ── Page palette from the Lab frames (237:1752 / 239:1800) ─────────────────
 const LAB_ACCENT = '#D98CAB'
@@ -183,7 +184,7 @@ export default function NailLabHistoryPage() {
       >
         <div style={{ background: 'rgba(255,255,255,0.08)', overflow: 'hidden', borderRadius: '12px', width: '100%', position: 'relative' }}>
           {gen.image_url && (
-            <img src={gen.image_url} alt="Generated design" style={{ width: '100%', height: 'auto', display: 'block' }} />
+            <img src={gen.image_url} alt="Generated design" width={GENERATION_WIDTH} height={GENERATION_HEIGHT} style={{ width: '100%', height: 'auto', aspectRatio: `${GENERATION_WIDTH} / ${GENERATION_HEIGHT}`, display: 'block' }} />
           )}
           {status && (
             <span style={{ position: 'absolute', top: '8px', right: '8px', background: status === 'published' ? LAB_ACCENT : 'rgba(20,3,8,0.75)', color: status === 'published' ? '#260D14' : WHITE80, fontSize: '9px', fontWeight: '600', borderRadius: '8px', padding: '3px 7px', fontFamily: 'var(--lq-font-ui)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>

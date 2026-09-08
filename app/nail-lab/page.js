@@ -349,7 +349,7 @@ export default function NailLabPage() {
     if (allDesigns.length > 0) return
     const { data } = await supabase
       .from('designs')
-      .select('id, title, image_url, shape, occasion')
+      .select('id, title, image_url, image_width, image_height, shape, occasion')
       .eq('is_published', true)
       .eq('is_curated', true)
       .order('created_at', { ascending: false })
@@ -793,7 +793,7 @@ export default function NailLabPage() {
                       style={{ position: 'relative', background: PANEL, border: selected ? `2px solid ${LAB_ACCENT}` : PANEL_BORDER, borderRadius: '12px', overflow: 'hidden', padding: 0, cursor: 'pointer' }}
                     >
                       {d.image_url
-                        ? <img src={d.image_url} alt={d.title} style={{ width: '100%', height: 'auto', display: 'block' }} />
+                        ? <img src={d.image_url} alt={d.title} width={d.image_width || undefined} height={d.image_height || undefined} style={{ width: '100%', height: 'auto', aspectRatio: d.image_width && d.image_height ? `${d.image_width} / ${d.image_height}` : undefined, display: 'block', background: 'rgba(255,255,255,0.06)' }} />
                         : <div style={{ width: '100%', aspectRatio: '1/1', background: 'rgba(255,255,255,0.08)' }} />
                       }
                       {selected && (

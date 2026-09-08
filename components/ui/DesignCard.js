@@ -40,7 +40,9 @@ export default function DesignCard({
             src={design.image_url}
             alt={design.title || 'Nail design'}
             loading="lazy"
-            style={{ width: '100%', height: 'auto', display: 'block', background: 'rgba(255,255,255,0.06)' }}
+            width={design.image_width || undefined}
+            height={design.image_height || undefined}
+            style={{ width: '100%', height: 'auto', aspectRatio: design.image_width && design.image_height ? `${design.image_width} / ${design.image_height}` : undefined, display: 'block', background: 'rgba(255,255,255,0.06)' }}
           />
         </Link>
         {rank != null && (

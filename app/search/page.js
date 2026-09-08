@@ -551,7 +551,8 @@ export default function SearchPage() {
                       // First cards load eagerly so the fold never sits blank.
                       <img src={design.image_url} alt={design.title} loading={i < 2 ? 'eager' : 'lazy'}
                         fetchPriority={i === 0 ? 'high' : undefined} decoding="async"
-                        style={{ width: '100%', height: 'auto', display: 'block', background: 'rgba(255,255,255,0.06)' }} />
+                        width={design.image_width || undefined} height={design.image_height || undefined}
+                        style={{ width: '100%', height: 'auto', aspectRatio: design.image_width && design.image_height ? `${design.image_width} / ${design.image_height}` : undefined, display: 'block', background: 'rgba(255,255,255,0.06)' }} />
                     ) : (
                       <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'rgba(255,255,255,0.06)' }} />
                     )}

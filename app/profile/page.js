@@ -983,7 +983,7 @@ export default function ProfilePage() {
             (baked-in titles get sliced by fixed-height crops). */}
         <div style={{ position: 'relative', width: '100%', borderRadius: '24px', overflow: 'hidden', background: PANEL, border: PANEL_BORDER }}>
           {design.image_url
-            ? <img src={design.image_url} alt={design.title || 'Design'} loading="lazy" decoding="async" style={{ width: '100%', height: 'auto', display: 'block' }} />
+            ? <img src={design.image_url} alt={design.title || 'Design'} loading="lazy" decoding="async" width={design.image_width || undefined} height={design.image_height || undefined} style={{ width: '100%', height: 'auto', aspectRatio: design.image_width && design.image_height ? `${design.image_width} / ${design.image_height}` : undefined, display: 'block' }} />
             : <div style={{ width: '100%', aspectRatio: '1 / 1' }} />}
           {design.category && (
             <span style={{

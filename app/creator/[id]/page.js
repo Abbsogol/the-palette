@@ -604,7 +604,7 @@ export default function CreatorPage() {
                         textDecoration: 'none', display: 'block', position: 'relative',
                       }}>
                         {design.image_url
-                          ? <img src={design.image_url} alt={design.title} loading="lazy" decoding="async" style={{ width: '100%', height: 'auto', display: 'block', background: 'rgba(255,255,255,0.04)' }} />
+                          ? <img src={design.image_url} alt={design.title} loading="lazy" decoding="async" width={design.image_width || undefined} height={design.image_height || undefined} style={{ width: '100%', height: 'auto', aspectRatio: design.image_width && design.image_height ? `${design.image_width} / ${design.image_height}` : undefined, display: 'block', background: 'rgba(255,255,255,0.04)' }} />
                           : <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'rgba(255,255,255,0.04)' }} />}
                         {design.is_pinned && (
                           <span aria-label="Pinned" style={{ position: 'absolute', top: '8px', right: '8px', background: ROSE, borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

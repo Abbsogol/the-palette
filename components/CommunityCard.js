@@ -112,7 +112,9 @@ export default function CommunityCard({ design, currentUser, initiallyLiked }) {
                 alt={design.title}
                 loading="lazy"
                 decoding="async"
-                style={{ width: '100%', height: 'auto', display: 'block' }}
+                width={design.image_width || undefined}
+                height={design.image_height || undefined}
+                style={{ width: '100%', height: 'auto', aspectRatio: design.image_width && design.image_height ? `${design.image_width} / ${design.image_height}` : undefined, display: 'block' }}
               />
             : <div style={{ width: '100%', aspectRatio: '1 / 1' }} />
           }

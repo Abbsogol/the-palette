@@ -111,14 +111,14 @@ export default function FeedPage() {
         { data: recentPosts },
       ] = await Promise.all([
         supabase.from('designs').select('*').eq('is_published', true).eq('is_curated', true).order('created_at', { ascending: false }).limit(100),
-        supabase.from('designs').select('id, title, image_url, created_at, saves_count').eq('is_published', true).eq('is_drop', true).order('created_at', { ascending: false }).limit(100),
+        supabase.from('designs').select('id, title, image_url, image_width, image_height, created_at, saves_count').eq('is_published', true).eq('is_drop', true).order('created_at', { ascending: false }).limit(100),
         supabase.from('stories')
           .select('*, profiles(id, display_name, avatar_url)')
           .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
           .order('created_at', { ascending: false })
           .limit(200),
         supabase.from('challenges').select('id, title, ends_at').gt('ends_at', new Date().toISOString()).order('ends_at', { ascending: true }).limit(1).maybeSingle(),
-        supabase.from('designs').select('id, title, image_url, shape, category, occasion, saves_count').eq('is_published', true).gt('boosted_until', new Date().toISOString()).order('boosted_until', { ascending: false }).limit(50),
+        supabase.from('designs').select('id, title, image_url, image_width, image_height, shape, category, occasion, saves_count').eq('is_published', true).gt('boosted_until', new Date().toISOString()).order('boosted_until', { ascending: false }).limit(50),
         supabase.from('profiles').select('*', { count: 'exact', head: true }).in('account_type', ['creator', 'salon']),
         supabase.from('designs').select('*', { count: 'exact', head: true }).eq('is_published', true).eq('is_curated', false),
         supabase.from('designs').select('id, image_url, likes_count, comments_count, created_by, profiles(display_name, avatar_url)').eq('is_published', true).eq('is_curated', false).order('created_at', { ascending: false }).limit(3),

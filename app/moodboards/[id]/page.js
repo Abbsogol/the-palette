@@ -124,7 +124,7 @@ export default function MoodboardDetailPage() {
     const [{ data: boardDesigns }, { data: profile }, { data: memberRows }] = await Promise.all([
       supabase
         .from('moodboard_designs')
-        .select('design_id, added_at, designs(id, title, image_url, shape, category)')
+        .select('design_id, added_at, designs(id, title, image_url, image_width, image_height, shape, category)')
         .eq('moodboard_id', id)
         .order('added_at', { ascending: false })
         .limit(300),
@@ -386,7 +386,7 @@ export default function MoodboardDetailPage() {
                 <Link key={d.id} href={`/design/${d.id}?from=${encodeURIComponent(`/moodboards/${id}`)}`} style={{ textDecoration: 'none', display: 'block' }}>
                   <div style={{ borderRadius: '16px', overflow: 'hidden', background: PANEL, border: PANEL_BORDER }}>
                     {d.image_url
-                      ? <img src={d.image_url} alt={d.title} loading="lazy" decoding="async" style={{ width: '100%', height: 'auto', display: 'block' }} />
+                      ? <img src={d.image_url} alt={d.title} loading="lazy" decoding="async" width={d.image_width || undefined} height={d.image_height || undefined} style={{ width: '100%', height: 'auto', aspectRatio: d.image_width && d.image_height ? `${d.image_width} / ${d.image_height}` : undefined, display: 'block' }} />
                       : <div style={{ width: '100%', aspectRatio: '1 / 1' }} />
                     }
                   </div>
