@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useRef, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import CropModal from '@/components/CropModal'
 import IconButton from '@/components/ui/IconButton'
 import Sheet from '@/components/ui/Sheet'
 import { LaqueWordmark, BellIcon, HeartIcon, MagicStarIcon } from '@/components/ui/icons'
+import { useScrollMemory } from '@/lib/scrollMemory'
 
 // ── Page palette from the Own Profile frame (257:2444) ─────────────────────
 const GROUND = '#260D14'
@@ -327,7 +328,16 @@ function Shell({ avatarUrl, children }) {
 }
 
 // ── Main component ─────────────────────────────────────────────────────────
+// Suspense boundary for useSearchParams (?sheet= drives the tile sheets).
 export default function ProfilePage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100dvh', background: '#260D14' }} />}>
+      <ProfileInner />
+    </Suspense>
+  )
+}
+
+function ProfileInner() {
   const router = useRouter()
   // Preserve ?ref= from an invite link across the /onboarding -> /profile ->
   // /onboarding signup round-trip (captured once on mount, client-side only).
@@ -335,6 +345,46 @@ export default function ProfilePage() {
     typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('ref') || ''
   )
   const [user, setUser]       = useState(null)
+
+  // Tile sheets (Saved / Favorites / Collections) ride on ?sheet= so the
+  // back gesture closes them: opening PUSHES a real history entry; back
+  // pops it and lands on the profile untouched. Deep-linked ?sheet= (depth
+  // 1) closes via replace instead, so close never exits the app.
+  const searchParams = useSearchParams()
+  const sheetParam = user ? searchParams.get('sheet') : null
+  const sheetPushedRef = useRef(false)
+  const openTileSheet = (key) => {
+    sheetPushedRef.current = true
+    router.push(`/profile?sheet=${key}`, { scroll: false })
+  }
+  const closeTileSheet = () => {
+    if (sheetPushedRef.current) { sheetPushedRef.current = false; router.back() }
+    else router.replace('/profile', { scroll: false })
+  }
+  const [favourites, setFavourites] = useState([])
+  const [favouritesLoading, setFavouritesLoading] = useState(false)
+  const favouritesLoadedRef = useRef(false)
+  const loadFavourites = async (uid) => {
+    if (favouritesLoadedRef.current) return
+    favouritesLoadedRef.current = true
+    setFavouritesLoading(true)
+    const { data: favRows } = await supabase.from('favourite_creators').select('creator_id').eq('user_id', uid)
+    const ids = (favRows || []).map(r => r.creator_id)
+    if (ids.length) {
+      const { data: profs } = await supabase.from('profiles')
+        .select('id, display_name, username, avatar_url, account_type, location')
+        .in('id', ids)
+      setFavourites(profs || [])
+    }
+    setFavouritesLoading(false)
+  }
+  useEffect(() => {
+    if (!user || !sheetParam) return
+    if (sheetParam === 'saved') loadSavedTab(user.id)
+    else if (sheetParam === 'collections') loadCollectionsTab(user.id)
+    else if (sheetParam === 'favorites') loadFavourites(user.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, sheetParam])
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [managingSubscription, setManagingSubscription] = useState(false)
@@ -514,6 +564,7 @@ export default function ProfilePage() {
 
   const isCreatorType = profile?.account_type === 'creator' || profile?.account_type === 'salon'
   const currentTab = activeTab ?? (isCreatorType ? 'designs' : 'saved')
+  useScrollMemory(currentTab, !!profile)
 
   useEffect(() => {
     if (!user || loading) return
@@ -967,23 +1018,27 @@ export default function ProfilePage() {
 
   const tiles = [
     { key: 'upcoming',    label: 'Upcoming',    count: upcomingCount,    href: '/appointments', icon: <CalendarIcon /> },
-    { key: 'saved',       label: 'Saved',       count: savedCount,       href: '/saved',        icon: <BookmarkIcon /> },
-    { key: 'favorites',   label: 'Favorites',   count: favouritesCount,  href: '/search?tab=artists&favourites=1', icon: <HeartIcon size={16} /> },
-    { key: 'collections', label: 'Collections', count: collectionsCount, href: '/saved',        icon: <FolderIcon /> },
+    { key: 'saved',       label: 'Saved',       count: savedCount,       sheet: 'saved',        icon: <BookmarkIcon /> },
+    { key: 'favorites',   label: 'Favorites',   count: favouritesCount,  sheet: 'favorites',    icon: <HeartIcon size={16} /> },
+    { key: 'collections', label: 'Collections', count: collectionsCount, sheet: 'collections',  icon: <FolderIcon /> },
     // /buy-credits, not /nail-lab: the lab shows the balance but has no
     // purchase entry, and this tile replaced the old wallet's only Buy CTA.
     { key: 'credits',     label: 'Credits',     count: profile?.credit_balance ?? 0, href: '/buy-credits', icon: <MagicStarIcon size={16} /> },
   ]
 
-  const Tile = ({ t }) => (
-    <Link href={t.href} style={{ ...sectionCard, borderRadius: '16px', padding: '12px', textDecoration: 'none', display: 'block', minHeight: '44px' }}>
+  const tileInner = (t) => (
+    <>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
         <span style={{ color: ACCENT, display: 'flex' }}>{t.icon}</span>
         <span style={ui(600, 14)}>{t.count}</span>
       </div>
       <span style={ui(300, 11, MUTED)}>{t.label}</span>
-    </Link>
+    </>
   )
+  const tileStyle = { ...sectionCard, borderRadius: '16px', padding: '12px', textDecoration: 'none', display: 'block', minHeight: '44px', width: '100%', textAlign: 'left', border: sectionCard.border, cursor: 'pointer' }
+  const Tile = ({ t }) => t.sheet
+    ? <button onClick={() => openTileSheet(t.sheet)} style={tileStyle}>{tileInner(t)}</button>
+    : <Link href={t.href} style={tileStyle}>{tileInner(t)}</Link>
 
   const designCard = (design, { showState = false, showPin = false } = {}) => (
     <article key={design.id} style={{ position: 'relative' }}>
@@ -1084,6 +1139,91 @@ export default function ProfilePage() {
       )}
 
       {/* ── Settings sheet ─────────────────────────────────────────────── */}
+      {sheetParam === 'saved' && (
+        <Sheet title="Saved designs" onClose={closeTileSheet}>
+          <div style={{ padding: '8px 4px calc(env(safe-area-inset-bottom) + 24px)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '16px' }}>
+              <h2 style={{ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--lq-white)', margin: 0 }}>Saved</h2>
+              <Link href="/saved" style={{ ...ui(500, 13, ACCENT), textDecoration: 'none' }}>Open Saved →</Link>
+            </div>
+            {savedLoading ? (
+              <p style={{ ...ui(300, 14, MUTED), textAlign: 'center', padding: '32px 0' }}>Loading...</p>
+            ) : savedDesigns.length === 0 ? (
+              <div style={{ padding: '28px 0', textAlign: 'center' }}>
+                <p style={{ ...ui(400, 13, MUTED), marginBottom: '8px' }}>No saved designs yet</p>
+                <Link href="/search" style={{ ...ui(500, 13, ACCENT), textDecoration: 'none' }}>Browse designs →</Link>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', alignItems: 'start' }}>
+                {savedDesigns.map(d => designCard(d))}
+              </div>
+            )}
+          </div>
+        </Sheet>
+      )}
+      {sheetParam === 'collections' && (
+        <Sheet title="Collections" onClose={closeTileSheet}>
+          <div style={{ padding: '8px 4px calc(env(safe-area-inset-bottom) + 24px)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '16px' }}>
+              <h2 style={{ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--lq-white)', margin: 0 }}>Collections</h2>
+              <Link href="/saved" style={{ ...ui(500, 13, ACCENT), textDecoration: 'none' }}>Open Saved →</Link>
+            </div>
+            {boardsLoading ? (
+              <p style={{ ...ui(300, 14, MUTED), textAlign: 'center', padding: '32px 0' }}>Loading...</p>
+            ) : boards.length === 0 ? (
+              <div style={{ padding: '28px 0', textAlign: 'center' }}>
+                <p style={{ ...ui(400, 13, MUTED), marginBottom: '8px' }}>No collections yet</p>
+                <Link href="/saved" style={{ ...ui(500, 13, ACCENT), textDecoration: 'none' }}>Create a collection →</Link>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', alignItems: 'start' }}>
+                {boards.map(b => (
+                  <Link key={b.id} href={`/moodboards/${b.id}`} style={{ textDecoration: 'none', display: 'block' }}>
+                    <div style={{ width: '100%', borderRadius: '24px', overflow: 'hidden', background: PANEL, border: PANEL_BORDER }}>
+                      {b.cover_image_url
+                        ? <img src={b.cover_image_url} alt="" loading="lazy" decoding="async" width={b.__coverDims?.image_width || undefined} height={b.__coverDims?.image_height || undefined} style={{ width: '100%', height: 'auto', aspectRatio: b.__coverDims ? `${b.__coverDims.image_width} / ${b.__coverDims.image_height}` : undefined, display: 'block' }} />
+                        : <div style={{ width: '100%', aspectRatio: '1 / 1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: MUTED }}><FolderIcon size={24} /></div>}
+                    </div>
+                    <p style={{ ...ui(600, 15), margin: '8px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</p>
+                    <p style={{ ...ui(300, 11, MUTED), margin: '2px 0 0' }}>{boardCounts[b.id] || 0} design{(boardCounts[b.id] || 0) !== 1 ? 's' : ''}</p>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        </Sheet>
+      )}
+      {sheetParam === 'favorites' && (
+        <Sheet title="Favourite artists" onClose={closeTileSheet}>
+          <div style={{ padding: '8px 4px calc(env(safe-area-inset-bottom) + 24px)' }}>
+            <h2 style={{ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--lq-white)', margin: '0 0 16px' }}>Favourites</h2>
+            {favouritesLoading ? (
+              <p style={{ ...ui(300, 14, MUTED), textAlign: 'center', padding: '32px 0' }}>Loading...</p>
+            ) : favourites.length === 0 ? (
+              <div style={{ padding: '28px 0', textAlign: 'center' }}>
+                <p style={{ ...ui(400, 13, MUTED), marginBottom: '8px' }}>No favourite artists yet</p>
+                <Link href="/search?tab=artists" style={{ ...ui(500, 13, ACCENT), textDecoration: 'none' }}>Find artists →</Link>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {favourites.map(f => (
+                  <Link key={f.id} href={`/creator/${f.id}`} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', textDecoration: 'none', borderBottom: '1px solid rgba(255,255,255,0.08)', minHeight: '44px' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255,255,255,0.15)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {f.avatar_url
+                        ? <img src={f.avatar_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <span style={ui(400, 16)}>{(f.display_name || '?')[0].toUpperCase()}</span>}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ ...ui(500, 14), margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.display_name || f.username}</p>
+                      <p style={{ ...ui(300, 11, MUTED), margin: '2px 0 0' }}>{f.account_type === 'salon' ? 'Salon' : 'Nail Artist'}{f.location ? ` · ${f.location}` : ''}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        </Sheet>
+      )}
       {settingsOpen && (
         <Sheet title="Settings" onClose={() => setSettingsOpen(false)}>
           <h2 style={{ ...ui(600, 20), margin: '0 0 16px' }}>Settings</h2>
