@@ -448,8 +448,10 @@ export default function ChatPage() {
                 const href = p.__type === 'design' ? `/design/${p.id}` : p.url
                 return (
                   <a key={m.id} href={href} target={p.__type === 'photo' ? '_blank' : undefined} rel="noreferrer"
-                    style={{ display: 'block', borderRadius: '12px', overflow: 'hidden', background: PANEL, border: PANEL_BORDER, aspectRatio: '1/1' }}>
-                    {img && <img src={img} alt={p.title || 'Shared photo'} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
+                    style={{ display: 'block', borderRadius: '12px', overflow: 'hidden', background: PANEL, border: PANEL_BORDER, ...(p.__type === 'design' && p.image_width && p.image_height ? {} : { aspectRatio: '1/1' }) }}>
+                    {img && (p.__type === 'design'
+                      ? <img src={img} alt={p.title || 'Shared design'} loading="lazy" width={p.image_width || undefined} height={p.image_height || undefined} style={p.image_width && p.image_height ? { width: '100%', height: 'auto', aspectRatio: `${p.image_width} / ${p.image_height}`, display: 'block' } : { width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+                      : <img src={img} alt="Shared photo" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />)}
                   </a>
                 )
               })}
@@ -561,7 +563,11 @@ export default function ChatPage() {
                     <a href={`/design/${payload.id}`}
                       style={{ width: '240px', background: PANEL, border: PANEL_BORDER, borderRadius: '12px', overflow: 'hidden', textDecoration: 'none', display: 'block' }}>
                       {payload.image_url && (
-                        <img src={payload.image_url} alt={payload.title} style={{ width: '100%', height: '180px', objectFit: 'cover', display: 'block' }} />
+                        payload.image_width && payload.image_height
+                          ? <img src={payload.image_url} alt={payload.title} width={payload.image_width} height={payload.image_height} style={{ width: '100%', height: 'auto', aspectRatio: `${payload.image_width} / ${payload.image_height}`, display: 'block' }} />
+                          /* Legacy payloads carry no dims (immutable rows): keep the
+                             reserved box, contain instead of cover so titles survive. */
+                          : <img src={payload.image_url} alt={payload.title} style={{ width: '100%', height: '180px', objectFit: 'contain', display: 'block' }} />
                       )}
                       <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                         <p style={{ ...ui(500, 14), margin: 0 }}>{payload.title}</p>
