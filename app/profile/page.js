@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import CropModal from '@/components/CropModal'
@@ -328,16 +328,7 @@ function Shell({ avatarUrl, children }) {
 }
 
 // ── Main component ─────────────────────────────────────────────────────────
-// Suspense boundary for useSearchParams (?sheet= drives the tile sheets).
 export default function ProfilePage() {
-  return (
-    <Suspense fallback={<div style={{ minHeight: '100dvh', background: '#260D14' }} />}>
-      <ProfileInner />
-    </Suspense>
-  )
-}
-
-function ProfileInner() {
   const router = useRouter()
   // Preserve ?ref= from an invite link across the /onboarding -> /profile ->
   // /onboarding signup round-trip (captured once on mount, client-side only).
@@ -350,21 +341,32 @@ function ProfileInner() {
   // back gesture closes them: opening PUSHES a real history entry; back
   // pops it and lands on the profile untouched. Deep-linked ?sheet= (depth
   // 1) closes via replace instead, so close never exits the app.
-  const searchParams = useSearchParams()
-  const sheetParam = user ? searchParams.get('sheet') : null
+  // Tile sheets are driven by LOCAL state, not useSearchParams: same-route
+  // query-only navigations don't reliably re-render this static+Suspense
+  // page (verified live 2026-09-08 — both push and replace failed to update
+  // searchParams on close). The URL/history entry exists only so the phone
+  // back gesture closes the sheet: opening pushes an entry (via the
+  // navHistory-wrapped history.pushState, so depth stays correct), and a
+  // popstate — back gesture OR our own back() — clears the local state,
+  // leaving the user on their untouched profile. Closing never exits the app.
+  const [openSheet, setOpenSheet] = useState(null)
   const sheetPushedRef = useRef(false)
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search).get('sheet')
+    if (p && ['saved', 'favorites', 'collections'].includes(p)) setOpenSheet(p)
+    const onPop = () => { sheetPushedRef.current = false; setOpenSheet(null) }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
   const openTileSheet = (key) => {
+    setOpenSheet(key)
     sheetPushedRef.current = true
-    router.push(`/profile?sheet=${key}`, { scroll: false })
+    try { window.history.pushState({ ...(window.history.state || {}) }, '', `/profile?sheet=${key}`) } catch {}
   }
   const closeTileSheet = () => {
-    if (sheetPushedRef.current) { sheetPushedRef.current = false; router.back(); return }
-    // Deep-linked sheet (no pushed entry to pop). A same-route query-only
-    // router.replace never commits on this static+Suspense page (verified
-    // live 2026-09-08) while push does — so close by pushing the bare
-    // profile URL. Back then reopens the sheet: standard URL-sheet
-    // semantics, and closing can never exit the app.
-    router.push('/profile', { scroll: false })
+    if (sheetPushedRef.current) { sheetPushedRef.current = false; window.history.back(); return }
+    setOpenSheet(null)
+    try { window.history.replaceState({ ...(window.history.state || {}) }, '', '/profile') } catch {}
   }
   const [favourites, setFavourites] = useState([])
   const [favouritesLoading, setFavouritesLoading] = useState(false)
@@ -384,12 +386,12 @@ function ProfileInner() {
     setFavouritesLoading(false)
   }
   useEffect(() => {
-    if (!user || !sheetParam) return
-    if (sheetParam === 'saved') loadSavedTab(user.id)
-    else if (sheetParam === 'collections') loadCollectionsTab(user.id)
-    else if (sheetParam === 'favorites') loadFavourites(user.id)
+    if (!user || !openSheet) return
+    if (openSheet === 'saved') loadSavedTab(user.id)
+    else if (openSheet === 'collections') loadCollectionsTab(user.id)
+    else if (openSheet === 'favorites') loadFavourites(user.id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, sheetParam])
+  }, [user, openSheet])
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [managingSubscription, setManagingSubscription] = useState(false)
@@ -1150,7 +1152,7 @@ function ProfileInner() {
       )}
 
       {/* ── Settings sheet ─────────────────────────────────────────────── */}
-      {sheetParam === 'saved' && (
+      {openSheet === 'saved' && (
         <Sheet title="Saved designs" onClose={closeTileSheet}>
           <div style={{ padding: '8px 4px calc(env(safe-area-inset-bottom) + 24px)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '16px' }}>
@@ -1172,7 +1174,7 @@ function ProfileInner() {
           </div>
         </Sheet>
       )}
-      {sheetParam === 'collections' && (
+      {openSheet === 'collections' && (
         <Sheet title="Collections" onClose={closeTileSheet}>
           <div style={{ padding: '8px 4px calc(env(safe-area-inset-bottom) + 24px)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '16px' }}>
@@ -1204,7 +1206,7 @@ function ProfileInner() {
           </div>
         </Sheet>
       )}
-      {sheetParam === 'favorites' && (
+      {openSheet === 'favorites' && (
         <Sheet title="Favourite artists" onClose={closeTileSheet}>
           <div style={{ padding: '8px 4px calc(env(safe-area-inset-bottom) + 24px)' }}>
             <h2 style={{ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--lq-white)', margin: '0 0 16px' }}>Favourites</h2>
