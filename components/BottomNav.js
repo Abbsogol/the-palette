@@ -74,7 +74,12 @@ export default function BottomNav() {
   }, [])
 
   // Hide on full-screen flows
-  if (pathname === '/' || pathname === '/story/new' || pathname === '/onboarding' || pathname?.startsWith('/book/') || (pathname?.startsWith('/messages/') && pathname !== '/messages/new') || pathname?.startsWith('/admin') || pathname === '/planner' || pathname?.startsWith('/settings/') || pathname?.startsWith('/nail-card/') || pathname === '/help') return null
+  // Hide only on genuinely focused flows. Profile-cluster settings pages
+  // (Privacy, Help, Notifications, Invite) KEEP the nav — it's the way back
+  // out of a tapped profile row, so hiding it worsens the very complaint we're
+  // fixing, and a bar that vanishes on some sibling rows but not others reads
+  // as a bug (Sogol 2026-09-10).
+  if (pathname === '/' || pathname === '/story/new' || pathname === '/onboarding' || pathname?.startsWith('/book/') || (pathname?.startsWith('/messages/') && pathname !== '/messages/new') || pathname?.startsWith('/admin') || pathname === '/planner' || pathname?.startsWith('/nail-card/')) return null
 
   return (
     <nav aria-label="Main navigation" style={{
