@@ -344,7 +344,7 @@ export default function AppointmentDetailPage() {
       <Link
         href={`/book/${creator?.id}?serviceId=${service?.id}${booking.notes ? `&note=${encodeURIComponent(booking.notes)}` : ''}`}
         style={{
-          display: 'block', textAlign: 'center', height: '52px', lineHeight: '52px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', height: '52px',
           background: showDeposit ? 'none' : BTN_GRADIENT,
           border: showDeposit ? '1px solid rgba(255,255,255,0.2)' : 'none',
           borderRadius: '1000px', ...ui(500, 15),
