@@ -441,6 +441,13 @@ export default function ProfilePage() {
   const boardsLoadedRef = useRef(false)
   const [savedLoading, setSavedLoading] = useState(false)
   const [boardsLoading, setBoardsLoading] = useState(false)
+  // Tab grids load AFTER the profile object (lazily / at the end of
+  // loadUserData), so scroll restore must wait for the CURRENT tab's grid —
+  // gating ready on !!profile alone restored against a short page and
+  // clamped to the top (only bit rows that navigate away; sheets don't
+  // unmount the profile so they were unaffected).
+  const [savedLoaded, setSavedLoaded] = useState(false)
+  const [boardsLoaded, setBoardsLoaded] = useState(false)
 
   // Salon posts (Updates)
   const [myPosts, setMyPosts]           = useState([])
@@ -544,6 +551,7 @@ export default function ProfilePage() {
     if (savedError) console.error('saved designs fetch failed:', savedError)
     setSavedDesigns(data?.map(r => r.designs).filter(Boolean) || [])
     setSavedLoading(false)
+    setSavedLoaded(true)
   }
 
   const loadCollectionsTab = async (uid) => {
@@ -573,11 +581,16 @@ export default function ProfilePage() {
       setBoardCounts(c)
     }
     setBoardsLoading(false)
+    setBoardsLoaded(true)
   }
 
   const isCreatorType = profile?.account_type === 'creator' || profile?.account_type === 'salon'
   const currentTab = activeTab ?? (isCreatorType ? 'designs' : 'saved')
-  useScrollMemory(currentTab, !!profile)
+  // Per-tab readiness: 'designs' (My Designs) loads inside loadUserData so
+  // !loading covers it; 'saved'/'collections' load lazily, so wait for their
+  // loaded flag. Restore then runs against the tab's full height.
+  const tabReady = currentTab === 'saved' ? savedLoaded : currentTab === 'collections' ? boardsLoaded : true
+  useScrollMemory(currentTab, !!profile && !loading && tabReady)
 
   useEffect(() => {
     if (!user || loading) return
