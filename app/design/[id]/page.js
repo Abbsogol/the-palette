@@ -4,8 +4,7 @@ import ImageCarousel from '@/components/ImageCarousel'
 import ColourSwatches from '@/components/ColourSwatches'
 import ShareButton from '@/components/ShareButton'
 import BackButton from '@/components/ui/BackButton'
-import SaveToBoard from '@/components/SaveToBoard'
-import SendDesignButton from '@/components/SendDesignButton'
+import DesignUtilityRow from '@/components/DesignUtilityRow'
 import DesignSaveHeart from '@/components/DesignSaveHeart'
 import DesignPrimaryActions from '@/components/DesignPrimaryActions'
 import { LaqueWordmark } from '@/components/ui/icons'
@@ -23,15 +22,6 @@ const ui = (weight, size, color = 'var(--lq-white)') => ({
 const display = (size) => ({ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: `${size}px`, color: 'var(--lq-white)', lineHeight: 1.2 })
 const sectionLabel = { ...ui(500, 11, ACCENT), letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 12px' }
 const chipStyle = { ...ui(500, 12, WHITE80), background: PANEL, border: PANEL_BORDER, padding: '6px 12px', borderRadius: '1000px', textTransform: 'capitalize' }
-
-// Utility-row pill: two matched glass buttons under the image (Send / Board).
-// Header stays exactly as the frame draws it (Back · wordmark · Share); these
-// per-design utilities live below the image, grouped and obviously tappable.
-const utilPill = {
-  width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-  background: PANEL, border: PANEL_BORDER, borderRadius: '1000px', minHeight: '46px',
-  ...ui(500, 13), cursor: 'pointer',
-}
 
 function Shell({ children }) {
   return (
@@ -156,25 +146,8 @@ export default async function DesignPage({ params, searchParams }) {
         </div>
 
         {/* Utility row — Send to chat · Save to board */}
-        <div style={{ padding: '14px 20px 0', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-          <SendDesignButton
-            design={{ id: design.id, title: design.title, image_url: design.image_url }}
-            renderTrigger={({ open }) => (
-              <button onClick={open} style={utilPill}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>
-                Send to chat
-              </button>
-            )}
-          />
-          <SaveToBoard
-            designId={design.id} designImageUrl={design.image_url}
-            renderTrigger={() => (
-              <div style={utilPill}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
-                Save to board
-              </div>
-            )}
-          />
+        <div style={{ padding: '14px 20px 0' }}>
+          <DesignUtilityRow design={{ id: design.id, title: design.title, image_url: design.image_url }} />
         </div>
 
         <div style={{ padding: '20px 20px 0', display: 'flex', flexDirection: 'column', gap: '20px' }}>
