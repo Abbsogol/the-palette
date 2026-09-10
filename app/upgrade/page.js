@@ -3,6 +3,17 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import BackButton from '@/components/ui/BackButton'
+
+const ACCENT = '#FF517F'
+const WHITE60 = 'rgba(255,255,255,0.6)'
+const PANEL = 'rgba(255,255,255,0.06)'
+const PANEL_BORDER = '1px solid rgba(255,255,255,0.1)'
+const BTN_GRADIENT = 'linear-gradient(90deg, #660007 47.832%, #FF517F 100%)'
+const ui = (weight, size, color = 'var(--lq-white)') => ({
+  fontFamily: 'var(--lq-font-ui)', fontWeight: weight, fontSize: `${size}px`, color, lineHeight: 1.4,
+})
+const display = (size) => ({ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: `${size}px`, color: 'var(--lq-white)', lineHeight: 1.2 })
 
 const PRO_CREATOR_FEATURES = [
   'Accept client bookings',
@@ -24,8 +35,8 @@ const PREMIUM_FEATURES = [
 function CheckIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <circle cx="8" cy="8" r="8" fill="rgba(212,160,192,0.15)" />
-      <path d="M5 8l2 2 4-4" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="8" cy="8" r="8" fill="rgba(255,81,127,0.18)" />
+      <path d="M5 8l2 2 4-4" stroke={ACCENT} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -76,43 +87,50 @@ export default function UpgradePage() {
   const isCreator = profile?.account_type && ['nail_artist', 'creator', 'salon'].includes(profile.account_type)
   const currentTier = profile?.subscription_tier
 
-  if (loading) return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <p style={{ color: 'var(--text-secondary)', fontFamily: "'DM Sans', sans-serif" }}>Loading…</p>
+  const Shell = ({ children }) => (
+    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
+      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 60px)' }}>{children}</div>
     </div>
+  )
+
+  if (loading) return (
+    <Shell>
+      <div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={ui(300, 14, WHITE60)}>Loading…</p>
+      </div>
+    </Shell>
   )
 
   // Don't show the "not subscribed" upgrade options if the profile fetch
   // itself failed — a real subscriber could otherwise be misled into
   // thinking they need to pay again.
   if (loadError) return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '20px', textAlign: 'center' }}>
-      <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif" }}>Couldn't load your subscription status</p>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif" }}>Please try again in a moment.</p>
-      <button onClick={() => window.location.reload()} style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '12px 24px', fontSize: '14px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
-        Retry
-      </button>
-    </div>
+    <Shell>
+      <div style={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '20px', textAlign: 'center' }}>
+        <p style={ui(600, 15)}>Couldn&apos;t load your subscription status</p>
+        <p style={ui(300, 13, WHITE60)}>Please try again in a moment.</p>
+        <button onClick={() => window.location.reload()} style={{ background: BTN_GRADIENT, color: 'var(--lq-white)', border: 'none', borderRadius: '1000px', padding: '12px 24px', ...ui(600, 14), cursor: 'pointer' }}>
+          Retry
+        </button>
+      </div>
+    </Shell>
   )
 
   return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', fontFamily: "'DM Sans', sans-serif", paddingBottom: '60px' }}>
-
+    <Shell>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 20px', borderBottom: '0.5px solid var(--border)' }}>
-        <button onClick={() => router.back()} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', color: 'var(--text-primary)' }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M19 12H5M12 5l-7 7 7 7"/>
-          </svg>
-        </button>
-        <h1 style={{ color: 'var(--text-primary)', fontSize: '17px', fontWeight: '600', margin: 0 }}>Upgrade</h1>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: 'calc(env(safe-area-inset-top) + 16px) 20px 16px' }}>
+        <BackButton fallback="/profile" />
+        <h1 style={{ ...display(24), margin: 0 }}>Upgrade</h1>
       </div>
 
       {/* Hero */}
-      <div style={{ padding: '32px 20px 24px', textAlign: 'center' }}>
-        <div style={{ fontSize: '28px', marginBottom: '12px' }}>✦</div>
-        <h2 style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: '700', margin: '0 0 8px' }}>Unlock the full Laque experience</h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0, lineHeight: '1.6' }}>Choose the plan that's right for you. Cancel anytime.</p>
+      <div style={{ padding: '20px 20px 24px', textAlign: 'center' }}>
+        <div style={{ fontSize: '28px', marginBottom: '12px', color: ACCENT }}>✦</div>
+        <h2 style={{ ...display(26), margin: '0 0 8px' }}>Unlock the full Laque experience</h2>
+        <p style={{ ...ui(300, 14, WHITE60), margin: 0, lineHeight: 1.6 }}>Choose the plan that&apos;s right for you. Cancel anytime.</p>
       </div>
 
       <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -120,25 +138,25 @@ export default function UpgradePage() {
         {/* Pro Creator Plan — only show to creator accounts */}
         {isCreator && (
           <div style={{
-            background: 'var(--bg-card)',
-            borderRadius: '18px',
-            border: currentTier === 'pro_creator' ? '1.5px solid var(--accent)' : '0.5px solid var(--border)',
+            background: PANEL,
+            borderRadius: '20px',
+            border: currentTier === 'pro_creator' ? `1.5px solid ${ACCENT}` : PANEL_BORDER,
             overflow: 'hidden',
           }}>
             {/* Plan header */}
-            <div style={{ padding: '20px 20px 16px', background: 'linear-gradient(135deg, rgba(212,160,192,0.12) 0%, transparent 100%)' }}>
+            <div style={{ padding: '20px 20px 16px', background: 'linear-gradient(135deg, rgba(255,81,127,0.14) 0%, transparent 100%)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
                 <div>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 4px' }}>For nail artists & salons</p>
-                  <h3 style={{ color: 'var(--text-primary)', fontSize: '20px', fontWeight: '700', margin: 0 }}>Pro Creator</h3>
+                  <p style={{ ...ui(500, 11, WHITE60), letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 4px' }}>For nail artists &amp; salons</p>
+                  <h3 style={{ ...display(22), margin: 0 }}>Pro Creator</h3>
                 </div>
                 {currentTier === 'pro_creator' && (
-                  <span style={{ background: 'var(--accent)', color: '#2C0A1E', fontSize: '10px', fontWeight: '700', letterSpacing: '0.06em', padding: '4px 10px', borderRadius: '20px' }}>ACTIVE</span>
+                  <span style={{ background: BTN_GRADIENT, color: 'var(--lq-white)', ...ui(700, 10), letterSpacing: '0.06em', padding: '4px 10px', borderRadius: '1000px' }}>ACTIVE</span>
                 )}
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginTop: '8px' }}>
-                <span style={{ color: 'var(--accent)', fontSize: '28px', fontWeight: '700' }}>AED 49</span>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>/month</span>
+                <span style={ui(700, 28, ACCENT)}>AED 49</span>
+                <span style={ui(300, 13, WHITE60)}>/month</span>
               </div>
             </div>
 
@@ -147,7 +165,7 @@ export default function UpgradePage() {
               {PRO_CREATOR_FEATURES.map((f, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <CheckIcon />
-                  <span style={{ color: 'var(--text-primary)', fontSize: '14px' }}>{f}</span>
+                  <span style={ui(400, 14)}>{f}</span>
                 </div>
               ))}
             </div>
@@ -155,18 +173,17 @@ export default function UpgradePage() {
             {/* CTA */}
             <div style={{ padding: '4px 20px 20px' }}>
               {currentTier === 'pro_creator' ? (
-                <div style={{ textAlign: 'center', padding: '12px', background: 'rgba(212,160,192,0.08)', borderRadius: '12px' }}>
-                  <p style={{ color: 'var(--accent)', fontSize: '14px', fontWeight: '500', margin: 0 }}>You're on Pro Creator ✦</p>
+                <div style={{ textAlign: 'center', padding: '12px', background: 'rgba(255,81,127,0.1)', borderRadius: '12px' }}>
+                  <p style={{ ...ui(500, 14, ACCENT), margin: 0 }}>You&apos;re on Pro Creator ✦</p>
                 </div>
               ) : (
                 <button
                   onClick={() => handleSubscribe('pro_creator')}
                   disabled={subscribing === 'pro_creator'}
                   style={{
-                    width: '100%', background: 'var(--accent)', color: '#2C0A1E',
-                    border: 'none', borderRadius: '12px', padding: '14px',
-                    fontSize: '15px', fontWeight: '700', fontFamily: "'DM Sans', sans-serif",
-                    cursor: 'pointer', opacity: subscribing === 'pro_creator' ? 0.7 : 1,
+                    width: '100%', background: BTN_GRADIENT, color: 'var(--lq-white)',
+                    border: 'none', borderRadius: '1000px', padding: '14px',
+                    ...ui(700, 15), cursor: 'pointer', opacity: subscribing === 'pro_creator' ? 0.7 : 1,
                   }}
                 >
                   {subscribing === 'pro_creator' ? 'Redirecting…' : 'Get Pro Creator'}
@@ -178,25 +195,25 @@ export default function UpgradePage() {
 
         {/* Premium Plan — for all users */}
         <div style={{
-          background: 'var(--bg-card)',
-          borderRadius: '18px',
-          border: currentTier === 'premium' ? '1.5px solid var(--accent)' : '0.5px solid var(--border)',
+          background: PANEL,
+          borderRadius: '20px',
+          border: currentTier === 'premium' ? `1.5px solid ${ACCENT}` : PANEL_BORDER,
           overflow: 'hidden',
         }}>
           {/* Plan header */}
-          <div style={{ padding: '20px 20px 16px', background: 'linear-gradient(135deg, rgba(212,160,192,0.07) 0%, transparent 100%)' }}>
+          <div style={{ padding: '20px 20px 16px', background: 'linear-gradient(135deg, rgba(255,81,127,0.08) 0%, transparent 100%)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
               <div>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 4px' }}>For design lovers</p>
-                <h3 style={{ color: 'var(--text-primary)', fontSize: '20px', fontWeight: '700', margin: 0 }}>Laque Premium</h3>
+                <p style={{ ...ui(500, 11, WHITE60), letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 4px' }}>For design lovers</p>
+                <h3 style={{ ...display(22), margin: 0 }}>Laque Premium</h3>
               </div>
               {currentTier === 'premium' && (
-                <span style={{ background: 'var(--accent)', color: '#2C0A1E', fontSize: '10px', fontWeight: '700', letterSpacing: '0.06em', padding: '4px 10px', borderRadius: '20px' }}>ACTIVE</span>
+                <span style={{ background: BTN_GRADIENT, color: 'var(--lq-white)', ...ui(700, 10), letterSpacing: '0.06em', padding: '4px 10px', borderRadius: '1000px' }}>ACTIVE</span>
               )}
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginTop: '8px' }}>
-              <span style={{ color: 'var(--accent)', fontSize: '28px', fontWeight: '700' }}>AED 19</span>
-              <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>/month</span>
+              <span style={ui(700, 28, ACCENT)}>AED 19</span>
+              <span style={ui(300, 13, WHITE60)}>/month</span>
             </div>
           </div>
 
@@ -205,7 +222,7 @@ export default function UpgradePage() {
             {PREMIUM_FEATURES.map((f, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <CheckIcon />
-                <span style={{ color: 'var(--text-primary)', fontSize: '14px' }}>{f}</span>
+                <span style={ui(400, 14)}>{f}</span>
               </div>
             ))}
           </div>
@@ -213,18 +230,17 @@ export default function UpgradePage() {
           {/* CTA */}
           <div style={{ padding: '4px 20px 20px' }}>
             {currentTier === 'premium' ? (
-              <div style={{ textAlign: 'center', padding: '12px', background: 'rgba(212,160,192,0.08)', borderRadius: '12px' }}>
-                <p style={{ color: 'var(--accent)', fontSize: '14px', fontWeight: '500', margin: 0 }}>You're on Premium ✦</p>
+              <div style={{ textAlign: 'center', padding: '12px', background: 'rgba(255,81,127,0.1)', borderRadius: '12px' }}>
+                <p style={{ ...ui(500, 14, ACCENT), margin: 0 }}>You&apos;re on Premium ✦</p>
               </div>
             ) : (
               <button
                 onClick={() => handleSubscribe('premium')}
                 disabled={subscribing === 'premium'}
                 style={{
-                  width: '100%', background: 'var(--bg-chip)', color: 'var(--text-primary)',
-                  border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px',
-                  fontSize: '15px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif",
-                  cursor: 'pointer', opacity: subscribing === 'premium' ? 0.7 : 1,
+                  width: '100%', background: 'rgba(255,255,255,0.08)', color: 'var(--lq-white)',
+                  border: PANEL_BORDER, borderRadius: '1000px', padding: '14px',
+                  ...ui(600, 15), cursor: 'pointer', opacity: subscribing === 'premium' ? 0.7 : 1,
                 }}
               >
                 {subscribing === 'premium' ? 'Redirecting…' : 'Get Premium'}
@@ -234,11 +250,11 @@ export default function UpgradePage() {
         </div>
 
         {/* Fine print */}
-        <p style={{ color: 'var(--text-secondary)', fontSize: '12px', textAlign: 'center', margin: '4px 0 0', lineHeight: '1.6' }}>
+        <p style={{ ...ui(300, 12, WHITE60), textAlign: 'center', margin: '4px 0 0', lineHeight: 1.6 }}>
           Billed monthly. Cancel anytime from your account settings.<br />
           All prices include VAT where applicable.
         </p>
       </div>
-    </div>
+    </Shell>
   )
 }
