@@ -14,7 +14,7 @@ function fmtDate(iso) {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
-export default function BoostButton({ designId, creatorId, boostedUntil }) {
+export default function BoostButton({ designId, creatorId, boostedUntil, renderTrigger }) {
   const [show, setShow] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -28,7 +28,7 @@ export default function BoostButton({ designId, creatorId, boostedUntil }) {
     })
   }, [creatorId])
 
-  if (!show) return null
+  if (!renderTrigger && !show) return null
 
   const handleBoost = async () => {
     if (!selected || loading) return
@@ -51,7 +51,8 @@ export default function BoostButton({ designId, creatorId, boostedUntil }) {
 
   return (
     <>
-      {/* Boost button */}
+      {renderTrigger ? renderTrigger({ open: () => setModalOpen(true), isActive }) : (
+      /* Boost button */
       <button
         onClick={() => setModalOpen(true)}
         style={{
@@ -70,6 +71,7 @@ export default function BoostButton({ designId, creatorId, boostedUntil }) {
         </svg>
         {isActive ? `Boosted · ${fmtDate(boostedUntil)}` : '✦ Boost'}
       </button>
+      )}
 
       {/* Modal */}
       {modalOpen && (

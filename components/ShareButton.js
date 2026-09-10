@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 
-export default function ShareButton({ title }) {
+export default function ShareButton({ title, variant }) {
   const [copied, setCopied] = useState(false)
   const copiedTimer = useRef(null)
 
@@ -28,7 +28,15 @@ export default function ShareButton({ title }) {
     <button
       onClick={handleShare}
       title={copied ? 'Copied!' : 'Share'}
-      style={{
+      style={variant === 'glass' ? {
+        background: 'rgba(255,255,255,0.1)',
+        border: '1px solid rgba(255,255,255,0.2)',
+        borderRadius: '1000px', padding: '8px 14px', minHeight: '36px',
+        display: 'flex', alignItems: 'center', gap: '6px',
+        color: copied ? '#FF517F' : 'var(--lq-white)',
+        fontSize: '13px', fontWeight: '500', fontFamily: 'var(--lq-font-ui)',
+        cursor: 'pointer',
+      } : {
         background: 'var(--bg-chip)',
         border: '0.5px solid var(--border)',
         borderRadius: '20px',

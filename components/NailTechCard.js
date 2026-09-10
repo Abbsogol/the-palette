@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 
-export default function NailTechCard({ design, colours }) {
+export default function NailTechCard({ design, colours, renderTrigger }) {
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const copiedTimer = useRef(null)
@@ -58,7 +58,8 @@ export default function NailTechCard({ design, colours }) {
 
   return (
     <>
-      {/* Trigger button */}
+      {/* Trigger — caller-controlled chrome, or the default gradient CTA */}
+      {renderTrigger ? renderTrigger({ open: () => setOpen(true) }) : (
       <button
         onClick={() => setOpen(true)}
         style={{
@@ -86,6 +87,7 @@ export default function NailTechCard({ design, colours }) {
         </svg>
         Show My Nail Tech
       </button>
+      )}
 
       {/* Modal overlay */}
       {open && (

@@ -7,6 +7,11 @@ function clean(value) {
   return value
 }
 
+const ui = (weight, size, color = 'var(--lq-white)') => ({
+  fontFamily: 'var(--lq-font-ui)', fontWeight: weight, fontSize: `${size}px`, color, lineHeight: 1.3,
+})
+const WHITE60 = 'rgba(255,255,255,0.6)'
+
 export default function ColourSwatches({ colours }) {
   const [copiedId, setCopiedId] = useState(null)
   const copiedTimer = useRef(null)
@@ -30,51 +35,51 @@ export default function ColourSwatches({ colours }) {
         return (
           <div key={colour.id} style={{
             display: 'flex', alignItems: 'center', gap: '12px',
-            background: 'var(--bg-card)', borderRadius: '10px',
-            padding: '12px', border: '0.5px solid var(--border)',
+            background: 'rgba(255,255,255,0.06)', borderRadius: '14px',
+            padding: '12px', border: '1px solid rgba(255,255,255,0.1)',
           }}>
             {/* Colour swatch — tap to copy hex */}
-            <div
+            <button
               onClick={() => copyHex(colour.hex_code, colour.id)}
               title={colour.hex_code ? (copiedId === colour.id ? 'Copied!' : 'Tap to copy') : ''}
+              aria-label={colour.hex_code ? `Copy ${colour.hex_code}` : undefined}
               style={{
-                width: '36px', height: '36px', borderRadius: '8px',
+                width: '44px', height: '44px', borderRadius: '10px',
                 background: colour.hex_code || '#333', flexShrink: 0,
-                border: '0.5px solid rgba(255,255,255,0.1)',
+                border: '1px solid rgba(255,255,255,0.15)', padding: 0,
                 cursor: colour.hex_code ? 'pointer' : 'default',
                 position: 'relative',
               }}
             >
               {copiedId === colour.id && (
                 <span style={{
-                  position: 'absolute', bottom: '44px', left: '50%',
+                  position: 'absolute', bottom: '52px', left: '50%',
                   transform: 'translateX(-50%)',
-                  background: 'var(--accent)', color: '#2C0A1E',
-                  fontSize: '10px', fontWeight: '600',
-                  padding: '3px 8px', borderRadius: '6px',
+                  background: '#FF517F', color: 'var(--lq-white)',
+                  ...ui(600, 10), padding: '3px 8px', borderRadius: '6px',
                   whiteSpace: 'nowrap', pointerEvents: 'none',
                 }}>
                   Copied!
                 </span>
               )}
-            </div>
-            <div style={{ flex: 1 }}>
-              <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', marginBottom: '6px' }}>
+            </button>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ ...ui(500, 14), margin: '0 0 6px' }}>
                 {colour.colour_name || 'Unnamed'}
               </p>
               {colour.hex_code && (
-                <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginBottom: '2px' }}>
-                  <span style={{ opacity: 0.5 }}>Colour code: </span>{colour.hex_code}
+                <p style={{ ...ui(400, 12, WHITE60), margin: '0 0 2px' }}>
+                  <span style={{ opacity: 0.65 }}>Colour code: </span>{colour.hex_code}
                 </p>
               )}
               {brandName && (
-                <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginBottom: '2px' }}>
-                  <span style={{ opacity: 0.5 }}>Brand: </span>{brandName}
+                <p style={{ ...ui(400, 12, WHITE60), margin: '0 0 2px' }}>
+                  <span style={{ opacity: 0.65 }}>Brand: </span>{brandName}
                 </p>
               )}
               {brandCode && (
-                <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginBottom: '2px' }}>
-                  <span style={{ opacity: 0.5 }}>Brand code: </span>{brandCode}
+                <p style={{ ...ui(400, 12, WHITE60), margin: '0 0 2px' }}>
+                  <span style={{ opacity: 0.65 }}>Brand code: </span>{brandCode}
                 </p>
               )}
             </div>
