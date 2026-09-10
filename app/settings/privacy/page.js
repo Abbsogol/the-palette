@@ -2,24 +2,36 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import BackButton from '@/components/ui/BackButton'
+
+const ACCENT = '#FF517F'
+const WHITE60 = 'rgba(255,255,255,0.6)'
+const WHITE80 = 'rgba(255,255,255,0.8)'
+const PANEL = 'rgba(255,255,255,0.06)'
+const PANEL_BORDER = '1px solid rgba(255,255,255,0.1)'
+const ui = (weight, size, color = 'var(--lq-white)') => ({
+  fontFamily: 'var(--lq-font-ui)', fontWeight: weight, fontSize: `${size}px`, color, lineHeight: 1.4,
+})
+const display = (size) => ({ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: `${size}px`, color: 'var(--lq-white)', lineHeight: 1.2 })
+const sectionLabel = { ...ui(500, 11, ACCENT), letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 10px', paddingLeft: '4px' }
+const rowBorder = '1px solid rgba(255,255,255,0.08)'
 
 function Toggle({ value, onChange }) {
   return (
     <button
       onClick={() => onChange(!value)}
+      role="switch"
+      aria-checked={value}
       style={{
-        width: '44px', height: '26px', borderRadius: '13px', border: 'none', cursor: 'pointer',
-        background: value ? 'var(--accent)' : 'var(--bg-chip)',
+        width: '48px', height: '28px', borderRadius: '1000px', border: 'none', cursor: 'pointer',
+        background: value ? ACCENT : 'rgba(255,255,255,0.15)',
         position: 'relative', transition: 'background 0.2s', flexShrink: 0, padding: 0,
       }}
     >
       <div style={{
-        position: 'absolute', top: '3px',
-        left: value ? '21px' : '3px',
-        width: '20px', height: '20px', borderRadius: '50%',
-        background: value ? '#2C0A1E' : '#888',
+        position: 'absolute', top: '3px', left: value ? '23px' : '3px',
+        width: '22px', height: '22px', borderRadius: '50%', background: '#fff',
         transition: 'left 0.2s',
       }} />
     </button>
@@ -28,10 +40,10 @@ function Toggle({ value, onChange }) {
 
 function Row({ label, desc, children }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '15px 16px', borderBottom: '0.5px solid var(--border)' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '15px 16px', borderBottom: rowBorder }}>
       <div style={{ flex: 1, paddingRight: '16px' }}>
-        <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500', margin: '0 0 2px' }}>{label}</p>
-        {desc && <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: 0, lineHeight: '1.5' }}>{desc}</p>}
+        <p style={{ ...ui(500, 14), margin: '0 0 2px' }}>{label}</p>
+        {desc && <p style={{ ...ui(300, 12, WHITE60), margin: 0 }}>{desc}</p>}
       </div>
       {children}
     </div>
@@ -135,10 +147,20 @@ export default function PrivacySettingsPage() {
     setUnblocking(null)
   }
 
-  if (loading) return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <p style={{ color: 'var(--text-secondary)', fontFamily: "'DM Sans', sans-serif" }}>Loading…</p>
+  const Shell = ({ children }) => (
+    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
+      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 60px)' }}>{children}</div>
     </div>
+  )
+
+  if (loading) return (
+    <Shell>
+      <div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={ui(300, 14, WHITE60)}>Loading…</p>
+      </div>
+    </Shell>
   )
 
   const msgOptions = [
@@ -148,51 +170,38 @@ export default function PrivacySettingsPage() {
   ]
 
   return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', fontFamily: "'DM Sans', sans-serif", paddingBottom: '60px' }}>
-
+    <Shell>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 20px' }}>
-        <Link href="/profile" style={{ color: 'var(--text-primary)', textDecoration: 'none', display: 'flex' }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M19 12H5M12 5l-7 7 7 7"/>
-          </svg>
-        </Link>
-        <h1 style={{ color: 'var(--text-primary)', fontSize: '17px', fontWeight: '600', margin: 0 }}>Privacy</h1>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: 'calc(env(safe-area-inset-top) + 16px) 20px 16px' }}>
+        <BackButton fallback="/profile" />
+        <h1 style={{ ...display(24), margin: 0 }}>Privacy &amp; Safety</h1>
       </div>
 
       {saveError && (
-        <p style={{ color: '#E07070', fontSize: '13px', margin: '0 20px 16px', textAlign: 'center' }}>{saveError}</p>
+        <p style={{ ...ui(400, 13, '#FF8DA8'), margin: '0 20px 16px', textAlign: 'center' }}>{saveError}</p>
       )}
 
       {/* Profile visibility */}
       <div style={{ margin: '0 20px 20px' }}>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 10px', paddingLeft: '4px' }}>Account</p>
-        <div style={{ background: 'var(--bg-card)', borderRadius: '14px', border: '0.5px solid var(--border)', overflow: 'hidden' }}>
-          <Row
-            label="Private account"
-            desc="When on, only your followers can see your designs, saves, and full profile."
-          >
+        <p style={sectionLabel}>Account</p>
+        <div style={{ background: PANEL, borderRadius: '16px', border: PANEL_BORDER, overflow: 'hidden' }}>
+          <Row label="Private account" desc="When on, only your followers can see your designs, saves, and full profile.">
             {saving === 'is_private'
-              ? <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Saving…</span>
-              : <Toggle value={isPrivate} onChange={handleTogglePrivate} />
-            }
+              ? <span style={ui(300, 12, WHITE60)}>Saving…</span>
+              : <Toggle value={isPrivate} onChange={handleTogglePrivate} />}
           </Row>
-          <Row
-            label="Show saves on profile"
-            desc="Let others see which designs you've saved."
-          >
+          <Row label="Show saves on profile" desc="Let others see which designs you've saved.">
             {saving === 'show_saves'
-              ? <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Saving…</span>
-              : <Toggle value={showSaves} onChange={handleShowSaves} />
-            }
+              ? <span style={ui(300, 12, WHITE60)}>Saving…</span>
+              : <Toggle value={showSaves} onChange={handleShowSaves} />}
           </Row>
         </div>
       </div>
 
       {/* Messages */}
       <div style={{ margin: '0 20px 20px' }}>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 10px', paddingLeft: '4px' }}>Messages</p>
-        <div style={{ background: 'var(--bg-card)', borderRadius: '14px', border: '0.5px solid var(--border)', overflow: 'hidden' }}>
+        <p style={sectionLabel}>Messages</p>
+        <div style={{ background: PANEL, borderRadius: '16px', border: PANEL_BORDER, overflow: 'hidden' }}>
           {msgOptions.map((opt, i) => (
             <button
               key={opt.value}
@@ -200,63 +209,56 @@ export default function PrivacySettingsPage() {
               style={{
                 width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '15px 16px', background: 'none', border: 'none', cursor: 'pointer',
-                borderBottom: i < msgOptions.length - 1 ? '0.5px solid var(--border)' : 'none',
-                textAlign: 'left',
+                borderBottom: i < msgOptions.length - 1 ? rowBorder : 'none', textAlign: 'left',
               }}
             >
               <div>
-                <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500', margin: '0 0 2px', fontFamily: "'DM Sans', sans-serif" }}>{opt.label}</p>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: 0, fontFamily: "'DM Sans', sans-serif" }}>{opt.desc}</p>
+                <p style={{ ...ui(500, 14), margin: '0 0 2px' }}>{opt.label}</p>
+                <p style={{ ...ui(300, 12, WHITE60), margin: 0 }}>{opt.desc}</p>
               </div>
               <div style={{
                 width: '20px', height: '20px', borderRadius: '50%', flexShrink: 0, marginLeft: '12px',
-                border: `2px solid ${messagePermission === opt.value ? 'var(--accent)' : 'var(--border)'}`,
-                background: messagePermission === opt.value ? 'var(--accent)' : 'transparent',
+                border: `2px solid ${messagePermission === opt.value ? ACCENT : 'rgba(255,255,255,0.25)'}`,
+                background: messagePermission === opt.value ? ACCENT : 'transparent',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
-                {messagePermission === opt.value && (
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#2C0A1E' }} />
-                )}
+                {messagePermission === opt.value && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#260D14' }} />}
               </div>
             </button>
           ))}
         </div>
         {saving === 'message_permission' && (
-          <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '6px 4px 0' }}>Saving…</p>
+          <p style={{ ...ui(300, 12, WHITE60), margin: '6px 4px 0' }}>Saving…</p>
         )}
       </div>
 
       {/* Blocked users */}
       <div style={{ margin: '0 20px 20px' }}>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 10px', paddingLeft: '4px' }}>
-          Blocked users {blockedUsers.length > 0 && `(${blockedUsers.length})`}
-        </p>
-        <div style={{ background: 'var(--bg-card)', borderRadius: '14px', border: '0.5px solid var(--border)', overflow: 'hidden' }}>
+        <p style={sectionLabel}>Blocked users {blockedUsers.length > 0 && `(${blockedUsers.length})`}</p>
+        <div style={{ background: PANEL, borderRadius: '16px', border: PANEL_BORDER, overflow: 'hidden' }}>
           {blockedUsers.length === 0 ? (
             <div style={{ padding: '24px 16px', textAlign: 'center' }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>No blocked users</p>
+              <p style={ui(300, 13, WHITE60)}>No blocked users</p>
             </div>
           ) : (
             blockedUsers.map((u, i) => (
-              <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '13px 16px', borderBottom: i < blockedUsers.length - 1 ? '0.5px solid var(--border)' : 'none' }}>
-                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--bg-chip)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '13px 16px', borderBottom: i < blockedUsers.length - 1 ? rowBorder : 'none' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {u.avatar_url
                     ? <img src={u.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <span style={{ color: 'var(--accent)', fontSize: '14px', fontWeight: '600' }}>{(u.display_name || '?')[0].toUpperCase()}</span>
-                  }
+                    : <span style={ui(600, 14, ACCENT)}>{(u.display_name || '?')[0].toUpperCase()}</span>}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500', margin: 0 }}>{u.display_name}</p>
-                  {u.username && <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: 0 }}>@{u.username}</p>}
+                  <p style={{ ...ui(500, 14), margin: 0 }}>{u.display_name}</p>
+                  {u.username && <p style={{ ...ui(300, 12, WHITE60), margin: 0 }}>@{u.username}</p>}
                 </div>
                 <button
                   onClick={() => handleUnblock(u.id)}
                   disabled={unblocking === u.id}
                   style={{
-                    background: 'var(--bg-chip)', color: 'var(--text-secondary)',
-                    border: '0.5px solid var(--border)', borderRadius: '8px',
-                    padding: '6px 12px', fontSize: '12px', fontWeight: '500',
-                    fontFamily: "'DM Sans', sans-serif", cursor: 'pointer',
+                    background: 'rgba(255,255,255,0.08)', color: WHITE80,
+                    border: PANEL_BORDER, borderRadius: '1000px',
+                    padding: '7px 14px', ...ui(500, 12), cursor: 'pointer',
                     opacity: unblocking === u.id ? 0.5 : 1,
                   }}
                 >
@@ -267,6 +269,6 @@ export default function PrivacySettingsPage() {
           )}
         </div>
       </div>
-    </div>
+    </Shell>
   )
 }
