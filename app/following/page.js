@@ -4,6 +4,19 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import BackButton from '@/components/ui/BackButton'
+import { useScrollMemory } from '@/lib/scrollMemory'
+
+const ACCENT = '#FF517F'
+const WHITE60 = 'rgba(255,255,255,0.6)'
+const WHITE80 = 'rgba(255,255,255,0.8)'
+const PANEL = 'rgba(255,255,255,0.06)'
+const PANEL_BORDER = '1px solid rgba(255,255,255,0.1)'
+const BTN_GRADIENT = 'linear-gradient(90deg, #660007 47.832%, #FF517F 100%)'
+const ui = (weight, size, color = 'var(--lq-white)') => ({
+  fontFamily: 'var(--lq-font-ui)', fontWeight: weight, fontSize: `${size}px`, color, lineHeight: 1.4,
+})
+const display = (size) => ({ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: `${size}px`, color: 'var(--lq-white)', lineHeight: 1.2 })
 
 export default function FollowingPage() {
   const router = useRouter()
@@ -11,6 +24,7 @@ export default function FollowingPage() {
   const [loading, setLoading]     = useState(true)
   const [userId, setUserId]       = useState(null)
   const [unfollowingId, setUnfollowingId] = useState(null)
+  useScrollMemory(null, !loading)
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -52,107 +66,106 @@ export default function FollowingPage() {
   }
 
   return (
-    <div style={{ paddingBottom: '100px' }}>
-      {/* Header */}
-      <div style={{ padding: '20px 20px 16px', display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '0.5px solid var(--border)' }}>
-        <button onClick={() => router.back()} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}>
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <path d="M13 16L7 10L13 4" stroke="var(--text-secondary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
-        <h1 style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '600', margin: 0 }}>Following</h1>
+    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
+      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 100px)' }}>
+
+        {/* Header */}
+        <div style={{ padding: 'calc(env(safe-area-inset-top) + 16px) 20px 16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <BackButton fallback="/profile" />
+          <h1 style={{ ...display(24), margin: 0 }}>Following</h1>
+        </div>
+
+        {loading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}>
+            <p style={ui(300, 14, WHITE60)}>Loading…</p>
+          </div>
+        ) : following.length === 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 20px', textAlign: 'center' }}>
+            <p style={{ ...ui(500, 15), marginBottom: '8px' }}>Not following anyone yet</p>
+            <p style={{ ...ui(300, 13, WHITE60), marginBottom: '20px' }}>Follow nail artists and salons to see their latest designs.</p>
+            <Link href="/search?tab=artists" style={{
+              background: BTN_GRADIENT, color: 'var(--lq-white)',
+              borderRadius: '1000px', padding: '12px 24px',
+              ...ui(500, 14), textDecoration: 'none',
+            }}>
+              Find creators
+            </Link>
+          </div>
+        ) : (
+          <div style={{ margin: '0 20px', background: PANEL, borderRadius: '16px', border: PANEL_BORDER, overflow: 'hidden' }}>
+            {following.map(row => {
+              const person = row.profiles
+              if (!person) return null
+              const isCreator = person.account_type === 'creator' || person.account_type === 'salon'
+              const label = person.account_type === 'salon' ? 'Salon' : person.account_type === 'creator' ? 'Nail Artist' : 'Design Lover'
+              const isUnfollowing = unfollowingId === row.following_id
+              return (
+                <div
+                  key={row.following_id}
+                  style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '13px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+                >
+                  {/* Avatar + name — creators link to their public profile */}
+                  {(() => {
+                    const inner = (
+                      <>
+                        <div style={{
+                          width: '46px', height: '46px', borderRadius: '50%',
+                          background: PANEL, overflow: 'hidden', flexShrink: 0,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          border: PANEL_BORDER,
+                        }}>
+                          {person.avatar_url
+                            ? <img src={person.avatar_url} alt={person.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            : <span style={ui(500, 17, ACCENT)}>{(person.display_name || '?')[0].toUpperCase()}</span>}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '4px', minWidth: 0 }}>
+                            <p style={{ ...ui(500, 14), margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {person.display_name || 'User'}
+                            </p>
+                            {person.is_verified && (
+                              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+                                <circle cx="8" cy="8" r="7" fill={ACCENT} />
+                                <path d="M5 8L7 10L11 6" stroke="#260D14" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                            )}
+                          </div>
+                          <span style={{
+                            background: PANEL, color: isCreator ? ACCENT : WHITE60,
+                            ...ui(500, 10), padding: '2px 8px', borderRadius: '1000px', letterSpacing: '0.04em',
+                          }}>
+                            {label}
+                          </span>
+                        </div>
+                      </>
+                    )
+                    const linkStyle = { display: 'flex', alignItems: 'center', gap: '14px', flex: 1, minWidth: 0, textDecoration: 'none' }
+                    return isCreator
+                      ? <Link href={`/creator/${person.id}`} style={linkStyle}>{inner}</Link>
+                      : <div style={linkStyle}>{inner}</div>
+                  })()}
+
+                  {/* Unfollow button */}
+                  <button
+                    onClick={() => handleUnfollow(row.following_id)}
+                    disabled={isUnfollowing}
+                    style={{
+                      background: 'rgba(255,255,255,0.08)', border: PANEL_BORDER,
+                      borderRadius: '1000px', padding: '7px 14px',
+                      ...ui(500, 12, WHITE80), cursor: isUnfollowing ? 'not-allowed' : 'pointer',
+                      opacity: isUnfollowing ? 0.5 : 1, flexShrink: 0, whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {isUnfollowing ? '…' : 'Unfollow'}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
-
-      {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Loading...</p>
-        </div>
-      ) : following.length === 0 ? (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 20px', textAlign: 'center' }}>
-          <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '500', marginBottom: '8px' }}>Not following anyone yet</p>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '20px' }}>Follow nail artists and salons to see their latest designs.</p>
-          <Link href="/search" style={{
-            background: 'var(--accent)', color: '#2C0A1E',
-            borderRadius: '12px', padding: '12px 24px',
-            fontSize: '14px', fontWeight: '600',
-            fontFamily: "'DM Sans', sans-serif", textDecoration: 'none',
-          }}>
-            Find creators
-          </Link>
-        </div>
-      ) : (
-        <div>
-          {following.map(row => {
-            const person = row.profiles
-            if (!person) return null
-            const isCreator = person.account_type === 'creator' || person.account_type === 'salon'
-            const label = person.account_type === 'salon' ? 'Salon' : person.account_type === 'creator' ? 'Nail Artist' : 'Design Lover'
-            const isUnfollowing = unfollowingId === row.following_id
-            return (
-              <div
-                key={row.following_id}
-                style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 20px', borderBottom: '0.5px solid var(--border)' }}
-              >
-                {/* Avatar + name — link to creator page */}
-                <Link
-                  href={isCreator ? `/creator/${person.id}` : '#'}
-                  style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, minWidth: 0, textDecoration: 'none' }}
-                >
-                  <div style={{
-                    width: '46px', height: '46px', borderRadius: '50%',
-                    background: 'var(--bg-chip)', overflow: 'hidden', flexShrink: 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    border: '0.5px solid var(--border)',
-                  }}>
-                    {person.avatar_url
-                      ? <img src={person.avatar_url} alt={person.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      : <span style={{ color: 'var(--accent)', fontSize: '17px', fontWeight: '500' }}>
-                          {(person.display_name || '?')[0].toUpperCase()}
-                        </span>
-                    }
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '3px', minWidth: 0 }}>
-                      <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {person.display_name || 'User'}
-                      </p>
-                      {person.is_verified && (
-                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
-                          <circle cx="8" cy="8" r="7" fill="#D4A0C0"/>
-                          <path d="M5 8L7 10L11 6" stroke="#2C0A1E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                      )}
-                    </div>
-                    <span style={{
-                      background: 'var(--bg-chip)', color: isCreator ? 'var(--accent)' : 'var(--text-secondary)',
-                      fontSize: '10px', fontWeight: '500', padding: '2px 8px',
-                      borderRadius: '20px', letterSpacing: '0.04em',
-                    }}>
-                      {label}
-                    </span>
-                  </div>
-                </Link>
-
-                {/* Unfollow button */}
-                <button
-                  onClick={() => handleUnfollow(row.following_id)}
-                  disabled={isUnfollowing}
-                  style={{
-                    background: 'none', border: '0.5px solid var(--border)',
-                    borderRadius: '20px', padding: '7px 14px',
-                    color: 'var(--text-secondary)', fontSize: '12px', fontWeight: '500',
-                    fontFamily: "'DM Sans', sans-serif", cursor: isUnfollowing ? 'not-allowed' : 'pointer',
-                    opacity: isUnfollowing ? 0.5 : 1, flexShrink: 0,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {isUnfollowing ? '...' : 'Unfollow'}
-                </button>
-              </div>
-            )
-          })}
-        </div>
-      )}
     </div>
   )
 }
