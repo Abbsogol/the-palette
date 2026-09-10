@@ -1,7 +1,17 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
+import BackButton from '@/components/ui/BackButton'
+
+const ACCENT = '#FF517F'
+const WHITE60 = 'rgba(255,255,255,0.6)'
+const WHITE80 = 'rgba(255,255,255,0.8)'
+const PANEL = 'rgba(255,255,255,0.06)'
+const PANEL_BORDER = '1px solid rgba(255,255,255,0.1)'
+const ui = (weight, size, color = 'var(--lq-white)') => ({
+  fontFamily: 'var(--lq-font-ui)', fontWeight: weight, fontSize: `${size}px`, color, lineHeight: 1.4,
+})
+const display = (size) => ({ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: `${size}px`, color: 'var(--lq-white)', lineHeight: 1.2 })
 
 const SECTIONS = [
   {
@@ -114,22 +124,23 @@ const SECTIONS = [
 function FAQItem({ q, a }) {
   const [open, setOpen] = useState(false)
   return (
-    <div style={{ borderBottom: '0.5px solid var(--border)' }}>
+    <div style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
       <button
         onClick={() => setOpen(v => !v)}
+        aria-expanded={open}
         style={{
           width: '100%', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
           gap: '12px', padding: '14px 16px', background: 'none', border: 'none',
-          cursor: 'pointer', textAlign: 'left',
+          cursor: 'pointer', textAlign: 'left', minHeight: '48px',
         }}
       >
-        <span style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500', fontFamily: "'DM Sans', sans-serif", lineHeight: '1.4', flex: 1 }}>{q}</span>
+        <span style={{ ...ui(500, 14), flex: 1 }}>{q}</span>
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, marginTop: '2px', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
-          <path d="M4 6L8 10L12 6" stroke="#888" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M4 6L8 10L12 6" stroke={ACCENT} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </button>
       {open && (
-        <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: '1.65', margin: 0, padding: '0 16px 16px' }}>{a}</p>
+        <p style={{ ...ui(300, 13, WHITE80), lineHeight: 1.65, margin: 0, padding: '0 16px 16px' }}>{a}</p>
       )}
     </div>
   )
@@ -137,54 +148,47 @@ function FAQItem({ q, a }) {
 
 export default function HelpPage() {
   return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', fontFamily: "'DM Sans', sans-serif", paddingBottom: '60px' }}>
+    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
+      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 60px)' }}>
 
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 20px' }}>
-        <Link href="/profile" style={{ color: 'var(--text-primary)', textDecoration: 'none', display: 'flex' }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M19 12H5M12 5l-7 7 7 7"/>
-          </svg>
-        </Link>
-        <h1 style={{ color: 'var(--text-primary)', fontSize: '17px', fontWeight: '600', margin: 0 }}>Help & Support</h1>
-      </div>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: 'calc(env(safe-area-inset-top) + 16px) 20px 0' }}>
+          <BackButton fallback="/profile" />
+          <h1 style={{ ...display(24), margin: 0 }}>Help &amp; Support</h1>
+        </div>
 
-      {/* Intro */}
-      <div style={{ padding: '0 20px 24px' }}>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.6', margin: 0 }}>
-          Find answers to common questions below. Still stuck? Reach us at{' '}
-          <a href="mailto:hello@laque.app" style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: '500' }}>hello@laque.app</a>
-        </p>
-      </div>
+        {/* Intro */}
+        <div style={{ padding: '16px 20px 24px' }}>
+          <p style={{ ...ui(300, 14, WHITE80), lineHeight: 1.6, margin: 0 }}>
+            Find answers to common questions below. Still stuck? Reach us at{' '}
+            <a href="mailto:hello@laque.app" style={{ ...ui(500, 14, ACCENT), textDecoration: 'none' }}>hello@laque.app</a>
+          </p>
+        </div>
 
-      {/* FAQ sections */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '0 20px' }}>
-        {SECTIONS.map(section => (
-          <div key={section.title} style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '14px', overflow: 'hidden' }}>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', margin: 0, padding: '14px 16px 10px', borderBottom: '0.5px solid var(--border)' }}>
-              {section.title}
-            </p>
-            {section.items.map((item, i) => (
-              <FAQItem key={i} q={item.q} a={item.a} />
-            ))}
-          </div>
-        ))}
-      </div>
+        {/* FAQ sections */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '0 20px' }}>
+          {SECTIONS.map(section => (
+            <div key={section.title} style={{ background: PANEL, border: PANEL_BORDER, borderRadius: '16px', overflow: 'hidden' }}>
+              <p style={{ ...ui(500, 11, ACCENT), letterSpacing: '0.08em', textTransform: 'uppercase', margin: 0, padding: '14px 16px 10px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                {section.title}
+              </p>
+              {section.items.map((item, i) => (
+                <FAQItem key={i} q={item.q} a={item.a} />
+              ))}
+            </div>
+          ))}
+        </div>
 
-      {/* Contact card */}
-      <div style={{ margin: '20px 20px 0', background: 'rgba(212,160,192,0.06)', border: '0.5px solid rgba(212,160,192,0.2)', borderRadius: '14px', padding: '20px 16px', textAlign: 'center' }}>
-        <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '600', margin: '0 0 6px' }}>Still need help?</p>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '0 0 14px' }}>Our team usually responds within 24 hours.</p>
-        <a
-          href="mailto:hello@laque.app"
-          style={{
-            display: 'inline-block', background: 'var(--accent)', color: '#2C0A1E',
-            borderRadius: '12px', padding: '11px 24px',
-            fontSize: '14px', fontWeight: '600', textDecoration: 'none',
-          }}
-        >
-          Email us
-        </a>
+        {/* Contact card */}
+        <div style={{ margin: '20px 20px 0', background: 'rgba(255,81,127,0.08)', border: '1px solid rgba(255,81,127,0.2)', borderRadius: '16px', padding: '20px 16px', textAlign: 'center' }}>
+          <p style={{ ...ui(600, 14), margin: '0 0 6px' }}>Still need help?</p>
+          <p style={{ ...ui(300, 13, WHITE60), margin: '0 0 14px' }}>Our team usually responds within 24 hours.</p>
+          <a href="mailto:hello@laque.app" style={{ display: 'inline-block', background: 'linear-gradient(90deg, #660007 47.832%, #FF517F 100%)', color: 'var(--lq-white)', borderRadius: '1000px', padding: '12px 28px', ...ui(500, 14), textDecoration: 'none' }}>
+            Email us
+          </a>
+        </div>
       </div>
     </div>
   )
