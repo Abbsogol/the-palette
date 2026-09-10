@@ -4,6 +4,17 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import BackButton from '@/components/ui/BackButton'
+import { useScrollMemory } from '@/lib/scrollMemory'
+
+const ACCENT = '#FF517F'
+const WHITE60 = 'rgba(255,255,255,0.6)'
+const PANEL = 'rgba(255,255,255,0.06)'
+const PANEL_BORDER = '1px solid rgba(255,255,255,0.1)'
+const ui = (weight, size, color = 'var(--lq-white)') => ({
+  fontFamily: 'var(--lq-font-ui)', fontWeight: weight, fontSize: `${size}px`, color, lineHeight: 1.4,
+})
+const display = (size) => ({ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: `${size}px`, color: 'var(--lq-white)', lineHeight: 1.2 })
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
@@ -21,22 +32,16 @@ function fmtDate(dateStr) {
   return `${DAY_NAMES[d.getDay()]} ${d.getDate()} ${MONTH_NAMES[d.getMonth()]}`
 }
 
-function fmtDuration(mins) {
-  if (mins < 60) return `${mins} min`
-  const h = Math.floor(mins / 60), m = mins % 60
-  return m > 0 ? `${h} hr ${m} min` : `${h} hr`
-}
-
 function StatusBadge({ status }) {
   const map = {
-    pending:   { label: 'Pending',   bg: 'rgba(212,160,192,0.15)', color: 'var(--accent)' },
-    confirmed: { label: 'Confirmed', bg: 'rgba(100,200,130,0.15)', color: '#6CC882' },
-    declined:  { label: 'Declined',  bg: 'rgba(200,100,100,0.15)', color: '#E07070' },
-    cancelled: { label: 'Cancelled', bg: 'rgba(136,136,136,0.15)', color: 'var(--text-secondary)' },
+    pending:   { label: 'Pending',   bg: 'rgba(255,81,127,0.15)',  color: ACCENT },
+    confirmed: { label: 'Confirmed', bg: 'rgba(108,200,130,0.15)', color: '#6CC882' },
+    declined:  { label: 'Declined',  bg: 'rgba(224,112,112,0.15)', color: '#E07070' },
+    cancelled: { label: 'Cancelled', bg: 'rgba(255,255,255,0.1)',  color: WHITE60 },
   }
   const s = map[status] || map.pending
   return (
-    <span style={{ background: s.bg, color: s.color, fontSize: '11px', fontWeight: '600', padding: '3px 9px', borderRadius: '20px', letterSpacing: '0.03em' }}>
+    <span style={{ background: s.bg, color: s.color, ...ui(600, 11), padding: '3px 9px', borderRadius: '1000px', letterSpacing: '0.03em' }}>
       {s.label}
     </span>
   )
@@ -47,32 +52,32 @@ function BookingCard({ booking }) {
   const service = booking.service
 
   return (
-    <Link href={`/bookings/${booking.id}`} style={{ textDecoration: 'none', display: 'block', background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '14px', marginBottom: '10px' }}>
+    <Link href={`/bookings/${booking.id}`} style={{ textDecoration: 'none', display: 'block', background: PANEL, border: PANEL_BORDER, borderRadius: '16px', marginBottom: '10px' }}>
       <div style={{ padding: '14px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--bg-chip)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: PANEL_BORDER }}>
             {client?.avatar_url
               ? <img src={client.avatar_url} alt={client.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : <span style={{ color: 'var(--accent)', fontSize: '16px', fontWeight: '600' }}>{(client?.display_name || '?')[0].toUpperCase()}</span>
+              : <span style={ui(600, 16, ACCENT)}>{(client?.display_name || '?')[0].toUpperCase()}</span>
             }
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '3px' }}>
-              <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '600', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '3px' }}>
+              <p style={{ ...ui(600, 14), margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {client?.display_name || 'Client'}
               </p>
               <StatusBadge status={booking.status} />
             </div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: 0 }}>
+            <p style={{ ...ui(300, 12, WHITE60), margin: 0 }}>
               {service?.name} · {fmtDate(booking.booking_date)}
             </p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '2px 0 0' }}>
+            <p style={{ ...ui(300, 12, WHITE60), margin: '2px 0 0' }}>
               {fmt12(booking.start_time)} – {fmt12(booking.end_time)}
-              {booking.status === 'pending' && <span style={{ color: 'var(--accent)', fontWeight: '600' }}> · Needs response</span>}
+              {booking.status === 'pending' && <span style={{ color: ACCENT, fontWeight: 600 }}> · Needs response</span>}
             </p>
           </div>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }}>
-            <path d="M5 3L9 7L5 11" stroke="var(--text-secondary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M5 3L9 7L5 11" stroke={WHITE60} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </div>
       </div>
@@ -82,10 +87,15 @@ function BookingCard({ booking }) {
 
 export default function BookingsPage() {
   const router = useRouter()
-  const [currentUser, setCurrentUser] = useState(null)
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState('requests')
+  // Active tab persists per session so back-from-detail lands on the same tab
+  // (scroll memory is keyed per tab; the tab itself must survive too).
+  const [tab, setTabState] = useState(() => {
+    try { return sessionStorage.getItem('lq-tab:/bookings') || 'requests' } catch { return 'requests' }
+  })
+  const setTab = (t) => { setTabState(t); try { sessionStorage.setItem('lq-tab:/bookings', t) } catch {} }
+  useScrollMemory(tab, !loading)
 
   useEffect(() => {
     const init = async () => {
@@ -95,7 +105,6 @@ export default function BookingsPage() {
       if (!profile || !['nail_artist', 'creator', 'salon'].includes(profile.account_type)) {
         router.push('/profile'); return
       }
-      setCurrentUser(user)
       await loadBookings(user.id)
       setLoading(false)
     }
@@ -151,27 +160,32 @@ export default function BookingsPage() {
     past:     { title: 'No past bookings', sub: 'Completed and cancelled bookings will show here.' },
   }
 
-  if (loading) return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <p style={{ color: 'var(--text-secondary)', fontFamily: "'DM Sans', sans-serif" }}>Loading…</p>
+  const Shell = ({ children }) => (
+    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
+      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 100px)' }}>{children}</div>
     </div>
   )
 
-  return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', fontFamily: "'DM Sans', sans-serif", paddingBottom: '100px' }}>
+  if (loading) return (
+    <Shell>
+      <div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={ui(300, 14, WHITE60)}>Loading…</p>
+      </div>
+    </Shell>
+  )
 
+  return (
+    <Shell>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 20px' }}>
-        <Link href="/profile" style={{ color: 'var(--text-primary)', textDecoration: 'none', display: 'flex' }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M19 12H5M12 5l-7 7 7 7"/>
-          </svg>
-        </Link>
-        <h1 style={{ color: 'var(--text-primary)', fontSize: '17px', fontWeight: '600', margin: 0, flex: 1 }}>Bookings</h1>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: 'calc(env(safe-area-inset-top) + 16px) 20px 16px' }}>
+        <BackButton fallback="/profile" />
+        <h1 style={{ ...display(24), margin: 0, flex: 1 }}>Bookings</h1>
         <Link href="/planner" style={{
-          display: 'flex', alignItems: 'center', gap: '5px',
-          background: 'var(--bg-chip)', borderRadius: '8px', padding: '6px 12px',
-          color: 'var(--text-secondary)', fontSize: '12px', fontWeight: '500', textDecoration: 'none',
+          display: 'flex', alignItems: 'center', gap: '6px',
+          background: PANEL, border: PANEL_BORDER, borderRadius: '1000px', padding: '7px 13px',
+          ...ui(500, 12, WHITE60), textDecoration: 'none',
         }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
@@ -184,23 +198,21 @@ export default function BookingsPage() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', borderBottom: '0.5px solid var(--border)', margin: '0 20px 20px' }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.08)', margin: '0 20px 20px' }}>
         {tabs.map(t => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
             style={{
               flex: 1, background: 'none', border: 'none',
-              borderBottom: tab === t.key ? '2px solid var(--accent)' : '2px solid transparent',
-              color: tab === t.key ? 'var(--text-primary)' : 'var(--text-secondary)',
-              fontSize: '13px', fontWeight: tab === t.key ? '600' : '400',
-              fontFamily: "'DM Sans', sans-serif",
+              borderBottom: tab === t.key ? `2px solid ${ACCENT}` : '2px solid transparent',
+              ...ui(tab === t.key ? 500 : 400, 13, tab === t.key ? 'var(--lq-white)' : WHITE60),
               padding: '10px 0', cursor: 'pointer',
             }}
           >
             {t.label}
             {t.count > 0 && (
-              <span style={{ marginLeft: '5px', background: t.key === 'requests' ? 'var(--accent)' : 'var(--bg-chip)', color: t.key === 'requests' ? '#2C0A1E' : 'var(--text-secondary)', fontSize: '10px', fontWeight: '700', padding: '1px 6px', borderRadius: '20px' }}>
+              <span style={{ marginLeft: '5px', background: t.key === 'requests' ? ACCENT : PANEL, color: t.key === 'requests' ? '#260D14' : WHITE60, ...ui(700, 10), padding: '1px 6px', borderRadius: '1000px' }}>
                 {t.count}
               </span>
             )}
@@ -212,14 +224,14 @@ export default function BookingsPage() {
       <div style={{ padding: '0 20px' }}>
         {activeList.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 0' }}>
-            <div style={{ fontSize: '28px', marginBottom: '12px' }}>✦</div>
-            <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '500', margin: '0 0 8px' }}>{emptyMessages[tab].title}</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>{emptyMessages[tab].sub}</p>
+            <div style={{ fontSize: '28px', marginBottom: '12px', color: ACCENT }}>✦</div>
+            <p style={{ ...ui(500, 15), margin: '0 0 8px' }}>{emptyMessages[tab].title}</p>
+            <p style={{ ...ui(300, 13, WHITE60), margin: 0 }}>{emptyMessages[tab].sub}</p>
           </div>
         ) : (
           activeList.map(b => <BookingCard key={b.id} booking={b} />)
         )}
       </div>
-    </div>
+    </Shell>
   )
 }
