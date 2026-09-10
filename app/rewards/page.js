@@ -2,8 +2,19 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import BackButton from '@/components/ui/BackButton'
+
+const ACCENT = '#FF517F'
+const WHITE60 = 'rgba(255,255,255,0.6)'
+const PANEL = 'rgba(255,255,255,0.06)'
+const PANEL_BORDER = '1px solid rgba(255,255,255,0.1)'
+const ROW_BORDER = '1px solid rgba(255,255,255,0.08)'
+const ui = (weight, size, color = 'var(--lq-white)') => ({
+  fontFamily: 'var(--lq-font-ui)', fontWeight: weight, fontSize: `${size}px`, color, lineHeight: 1.4,
+})
+const display = (size, color = 'var(--lq-white)') => ({ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: `${size}px`, color, lineHeight: 1.2 })
+const sectionLabel = { ...ui(600, 11, ACCENT), letterSpacing: '0.08em', textTransform: 'uppercase' }
 
 const LEVELS = [
   { name: 'Bronze',   min: 0,    max: 199,  color: '#CD7F32', emoji: '🥉' },
@@ -65,83 +76,90 @@ export default function RewardsPage() {
     ? Math.min(((totalPoints - level.min) / (nextLevel.min - level.min)) * 100, 100)
     : 100
 
-  if (loading) return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <p style={{ color: 'var(--text-secondary)', fontFamily: "'DM Sans', sans-serif" }}>Loading…</p>
+  const Shell = ({ children }) => (
+    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
+      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 100px)' }}>{children}</div>
     </div>
   )
 
-  return (
-    <div style={{ paddingBottom: '100px', fontFamily: "'DM Sans', sans-serif" }}>
+  if (loading) return (
+    <Shell>
+      <div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={ui(300, 14, WHITE60)}>Loading…</p>
+      </div>
+    </Shell>
+  )
 
+  return (
+    <Shell>
       {/* Header */}
-      <div style={{ padding: '24px 20px 20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <Link href="/profile" style={{ color: 'var(--text-primary)', textDecoration: 'none', display: 'flex' }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-        </Link>
-        <h1 style={{ color: 'var(--text-primary)', fontSize: '17px', fontWeight: '600', margin: 0 }}>Beauty Rewards</h1>
+      <div style={{ padding: 'calc(env(safe-area-inset-top) + 16px) 20px 16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <BackButton fallback="/profile" />
+        <h1 style={{ ...display(24), margin: 0 }}>Beauty Rewards</h1>
       </div>
 
       <div style={{ padding: '0 20px' }}>
 
         {/* Level card */}
-        <div style={{ background: 'linear-gradient(135deg, rgba(212,160,192,0.2) 0%, rgba(155,94,138,0.12) 100%)', border: '0.5px solid rgba(212,160,192,0.3)', borderRadius: '20px', padding: '24px 20px', marginBottom: '20px', textAlign: 'center' }}>
+        <div style={{ background: 'linear-gradient(135deg, rgba(255,81,127,0.22) 0%, rgba(102,0,7,0.18) 100%)', border: '1px solid rgba(255,81,127,0.3)', borderRadius: '20px', padding: '24px 20px', marginBottom: '20px', textAlign: 'center' }}>
           <p style={{ fontSize: '40px', margin: '0 0 8px', lineHeight: 1 }}>{level.emoji}</p>
-          <p style={{ color: level.color, fontSize: '13px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 4px' }}>{level.name}</p>
-          <p style={{ color: 'var(--text-primary)', fontSize: '36px', fontWeight: '600', letterSpacing: '-0.02em', margin: '0 0 16px' }}>{totalPoints.toLocaleString()} <span style={{ fontSize: '16px', fontWeight: '400', color: 'var(--text-secondary)' }}>pts</span></p>
+          <p style={{ ...ui(700, 13, level.color), letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 6px' }}>{level.name}</p>
+          <p style={{ ...display(38), margin: '0 0 16px', letterSpacing: '-0.02em' }}>{totalPoints.toLocaleString()} <span style={ui(400, 16, WHITE60)}>pts</span></p>
 
           {/* Progress bar */}
           {nextLevel && (
             <>
-              <div style={{ width: '100%', height: '6px', background: 'var(--bg-chip)', borderRadius: '6px', marginBottom: '8px', overflow: 'hidden' }}>
-                <div style={{ width: `${progressPct}%`, height: '100%', background: 'var(--accent)', borderRadius: '6px', transition: 'width 0.6s ease' }} />
+              <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.12)', borderRadius: '1000px', marginBottom: '8px', overflow: 'hidden' }}>
+                <div style={{ width: `${progressPct}%`, height: '100%', background: ACCENT, borderRadius: '1000px', transition: 'width 0.6s ease' }} />
               </div>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: 0 }}>
+              <p style={ui(300, 12, WHITE60)}>
                 {nextLevel.min - totalPoints} pts to {nextLevel.emoji} {nextLevel.name}
               </p>
             </>
           )}
           {!nextLevel && (
-            <p style={{ color: 'var(--accent)', fontSize: '13px', fontWeight: '500', margin: 0 }}>You've reached the highest level 💎</p>
+            <p style={{ ...ui(500, 13, ACCENT), margin: 0 }}>You&apos;ve reached the highest level 💎</p>
           )}
         </div>
 
         {/* How to earn */}
-        <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '16px', padding: '16px', marginBottom: '20px' }}>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 12px' }}>How to earn</p>
+        <div style={{ background: PANEL, border: PANEL_BORDER, borderRadius: '16px', padding: '16px', marginBottom: '20px' }}>
+          <p style={{ ...sectionLabel, margin: '0 0 12px' }}>How to earn</p>
           {Object.entries(REASON_LABELS).filter(([key]) => key !== 'joined_via_invite').map(([key, { label, points }]) => (
-            <div key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', borderBottom: '0.5px solid var(--border)' }}>
-              <span style={{ color: 'var(--text-primary)', fontSize: '13px' }}>{label}</span>
-              <span style={{ color: 'var(--accent)', fontSize: '13px', fontWeight: '600' }}>{points} pts</span>
+            <div key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', borderBottom: ROW_BORDER }}>
+              <span style={ui(400, 13)}>{label}</span>
+              <span style={ui(600, 13, ACCENT)}>{points} pts</span>
             </div>
           ))}
-          <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: '12px 0 0', lineHeight: '1.5' }}>
+          <p style={{ ...ui(300, 11, WHITE60), margin: '12px 0 0', lineHeight: 1.5 }}>
             Points can be redeemed for discounts on credits and appointments — coming soon.
           </p>
         </div>
 
         {/* History */}
-        <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 10px' }}>Activity</p>
+        <p style={{ ...sectionLabel, margin: '0 0 10px' }}>Activity</p>
         {history.length === 0 ? (
-          <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '24px', textAlign: 'center' }}>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>No points yet — start saving designs or booking appointments to earn rewards.</p>
+          <div style={{ background: PANEL, border: PANEL_BORDER, borderRadius: '16px', padding: '24px', textAlign: 'center' }}>
+            <p style={ui(300, 13, WHITE60)}>No points yet — start saving designs or booking appointments to earn rewards.</p>
           </div>
         ) : (
-          <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '16px', overflow: 'hidden' }}>
+          <div style={{ background: PANEL, border: PANEL_BORDER, borderRadius: '16px', overflow: 'hidden' }}>
             {history.map((row, i) => (
-              <div key={row.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 16px', borderBottom: i < history.length - 1 ? '0.5px solid var(--border)' : 'none' }}>
+              <div key={row.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 16px', borderBottom: i < history.length - 1 ? ROW_BORDER : 'none' }}>
                 <div>
-                  <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', margin: '0 0 2px' }}>
+                  <p style={{ ...ui(500, 13), margin: '0 0 2px' }}>
                     {REASON_LABELS[row.reason]?.label || row.reason}
                   </p>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: 0 }}>{timeAgo(row.created_at)}</p>
+                  <p style={ui(300, 11, WHITE60)}>{timeAgo(row.created_at)}</p>
                 </div>
-                <span style={{ color: 'var(--accent)', fontSize: '14px', fontWeight: '600' }}>+{row.points}</span>
+                <span style={ui(600, 14, ACCENT)}>+{row.points}</span>
               </div>
             ))}
           </div>
         )}
       </div>
-    </div>
+    </Shell>
   )
 }
