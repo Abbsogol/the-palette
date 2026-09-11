@@ -11,6 +11,7 @@ import HeartSaveButton from '@/components/ui/HeartSaveButton'
 import FavouriteButton from '@/components/ui/FavouriteButton'
 import Sheet from '@/components/ui/Sheet'
 import { LaqueWordmark, CandleFilterIcon } from '@/components/ui/icons'
+import { useScrollMemory } from '@/lib/scrollMemory'
 
 // Filter taxonomy from the redesign's filter panel (117:1700). Occasion keeps
 // party/birthday/office beyond the drawn 18 — 72/46/53 published designs use
@@ -386,18 +387,7 @@ export default function SearchPage() {
     (d.occasion || '').split(',')[0]?.trim(),
   ].filter(Boolean)
 
-  const rememberScroll = () => sessionStorage.setItem('search-scroll', window.scrollY.toString())
-
-  // Restore scroll on back navigation (same pattern as the feed)
-  const scrollRestored = useRef(false)
-  useEffect(() => {
-    if (loading || scrollRestored.current || designs.length === 0) return
-    const saved = sessionStorage.getItem('search-scroll')
-    if (saved) {
-      scrollRestored.current = true
-      setTimeout(() => { window.scrollTo(0, parseInt(saved)); sessionStorage.removeItem('search-scroll') }, 50)
-    }
-  }, [loading, designs])
+  useScrollMemory(null, !loading)
 
   return (
     <div style={{ position: 'relative' }}>
@@ -544,7 +534,7 @@ export default function SearchPage() {
             {designs.map((design, i) => (
               <article key={design.id}>
                 <div style={{ position: 'relative', borderRadius: 'var(--lq-radius-card-lg)', overflow: 'hidden' }}>
-                  <Link href={`/design/${design.id}?from=%2Fsearch`} onClick={rememberScroll} aria-label={design.title || 'View design'}>
+                  <Link href={`/design/${design.id}?from=%2Fsearch`} aria-label={design.title || 'View design'}>
                     {design.image_url ? (
                       // Natural aspect ratio — design boards are wide compositions
                       // with titles and side panels; cropping them cuts words off.
@@ -562,7 +552,7 @@ export default function SearchPage() {
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '12px', padding: '10px 2px 0' }}>
-                  <Link href={`/design/${design.id}?from=%2Fsearch`} onClick={rememberScroll} style={{ textDecoration: 'none', minWidth: 0 }}>
+                  <Link href={`/design/${design.id}?from=%2Fsearch`} style={{ textDecoration: 'none', minWidth: 0 }}>
                     <h2 style={{ ...ui(400, 19), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{design.title}</h2>
                   </Link>
                   <span style={{ ...ui(300, 12, 'var(--lq-white-80)'), flexShrink: 0 }}>{formatCount(design.saves_count)} saves</span>
