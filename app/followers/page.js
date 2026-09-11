@@ -47,8 +47,8 @@ function PersonRow({ person }) {
           )}
         </div>
         <span style={{
-          background: PANEL, color: isCreator ? ACCENT : WHITE60,
-          ...ui(500, 10), padding: '2px 8px', borderRadius: '1000px', letterSpacing: '0.04em',
+          background: PANEL, ...ui(500, 10, isCreator ? ACCENT : WHITE60),
+          padding: '2px 8px', borderRadius: '1000px', letterSpacing: '0.04em',
         }}>
           {label}
         </span>

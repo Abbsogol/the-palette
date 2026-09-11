@@ -41,7 +41,7 @@ function StatusBadge({ status }) {
   }
   const s = map[status] || map.pending
   return (
-    <span style={{ background: s.bg, color: s.color, ...ui(600, 11), padding: '3px 9px', borderRadius: '1000px', letterSpacing: '0.03em' }}>
+    <span style={{ background: s.bg, ...ui(600, 11, s.color), padding: '3px 9px', borderRadius: '1000px', letterSpacing: '0.03em' }}>
       {s.label}
     </span>
   )
@@ -212,7 +212,7 @@ export default function BookingsPage() {
           >
             {t.label}
             {t.count > 0 && (
-              <span style={{ marginLeft: '5px', background: t.key === 'requests' ? ACCENT : PANEL, color: t.key === 'requests' ? '#260D14' : WHITE60, ...ui(700, 10), padding: '1px 6px', borderRadius: '1000px' }}>
+              <span style={{ marginLeft: '5px', background: t.key === 'requests' ? ACCENT : PANEL, ...ui(700, 10, t.key === 'requests' ? '#260D14' : WHITE60), padding: '1px 6px', borderRadius: '1000px' }}>
                 {t.count}
               </span>
             )}

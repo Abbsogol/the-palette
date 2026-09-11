@@ -187,7 +187,7 @@ export default function BookingDetailPage() {
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: 'calc(env(safe-area-inset-top) + 16px) 20px 16px' }}>
         <BackButton fallback="/bookings" />
         <h1 style={{ ...display(24), margin: 0, flex: 1 }}>Booking</h1>
-        <span style={{ background: s.bg, color: s.color, ...ui(600, 12), padding: '4px 12px', borderRadius: '1000px' }}>
+        <span style={{ background: s.bg, ...ui(600, 12, s.color), padding: '4px 12px', borderRadius: '1000px' }}>
           {s.label}
         </span>
       </div>
@@ -273,8 +273,8 @@ export default function BookingDetailPage() {
               onClick={handleDecline}
               disabled={!!acting}
               style={{
-                flex: 1, padding: '14px', background: 'rgba(224,112,112,0.12)', color: '#E07070',
-                border: '1px solid rgba(224,112,112,0.3)', borderRadius: '1000px', ...ui(600, 15),
+                flex: 1, padding: '14px', background: 'rgba(224,112,112,0.12)',
+                border: '1px solid rgba(224,112,112,0.3)', borderRadius: '1000px', ...ui(600, 15, '#E07070'),
                 cursor: acting ? 'not-allowed' : 'pointer', opacity: acting ? 0.7 : 1,
               }}
             >
@@ -321,9 +321,8 @@ export default function BookingDetailPage() {
             style={{
               width: '100%', padding: '12px',
               background: noteSaved ? 'rgba(108,200,130,0.15)' : noteText.trim() ? 'linear-gradient(90deg, #660007 47.832%, #FF517F 100%)' : 'rgba(255,255,255,0.08)',
-              color: noteSaved ? '#6CC882' : noteText.trim() ? 'var(--lq-white)' : WHITE60,
               border: noteSaved ? '1px solid rgba(108,200,130,0.3)' : 'none',
-              borderRadius: '1000px', ...ui(600, 14),
+              borderRadius: '1000px', ...ui(600, 14, noteSaved ? '#6CC882' : noteText.trim() ? 'var(--lq-white)' : WHITE60),
               cursor: noteText.trim() && !noteSaving ? 'pointer' : 'not-allowed',
               transition: 'background 0.2s, color 0.2s',
             }}

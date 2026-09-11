@@ -256,9 +256,9 @@ export default function PrivacySettingsPage() {
                   onClick={() => handleUnblock(u.id)}
                   disabled={unblocking === u.id}
                   style={{
-                    background: 'rgba(255,255,255,0.08)', color: WHITE80,
+                    background: 'rgba(255,255,255,0.08)',
                     border: PANEL_BORDER, borderRadius: '1000px',
-                    padding: '7px 14px', ...ui(500, 12), cursor: 'pointer',
+                    padding: '7px 14px', ...ui(500, 12, WHITE80), cursor: 'pointer',
                     opacity: unblocking === u.id ? 0.5 : 1,
                   }}
                 >

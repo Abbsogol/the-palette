@@ -332,8 +332,8 @@ export default function MoodboardDetailPage() {
           {creatorName && <span style={ui(300, 13, WHITE60)}>· by {creatorName}</span>}
           {board.is_public && (
             <span style={{
-              background: 'rgba(255,81,127,0.15)', color: ACCENT,
-              ...ui(500, 10), letterSpacing: '0.06em', textTransform: 'uppercase',
+              background: 'rgba(255,81,127,0.15)', ...ui(500, 10, ACCENT),
+              letterSpacing: '0.06em', textTransform: 'uppercase',
               padding: '3px 9px', borderRadius: '1000px',
             }}>Public</span>
           )}

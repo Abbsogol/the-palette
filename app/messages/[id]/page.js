@@ -502,7 +502,7 @@ export default function ChatPage() {
                 style={{ flex: 1, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '100px', padding: '9px 16px', color: 'var(--lq-white)', fontSize: '14px', fontFamily: 'var(--lq-font-ui)', outline: 'none' }}
               />
               <button onClick={() => { setSearchMode(false); setSearchText('') }} aria-label="Close search"
-                style={{ background: 'none', border: 'none', color: WHITE60, cursor: 'pointer', ...ui(400, 13), padding: '8px' }}>
+                style={{ background: 'none', border: 'none', cursor: 'pointer', ...ui(400, 13, WHITE60), padding: '8px' }}>
                 Cancel
               </button>
             </div>
