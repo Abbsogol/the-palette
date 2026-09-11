@@ -75,11 +75,13 @@ export default function BottomNav() {
 
   // Hide on full-screen flows
   // Hide only on genuinely focused flows. Profile-cluster settings pages
-  // (Privacy, Help, Notifications, Invite) KEEP the nav — it's the way back
-  // out of a tapped profile row, so hiding it worsens the very complaint we're
-  // fixing, and a bar that vanishes on some sibling rows but not others reads
-  // as a bug (Sogol 2026-09-10).
-  if (pathname === '/' || pathname === '/story/new' || pathname === '/onboarding' || pathname?.startsWith('/book/') || (pathname?.startsWith('/messages/') && pathname !== '/messages/new') || pathname?.startsWith('/admin') || pathname === '/planner' || pathname?.startsWith('/nail-card/')) return null
+  // (Privacy, Help, Notifications, Invite) and creator dashboards (Services,
+  // Availability, Analytics, Planner) KEEP the nav — it's the way back out of
+  // a tapped row, so hiding it worsens the very complaint we're fixing, and a
+  // bar that vanishes on some sibling pages but not others reads as a bug.
+  // Planner is a schedule dashboard, not a focused input flow, and /bookings
+  // (which has the bar) → /planner shouldn't make it vanish (Sogol 2026-09-10/11).
+  if (pathname === '/' || pathname === '/story/new' || pathname === '/onboarding' || pathname?.startsWith('/book/') || (pathname?.startsWith('/messages/') && pathname !== '/messages/new') || pathname?.startsWith('/admin') || pathname?.startsWith('/nail-card/')) return null
 
   return (
     <nav aria-label="Main navigation" style={{
