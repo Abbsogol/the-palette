@@ -13,6 +13,7 @@ import Sheet from '@/components/ui/Sheet'
 import DesignCard from '@/components/ui/DesignCard'
 import SaveToBoard from '@/components/SaveToBoard'
 import { LaqueWordmark } from '@/components/ui/icons'
+import { useScrollMemory } from '@/lib/scrollMemory'
 
 const FolderIcon = ({ size = 16 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -56,18 +57,7 @@ export default function SavedPage() {
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState('')
 
-  // Restore scroll position
-  useEffect(() => {
-    if (!loading) {
-      const saved = sessionStorage.getItem('saved-scroll')
-      if (saved) {
-        setTimeout(() => {
-          window.scrollTo(0, parseInt(saved))
-          sessionStorage.removeItem('saved-scroll')
-        }, 50)
-      }
-    }
-  }, [loading])
+  useScrollMemory(null, !loading)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -261,7 +251,6 @@ export default function SavedPage() {
                       design={design} meta="tags" width="100%"
                       currentUser={user} initiallySaved
                       onSaveToggle={(saved) => { if (!saved) removeDesign(design.id) }}
-                      onNavigate={() => sessionStorage.setItem('saved-scroll', window.scrollY.toString())}
                     />
                     {/* Add-to-board shortcut (existing SaveToBoard flow) */}
                     <div style={{ position: 'absolute', top: '8px', left: '8px' }}>
