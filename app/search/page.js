@@ -387,7 +387,10 @@ export default function SearchPage() {
     (d.occasion || '').split(',')[0]?.trim(),
   ].filter(Boolean)
 
-  useScrollMemory(null, !loading)
+  // ready must fire AFTER the grid renders, not before: loading starts false
+  // here, so gate on designs being present too (the old ad-hoc restore guarded
+  // on designs.length !== 0 for the same reason).
+  useScrollMemory(null, !loading && designs.length > 0)
 
   return (
     <div style={{ position: 'relative' }}>
