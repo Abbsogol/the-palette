@@ -4,6 +4,17 @@ import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
+const ACCENT = '#FF517F'
+const WINE = '#260D14'
+const WHITE60 = 'rgba(255,255,255,0.6)'
+const PANEL = 'rgba(255,255,255,0.06)'
+const PANEL_BORDER = '1px solid rgba(255,255,255,0.1)'
+const BTN_GRADIENT = 'linear-gradient(90deg, #660007 47.832%, #FF517F 100%)'
+const ui = (weight, size, color = 'var(--lq-white)') => ({
+  fontFamily: 'var(--lq-font-ui)', fontWeight: weight, fontSize: `${size}px`, color, lineHeight: 1.4,
+})
+const display = (size) => ({ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: `${size}px`, color: 'var(--lq-white)', lineHeight: 1.2 })
+
 // ── Option lists ────────────────────────────────────────────────────────────
 const SHAPES      = ['Almond','Square','Coffin','Round','Oval','Stiletto','Squoval','Ballerina']
 const LENGTHS     = ['Short','Medium','Long','Extra Long']
@@ -22,37 +33,24 @@ const SALON_STEPS   = ['welcome','basics','credits','done']
 
 // ── Shared styles ───────────────────────────────────────────────────────────
 const inp = {
-  background: 'var(--bg-card)',
-  border: '0.5px solid var(--border)',
+  background: 'rgba(255,255,255,0.04)',
+  border: PANEL_BORDER,
   borderRadius: '12px',
   padding: '14px 16px',
-  color: 'var(--text-primary)',
-  fontSize: '14px',
-  fontFamily: "'DM Sans', sans-serif",
+  ...ui(400, 14),
   outline: 'none',
   width: '100%',
   boxSizing: 'border-box',
 }
 const chip = (active) => ({
-  background: active ? 'var(--accent)' : 'var(--bg-chip)',
-  color: active ? '#2C0A1E' : 'var(--text-secondary)',
-  border: active ? 'none' : '0.5px solid var(--border)',
-  borderRadius: '20px',
+  background: active ? ACCENT : 'rgba(255,255,255,0.06)',
+  ...ui(active ? 500 : 400, 13, active ? WINE : WHITE60),
+  border: active ? 'none' : PANEL_BORDER,
+  borderRadius: '1000px',
   padding: '7px 14px',
-  fontSize: '13px',
-  fontFamily: "'DM Sans', sans-serif",
-  fontWeight: active ? '500' : '400',
   cursor: 'pointer',
 })
-const label = {
-  color: 'var(--text-secondary)',
-  fontSize: '11px',
-  fontWeight: '500',
-  letterSpacing: '0.06em',
-  textTransform: 'uppercase',
-  marginBottom: '10px',
-  display: 'block',
-}
+const label = { ...ui(500, 11, WHITE60), letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '10px', display: 'block' }
 
 function OnboardingInner() {
   const router = useRouter()
@@ -184,43 +182,53 @@ function OnboardingInner() {
     router.push(redirectTo)
   }
 
-  if (loading) return (
-    <div style={{ position: 'fixed', inset: 0, background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Loading...</p>
+  const Shell = ({ children }) => (
+    <div className="lq-bg-wine" style={{ position: 'fixed', inset: 0, zIndex: 200 }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
+      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', height: '100%', width: '100%', maxWidth: '480px', margin: '0 auto', display: 'flex', flexDirection: 'column' }}>
+        {children}
+      </div>
     </div>
+  )
+
+  if (loading) return (
+    <Shell>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={ui(300, 14, WHITE60)}>Loading…</p>
+      </div>
+    </Shell>
   )
 
   // ── Step renderer ─────────────────────────────────────────────────────────
   const renderStep = () => {
     switch (current) {
 
-      // ── WELCOME ──────────────────────────────────────────────────────────
       case 'welcome':
         return (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', padding: '0 32px' }}>
             <div style={{ fontSize: '52px', marginBottom: '28px', lineHeight: 1 }}>💅</div>
-            <h1 style={{ color: 'var(--text-primary)', fontSize: '28px', fontWeight: '600', letterSpacing: '-0.03em', marginBottom: '14px', lineHeight: '1.2' }}>
+            <h1 style={{ ...display(30), marginBottom: '14px' }}>
               Welcome to Laque{d.display_name ? `, ${d.display_name.split(' ')[0]}` : ''}
             </h1>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '15px', lineHeight: '1.8', marginBottom: '20px' }}>
+            <p style={{ ...ui(300, 15, WHITE60), lineHeight: 1.8, marginBottom: '20px' }}>
               {accountType === 'creator'
                 ? "You're joining as a Nail Artist. Let's set up your profile so clients can discover your work."
                 : accountType === 'salon'
                 ? "You're joining as a Salon. Let's build your page so clients can find and book your team."
                 : "Let's personalise your experience so you discover the nail art you actually love."}
             </p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '12px', opacity: 0.5 }}>Takes about 2 minutes · You can skip anything</p>
+            <p style={ui(300, 12, 'rgba(255,255,255,0.4)')}>Takes about 2 minutes · You can skip anything</p>
           </div>
         )
 
-      // ── BASICS ───────────────────────────────────────────────────────────
       case 'basics':
         return (
           <div style={{ flex: 1, padding: '0 20px', overflowY: 'auto' }}>
-            <h2 style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: '600', letterSpacing: '-0.02em', marginBottom: '6px' }}>
+            <h2 style={{ ...display(24), marginBottom: '6px' }}>
               {accountType === 'salon' ? 'Your salon details' : 'About you'}
             </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '24px', lineHeight: '1.6' }}>
+            <p style={{ ...ui(300, 14, WHITE60), marginBottom: '24px', lineHeight: 1.6 }}>
               {accountType === 'salon' ? 'Used on your public salon page and for bookings.' : 'Used for your profile and bookings.'}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -243,12 +251,12 @@ function OnboardingInner() {
                 <div>
                   <p style={label}>Bio</p>
                   <textarea value={d.bio} onChange={e => setD(p=>({...p,bio:e.target.value}))}
-                    placeholder={accountType === 'salon' ? 'Describe your salon, services, and vibe...' : 'Tell clients about your style and experience...'}
+                    placeholder={accountType === 'salon' ? 'Describe your salon, services, and vibe…' : 'Tell clients about your style and experience…'}
                     rows={3} style={{ ...inp, resize: 'none' }} />
                 </div>
               )}
               <div>
-                <p style={label}>Referral code <span style={{ fontWeight: '400', opacity: 0.6 }}>(optional)</span></p>
+                <p style={label}>Referral code <span style={{ ...ui(400, 11, WHITE60), textTransform: 'none', letterSpacing: 0 }}>(optional)</span></p>
                 <input
                   value={referralCode}
                   onChange={e => setReferralCode(e.target.value.toUpperCase().trim())}
@@ -256,21 +264,20 @@ function OnboardingInner() {
                   style={{ ...inp, letterSpacing: '0.08em' }}
                   maxLength={8}
                 />
-                <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '6px' }}>
-                  Got a code from a friend? Enter it here and you'll both earn Beauty Rewards points.
+                <p style={{ ...ui(300, 11, WHITE60), marginTop: '6px' }}>
+                  Got a code from a friend? Enter it here and you&apos;ll both earn Beauty Rewards points.
                 </p>
               </div>
             </div>
           </div>
         )
 
-      // ── STYLE DNA ────────────────────────────────────────────────────────
       case 'style':
         return (
           <div style={{ flex: 1, padding: '0 20px', overflowY: 'auto' }}>
-            <h2 style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: '600', letterSpacing: '-0.02em', marginBottom: '6px' }}>Your Style DNA</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '24px', lineHeight: '1.6' }}>
-              Personalises your feed, search, and Nail Lab results. All optional — tap to select.
+            <h2 style={{ ...display(24), marginBottom: '6px' }}>Your Style DNA</h2>
+            <p style={{ ...ui(300, 14, WHITE60), marginBottom: '24px', lineHeight: 1.6 }}>
+              Personalises your feed. All optional — tap to select.
             </p>
             {[
               { label: 'Nail shape',          field: 'nail_shape',      opts: SHAPES,     single: true  },
@@ -292,12 +299,13 @@ function OnboardingInner() {
           </div>
         )
 
-      // ── HEALTH + OCCASIONS ───────────────────────────────────────────────
       case 'health':
         return (
           <div style={{ flex: 1, padding: '0 20px', overflowY: 'auto' }}>
-            <h2 style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: '600', letterSpacing: '-0.02em', marginBottom: '6px' }}>Occasions + Nail Health</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '24px', lineHeight: '1.6' }}>Health notes are shared with nail techs when you book — they keep you safe.</p>
+            <h2 style={{ ...display(24), marginBottom: '6px' }}>Occasions + Nail Health</h2>
+            <p style={{ ...ui(300, 14, WHITE60), marginBottom: '24px', lineHeight: 1.6 }}>
+              Saved to your profile so they&apos;re in one place. Not shared with your nail tech automatically yet — mention anything important when you book.
+            </p>
 
             <div style={{ marginBottom: '24px' }}>
               <p style={label}>Occasions</p>
@@ -315,13 +323,13 @@ function OnboardingInner() {
 
             <div style={{ marginBottom: '24px' }}>
               <p style={label}>Product sensitivities</p>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginBottom: '10px', lineHeight: '1.5' }}>Shared with nail techs when you book.</p>
+              <p style={{ ...ui(300, 12, WHITE60), marginBottom: '10px', lineHeight: 1.5 }}>Saved to your profile — not shared with your tech automatically yet.</p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                 {SENSITIVITIES.map(s => {
                   const active = (d.product_sensitivities||[]).includes(s)
                   return (
                     <button key={s} onClick={() => setN('product_sensitivities',s)}
-                      style={{ ...chip(false), background: active ? 'rgba(224,112,112,0.15)' : 'var(--bg-chip)', color: active ? '#E07070' : 'var(--text-secondary)', border: active ? '0.5px solid rgba(224,112,112,0.4)' : '0.5px solid var(--border)' }}>
+                      style={{ ...chip(false), background: active ? 'rgba(224,112,112,0.15)' : 'rgba(255,255,255,0.06)', ...ui(active ? 500 : 400, 13, active ? '#E07070' : WHITE60), border: active ? '1px solid rgba(224,112,112,0.4)' : PANEL_BORDER }}>
                       {s}
                     </button>
                   )
@@ -335,25 +343,25 @@ function OnboardingInner() {
                 placeholder='e.g. "Latex allergy"' style={inp} />
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', borderRadius: '12px', padding: '14px 16px', border: '0.5px solid var(--border)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: PANEL, borderRadius: '12px', padding: '14px 16px', border: PANEL_BORDER }}>
               <div>
-                <p style={{ color: 'var(--text-primary)', fontSize: '14px', marginBottom: '2px' }}>Removal needed</p>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>I need removal before a new set</p>
+                <p style={{ ...ui(400, 14), marginBottom: '2px' }}>Removal needed</p>
+                <p style={ui(300, 12, WHITE60)}>I need removal before a new set</p>
               </div>
               <button onClick={() => setD(p=>({...p,removal_needed:!p.removal_needed}))}
-                style={{ width: '44px', height: '26px', borderRadius: '13px', background: d.removal_needed ? 'var(--accent)' : 'var(--bg-chip)', border: '0.5px solid var(--border)', cursor: 'pointer', position: 'relative', flexShrink: 0 }}>
-                <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '2px', left: d.removal_needed ? '20px' : '2px', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
+                aria-pressed={d.removal_needed} aria-label="Removal needed"
+                style={{ width: '48px', height: '28px', borderRadius: '1000px', background: d.removal_needed ? ACCENT : 'rgba(255,255,255,0.15)', border: 'none', cursor: 'pointer', position: 'relative', flexShrink: 0, padding: 0 }}>
+                <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '3px', left: d.removal_needed ? '23px' : '3px', transition: 'left 0.2s' }} />
               </button>
             </div>
           </div>
         )
 
-      // ── SPECIALTIES (creator) ────────────────────────────────────────────
       case 'specialties':
         return (
           <div style={{ flex: 1, padding: '0 20px', overflowY: 'auto' }}>
-            <h2 style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: '600', letterSpacing: '-0.02em', marginBottom: '6px' }}>Your specialties</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '24px', lineHeight: '1.6' }}>
+            <h2 style={{ ...display(24), marginBottom: '6px' }}>Your specialties</h2>
+            <p style={{ ...ui(300, 14, WHITE60), marginBottom: '24px', lineHeight: 1.6 }}>
               Clients search by technique. Select everything you offer.
             </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
@@ -365,59 +373,56 @@ function OnboardingInner() {
           </div>
         )
 
-      // ── CREDITS ──────────────────────────────────────────────────────────
       case 'credits': {
         const count = (accountType === 'creator' || accountType === 'salon') ? 5 : 3
         return (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', padding: '0 32px' }}>
-            <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(212,160,192,0.12)', border: '1px solid rgba(212,160,192,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '28px' }}>
+            <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(255,81,127,0.12)', border: '1px solid rgba(255,81,127,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '28px' }}>
               <span style={{ fontSize: '34px', lineHeight: 1 }}>✨</span>
             </div>
-            <h2 style={{ color: 'var(--text-primary)', fontSize: '26px', fontWeight: '600', letterSpacing: '-0.03em', marginBottom: '14px' }}>
+            <h2 style={{ ...display(28), marginBottom: '14px' }}>
               You got {count} free credits
             </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '15px', lineHeight: '1.8', marginBottom: '28px' }}>
-              Use them in <span style={{ color: 'var(--accent)', fontWeight: '500' }}>Nail Lab</span> to generate custom AI nail designs. Each generation uses 1 credit. Buy more any time.
+            <p style={{ ...ui(300, 15, WHITE60), lineHeight: 1.8, marginBottom: '28px' }}>
+              Use them in <span style={ui(500, 15, ACCENT)}>Nail Lab</span> to generate custom AI nail designs. Each generation uses 1 credit. Buy more any time.
             </p>
-            <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '14px', padding: '16px 28px', display: 'inline-flex', alignItems: 'center', gap: '14px' }}>
-              <span style={{ color: 'var(--accent)', fontSize: '36px', fontWeight: '600', letterSpacing: '-0.03em' }}>{count}</span>
+            <div style={{ background: PANEL, border: PANEL_BORDER, borderRadius: '16px', padding: '16px 28px', display: 'inline-flex', alignItems: 'center', gap: '14px' }}>
+              <span style={display(36)}>{count}</span>
               <div style={{ textAlign: 'left' }}>
-                <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '500' }}>Design Credits</p>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Added to your wallet</p>
+                <p style={ui(500, 15)}>Design Credits</p>
+                <p style={ui(300, 12, WHITE60)}>Added to your wallet</p>
               </div>
             </div>
           </div>
         )
       }
 
-      // ── FIRST ACTION ─────────────────────────────────────────────────────
       case 'action':
         return (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', padding: '0 32px' }}>
             <div style={{ fontSize: '52px', marginBottom: '28px', lineHeight: 1 }}>
               {accountType === 'creator' ? '🎨' : '🤍'}
             </div>
-            <h2 style={{ color: 'var(--text-primary)', fontSize: '24px', fontWeight: '600', letterSpacing: '-0.02em', marginBottom: '14px', lineHeight: '1.2' }}>
+            <h2 style={{ ...display(26), marginBottom: '14px' }}>
               {accountType === 'creator' ? 'Post your first design' : 'Save your first look'}
             </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '15px', lineHeight: '1.8', marginBottom: '8px' }}>
+            <p style={{ ...ui(300, 15, WHITE60), lineHeight: 1.8, marginBottom: '8px' }}>
               {accountType === 'creator'
                 ? "Upload a design from your portfolio. It'll show on your public profile and in the feed."
                 : 'Browse the feed and tap the heart on any design to save it to your collection.'}
             </p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '12px', opacity: 0.5, marginTop: '4px' }}>You can always do this later</p>
+            <p style={{ ...ui(300, 12, 'rgba(255,255,255,0.4)'), marginTop: '4px' }}>You can always do this later</p>
           </div>
         )
 
-      // ── DONE ─────────────────────────────────────────────────────────────
       case 'done':
         return (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', padding: '0 32px' }}>
             <div style={{ fontSize: '52px', marginBottom: '28px', lineHeight: 1 }}>💅</div>
-            <h2 style={{ color: 'var(--text-primary)', fontSize: '26px', fontWeight: '600', letterSpacing: '-0.03em', marginBottom: '14px', lineHeight: '1.2' }}>
+            <h2 style={{ ...display(28), marginBottom: '14px' }}>
               {d.display_name ? `You're all set, ${d.display_name.split(' ')[0]}` : "You're all set"}
             </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '15px', lineHeight: '1.8' }}>
+            <p style={{ ...ui(300, 15, WHITE60), lineHeight: 1.8 }}>
               {accountType === 'creator'
                 ? 'Your creator profile is ready. Start posting designs and getting discovered by clients.'
                 : accountType === 'salon'
@@ -432,12 +437,12 @@ function OnboardingInner() {
   }
 
   // ── Bottom bar buttons ────────────────────────────────────────────────────
+  const primaryBtn = { width: '100%', background: BTN_GRADIENT, color: 'var(--lq-white)', border: 'none', borderRadius: '1000px', padding: '16px', ...ui(600, 15), cursor: 'pointer' }
   const renderActions = () => {
     if (current === 'done') {
       return (
-        <button onClick={() => complete('/feed')} disabled={saving}
-          style={{ width: '100%', background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '15px', fontFamily: "'DM Sans', sans-serif", fontWeight: '600', cursor: 'pointer' }}>
-          {saving ? 'Setting up...' : accountType === 'creator' ? 'Go to the feed →' : 'Explore Laque →'}
+        <button onClick={() => complete('/feed')} disabled={saving} style={primaryBtn}>
+          {saving ? 'Setting up…' : accountType === 'creator' ? 'Go to the feed →' : 'Explore Laque →'}
         </button>
       )
     }
@@ -445,12 +450,11 @@ function OnboardingInner() {
     if (current === 'action') {
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <button onClick={() => complete(accountType === 'creator' ? '/upload' : '/feed')} disabled={saving}
-            style={{ width: '100%', background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '15px', fontFamily: "'DM Sans', sans-serif", fontWeight: '600', cursor: 'pointer' }}>
-            {saving ? 'Setting up...' : accountType === 'creator' ? 'Post a design now →' : 'Browse the feed →'}
+          <button onClick={() => complete(accountType === 'creator' ? '/upload' : '/feed')} disabled={saving} style={primaryBtn}>
+            {saving ? 'Setting up…' : accountType === 'creator' ? 'Post a design now →' : 'Browse the feed →'}
           </button>
           <button onClick={() => next()} disabled={saving}
-            style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer', padding: '6px' }}>
+            style={{ background: 'none', border: 'none', ...ui(400, 13, WHITE60), cursor: 'pointer', padding: '6px' }}>
             Do this later
           </button>
         </div>
@@ -460,13 +464,12 @@ function OnboardingInner() {
     return (
       <div style={{ display: 'flex', gap: '10px' }}>
         {stepIdx > 0 && (
-          <button onClick={back}
-            style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px 20px', fontSize: '16px', fontFamily: "'DM Sans', sans-serif", color: 'var(--text-secondary)', cursor: 'pointer', flexShrink: 0 }}>
+          <button onClick={back} aria-label="Back a step"
+            style={{ background: PANEL, border: PANEL_BORDER, borderRadius: '1000px', padding: '14px 20px', ...ui(400, 16, WHITE60), cursor: 'pointer', flexShrink: 0 }}>
             ←
           </button>
         )}
-        <button onClick={next}
-          style={{ flex: 1, background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '15px', fontFamily: "'DM Sans', sans-serif", fontWeight: '600', cursor: 'pointer' }}>
+        <button onClick={next} style={{ ...primaryBtn, flex: 1 }}>
           {current === 'welcome' ? "Let's go →" : 'Continue →'}
         </button>
       </div>
@@ -477,50 +480,50 @@ function OnboardingInner() {
   const showBorder   = current !== 'welcome' && current !== 'done' && current !== 'action' && current !== 'credits'
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', zIndex: 200, maxWidth: '480px', margin: '0 auto' }}>
-
+    <Shell>
       {/* Progress bar */}
       {showProgress && (
-        <div style={{ height: '3px', background: 'var(--bg-chip)', flexShrink: 0 }}>
-          <div style={{ height: '100%', width: `${progress}%`, background: 'var(--accent)', transition: 'width 0.35s ease', borderRadius: '0 2px 2px 0' }} />
+        <div style={{ height: '3px', background: 'rgba(255,255,255,0.1)', flexShrink: 0 }}>
+          <div style={{ height: '100%', width: `${progress}%`, background: ACCENT, transition: 'width 0.35s ease', borderRadius: '0 2px 2px 0' }} />
         </div>
       )}
 
-      {/* Step counter */}
-      {showProgress && (
-        <div style={{ padding: '14px 20px 0', flexShrink: 0 }}>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>
-            Step {innerIdx + 1} of {innerSteps.length}
-          </p>
+      {/* Top row: step counter (input steps) + Skip (every step but done) — the way out */}
+      {current !== 'done' && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'calc(env(safe-area-inset-top) + 14px) 20px 0', flexShrink: 0 }}>
+          <p style={ui(400, 12, WHITE60)}>{showProgress ? `Step ${innerIdx + 1} of ${innerSteps.length}` : ''}</p>
+          <button onClick={() => complete('/feed')} disabled={saving}
+            style={{ background: 'none', border: 'none', ...ui(500, 13, WHITE60), cursor: 'pointer', padding: '4px 6px' }}>
+            {saving ? 'Skipping…' : 'Skip'}
+          </button>
         </div>
       )}
 
       {/* Content area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', paddingTop: showProgress ? '20px' : 0 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', paddingTop: current !== 'done' ? '20px' : 0 }}>
         {renderStep()}
       </div>
 
       {/* Bottom action bar */}
       <div style={{
-        padding: '16px 20px 44px',
+        padding: '16px 20px calc(env(safe-area-inset-bottom) + 28px)',
         flexShrink: 0,
-        borderTop: showBorder ? '0.5px solid var(--border)' : 'none',
+        borderTop: showBorder ? PANEL_BORDER : 'none',
       }}>
         {errorMsg && (
-          <p style={{ color: '#E07070', fontSize: '13px', marginBottom: '12px', textAlign: 'center' }}>{errorMsg}</p>
+          <p style={{ ...ui(400, 13, '#FF8DA8'), marginBottom: '12px', textAlign: 'center' }}>{errorMsg}</p>
         )}
         {renderActions()}
       </div>
-
-    </div>
+    </Shell>
   )
 }
 
 export default function OnboardingPage() {
   return (
     <Suspense fallback={
-      <div style={{ position: 'fixed', inset: 0, background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif" }}>Loading...</p>
+      <div className="lq-bg-wine" style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ fontFamily: 'var(--lq-font-ui)', fontWeight: 300, fontSize: '14px', color: 'rgba(255,255,255,0.6)' }}>Loading…</p>
       </div>
     }>
       <OnboardingInner />
