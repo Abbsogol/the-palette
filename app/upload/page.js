@@ -2,8 +2,19 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import BackButton from '@/components/ui/BackButton'
+
+const ACCENT = '#FF517F'
+const WINE = '#260D14'
+const WHITE60 = 'rgba(255,255,255,0.6)'
+const PANEL = 'rgba(255,255,255,0.06)'
+const PANEL_BORDER = '1px solid rgba(255,255,255,0.1)'
+const BTN_GRADIENT = 'linear-gradient(90deg, #660007 47.832%, #FF517F 100%)'
+const ui = (weight, size, color = 'var(--lq-white)') => ({
+  fontFamily: 'var(--lq-font-ui)', fontWeight: weight, fontSize: `${size}px`, color, lineHeight: 1.4,
+})
+const display = (size) => ({ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: `${size}px`, color: 'var(--lq-white)', lineHeight: 1.2 })
 
 const SHAPES = ['Round', 'Square', 'Oval', 'Coffin', 'Almond', 'Stiletto', 'Ballerina', 'Squoval']
 const LENGTHS = ['Short', 'Medium', 'Long', 'Extra Long']
@@ -21,6 +32,14 @@ const TECHNIQUES = [
 ]
 
 const FREE_LIMIT = 5
+
+const Shell = ({ children }) => (
+  <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
+    <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
+    <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+    <div style={{ position: 'relative' }}>{children}</div>
+  </div>
+)
 
 export default function UploadPage() {
   const router = useRouter()
@@ -174,201 +193,199 @@ export default function UploadPage() {
 
   // ── Styles ─────────────────────────────────────────────────────────────────
   const input = {
-    width: '100%', background: 'var(--bg-card)',
-    border: '0.5px solid var(--border)', borderRadius: '10px',
-    padding: '12px 14px', color: 'var(--text-primary)',
-    fontSize: '14px', fontFamily: "'DM Sans', sans-serif",
+    width: '100%', background: 'rgba(255,255,255,0.04)',
+    border: PANEL_BORDER, borderRadius: '12px',
+    padding: '12px 14px', ...ui(400, 14),
     outline: 'none', boxSizing: 'border-box',
   }
-  const label = {
-    color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500',
-    letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px',
-    display: 'block',
-  }
+  const label = { ...ui(500, 11, WHITE60), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px', display: 'block' }
   const chip = (active) => ({
-    padding: '7px 13px', borderRadius: '20px', fontSize: '12px',
-    cursor: 'pointer', border: 'none',
-    background: active ? 'var(--accent)' : 'var(--bg-chip)',
-    color: active ? '#2C0A1E' : 'var(--text-secondary)',
-    fontFamily: "'DM Sans', sans-serif",
-    fontWeight: active ? '600' : '400',
-    transition: 'all 0.15s ease',
+    padding: '7px 13px', borderRadius: '1000px', cursor: 'pointer', border: active ? 'none' : PANEL_BORDER,
+    background: active ? ACCENT : 'rgba(255,255,255,0.06)', ...ui(active ? 600 : 400, 12, active ? WINE : WHITE60),
   })
 
   // ── Loading ─────────────────────────────────────────────────────────────────
   if (loading) return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh' }}>
-      <p style={{ color:'var(--text-secondary)', fontSize:'14px' }}>Loading...</p>
-    </div>
+    <Shell>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'70vh' }}>
+        <p style={ui(300, 14, WHITE60)}>Loading…</p>
+      </div>
+    </Shell>
   )
 
   // ── Success ─────────────────────────────────────────────────────────────────
   if (success) return (
-    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'60vh', gap:'14px', padding:'24px', textAlign:'center' }}>
-      <div style={{ width:'56px', height:'56px', borderRadius:'50%', background:'rgba(212,160,192,0.15)', border:'1px solid rgba(212,160,192,0.4)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'24px' }}>✓</div>
-      <p style={{ color:'var(--text-primary)', fontSize:'18px', fontWeight:'600' }}>Design published!</p>
-      <p style={{ color:'var(--text-secondary)', fontSize:'14px' }}>Taking you there now...</p>
-    </div>
+    <Shell>
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:'70vh', gap:'14px', padding:'24px', textAlign:'center' }}>
+        <div style={{ width:'56px', height:'56px', borderRadius:'50%', background:'rgba(255,81,127,0.15)', border:`1px solid ${ACCENT}`, display:'flex', alignItems:'center', justifyContent:'center', ...ui(400, 24, ACCENT) }}>✓</div>
+        <p style={display(20)}>Design published!</p>
+        <p style={ui(300, 14, WHITE60)}>Taking you there now…</p>
+      </div>
+    </Shell>
   )
 
   // ── Weekly limit hit ────────────────────────────────────────────────────────
   if (atLimit) return (
-    <div style={{ padding:'24px 20px', display:'flex', flexDirection:'column', gap:'16px' }}>
-      <Link href="/profile" style={{ color:'var(--text-secondary)', fontSize:'13px', textDecoration:'none' }}>← Back</Link>
-      <div style={{ background:'var(--bg-card)', border:'1px solid rgba(212,160,192,0.3)', borderRadius:'16px', padding:'32px 20px', textAlign:'center' }}>
-        <p style={{ fontSize:'36px', marginBottom:'14px' }}>⚡</p>
-        <p style={{ color:'var(--text-primary)', fontSize:'18px', fontWeight:'600', marginBottom:'8px' }}>Weekly limit reached</p>
-        <p style={{ color:'var(--text-secondary)', fontSize:'14px', lineHeight:'1.6', marginBottom:'24px' }}>
-          You've used all {FREE_LIMIT} free uploads this week.<br />
-          Upgrade to Pro for unlimited uploads.
-        </p>
-        <div style={{ background:'linear-gradient(145deg, rgba(212,160,192,0.10), rgba(212,160,192,0.03))', border:'1px solid rgba(212,160,192,0.35)', borderRadius:'12px', padding:'18px', marginBottom:'16px' }}>
-          <p style={{ color:'var(--accent)', fontWeight:'600', fontSize:'15px', marginBottom:'6px' }}>Pro Creator · $15/mo</p>
-          <p style={{ color:'var(--text-secondary)', fontSize:'13px', lineHeight:'1.5' }}>Unlimited uploads · Analytics · Featured in discovery</p>
+    <Shell>
+      <div style={{ padding:'calc(env(safe-area-inset-top) + 16px) 20px 20px', display:'flex', flexDirection:'column', gap:'16px' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
+          <BackButton fallback="/profile" />
+          <h1 style={{ ...display(24), margin:0 }}>Add Design</h1>
         </div>
-        <p style={{ color:'var(--text-secondary)', fontSize:'12px', opacity:0.6 }}>Pro subscriptions launching soon. Your limit resets in a few days.</p>
+        <div style={{ background:PANEL, border:'1px solid rgba(255,81,127,0.3)', borderRadius:'16px', padding:'32px 20px', textAlign:'center' }}>
+          <p style={{ fontSize:'36px', marginBottom:'14px' }}>⚡</p>
+          <p style={{ ...ui(600, 18), marginBottom:'8px' }}>Weekly limit reached</p>
+          <p style={{ ...ui(300, 14, WHITE60), lineHeight:1.6, marginBottom:'24px' }}>
+            You&apos;ve used all {FREE_LIMIT} free uploads this week.<br />
+            Upgrade to Pro for unlimited uploads.
+          </p>
+          <div style={{ background:'linear-gradient(145deg, rgba(255,81,127,0.10), rgba(255,81,127,0.03))', border:'1px solid rgba(255,81,127,0.35)', borderRadius:'12px', padding:'18px', marginBottom:'16px' }}>
+            <p style={{ ...ui(600, 15, ACCENT), marginBottom:'6px' }}>Pro Creator · $15/mo</p>
+            <p style={{ ...ui(300, 13, WHITE60), lineHeight:1.5 }}>Unlimited uploads · Analytics · Featured in discovery</p>
+          </div>
+          <p style={{ ...ui(300, 12, WHITE60), opacity:0.7 }}>Pro subscriptions launching soon. Your limit resets in a few days.</p>
+        </div>
       </div>
-    </div>
+    </Shell>
   )
 
   // ── Upload form ─────────────────────────────────────────────────────────────
   return (
-    <div style={{ padding:'20px 20px 100px', display:'flex', flexDirection:'column', gap:'22px' }}>
+    <Shell>
+      <div style={{ padding:'calc(env(safe-area-inset-top) + 16px) 20px calc(env(safe-area-inset-bottom) + 120px)', display:'flex', flexDirection:'column', gap:'22px' }}>
 
-      {/* Header */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-        <Link href="/profile" style={{ color:'var(--text-secondary)', fontSize:'13px', textDecoration:'none' }}>← Back</Link>
-        <p style={{ color:'var(--text-primary)', fontSize:'16px', fontWeight:'600' }}>Add Design</p>
-        <p style={{ color: uploadsLeft <= 1 ? 'var(--accent)' : 'var(--text-secondary)', fontSize:'12px' }}>
-          {uploadsLeft === Infinity ? '' : `${uploadsLeft} left this week`}
-        </p>
-      </div>
-
-      {/* Error */}
-      {error && (
-        <div style={{ background:'rgba(180,60,60,0.12)', border:'0.5px solid rgba(180,60,60,0.35)', borderRadius:'10px', padding:'12px 14px' }}>
-          <p style={{ color:'#e57373', fontSize:'13px' }}>{error}</p>
+        {/* Header */}
+        <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
+          <BackButton fallback="/profile" />
+          <h1 style={{ ...display(24), margin:0, flex:1 }}>Add Design</h1>
+          <p style={ui(400, 12, uploadsLeft <= 1 ? ACCENT : WHITE60)}>
+            {uploadsLeft === Infinity ? '' : `${uploadsLeft} left this week`}
+          </p>
         </div>
-      )}
 
-      {/* ── Photo ── */}
-      <div>
-        <span style={label}>Design Photo *</span>
-        <label style={{ display:'block', cursor:'pointer' }}>
-          {imagePreview
-            ? <img src={imagePreview} alt="Preview" style={{ width:'100%', borderRadius:'14px', display:'block', maxHeight:'380px', objectFit:'contain', background:'var(--bg-card)' }} />
-            : <div style={{ width:'100%', aspectRatio:'4/5', background:'var(--bg-card)', border:'0.5px dashed var(--border)', borderRadius:'14px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'10px' }}>
-                <span style={{ color:'var(--text-secondary)', fontSize:'32px', opacity:0.4 }}>+</span>
-                <p style={{ color:'var(--text-secondary)', fontSize:'13px' }}>Tap to add photo</p>
-              </div>
-          }
-          <input type="file" accept="image/*"
-            onChange={e => { const f = e.target.files[0]; if (f) { setImageFile(f); setImagePreview(URL.createObjectURL(f)) } }}
-            style={{ display:'none' }} />
-        </label>
-        {imagePreview && (
-          <button onClick={() => { setImageFile(null); setImagePreview(null) }}
-            style={{ marginTop:'8px', background:'none', border:'0.5px solid var(--border)', borderRadius:'8px', padding:'6px 14px', color:'var(--text-secondary)', fontSize:'12px', fontFamily:"'DM Sans', sans-serif", cursor:'pointer' }}>
-            Remove
-          </button>
-        )}
-      </div>
-
-      {/* ── Title ── */}
-      <div>
-        <span style={label}>Title *</span>
-        <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Midnight Lace" style={input} />
-      </div>
-
-      {/* ── Description ── */}
-      <div>
-        <span style={label}>Description</span>
-        <textarea value={description} onChange={e => setDescription(e.target.value)}
-          placeholder="Describe the vibe, technique, or inspiration" rows={3}
-          style={{ ...input, resize:'vertical', lineHeight:'1.6' }} />
-      </div>
-
-      {/* ── Shape & Length ── */}
-      <div>
-        <span style={label}>Shape & Length</span>
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px' }}>
-          <select value={shape} onChange={e => setShape(e.target.value)} style={{ ...input, appearance:'none' }}>
-            <option value="">Shape</option>
-            {SHAPES.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <select value={length} onChange={e => setLength(e.target.value)} style={{ ...input, appearance:'none' }}>
-            <option value="">Length</option>
-            {LENGTHS.map(l => <option key={l} value={l}>{l}</option>)}
-          </select>
-        </div>
-      </div>
-
-      {/* ── Occasions ── */}
-      <div>
-        <span style={label}>Occasion</span>
-        <div style={{ display:'flex', flexWrap:'wrap', gap:'8px' }}>
-          {OCCASIONS.map(o => (
-            <button key={o} onClick={() => toggle(occasions, setOccasions, o)} style={chip(occasions.includes(o))}>{o}</button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Techniques ── */}
-      <div>
-        <span style={label}>Technique</span>
-        <div style={{ display:'flex', flexWrap:'wrap', gap:'8px' }}>
-          {TECHNIQUES.map(t => (
-            <button key={t} onClick={() => toggle(techniques, setTechniques, t)} style={chip(techniques.includes(t))}>{t}</button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Colour specs ── */}
-      <div>
-        <span style={label}>Colour Specs</span>
-        {colours.map((c, i) => (
-          <div key={i} style={{ background:'var(--bg-card)', border:'0.5px solid var(--border)', borderRadius:'12px', padding:'14px', marginBottom:'10px' }}>
-            <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px' }}>
-              <div style={{ width:'32px', height:'32px', borderRadius:'8px', background: c.hex_code || 'var(--bg-chip)', border:'0.5px solid rgba(255,255,255,0.1)', flexShrink:0 }} />
-              <input value={c.hex_code} onChange={e => updateColour(i, 'hex_code', e.target.value)} placeholder="#hex code" style={{ ...input, flex:1 }} />
-            </div>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px' }}>
-              <input value={c.colour_name} onChange={e => updateColour(i, 'colour_name', e.target.value)} placeholder="Colour name" style={input} />
-              <input value={c.brand_name}  onChange={e => updateColour(i, 'brand_name',  e.target.value)} placeholder="Brand"        style={input} />
-              <input value={c.brand_code}  onChange={e => updateColour(i, 'brand_code',  e.target.value)} placeholder="Brand code"   style={{ ...input, gridColumn:'1 / -1' }} />
-            </div>
-            {colours.length > 1 && (
-              <button onClick={() => setColours(prev => prev.filter((_, idx) => idx !== i))}
-                style={{ marginTop:'8px', background:'none', border:'none', color:'#e57373', fontSize:'12px', fontFamily:"'DM Sans', sans-serif", cursor:'pointer' }}>
-                Remove colour
-              </button>
-            )}
+        {/* Error */}
+        {error && (
+          <div style={{ background:'rgba(224,112,112,0.12)', border:'1px solid rgba(224,112,112,0.35)', borderRadius:'12px', padding:'12px 14px' }}>
+            <p style={ui(400, 13, '#FF8DA8')}>{error}</p>
           </div>
-        ))}
-        <button onClick={() => setColours(prev => [...prev, { colour_name:'', hex_code:'', brand_name:'', brand_code:'' }])}
-          style={{ background:'none', border:'0.5px solid var(--border)', borderRadius:'8px', padding:'8px 16px', color:'var(--text-secondary)', fontSize:'13px', fontFamily:"'DM Sans', sans-serif", cursor:'pointer' }}>
-          + Add colour
+        )}
+
+        {/* ── Photo ── */}
+        <div>
+          <span style={label}>Design Photo *</span>
+          <label style={{ display:'block', cursor:'pointer' }}>
+            {imagePreview
+              ? <img src={imagePreview} alt="Preview" style={{ width:'100%', borderRadius:'14px', display:'block', maxHeight:'380px', objectFit:'contain', background:PANEL }} />
+              : <div style={{ width:'100%', aspectRatio:'4/5', background:PANEL, border:'1px dashed rgba(255,255,255,0.25)', borderRadius:'14px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'10px' }}>
+                  <span style={ui(300, 32, 'rgba(255,255,255,0.4)')}>+</span>
+                  <p style={ui(300, 13, WHITE60)}>Tap to add photo</p>
+                </div>
+            }
+            <input type="file" accept="image/*"
+              onChange={e => { const f = e.target.files[0]; if (f) { setImageFile(f); setImagePreview(URL.createObjectURL(f)) } }}
+              style={{ display:'none' }} />
+          </label>
+          {imagePreview && (
+            <button onClick={() => { setImageFile(null); setImagePreview(null) }}
+              style={{ marginTop:'8px', background:'none', border:PANEL_BORDER, borderRadius:'1000px', padding:'6px 14px', ...ui(400, 12, WHITE60), cursor:'pointer' }}>
+              Remove
+            </button>
+          )}
+        </div>
+
+        {/* ── Title ── */}
+        <div>
+          <span style={label}>Title *</span>
+          <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Midnight Lace" style={input} />
+        </div>
+
+        {/* ── Description ── */}
+        <div>
+          <span style={label}>Description</span>
+          <textarea value={description} onChange={e => setDescription(e.target.value)}
+            placeholder="Describe the vibe, technique, or inspiration" rows={3}
+            style={{ ...input, resize:'vertical', lineHeight:1.6 }} />
+        </div>
+
+        {/* ── Shape & Length ── */}
+        <div>
+          <span style={label}>Shape &amp; Length</span>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px' }}>
+            <select value={shape} onChange={e => setShape(e.target.value)} style={{ ...input, appearance:'none' }}>
+              <option value="">Shape</option>
+              {SHAPES.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <select value={length} onChange={e => setLength(e.target.value)} style={{ ...input, appearance:'none' }}>
+              <option value="">Length</option>
+              {LENGTHS.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* ── Occasions ── */}
+        <div>
+          <span style={label}>Occasion</span>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:'8px' }}>
+            {OCCASIONS.map(o => (
+              <button key={o} onClick={() => toggle(occasions, setOccasions, o)} style={chip(occasions.includes(o))}>{o}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Techniques ── */}
+        <div>
+          <span style={label}>Technique</span>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:'8px' }}>
+            {TECHNIQUES.map(tk => (
+              <button key={tk} onClick={() => toggle(techniques, setTechniques, tk)} style={chip(techniques.includes(tk))}>{tk}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Colour specs ── */}
+        <div>
+          <span style={label}>Colour Specs</span>
+          {colours.map((c, i) => (
+            <div key={i} style={{ background:PANEL, border:PANEL_BORDER, borderRadius:'12px', padding:'14px', marginBottom:'10px' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px' }}>
+                <div style={{ width:'32px', height:'32px', borderRadius:'8px', background: c.hex_code || 'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', flexShrink:0 }} />
+                <input value={c.hex_code} onChange={e => updateColour(i, 'hex_code', e.target.value)} placeholder="#hex code" style={{ ...input, flex:1 }} />
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px' }}>
+                <input value={c.colour_name} onChange={e => updateColour(i, 'colour_name', e.target.value)} placeholder="Colour name" style={input} />
+                <input value={c.brand_name}  onChange={e => updateColour(i, 'brand_name',  e.target.value)} placeholder="Brand"        style={input} />
+                <input value={c.brand_code}  onChange={e => updateColour(i, 'brand_code',  e.target.value)} placeholder="Brand code"   style={{ ...input, gridColumn:'1 / -1' }} />
+              </div>
+              {colours.length > 1 && (
+                <button onClick={() => setColours(prev => prev.filter((_, idx) => idx !== i))}
+                  style={{ marginTop:'8px', background:'none', border:'none', ...ui(400, 12, '#E07070'), cursor:'pointer' }}>
+                  Remove colour
+                </button>
+              )}
+            </div>
+          ))}
+          <button onClick={() => setColours(prev => [...prev, { colour_name:'', hex_code:'', brand_name:'', brand_code:'' }])}
+            style={{ background:'none', border:PANEL_BORDER, borderRadius:'1000px', padding:'8px 16px', ...ui(400, 13, WHITE60), cursor:'pointer' }}>
+            + Add colour
+          </button>
+        </div>
+
+        {/* ── Tags ── */}
+        <div>
+          <span style={label}>Tags</span>
+          <input value={tagsInput} onChange={e => setTagsInput(e.target.value)}
+            placeholder="e.g. dark, gothic, gel, autumn (comma separated)" style={input} />
+        </div>
+
+        {/* ── Submit ── */}
+        <button onClick={handleSubmit} disabled={submitting} style={{
+          width:'100%', background:BTN_GRADIENT, color:'var(--lq-white)',
+          border:'none', borderRadius:'1000px', padding:'16px', ...ui(600, 15),
+          cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.7 : 1,
+        }}>
+          {submitting ? 'Publishing…' : 'Publish Design'}
         </button>
       </div>
-
-      {/* ── Tags ── */}
-      <div>
-        <span style={label}>Tags</span>
-        <input value={tagsInput} onChange={e => setTagsInput(e.target.value)}
-          placeholder="e.g. dark, gothic, gel, autumn (comma separated)" style={input} />
-      </div>
-
-      {/* ── Submit ── */}
-      <button onClick={handleSubmit} disabled={submitting} style={{
-        width:'100%', background:'var(--accent)', color:'#2C0A1E',
-        border:'none', borderRadius:'14px', padding:'16px',
-        fontSize:'15px', fontWeight:'600', fontFamily:"'DM Sans', sans-serif",
-        cursor: submitting ? 'not-allowed' : 'pointer',
-        opacity: submitting ? 0.7 : 1,
-        transition:'opacity 0.15s ease',
-      }}>
-        {submitting ? 'Publishing...' : 'Publish Design'}
-      </button>
-    </div>
+    </Shell>
   )
 }
