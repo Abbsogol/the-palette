@@ -304,7 +304,7 @@ function OnboardingInner() {
           <div style={{ flex: 1, padding: '0 20px', overflowY: 'auto' }}>
             <h2 style={{ ...display(24), marginBottom: '6px' }}>Occasions + Nail Health</h2>
             <p style={{ ...ui(300, 14, WHITE60), marginBottom: '24px', lineHeight: 1.6 }}>
-              Saved to your profile so they&apos;re in one place. Not shared with your nail tech automatically yet — mention anything important when you book.
+              Saved to your profile, ready for when we can share it with your tech. For now, tell them directly when you book.
             </p>
 
             <div style={{ marginBottom: '24px' }}>
@@ -323,7 +323,7 @@ function OnboardingInner() {
 
             <div style={{ marginBottom: '24px' }}>
               <p style={label}>Product sensitivities</p>
-              <p style={{ ...ui(300, 12, WHITE60), marginBottom: '10px', lineHeight: 1.5 }}>Saved to your profile — not shared with your tech automatically yet.</p>
+              <p style={{ ...ui(300, 12, WHITE60), marginBottom: '10px', lineHeight: 1.5 }}>Saved to your profile — not shown to your tech yet.</p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                 {SENSITIVITIES.map(s => {
                   const active = (d.product_sensitivities||[]).includes(s)
