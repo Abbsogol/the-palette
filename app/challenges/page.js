@@ -3,6 +3,17 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import BackButton from '@/components/ui/BackButton'
+import { useScrollMemory } from '@/lib/scrollMemory'
+
+const ACCENT = '#FF517F'
+const WHITE60 = 'rgba(255,255,255,0.6)'
+const PANEL = 'rgba(255,255,255,0.06)'
+const ui = (weight, size, color = 'var(--lq-white)') => ({
+  fontFamily: 'var(--lq-font-ui)', fontWeight: weight, fontSize: `${size}px`, color, lineHeight: 1.4,
+})
+const display = (size) => ({ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: `${size}px`, color: 'var(--lq-white)', lineHeight: 1.2 })
+const sectionLabel = { ...ui(600, 11, ACCENT), letterSpacing: '0.08em', textTransform: 'uppercase' }
 
 function useCountdown(endsAt) {
   const [timeLeft, setTimeLeft] = useState('')
@@ -30,23 +41,23 @@ function ChallengeCard({ challenge, isActive }) {
   return (
     <Link href={`/challenges/${challenge.id}`} style={{ textDecoration: 'none', display: 'block' }}>
       <div style={{
-        background: 'var(--bg-card)', border: `0.5px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
+        background: PANEL, border: `1px solid ${isActive ? 'rgba(255,81,127,0.4)' : 'rgba(255,255,255,0.1)'}`,
         borderRadius: '16px', padding: '18px 16px', marginBottom: '12px',
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-          <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', margin: 0, flex: 1, paddingRight: '12px' }}>{challenge.title}</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '8px' }}>
+          <p style={{ ...ui(600, 15), margin: 0, flex: 1 }}>{challenge.title}</p>
           <span style={{
-            background: ended ? 'var(--bg-chip)' : 'rgba(212,160,192,0.15)',
-            color: ended ? 'var(--text-secondary)' : 'var(--accent)',
-            fontSize: '11px', fontWeight: '600', padding: '4px 10px', borderRadius: '20px', flexShrink: 0,
+            background: ended ? 'rgba(255,255,255,0.08)' : 'rgba(255,81,127,0.15)',
+            ...ui(600, 11, ended ? WHITE60 : ACCENT),
+            padding: '4px 10px', borderRadius: '1000px', flexShrink: 0,
           }}>
             {ended ? 'Ended' : timeLeft}
           </span>
         </div>
         {challenge.description && (
-          <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: '1.5', margin: '0 0 10px' }}>{challenge.description}</p>
+          <p style={{ ...ui(300, 13, WHITE60), lineHeight: 1.5, margin: '0 0 10px' }}>{challenge.description}</p>
         )}
-        <p style={{ color: 'var(--accent)', fontSize: '12px', fontWeight: '500', margin: 0 }}>
+        <p style={{ ...ui(500, 12, ACCENT), margin: 0 }}>
           {ended ? 'View results →' : 'Enter & vote →'}
         </p>
       </div>
@@ -57,6 +68,7 @@ function ChallengeCard({ challenge, isActive }) {
 export default function ChallengesPage() {
   const [challenges, setChallenges] = useState([])
   const [loading, setLoading] = useState(true)
+  useScrollMemory(null, !loading)
 
   useEffect(() => {
     supabase.from('challenges').select('*').order('ends_at', { ascending: false }).limit(100).then(({ data, error }) => {
@@ -71,38 +83,46 @@ export default function ChallengesPage() {
   const past   = challenges.filter(c => new Date(c.ends_at) <= now)
 
   return (
-    <div style={{ paddingBottom: '100px' }}>
-      {/* Header */}
-      <div style={{ padding: '24px 20px 20px' }}>
-        <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 4px' }}>Community</p>
-        <h1 style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: '500', letterSpacing: '-0.02em', margin: 0 }}>Nail Challenges</h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginTop: '6px' }}>Submit your look, vote for your favourites</p>
-      </div>
+    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
+      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 120px)' }}>
 
-      <div style={{ padding: '0 20px' }}>
-        {loading ? (
-          <p style={{ color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center', padding: '48px 0' }}>Loading…</p>
-        ) : challenges.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '48px 0' }}>
-            <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '500', marginBottom: '8px' }}>No challenges yet</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Check back soon — we drop new challenges weekly.</p>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: 'calc(env(safe-area-inset-top) + 16px) 20px 8px' }}>
+          <BackButton fallback="/feed" />
+          <div>
+            <p style={{ ...sectionLabel, margin: '0 0 2px' }}>Community</p>
+            <h1 style={{ ...display(24), margin: 0 }}>Nail Challenges</h1>
           </div>
-        ) : (
-          <>
-            {active.length > 0 && (
-              <>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>Active</p>
-                {active.map(c => <ChallengeCard key={c.id} challenge={c} isActive />)}
-              </>
-            )}
-            {past.length > 0 && (
-              <>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '20px 0 10px' }}>Past challenges</p>
-                {past.map(c => <ChallengeCard key={c.id} challenge={c} isActive={false} />)}
-              </>
-            )}
-          </>
-        )}
+        </div>
+        <p style={{ ...ui(300, 14, WHITE60), padding: '0 20px 20px', margin: 0 }}>Submit your look, vote for your favourites</p>
+
+        <div style={{ padding: '0 20px' }}>
+          {loading ? (
+            <p style={{ ...ui(300, 14, WHITE60), textAlign: 'center', padding: '48px 0' }}>Loading…</p>
+          ) : challenges.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '48px 0' }}>
+              <p style={{ ...ui(500, 15), marginBottom: '8px' }}>No challenges yet</p>
+              <p style={ui(300, 13, WHITE60)}>Check back soon — we drop new challenges weekly.</p>
+            </div>
+          ) : (
+            <>
+              {active.length > 0 && (
+                <>
+                  <p style={{ ...sectionLabel, color: WHITE60, display: 'block', marginBottom: '10px' }}>Active</p>
+                  {active.map(c => <ChallengeCard key={c.id} challenge={c} isActive />)}
+                </>
+              )}
+              {past.length > 0 && (
+                <>
+                  <p style={{ ...sectionLabel, color: WHITE60, display: 'block', margin: '20px 0 10px' }}>Past challenges</p>
+                  {past.map(c => <ChallengeCard key={c.id} challenge={c} isActive={false} />)}
+                </>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   )
