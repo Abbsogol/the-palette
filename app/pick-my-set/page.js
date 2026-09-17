@@ -94,14 +94,23 @@ export default function PickMySetPage() {
       return
     }
 
-    const results2 = await Promise.all(results.map((d, i) =>
-      supabase.from('moodboard_designs').insert({ moodboard_id: board.id, design_id: d.id, position: i })
-    ))
-    if (results2.some(r => r.error)) {
-      setError('Board saved, but some designs failed to save to it. Please try again.')
-    } else {
-      setSaved(true)
+    // moodboard_designs is (moodboard_id, design_id) — the old insert also
+    // passed a `position` column that doesn't exist, so every attach failed
+    // (PGRST204) and left an empty board. Dedupe the picks, attach them in
+    // ONE batch, and roll the board back on any failure so a partial failure
+    // leaves nothing, not an empty husk.
+    const seen = new Set()
+    const rows = results
+      .filter(d => d?.id && !seen.has(d.id) && seen.add(d.id))
+      .map(d => ({ moodboard_id: board.id, design_id: d.id }))
+    const { error: attachError } = await supabase.from('moodboard_designs').insert(rows)
+    if (attachError) {
+      await supabase.from('moodboards').delete().eq('id', board.id)
+      setError("Couldn't save your set. Please try again.")
+      setSaving(false)
+      return
     }
+    setSaved(true)
     setSaving(false)
   }
 
