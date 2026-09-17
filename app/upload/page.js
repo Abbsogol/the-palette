@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import BackButton from '@/components/ui/BackButton'
 
@@ -239,11 +240,12 @@ export default function UploadPage() {
             You&apos;ve used all {FREE_LIMIT} free uploads this week.<br />
             Upgrade to Pro for unlimited uploads.
           </p>
-          <div style={{ background:'linear-gradient(145deg, rgba(255,81,127,0.10), rgba(255,81,127,0.03))', border:'1px solid rgba(255,81,127,0.35)', borderRadius:'12px', padding:'18px', marginBottom:'16px' }}>
-            <p style={{ ...ui(600, 15, ACCENT), marginBottom:'6px' }}>Pro Creator · $15/mo</p>
-            <p style={{ ...ui(300, 13, WHITE60), lineHeight:1.5 }}>Unlimited uploads · Analytics · Featured in discovery</p>
-          </div>
-          <p style={{ ...ui(300, 12, WHITE60), opacity:0.7 }}>Pro subscriptions launching soon. Your limit resets in a few days.</p>
+          <Link href="/upgrade" style={{ display:'block', textDecoration:'none', background:'linear-gradient(145deg, rgba(255,81,127,0.10), rgba(255,81,127,0.03))', border:'1px solid rgba(255,81,127,0.35)', borderRadius:'12px', padding:'18px', marginBottom:'16px' }}>
+            <p style={{ ...ui(600, 15, ACCENT), marginBottom:'6px' }}>Pro Creator · AED 49/mo</p>
+            <p style={{ ...ui(300, 13, WHITE60), lineHeight:1.5, marginBottom:'12px' }}>Unlimited uploads · Analytics · Featured in discovery</p>
+            <span style={ui(600, 13, ACCENT)}>Upgrade to Pro →</span>
+          </Link>
+          <p style={{ ...ui(300, 12, WHITE60), opacity:0.7 }}>Your limit resets in a few days.</p>
         </div>
       </div>
     </Shell>
