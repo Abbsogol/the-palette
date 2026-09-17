@@ -48,6 +48,7 @@ export default function UploadPage() {
   const [loading, setLoading] = useState(true)
   const [atLimit, setAtLimit] = useState(false)
   const [uploadsLeft, setUploadsLeft] = useState(FREE_LIMIT)
+  const [resetAt, setResetAt] = useState(null)
   const [success, setSuccess] = useState(false)
 
   // Form
@@ -98,6 +99,9 @@ export default function UploadPage() {
       const isPro = prof.subscription_tier === 'pro_creator'
       setUploadsLeft(isPro ? Infinity : Math.max(0, FREE_LIMIT - used))
       setAtLimit(!isPro && used >= FREE_LIMIT)
+      // Limit resets 7 days after the current window start (week_reset_at) —
+      // the same value enforce_weekly_upload_limit uses, so this is the real date.
+      setResetAt(prof.week_reset_at ? new Date(new Date(prof.week_reset_at).getTime() + 7 * 86400000) : null)
       setLoading(false)
     })
   }, [])
@@ -205,6 +209,14 @@ export default function UploadPage() {
     background: active ? ACCENT : 'rgba(255,255,255,0.06)', ...ui(active ? 600 : 400, 12, active ? WINE : WHITE60),
   })
 
+  const resetText = () => {
+    if (!resetAt) return 'Your limit resets in a few days.'
+    const days = Math.ceil((resetAt.getTime() - Date.now()) / 86400000)
+    if (days <= 0) return 'Your limit resets today.'
+    if (days === 1) return 'Your limit resets tomorrow.'
+    return `Your limit resets in ${days} days.`
+  }
+
   // ── Loading ─────────────────────────────────────────────────────────────────
   if (loading) return (
     <Shell>
@@ -245,7 +257,7 @@ export default function UploadPage() {
             <p style={{ ...ui(300, 13, WHITE60), lineHeight:1.5, marginBottom:'12px' }}>Unlimited uploads · Analytics · Featured in discovery</p>
             <span style={ui(600, 13, ACCENT)}>Upgrade to Pro →</span>
           </Link>
-          <p style={{ ...ui(300, 12, WHITE60), opacity:0.7 }}>Your limit resets in a few days.</p>
+          <p style={{ ...ui(300, 12, WHITE60), opacity:0.7 }}>{resetText()}</p>
         </div>
       </div>
     </Shell>
