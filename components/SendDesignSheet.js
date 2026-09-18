@@ -3,6 +3,17 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import Sheet from '@/components/ui/Sheet'
+
+const ACCENT = '#FF517F'
+const WHITE60 = 'rgba(255,255,255,0.6)'
+const PANEL = 'rgba(255,255,255,0.06)'
+const PANEL_BORDER = '1px solid rgba(255,255,255,0.1)'
+const ROW_BORDER = '1px solid rgba(255,255,255,0.08)'
+const ui = (weight, size, color = 'var(--lq-white)') => ({
+  fontFamily: 'var(--lq-font-ui)', fontWeight: weight, fontSize: `${size}px`, color, lineHeight: 1.4,
+})
+const display = (size) => ({ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: `${size}px`, color: 'var(--lq-white)', lineHeight: 1.2 })
 
 export default function SendDesignSheet({ design, onClose }) {
   const router = useRouter()
@@ -98,108 +109,69 @@ export default function SendDesignSheet({ design, onClose }) {
   }
 
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        onClick={onClose}
-        style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
-          zIndex: 200, backdropFilter: 'blur(2px)',
-        }}
-      />
-
-      {/* Sheet */}
-      <div style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0,
-        background: 'var(--bg-card)',
-        borderRadius: '20px 20px 0 0',
-        zIndex: 201,
-        maxHeight: '75dvh',
-        display: 'flex', flexDirection: 'column',
-        fontFamily: "'DM Sans', sans-serif",
-      }}>
-
-        {/* Handle */}
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 4px' }}>
-          <div style={{ width: '36px', height: '4px', borderRadius: '2px', background: 'var(--border)' }} />
-        </div>
-
-        {/* Header */}
-        <div style={{ padding: '8px 20px 14px', borderBottom: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <p style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '600', margin: '0 0 2px' }}>Send to chat</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: 0 }}>{design.title}</p>
-          </div>
-          <button
-            onClick={onClose}
-            style={{ background: 'var(--bg-chip)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
-        </div>
-
-        {/* Error */}
-        {sendError && (
-          <div style={{ margin: '12px 20px 0', background: 'rgba(255,80,80,0.08)', border: '0.5px solid rgba(255,80,80,0.3)', borderRadius: '10px', padding: '10px 14px' }}>
-            <p style={{ color: '#ff6b6b', fontSize: '13px', margin: 0 }}>{sendError}</p>
-          </div>
-        )}
-
-        {/* Conversation list */}
-        <div style={{ overflowY: 'auto', flex: 1 }}>
-          {loading ? (
-            <div style={{ padding: '40px 20px', textAlign: 'center' }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Loading…</p>
-            </div>
-          ) : loadError ? (
-            <div style={{ padding: '40px 20px', textAlign: 'center' }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Couldn't load your conversations. Please try again.</p>
-            </div>
-          ) : conversations.length === 0 ? (
-            <div style={{ padding: '40px 20px', textAlign: 'center' }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>No conversations yet.</p>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '4px' }}>Message a nail artist first, then you can share designs with them.</p>
-            </div>
-          ) : (
-            conversations.map(conv => (
-              <button
-                key={conv.id}
-                onClick={() => handleSend(conv)}
-                disabled={!!sending}
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center', gap: '14px',
-                  padding: '14px 20px', background: 'none', border: 'none',
-                  borderBottom: '0.5px solid var(--border)', cursor: 'pointer',
-                  textAlign: 'left', opacity: sending && sending !== conv.id ? 0.5 : 1,
-                  transition: 'opacity 0.15s',
-                }}
-              >
-                <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: 'var(--bg-chip)', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {conv.other?.avatar_url
-                    ? <img src={conv.other.avatar_url} alt={conv.other?.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <span style={{ color: 'var(--accent)', fontSize: '16px', fontWeight: '600' }}>{(conv.other?.display_name || '?')[0].toUpperCase()}</span>
-                  }
-                </div>
-                <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500', margin: 0, flex: 1 }}>
-                  {conv.other?.display_name || 'User'}
-                </p>
-                {sending === conv.id ? (
-                  <span style={{ color: 'var(--accent)', fontSize: '12px', fontWeight: '500' }}>Sending…</span>
-                ) : (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/>
-                  </svg>
-                )}
-              </button>
-            ))
-          )}
-        </div>
-
-        {/* Safe area bottom pad */}
-        <div style={{ height: 'env(safe-area-inset-bottom, 16px)' }} />
+    <Sheet title="Send to chat" onClose={onClose}>
+      {/* Header */}
+      <div style={{ marginBottom: '16px' }}>
+        <h2 style={{ ...display(22), margin: '0 0 2px' }}>Send to chat</h2>
+        <p style={{ ...ui(300, 13, WHITE60), margin: 0 }}>{design.title}</p>
       </div>
-    </>
+
+      {/* Error */}
+      {sendError && (
+        <div style={{ margin: '0 0 12px', background: 'rgba(224,112,112,0.12)', border: '1px solid rgba(224,112,112,0.35)', borderRadius: '12px', padding: '10px 14px' }}>
+          <p style={{ ...ui(400, 13, '#FF8DA8'), margin: 0 }}>{sendError}</p>
+        </div>
+      )}
+
+      {/* Conversation list */}
+      {loading ? (
+        <div style={{ padding: '40px 0', textAlign: 'center' }}>
+          <p style={ui(300, 13, WHITE60)}>Loading…</p>
+        </div>
+      ) : loadError ? (
+        <div style={{ padding: '40px 0', textAlign: 'center' }}>
+          <p style={ui(300, 13, WHITE60)}>Couldn&apos;t load your conversations. Please try again.</p>
+        </div>
+      ) : conversations.length === 0 ? (
+        <div style={{ padding: '40px 0', textAlign: 'center' }}>
+          <p style={ui(400, 13)}>No conversations yet.</p>
+          <p style={{ ...ui(300, 12, WHITE60), marginTop: '4px' }}>Message a nail artist first, then you can share designs with them.</p>
+        </div>
+      ) : (
+        <div style={{ background: PANEL, border: PANEL_BORDER, borderRadius: '16px', overflow: 'hidden' }}>
+          {conversations.map((conv, i) => (
+            <button
+              key={conv.id}
+              onClick={() => handleSend(conv)}
+              disabled={!!sending}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', gap: '14px',
+                padding: '13px 14px', background: 'none', border: 'none',
+                borderBottom: i < conversations.length - 1 ? ROW_BORDER : 'none', cursor: 'pointer',
+                textAlign: 'left', opacity: sending && sending !== conv.id ? 0.5 : 1,
+                transition: 'opacity 0.15s',
+              }}
+            >
+              <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: PANEL_BORDER }}>
+                {conv.other?.avatar_url
+                  ? <img src={conv.other.avatar_url} alt={conv.other?.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : <span style={ui(600, 16, ACCENT)}>{(conv.other?.display_name || '?')[0].toUpperCase()}</span>
+                }
+              </div>
+              <p style={{ ...ui(500, 14), margin: 0, flex: 1 }}>
+                {conv.other?.display_name || 'User'}
+              </p>
+              {sending === conv.id ? (
+                <span style={ui(500, 12, ACCENT)}>Sending…</span>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/>
+                </svg>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </Sheet>
   )
 }
