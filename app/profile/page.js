@@ -9,6 +9,7 @@ import IconButton from '@/components/ui/IconButton'
 import Sheet from '@/components/ui/Sheet'
 import { LaqueWordmark, BellIcon, HeartIcon, MagicStarIcon } from '@/components/ui/icons'
 import { useScrollMemory } from '@/lib/scrollMemory'
+import { useTabSwipe } from '@/lib/tabSwipe'
 
 // ── Page palette from the Own Profile frame (257:2444) ─────────────────────
 const GROUND = '#260D14'
@@ -591,6 +592,10 @@ export default function ProfilePage() {
   // loaded flag. Restore then runs against the tab's full height.
   const tabReady = currentTab === 'saved' ? savedLoaded : currentTab === 'collections' ? boardsLoaded : true
   useScrollMemory(currentTab, !!profile && !loading && tabReady)
+  const tabSwipeRef = useRef(null)
+  // Scoped to the tab-content region only (ref sits below the header tiles) so
+  // a swipe over the tiles never switches tabs — Sogol's explicit constraint.
+  useTabSwipe(tabSwipeRef, { tabs: ['designs', 'saved', 'collections'], active: currentTab, onSelect: setActiveTab, enabled: !loading && !!user })
 
   useEffect(() => {
     if (!user || loading) return
@@ -1640,7 +1645,7 @@ export default function ProfilePage() {
         )}
 
         {/* ── Content tabs: My Designs / Saved / Collections ────────────── */}
-        <div>
+        <div ref={tabSwipeRef}>
           <div role="tablist" aria-label="Profile content" style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
             {[['designs', 'My Designs'], ['saved', 'Saved'], ['collections', 'Collections']].map(([key, label]) => (
               <button

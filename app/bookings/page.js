@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import BackButton from '@/components/ui/BackButton'
 import { useScrollMemory } from '@/lib/scrollMemory'
+import { useTabSwipe } from '@/lib/tabSwipe'
 
 const ACCENT = '#FF517F'
 const WHITE60 = 'rgba(255,255,255,0.6)'
@@ -96,6 +97,8 @@ export default function BookingsPage() {
   })
   const setTab = (t) => { setTabState(t); try { sessionStorage.setItem('lq-tab:/bookings', t) } catch {} }
   useScrollMemory(tab, !loading)
+  const swipeRef = useRef(null)
+  useTabSwipe(swipeRef, { tabs: ['requests', 'upcoming', 'past'], active: tab, onSelect: setTab, enabled: !loading })
 
   useEffect(() => {
     const init = async () => {
@@ -221,7 +224,7 @@ export default function BookingsPage() {
       </div>
 
       {/* List */}
-      <div style={{ padding: '0 20px' }}>
+      <div ref={swipeRef} style={{ padding: '0 20px' }}>
         {activeList.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 0' }}>
             <div style={{ fontSize: '28px', marginBottom: '12px', color: ACCENT }}>✦</div>

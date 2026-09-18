@@ -12,6 +12,7 @@ import FavouriteButton from '@/components/ui/FavouriteButton'
 import Sheet from '@/components/ui/Sheet'
 import { LaqueWordmark, CandleFilterIcon } from '@/components/ui/icons'
 import { useScrollMemory } from '@/lib/scrollMemory'
+import { useTabSwipe } from '@/lib/tabSwipe'
 
 // Filter taxonomy from the redesign's filter panel (117:1700). Occasion keeps
 // party/birthday/office beyond the drawn 18 — 72/46/53 published designs use
@@ -390,7 +391,13 @@ export default function SearchPage() {
   // ready must fire AFTER the grid renders, not before: loading starts false
   // here, so gate on designs being present too (the old ad-hoc restore guarded
   // on designs.length !== 0 for the same reason).
-  useScrollMemory(null, !loading && designs.length > 0)
+  // Tab-suffixed so each tab restores its OWN scroll position — the swipe must
+  // land the scroll on the tab the gesture arrives at, not carry the departing
+  // tab's position (Sogol's verification requirement). Ready gate is per-tab:
+  // the designs grid vs the salons list.
+  useScrollMemory(mainTab, mainTab === 'designs' ? (!loading && designs.length > 0) : salonsLoaded)
+  const swipeRef = useRef(null)
+  useTabSwipe(swipeRef, { tabs: ['designs', 'salons'], active: mainTab, onSelect: switchMainTab })
 
   return (
     <div style={{ position: 'relative' }}>
@@ -445,6 +452,10 @@ export default function SearchPage() {
         )}
       </div>
 
+      {/* Swipe region — designs + salons content only (excludes the header,
+          tabs and the sheets). The no-fight guard inside protects the People
+          row's horizontal scroll. */}
+      <div ref={swipeRef}>
       {/* ── DESIGNS TAB ──────────────────────────────────────────────────── */}
       {mainTab === 'designs' && <>
 
@@ -694,6 +705,7 @@ export default function SearchPage() {
           )}
         </div>
       )}
+      </div>{/* end swipe region */}
 
       </div>
 
