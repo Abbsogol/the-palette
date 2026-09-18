@@ -2,6 +2,17 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import Sheet from '@/components/ui/Sheet'
+
+const ACCENT = '#FF517F'
+const WHITE60 = 'rgba(255,255,255,0.6)'
+const PANEL = 'rgba(255,255,255,0.06)'
+const PANEL_BORDER = '1px solid rgba(255,255,255,0.1)'
+const BTN_GRADIENT = 'linear-gradient(90deg, #660007 47.832%, #FF517F 100%)'
+const ui = (weight, size, color = 'var(--lq-white)') => ({
+  fontFamily: 'var(--lq-font-ui)', fontWeight: weight, fontSize: `${size}px`, color, lineHeight: 1.4,
+})
+const display = (size) => ({ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: `${size}px`, color: 'var(--lq-white)', lineHeight: 1.2 })
 
 const BOOST_OPTIONS = [
   { days: 1,  price: 15,  label: '1 day',   sub: 'Quick visibility boost'   },
@@ -57,12 +68,10 @@ export default function BoostButton({ designId, creatorId, boostedUntil, renderT
         onClick={() => setModalOpen(true)}
         style={{
           display: 'flex', alignItems: 'center', gap: '5px',
-          background: isActive ? 'rgba(212,160,192,0.15)' : 'var(--bg-chip)',
-          border: isActive ? '0.5px solid rgba(212,160,192,0.4)' : '0.5px solid var(--border)',
-          borderRadius: '20px', padding: '7px 14px',
-          color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
-          fontSize: '13px', fontWeight: '500',
-          fontFamily: "'DM Sans', sans-serif", cursor: 'pointer',
+          background: isActive ? 'rgba(255,81,127,0.15)' : PANEL,
+          border: isActive ? '1px solid rgba(255,81,127,0.4)' : PANEL_BORDER,
+          borderRadius: '1000px', padding: '7px 14px',
+          ...ui(500, 13, isActive ? ACCENT : WHITE60), cursor: 'pointer',
         }}
       >
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -73,78 +82,64 @@ export default function BoostButton({ designId, creatorId, boostedUntil, renderT
       </button>
       )}
 
-      {/* Modal */}
+      {/* Sheet */}
       {modalOpen && (
-        <div
-          onClick={e => e.target === e.currentTarget && setModalOpen(false)}
-          style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300,
-            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-          }}
-        >
-          <div style={{
-            background: 'var(--bg-card)', borderRadius: '20px 20px 0 0',
-            padding: '24px 20px 44px', width: '100%', maxWidth: '480px',
-            boxShadow: '0 -10px 40px rgba(0,0,0,0.4)',
-          }}>
-            <div style={{ width: '36px', height: '4px', background: 'var(--border)', borderRadius: '4px', margin: '0 auto 20px' }} />
-
-            <h2 style={{ color: 'var(--text-primary)', fontSize: '18px', fontWeight: '600', margin: '0 0 6px' }}>Boost this design</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: '1.6', margin: '0 0 20px' }}>
-              Your design will appear at the top of the feed in a ✦ Promoted section, visible to all users.
-            </p>
-
-            {isActive && (
-              <div style={{ background: 'rgba(212,160,192,0.1)', border: '0.5px solid rgba(212,160,192,0.3)', borderRadius: '12px', padding: '12px 14px', marginBottom: '16px' }}>
-                <p style={{ color: 'var(--accent)', fontSize: '13px', fontWeight: '500', margin: 0 }}>
-                  ✦ Currently boosted until {fmtDate(boostedUntil)}. Purchasing again will extend your boost from now.
-                </p>
-              </div>
-            )}
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
-              {BOOST_OPTIONS.map(opt => (
-                <button
-                  key={opt.days}
-                  onClick={() => setSelected(opt)}
-                  style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    padding: '14px 16px',
-                    background: selected?.days === opt.days ? 'rgba(212,160,192,0.12)' : 'var(--bg-primary)',
-                    border: selected?.days === opt.days ? '1.5px solid var(--accent)' : '0.5px solid var(--border)',
-                    borderRadius: '14px', cursor: 'pointer', textAlign: 'left',
-                    fontFamily: "'DM Sans', sans-serif",
-                  }}
-                >
-                  <div>
-                    <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', margin: '0 0 2px' }}>{opt.label}</p>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: 0 }}>{opt.sub}</p>
-                  </div>
-                  <span style={{ color: selected?.days === opt.days ? 'var(--accent)' : 'var(--text-primary)', fontSize: '16px', fontWeight: '600' }}>
-                    AED {opt.price}
-                  </span>
-                </button>
-              ))}
-            </div>
-
+        <Sheet
+          title="Boost this design"
+          onClose={() => setModalOpen(false)}
+          footer={
             <button
               onClick={handleBoost}
               disabled={!selected || loading}
               style={{
                 width: '100%', padding: '14px',
-                background: selected ? 'var(--accent)' : 'var(--bg-chip)',
-                color: selected ? '#2C0A1E' : 'var(--text-secondary)',
-                border: 'none', borderRadius: '14px',
-                fontSize: '15px', fontWeight: '600',
-                fontFamily: "'DM Sans', sans-serif",
-                cursor: selected && !loading ? 'pointer' : 'not-allowed',
-                opacity: loading ? 0.7 : 1,
+                background: selected ? BTN_GRADIENT : 'rgba(255,255,255,0.08)',
+                ...ui(600, 15, selected ? 'var(--lq-white)' : WHITE60),
+                border: 'none', borderRadius: '1000px',
+                cursor: selected && !loading ? 'pointer' : 'not-allowed', opacity: loading ? 0.7 : 1,
               }}
             >
               {loading ? 'Redirecting to payment…' : selected ? `Boost for AED ${selected.price} →` : 'Select a duration'}
             </button>
+          }
+        >
+          <h2 style={{ ...display(22), margin: '0 0 6px' }}>Boost this design</h2>
+          <p style={{ ...ui(300, 13, WHITE60), lineHeight: 1.6, margin: '0 0 20px' }}>
+            Your design will appear at the top of the feed in a ✦ Promoted section, visible to all users.
+          </p>
+
+          {isActive && (
+            <div style={{ background: 'rgba(255,81,127,0.1)', border: '1px solid rgba(255,81,127,0.3)', borderRadius: '12px', padding: '12px 14px', marginBottom: '16px' }}>
+              <p style={{ ...ui(500, 13, ACCENT), margin: 0 }}>
+                ✦ Currently boosted until {fmtDate(boostedUntil)}. Purchasing again will extend your boost from now.
+              </p>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {BOOST_OPTIONS.map(opt => (
+              <button
+                key={opt.days}
+                onClick={() => setSelected(opt)}
+                style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '14px 16px',
+                  background: selected?.days === opt.days ? 'rgba(255,81,127,0.12)' : 'rgba(255,255,255,0.04)',
+                  border: selected?.days === opt.days ? `1.5px solid ${ACCENT}` : PANEL_BORDER,
+                  borderRadius: '14px', cursor: 'pointer', textAlign: 'left',
+                }}
+              >
+                <div>
+                  <p style={{ ...ui(600, 15), margin: '0 0 2px' }}>{opt.label}</p>
+                  <p style={{ ...ui(300, 12, WHITE60), margin: 0 }}>{opt.sub}</p>
+                </div>
+                <span style={ui(600, 16, selected?.days === opt.days ? ACCENT : 'var(--lq-white)')}>
+                  AED {opt.price}
+                </span>
+              </button>
+            ))}
           </div>
-        </div>
+        </Sheet>
       )}
     </>
   )
