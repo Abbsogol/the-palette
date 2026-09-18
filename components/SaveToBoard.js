@@ -155,7 +155,7 @@ export default function SaveToBoard({ designId, designImageUrl, renderTrigger, e
           onClick={openSheet}
           title="Save to board"
           style={{
-            background: anyBoardSaved ? 'var(--accent)' : 'var(--bg-chip)',
+            background: anyBoardSaved ? '#FF517F' : 'rgba(255,255,255,0.06)',
             border: 'none',
             borderRadius: '10px',
             width: '38px',
@@ -164,7 +164,7 @@ export default function SaveToBoard({ designId, designImageUrl, renderTrigger, e
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
-            color: anyBoardSaved ? '#141414' : 'var(--text-secondary)',
+            color: anyBoardSaved ? '#260D14' : 'rgba(255,255,255,0.6)',
             flexShrink: 0,
             transition: 'background 0.2s, color 0.2s',
           }}
