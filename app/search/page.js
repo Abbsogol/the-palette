@@ -411,7 +411,7 @@ export default function SearchPage() {
         <div className="lq-grain" />
       </div>
 
-      <div style={{ position: 'relative', zIndex: 1, padding: 'calc(env(safe-area-inset-top) + 12px) 24px 24px' }}>
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', minHeight: '100dvh', padding: 'calc(env(safe-area-inset-top) + 12px) 24px 24px' }}>
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--lq-white)', marginBottom: '16px' }}>
@@ -453,8 +453,9 @@ export default function SearchPage() {
 
       {/* Swipe region — designs + salons content only (excludes the header,
           tabs and the sheets). The no-fight guard inside protects the People
-          row's horizontal scroll. */}
-      <div ref={swipeRef}>
+          row's horizontal scroll. flexGrow so the swipe area fills below the
+          tabs down to the nav even when a query returns no results. */}
+      <div ref={swipeRef} style={{ flexGrow: 1 }}>
       {/* ── DESIGNS TAB ──────────────────────────────────────────────────── */}
       {mainTab === 'designs' && <>
 

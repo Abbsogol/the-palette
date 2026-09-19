@@ -96,7 +96,7 @@ function Shell({ children }) {
     <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
       <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
-      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 100px)' }}>{children}</div>
+      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', minHeight: '100dvh', paddingBottom: 'calc(env(safe-area-inset-bottom) + 100px)' }}>{children}</div>
     </div>
   )
 }
@@ -203,8 +203,9 @@ export default function AppointmentsPage() {
         ))}
       </div>
 
-      {/* List */}
-      <div ref={swipeRef} style={{ padding: '0 20px' }}>
+      {/* List — flexGrow so the swipe area fills the screen below the tabs down
+          to the nav, whatever the content (empty, one row or many). */}
+      <div ref={swipeRef} style={{ padding: '0 20px', flexGrow: 1 }}>
         {activeList.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 0' }}>
             <div style={{ fontSize: '28px', marginBottom: '12px', color: ACCENT }}>✦</div>
