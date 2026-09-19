@@ -396,8 +396,7 @@ export default function SearchPage() {
   // tab's position (Sogol's verification requirement). Ready gate is per-tab:
   // the designs grid vs the salons list.
   useScrollMemory(mainTab, mainTab === 'designs' ? (!loading && designs.length > 0) : salonsLoaded)
-  const swipeRef = useRef(null)
-  useTabSwipe(swipeRef, { tabs: ['designs', 'salons'], active: mainTab, onSelect: switchMainTab })
+  const swipeRef = useTabSwipe({ tabs: ['designs', 'salons'], active: mainTab, onSelect: switchMainTab })
 
   return (
     <div style={{ position: 'relative' }}>

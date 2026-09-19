@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -112,8 +112,7 @@ export default function AppointmentsPage() {
   })
   const setTab = (t) => { setTabState(t); try { sessionStorage.setItem('lq-tab:/appointments', t) } catch {} }
   useScrollMemory(tab, !loading)
-  const swipeRef = useRef(null)
-  useTabSwipe(swipeRef, { tabs: ['upcoming', 'past'], active: tab, onSelect: setTab, enabled: !loading })
+  const swipeRef = useTabSwipe({ tabs: ['upcoming', 'past'], active: tab, onSelect: setTab })
 
   useEffect(() => {
     const init = async () => {

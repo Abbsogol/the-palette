@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -11,7 +11,6 @@ import Sheet from '@/components/ui/Sheet'
 import { MagicStarIcon } from '@/components/ui/icons'
 import { canGoBack } from '@/lib/navHistory'
 import { useScrollMemory } from '@/lib/scrollMemory'
-import { useTabSwipe } from '@/lib/tabSwipe'
 
 // Page-specific palette from the Artist Profile frame (257:2206): rose
 // accent + near-black plum ground, distinct from the feed's wine tokens.
@@ -80,10 +79,6 @@ export default function CreatorPage() {
     try { sessionStorage.setItem(`lq-tab:${location.pathname}`, t) } catch {}
   }
   useScrollMemory(activeTab, !loading)
-  const swipeRef = useRef(null)
-  // Keys mirror `tabs` (defined below in render); listed literally to stay out
-  // of that const's temporal dead zone at this hook site.
-  useTabSwipe(swipeRef, { tabs: ['designs', 'services', 'reviews', 'about'], active: activeTab, onSelect: setActiveTab, enabled: !loading && !!profile })
   const [isFavourited, setIsFavourited] = useState(false)
   const [favouriteLoaded, setFavouriteLoaded] = useState(false)
   const [replyTime, setReplyTime] = useState(null)
@@ -595,7 +590,7 @@ export default function CreatorPage() {
         </div>
 
         {/* ── Tab content ── */}
-        <div ref={swipeRef} style={{ marginTop: '20px' }}>
+        <div style={{ marginTop: '20px' }}>
           {isPrivateAndNotFollowing ? (
             <div style={{ ...sectionCard, padding: '32px 20px', textAlign: 'center' }}>
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={MUTED} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block', margin: '0 auto 12px' }} aria-hidden="true">
