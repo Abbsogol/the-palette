@@ -88,6 +88,19 @@ function AppointmentCard({ booking }) {
   )
 }
 
+// Module-level so it keeps a stable component identity across renders. Defined
+// inside the page it was a new function every render, which made React remount
+// the whole subtree (and reload the list) on every state change.
+function Shell({ children }) {
+  return (
+    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
+      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 100px)' }}>{children}</div>
+    </div>
+  )
+}
+
 export default function AppointmentsPage() {
   const router = useRouter()
   const [bookings, setBookings] = useState([])
@@ -151,14 +164,6 @@ export default function AppointmentsPage() {
     upcoming: { title: 'No upcoming appointments', sub: 'Book an appointment with a nail artist or salon to get started.' },
     past:     { title: 'No past appointments', sub: 'Your completed and cancelled bookings will appear here.' },
   }
-
-  const Shell = ({ children }) => (
-    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
-      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
-      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 100px)' }}>{children}</div>
-    </div>
-  )
 
   if (loading) return (
     <Shell>
