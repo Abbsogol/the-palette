@@ -530,15 +530,20 @@ export default function FeedPage() {
           <>
             {/* Active challenge banner (kept feature — no frame in the redesign, styled to tokens) */}
             {activeChallenge && (
-              <Link href={`/challenges/${activeChallenge.id}`} style={{ textDecoration: 'none', display: 'block' }}>
-                <div style={{ background: 'var(--lq-glass)', border: '1px solid var(--lq-glass-border)', borderRadius: 'var(--lq-radius-tile)', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <p style={{ ...ui(500, 10, 'var(--lq-accent-b)'), letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 3px' }}>✦ Active Challenge</p>
-                    <p style={{ ...ui(400, 13), margin: 0 }}>{activeChallenge.title}</p>
+              <div>
+                <Link href={`/challenges/${activeChallenge.id}`} style={{ textDecoration: 'none', display: 'block' }}>
+                  <div style={{ background: 'var(--lq-glass)', border: '1px solid var(--lq-glass-border)', borderRadius: 'var(--lq-radius-tile)', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div>
+                      <p style={{ ...ui(500, 10, 'var(--lq-accent-b)'), letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 3px' }}>✦ Active Challenge</p>
+                      <p style={{ ...ui(400, 13), margin: 0 }}>{activeChallenge.title}</p>
+                    </div>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 4L10 8L6 12" stroke="var(--lq-accent-b)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   </div>
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 4L10 8L6 12" stroke="var(--lq-accent-b)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </Link>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '6px' }}>
+                  <Link href="/challenges" style={{ ...ui(500, 12, 'var(--lq-accent-b)'), textDecoration: 'none', padding: '4px 2px' }}>See all →</Link>
                 </div>
-              </Link>
+              </div>
             )}
 
             {/* Stories */}

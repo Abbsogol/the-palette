@@ -104,7 +104,7 @@ export default function ChallengesPage() {
           ) : challenges.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '48px 0' }}>
               <p style={{ ...ui(500, 15), marginBottom: '8px' }}>No challenges yet</p>
-              <p style={ui(300, 13, WHITE60)}>Check back soon — we drop new challenges weekly.</p>
+              <p style={ui(300, 13, WHITE60)}>No challenges running right now — check back soon.</p>
             </div>
           ) : (
             <>
