@@ -102,6 +102,8 @@ function OnboardingInner() {
     // Already completed onboarding → go to feed
     if (prof.onboarding_complete === true) { router.push('/feed'); return }
     setProfile(prof)
+    // Health notes live in their own table now (submitted via complete-onboarding).
+    const { data: health } = await supabase.from('client_health_notes').select('allergies, product_sensitivities, removal_needed').eq('user_id', u.id).maybeSingle()
     setD(prev => ({
       ...prev,
       display_name:         prof.display_name          || '',
@@ -115,9 +117,9 @@ function OnboardingInner() {
       nail_techniques:      prof.nail_techniques        || [],
       occasions:            prof.occasions              || [],
       budget_range:         prof.budget_range           || null,
-      allergies:            prof.allergies              || '',
-      product_sensitivities: prof.product_sensitivities || [],
-      removal_needed:       prof.removal_needed         || false,
+      allergies:            health?.allergies           || '',
+      product_sensitivities: health?.product_sensitivities || [],
+      removal_needed:       health?.removal_needed      || false,
       specialties:          prof.specialties            || [],
     }))
     setLoading(false)
@@ -323,7 +325,7 @@ function OnboardingInner() {
 
             <div style={{ marginBottom: '24px' }}>
               <p style={label}>Product sensitivities</p>
-              <p style={{ ...ui(300, 12, WHITE60), marginBottom: '10px', lineHeight: 1.5 }}>Saved to your profile — not shown to your tech yet.</p>
+              <p style={{ ...ui(300, 12, WHITE60), marginBottom: '10px', lineHeight: 1.5 }}>Saved to your profile — not shared with your tech unless you turn on sharing.</p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                 {SENSITIVITIES.map(s => {
                   const active = (d.product_sensitivities||[]).includes(s)

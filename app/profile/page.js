@@ -480,7 +480,22 @@ export default function ProfilePage() {
   const loadUserData = async (u) => {
     setUser(u)
     const { data: prof } = await supabase.from('profiles').select('*').eq('id', u.id).single()
-    setProfile(prof)
+    // Health notes + booking notes live in their own RLS tables now, not on the
+    // profiles view. Read the owner's rows and merge them in so the Nail Health
+    // section shows the real values (and stays correct after edits, which write
+    // to those tables — the view's own copies are ignored/being retired).
+    const [{ data: health }, { data: bnotes }] = await Promise.all([
+      supabase.from('client_health_notes').select('allergies, product_sensitivities, removal_needed, share_with_tech').eq('user_id', u.id).maybeSingle(),
+      supabase.from('client_booking_notes').select('booking_notes').eq('user_id', u.id).maybeSingle(),
+    ])
+    setProfile(prof ? {
+      ...prof,
+      allergies: health?.allergies ?? null,
+      product_sensitivities: health?.product_sensitivities ?? [],
+      removal_needed: health?.removal_needed ?? false,
+      share_with_tech: health?.share_with_tech ?? false,
+      booking_notes: bnotes?.booking_notes ?? null,
+    } : prof)
     // New users (onboarding_complete === false explicitly) → send to onboarding
     if (prof?.onboarding_complete === false) {
       router.push(refCode ? `/onboarding?ref=${encodeURIComponent(refCode)}` : '/onboarding')
@@ -1467,7 +1482,7 @@ export default function ProfilePage() {
               {expanded.nailHealth && (
                 <>
                   <p style={{ padding: '10px 16px 14px', ...ui(300, 12, MUTED), lineHeight: 1.6, borderBottom: PANEL_BORDER }}>
-                    Shared with your nail tech when you make a booking.
+                    Only shared with your nail tech when you turn sharing on, and only for upcoming confirmed bookings.
                   </p>
                   <div>
                     <EditRow label="Allergies" field="allergies" value={profile?.allergies} placeholder='e.g. "Latex allergy"' onSave={saveField} />
@@ -1495,6 +1510,17 @@ export default function ProfilePage() {
                       aria-pressed={!!profile?.removal_needed} aria-label="Removal needed"
                       style={{ width: '44px', height: '26px', borderRadius: '13px', background: profile?.removal_needed ? BTN_GRADIENT : CHIP_BG, border: PANEL_BORDER, cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
                       <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '2px', left: profile?.removal_needed ? '20px' : '2px', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
+                    </button>
+                  </div>
+                  <div style={{ borderTop: PANEL_BORDER, padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ flex: 1, paddingRight: '12px' }}>
+                      <p style={{ ...ui(400, 14), marginBottom: '2px' }}>Share my health notes with my nail tech</p>
+                      <p style={ui(300, 12, MUTED)}>Off by default. When on, only the tech on an upcoming confirmed booking can see them.</p>
+                    </div>
+                    <button onClick={() => saveField('share_with_tech', !profile?.share_with_tech)}
+                      aria-pressed={!!profile?.share_with_tech} aria-label="Share my health notes with my nail tech"
+                      style={{ width: '44px', height: '26px', borderRadius: '13px', background: profile?.share_with_tech ? BTN_GRADIENT : CHIP_BG, border: PANEL_BORDER, cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                      <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '2px', left: profile?.share_with_tech ? '20px' : '2px', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
                     </button>
                   </div>
                   <div style={{ borderTop: PANEL_BORDER }}>

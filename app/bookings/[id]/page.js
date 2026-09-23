@@ -53,6 +53,8 @@ export default function BookingDetailPage() {
   const router = useRouter()
   const [booking, setBooking] = useState(null)
   const [refDesign, setRefDesign] = useState(null)
+  const [clientHealth, setClientHealth] = useState(null)      // RLS-gated: only if client shared + this is a confirmed upcoming booking
+  const [clientSalonNotes, setClientSalonNotes] = useState(null) // RLS-gated: any confirmed upcoming booking (no toggle)
   const [loading, setLoading] = useState(true)
   const [acting, setActing] = useState(null)
   const [currentUser, setCurrentUser] = useState(null)
@@ -76,10 +78,19 @@ export default function BookingDetailPage() {
 
       if (!data) { router.push('/bookings'); return }
 
-      const [{ data: client }, { data: existingNote }] = await Promise.all([
+      // Client-provided notes come straight from their RLS-protected tables:
+      // health is returned only if the client turned sharing on AND this is a
+      // confirmed upcoming booking; salon notes on any confirmed upcoming
+      // booking. The database is the gate — a non-eligible read just returns
+      // nothing, so we render whatever comes back.
+      const [{ data: client }, { data: existingNote }, { data: health }, { data: salonNotes }] = await Promise.all([
         supabase.from('profiles').select('id, display_name, avatar_url, username').eq('id', data.client_id).single(),
         supabase.from('client_notes').select('*').eq('booking_id', id).maybeSingle(),
+        supabase.from('client_health_notes').select('allergies, product_sensitivities, removal_needed').eq('user_id', data.client_id).maybeSingle(),
+        supabase.from('client_booking_notes').select('booking_notes').eq('user_id', data.client_id).maybeSingle(),
       ])
+      setClientHealth(health || null)
+      setClientSalonNotes(salonNotes?.booking_notes || null)
 
       if (existingNote) {
         setNoteId(existingNote.id)
@@ -294,6 +305,37 @@ export default function BookingDetailPage() {
         >
           Message {client?.display_name}
         </Link>
+
+        {/* Client-provided notes — read-only. The database returns these only
+            for a confirmed upcoming booking (health also requires the client to
+            have turned sharing on); otherwise the queries come back empty. */}
+        {((clientHealth && (clientHealth.allergies || clientHealth.product_sensitivities?.length || clientHealth.removal_needed)) || clientSalonNotes) && (
+          <div style={{ marginTop: '20px', background: PANEL, border: PANEL_BORDER, borderRadius: '16px', padding: '18px 16px' }}>
+            <p style={{ ...ui(600, 11, ACCENT), letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 12px' }}>
+              From {client?.display_name || 'the client'}
+            </p>
+            {clientHealth && (clientHealth.allergies || clientHealth.product_sensitivities?.length || clientHealth.removal_needed) && (
+              <div style={{ marginBottom: clientSalonNotes ? '14px' : 0 }}>
+                <p style={{ ...ui(500, 12), margin: '0 0 8px' }}>⚠︎ Health notes</p>
+                {clientHealth.allergies && (
+                  <p style={{ ...ui(300, 13), margin: '0 0 6px' }}><span style={ui(500, 13, WHITE60)}>Allergies: </span>{clientHealth.allergies}</p>
+                )}
+                {clientHealth.product_sensitivities?.length > 0 && (
+                  <p style={{ ...ui(300, 13), margin: '0 0 6px' }}><span style={ui(500, 13, WHITE60)}>Sensitivities: </span>{clientHealth.product_sensitivities.join(', ')}</p>
+                )}
+                {clientHealth.removal_needed && (
+                  <p style={{ ...ui(300, 13), margin: 0 }}>Needs removal before a new set</p>
+                )}
+              </div>
+            )}
+            {clientSalonNotes && (
+              <div>
+                <p style={{ ...ui(500, 12), margin: '0 0 6px' }}>Notes for the salon</p>
+                <p style={{ ...ui(300, 13), margin: 0, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{clientSalonNotes}</p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Private client notes */}
         <div style={{ marginTop: '20px', background: PANEL, border: PANEL_BORDER, borderRadius: '16px', padding: '18px 16px' }}>
