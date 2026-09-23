@@ -189,6 +189,10 @@ export default function BookingDetailPage() {
     cancelled: { label: 'Cancelled', color: WHITE60,   bg: 'rgba(255,255,255,0.1)' },
   }
   const s = statusMap[booking.status] || statusMap.pending
+  // Client notes show only on THIS booking when it's pending/confirmed and not
+  // past — matches the DB rule, and avoids showing on a declined/past booking
+  // even if the client is eligible via another booking.
+  const bookingEligible = (booking.status === 'pending' || booking.status === 'confirmed') && booking.booking_date >= new Date().toISOString().split('T')[0]
 
   const refHasDims = refDesign?.image_width && refDesign?.image_height
 
@@ -309,7 +313,7 @@ export default function BookingDetailPage() {
         {/* Client-provided notes — read-only. The database returns these only
             for a confirmed upcoming booking (health also requires the client to
             have turned sharing on); otherwise the queries come back empty. */}
-        {((clientHealth && (clientHealth.allergies || clientHealth.product_sensitivities?.length || clientHealth.removal_needed)) || clientSalonNotes) && (
+        {bookingEligible && ((clientHealth && (clientHealth.allergies || clientHealth.product_sensitivities?.length || clientHealth.removal_needed)) || clientSalonNotes) && (
           <div style={{ marginTop: '20px', background: PANEL, border: PANEL_BORDER, borderRadius: '16px', padding: '18px 16px' }}>
             <p style={{ ...ui(600, 11, ACCENT), letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 12px' }}>
               From {client?.display_name || 'the client'}

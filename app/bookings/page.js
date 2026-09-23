@@ -75,6 +75,18 @@ function BookingCard({ booking }) {
               {fmt12(booking.start_time)} – {fmt12(booking.end_time)}
               {booking.status === 'pending' && <span style={{ color: ACCENT, fontWeight: 600 }}> · Needs response</span>}
             </p>
+            {booking.clientHealth && (booking.clientHealth.allergies || booking.clientHealth.product_sensitivities?.length || booking.clientHealth.removal_needed) && (
+              <p style={{ ...ui(500, 12, ACCENT), margin: '6px 0 0', lineHeight: 1.4 }}>
+                ⚠︎ {[
+                  booking.clientHealth.allergies && `Allergies: ${booking.clientHealth.allergies}`,
+                  booking.clientHealth.product_sensitivities?.length && `Sensitive to ${booking.clientHealth.product_sensitivities.join(', ')}`,
+                  booking.clientHealth.removal_needed && 'Needs removal first',
+                ].filter(Boolean).join(' · ')}
+              </p>
+            )}
+            {booking.clientSalonNotes && (
+              <p style={{ ...ui(300, 12, WHITE60), margin: '4px 0 0', lineHeight: 1.4 }}>📝 {booking.clientSalonNotes}</p>
+            )}
           </div>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }}>
             <path d="M5 3L9 7L5 11" stroke={WHITE60} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -133,8 +145,29 @@ export default function BookingsPage() {
       .select('id, display_name, username, avatar_url')
       .in('id', clientIds)
 
+    // Client-provided notes, RLS-gated: health only if the client shared,
+    // salon notes on any pending/confirmed upcoming booking. The DB returns
+    // rows only for eligible clients; we still attach per-card so notes never
+    // render on a client's past/declined card even if another of their bookings
+    // is eligible.
+    const [{ data: healthRows }, { data: notesRows }] = await Promise.all([
+      supabase.from('client_health_notes').select('user_id, allergies, product_sensitivities, removal_needed').in('user_id', clientIds),
+      supabase.from('client_booking_notes').select('user_id, booking_notes').in('user_id', clientIds),
+    ])
+    const healthMap = Object.fromEntries((healthRows || []).map(h => [h.user_id, h]))
+    const notesMap = Object.fromEntries((notesRows || []).map(n => [n.user_id, n.booking_notes]))
+    const todayStr = new Date().toISOString().split('T')[0]
+
     const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
-    setBookings(chronological.map(b => ({ ...b, client: profileMap[b.client_id] || null })))
+    setBookings(chronological.map(b => {
+      const eligible = b.status === 'pending' || (b.status === 'confirmed' && b.booking_date >= todayStr)
+      return {
+        ...b,
+        client: profileMap[b.client_id] || null,
+        clientHealth: eligible ? (healthMap[b.client_id] || null) : null,
+        clientSalonNotes: eligible ? (notesMap[b.client_id] || null) : null,
+      }
+    }))
   }
 
   const today = new Date().toISOString().split('T')[0]
