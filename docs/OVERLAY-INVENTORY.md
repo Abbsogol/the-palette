@@ -1,6 +1,8 @@
 # Overlay inventory
 
-**Last verified against commit `91bd1d3` on 2026-09-18.** Re-verify (and update this line) after adding/removing/restyling any overlay.
+**Last verified against commit `360cd1b` on 2026-09-24.** Re-verify (and update this line) after adding/removing/restyling any overlay.
+
+> Regression re-check 2026-09-24: the three greps still show 13 shared-`Sheet` call sites and the same OS-native `confirm()` set (known inconsistency). No new old-design overlays. BUT two non-overlay old-design leftovers found (not fixed, awaiting Sogol): (1) **`ShareButton` default variant is old-design** (`var(--bg-chip)` / `var(--accent)` / `'DM Sans'`) and is rendered on **`/moodboards/[id]`** (via `<ShareButton>` with no variant); `/design/[id]` correctly uses `variant="glass"` (new). (2) **Dead components** with old tokens, 0 imports: `components/SaveButton.js`, `components/BackButton.js`, `components/SendDesignButton.js` — cleanup candidates (superseded by `HeartSaveButton`, `ui/BackButton`, `SendDesignSheet`).
 
 Every sheet / modal / dialog / popover / lightbox / confirm in the app. **Overlays have no route**, so `ROUTE-INVENTORY.md` can't see them — that blind spot produced two wrong "we're done" claims (first the design-detail sheets, then CommentSheet/CropModal). This is the companion list. **"New" = wine + Prata/Jost + `--lq-*` tokens; "Old" = DM Sans + `--bg-*`/`#2C0A1E`/`#D4A0C0`.**
 

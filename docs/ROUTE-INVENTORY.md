@@ -1,6 +1,8 @@
 # Route inventory
 
-**Last verified against commit `91bd1d3` on 2026-09-18.** Re-verify (and update this line) after any page add/remove or restyle — a stale inventory is worse than none.
+**Last verified against commit `360cd1b` on 2026-09-24.** Re-verify (and update this line) after any page add/remove or restyle — a stale inventory is worse than none.
+
+> Regression re-check 2026-09-24: all 45 routes load for the intended user (signed-in + signed-out); auth-gated pages correctly redirect to `/profile` when signed out. Open cosmetic items (not fixed, awaiting Sogol): stray legacy hex in 3 otherwise-new pages — `design/[id]` checkmark stroke `#2C0A1E`, `rewards` Gold tier `#D4A0C0`, `nail-card/[id]` avatar gradient `#2C0A1E`. Detail pages show a blank/stuck screen (RLS 406) when the resource is inaccessible/not-found (`/appointments/[id]` for a booking you're not the client of, `/moodboards/[id]` for a private board, `/messages/[id]` for a thread you're not in, `/book/[id]` for yourself) — `/nail-card/[id]` handles it gracefully ("Profile not found."); the others don't. Edge-case, likely pre-redesign.
 
 Every `app/**/page.js` route, classified by its design system. **"New" = wine ground (`lq-bg-wine`) + Prata/Jost (`--lq-font-*`) + `--lq-*` tokens + `BackButton`; "Old" = DM Sans + `--bg-primary`/`--bg-card`/`--bg-chip`.** Overlays have no route — see `OVERLAY-INVENTORY.md` for those.
 
