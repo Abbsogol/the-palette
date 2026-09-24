@@ -304,7 +304,7 @@ export default function MoodboardDetailPage() {
             </span>
           </BackButton>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {board.is_public && <ShareButton title={board.name} />}
+            {board.is_public && <ShareButton title={board.name} variant="glass" />}
             {isOwner && (
               <button
                 onClick={() => { setManageOpen(true); setConfirmDelete(false); setDeleteError(''); setSearchError('') }}

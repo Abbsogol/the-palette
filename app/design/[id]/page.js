@@ -165,7 +165,7 @@ export default async function DesignPage({ params, searchParams }) {
               </div>
               <span style={ui(500, 14, WHITE80)}>{creator.display_name}</span>
               {creator.is_verified && (
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" fill={ACCENT}/><path d="M5 8L7 10L11 6" stroke="#2C0A1E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" fill={ACCENT}/><path d="M5 8L7 10L11 6" stroke="#260D14" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
               )}
             </Link>
           )}

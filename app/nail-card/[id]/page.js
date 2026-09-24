@@ -110,7 +110,7 @@ export default function NailCardPage() {
 
             {/* Avatar */}
             <div style={{ marginBottom: '20px' }}>
-              <div style={{ width: '88px', height: '88px', borderRadius: '50%', background: 'linear-gradient(135deg, #FF517F, #2C0A1E)', padding: '2.5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: '88px', height: '88px', borderRadius: '50%', background: `linear-gradient(135deg, ${ACCENT}, ${WINE})`, padding: '2.5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
                 <div style={{ width: '81px', height: '81px', borderRadius: '50%', background: '#1A0910', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {profile.avatar_url ? (
                     <img src={profile.avatar_url} alt={profile.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />

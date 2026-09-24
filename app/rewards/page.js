@@ -19,7 +19,7 @@ const sectionLabel = { ...ui(600, 11, ACCENT), letterSpacing: '0.08em', textTran
 const LEVELS = [
   { name: 'Bronze',   min: 0,    max: 199,  color: '#CD7F32', emoji: '🥉' },
   { name: 'Silver',   min: 200,  max: 499,  color: '#A8A9AD', emoji: '🥈' },
-  { name: 'Gold',     min: 500,  max: 999,  color: '#D4A0C0', emoji: '✦' },
+  { name: 'Gold',     min: 500,  max: 999,  color: '#D4AF37', emoji: '✦' },
   { name: 'Platinum', min: 1000, max: Infinity, color: '#E8D5F5', emoji: '💎' },
 ]
 
