@@ -214,7 +214,7 @@ export default function BookingsPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: 'calc(env(safe-area-inset-top) + 16px) 20px 16px' }}>
         <BackButton fallback="/profile" />
-        <h1 style={{ ...display(24), margin: 0, flex: 1 }}>Bookings</h1>
+        <h1 style={{ ...display(24), margin: 0, flex: 1 }}>Client Bookings</h1>
         <Link href="/planner" style={{
           display: 'flex', alignItems: 'center', gap: '6px',
           background: PANEL, border: PANEL_BORDER, borderRadius: '1000px', padding: '7px 13px',

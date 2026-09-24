@@ -76,6 +76,7 @@ function AppointmentCard({ booking }) {
             </p>
             <p style={{ ...ui(300, 12, WHITE60), margin: '2px 0 0' }}>
               {fmt12(booking.start_time)} – {fmt12(booking.end_time)}
+              {booking.status === 'pending' && <span style={{ color: ACCENT, fontWeight: 600 }}> · Awaiting confirmation</span>}
               {showDepositDot && <span style={{ color: ACCENT, fontWeight: 600 }}> · Deposit due</span>}
             </p>
           </div>

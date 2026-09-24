@@ -1838,7 +1838,6 @@ export default function ProfilePage() {
         {/* ── Menu (frame 257:2444 rows + additive Invite & Earn) ───────── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {[
-            { label: 'Booking History',  href: '/appointments',      icon: <CalendarIcon /> },
             { label: 'Nail Lab History', href: '/nail-lab/history',  icon: <MagicStarIcon size={16} /> },
             { label: 'Notifications',    href: '/notifications',     icon: <BellIcon size={16} /> },
             { label: 'Privacy & Safety', href: '/settings/privacy',  icon: <LockIcon size={16} /> },
