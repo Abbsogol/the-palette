@@ -56,7 +56,7 @@ API/component tests import application code with mocked services. Unexpected `fe
 
 ## CI and release status
 
-GitHub Actions runs independent lint, unit, known-regression, and production-build/browser jobs without production secrets. Browser reports are retained for seven days. Failures block readiness; there is no `continue-on-error` bypass. Repository administrators still need to configure required PR checks separately.
+GitHub Actions runs independent lint, unit, known-regression, and production-build/browser jobs without production secrets. Browser reports are retained for seven days. Failures block readiness; there is no `continue-on-error` bypass. The main branch now requires the unit, lint, regressions, and browser checks, with an up-to-date branch and no administrator bypass.
 
 - [Phase 1 evidence and remaining blockers](docs/phase-1-status.md)
 - [Issue register and regression mapping](docs/issue-register.md)
