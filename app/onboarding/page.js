@@ -52,6 +52,21 @@ const chip = (active) => ({
 })
 const label = { ...ui(500, 11, WHITE60), letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '10px', display: 'block' }
 
+// Module-level so it keeps a stable identity across renders. Defined inside the
+// component it was a new function every keystroke, remounting the subtree and
+// stealing focus from the text inputs (the signup-blocking bug).
+function Shell({ children }) {
+  return (
+    <div className="lq-bg-wine" style={{ position: 'fixed', inset: 0, zIndex: 200 }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
+      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', height: '100%', width: '100%', maxWidth: '480px', margin: '0 auto', display: 'flex', flexDirection: 'column' }}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
 function OnboardingInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -183,16 +198,6 @@ function OnboardingInner() {
     setSaving(false)
     router.push(redirectTo)
   }
-
-  const Shell = ({ children }) => (
-    <div className="lq-bg-wine" style={{ position: 'fixed', inset: 0, zIndex: 200 }}>
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
-      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
-      <div style={{ position: 'relative', height: '100%', width: '100%', maxWidth: '480px', margin: '0 auto', display: 'flex', flexDirection: 'column' }}>
-        {children}
-      </div>
-    </div>
-  )
 
   if (loading) return (
     <Shell>
