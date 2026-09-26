@@ -78,7 +78,7 @@ export default function PlannerPage() {
       setLoading(false)
     }
     init()
-  }, [])
+  }, [router])
 
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart)
@@ -299,7 +299,7 @@ export default function PlannerPage() {
                             )}
                             {b.notes && (
                               <div style={{ background: 'var(--bg-chip)', borderRadius: '8px', padding: '8px 10px', marginTop: '4px' }}>
-                                <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: 0, lineHeight: '1.5', fontStyle: 'italic' }}>"{b.notes}"</p>
+                                <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: 0, lineHeight: '1.5', fontStyle: 'italic' }}>&quot;{b.notes}&quot;</p>
                               </div>
                             )}
                           </div>

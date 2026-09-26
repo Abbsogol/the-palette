@@ -80,7 +80,7 @@ export default function UploadPage() {
       setAtLimit(!isPro && used >= FREE_LIMIT)
       setLoading(false)
     })
-  }, [])
+  }, [router])
 
   const toggle = (list, setList, item) =>
     setList(prev => prev.includes(item) ? prev.filter(x => x !== item) : [...prev, item])
@@ -217,7 +217,7 @@ export default function UploadPage() {
         <p style={{ fontSize:'36px', marginBottom:'14px' }}>⚡</p>
         <p style={{ color:'var(--text-primary)', fontSize:'18px', fontWeight:'600', marginBottom:'8px' }}>Weekly limit reached</p>
         <p style={{ color:'var(--text-secondary)', fontSize:'14px', lineHeight:'1.6', marginBottom:'24px' }}>
-          You've used all {FREE_LIMIT} free uploads this week.<br />
+          You&apos;ve used all {FREE_LIMIT} free uploads this week.<br />
           Upgrade to Pro for unlimited uploads.
         </p>
         <div style={{ background:'linear-gradient(145deg, rgba(212,160,192,0.10), rgba(212,160,192,0.03))', border:'1px solid rgba(212,160,192,0.35)', borderRadius:'12px', padding:'18px', marginBottom:'16px' }}>

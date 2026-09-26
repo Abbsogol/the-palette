@@ -1,8 +1,10 @@
 'use client'
+import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export default function SaveButton({ designId }) {
+  const router = useRouter()
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -33,7 +35,7 @@ export default function SaveButton({ designId }) {
     e.preventDefault()
     e.stopPropagation()
     if (!user) {
-      window.location.href = '/profile'
+      router.push('/profile')
       return
     }
     if (saving) return

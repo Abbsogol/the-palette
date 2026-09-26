@@ -91,7 +91,7 @@ export default function ChallengeDetailPage() {
       setLoading(false)
     }
     load()
-  }, [id])
+  }, [id, router])
 
   const handleImagePick = (e) => {
     const file = e.target.files?.[0]
@@ -230,7 +230,7 @@ export default function ChallengeDetailPage() {
       )}
       {!ended && currentUser && mySubmission && (
         <div style={{ margin: '0 20px 20px', background: 'rgba(212,160,192,0.1)', border: '0.5px solid rgba(212,160,192,0.3)', borderRadius: '12px', padding: '12px 16px' }}>
-          <p style={{ color: 'var(--accent)', fontSize: '13px', fontWeight: '500', margin: 0 }}>✓ You've entered this challenge</p>
+          <p style={{ color: 'var(--accent)', fontSize: '13px', fontWeight: '500', margin: 0 }}>✓ You&apos;ve entered this challenge</p>
         </div>
       )}
       {!ended && !currentUser && (

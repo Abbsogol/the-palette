@@ -121,7 +121,7 @@ export default function AppointmentsPage() {
       setLoading(false)
     }
     init()
-  }, [])
+  }, [router])
 
   const today = new Date().toISOString().split('T')[0]
 

@@ -83,7 +83,7 @@ export default function AppointmentDetailPage() {
       setLoading(false)
     }
     init()
-  }, [id])
+  }, [id, router])
 
   const handlePayDeposit = async () => {
     if (payLoading) return

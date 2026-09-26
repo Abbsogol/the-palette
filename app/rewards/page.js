@@ -57,7 +57,7 @@ export default function RewardsPage() {
       setTotalPoints((allPoints || []).reduce((sum, r) => sum + r.points, 0))
       setLoading(false)
     })
-  }, [])
+  }, [router])
 
   const level = getLevel(totalPoints)
   const nextLevel = LEVELS[LEVELS.findIndex(l => l.name === level.name) + 1]
@@ -102,7 +102,7 @@ export default function RewardsPage() {
             </>
           )}
           {!nextLevel && (
-            <p style={{ color: 'var(--accent)', fontSize: '13px', fontWeight: '500', margin: 0 }}>You've reached the highest level 💎</p>
+            <p style={{ color: 'var(--accent)', fontSize: '13px', fontWeight: '500', margin: 0 }}>You&apos;ve reached the highest level 💎</p>
           )}
         </div>
 

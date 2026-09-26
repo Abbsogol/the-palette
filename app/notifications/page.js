@@ -71,7 +71,7 @@ export default function NotificationsPage() {
         .eq('read', false)
       if (markReadError) console.error('mark-read error:', markReadError)
     })
-  }, [])
+  }, [router])
 
   return (
     <div style={{ paddingBottom: '100px' }}>
@@ -97,7 +97,7 @@ export default function NotificationsPage() {
             </svg>
           </div>
           <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '500', marginBottom: '6px' }}>No notifications yet</p>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>When someone follows, likes, or comments, you'll see it here.</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>When someone follows, likes, or comments, you&apos;ll see it here.</p>
         </div>
       ) : (
         <div>

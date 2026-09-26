@@ -51,6 +51,17 @@ export async function POST(request) {
   const fileName = `${user.id}-${Date.now()}-${safeTitle}.webp`
   const rawBuffer = Buffer.from(await file.arrayBuffer())
 
+  // Validate the bytes before invoking a decoder; browser MIME labels are
+  // untrusted. In particular, AVIF/HEIF must not reach the native decoder.
+  const detected = rawBuffer.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])) ? 'jpeg'
+    : rawBuffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) ? 'png'
+    : ['GIF87a', 'GIF89a'].includes(rawBuffer.toString('ascii', 0, 6)) ? 'gif'
+    : rawBuffer.toString('ascii', 0, 4) === 'RIFF' && rawBuffer.toString('ascii', 8, 12) === 'WEBP' ? 'webp'
+    : null
+  if (!detected || file.type !== `image/${detected}`) {
+    return Response.json({ error: 'Image content does not match an allowed file type' }, { status: 400 })
+  }
+
   // Resize + re-encode to WebP regardless of input format — a raw phone
   // camera photo (commonly 3000x4000px, several MB) was previously stored
   // and served byte-for-byte unmodified for every 130-180px thumbnail
@@ -58,7 +69,10 @@ export async function POST(request) {
   // needed — WebP has had universal support, including Safari, for years).
   let webpBuffer
   try {
-    webpBuffer = await sharp(rawBuffer)
+    const image = sharp(rawBuffer, { limitInputPixels: 40_000_000, failOn: 'warning' })
+    const metadata = await image.metadata()
+    if (metadata.format !== detected) return Response.json({ error: 'Unsupported image content' }, { status: 400 })
+    webpBuffer = await image.rotate()
       .resize({ width: MAX_DIMENSION, height: MAX_DIMENSION, fit: 'inside', withoutEnlargement: true })
       .webp({ quality: 85 })
       .toBuffer()

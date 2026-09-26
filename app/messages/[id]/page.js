@@ -78,7 +78,7 @@ export default function ChatPage() {
       setLoading(false)
     }
     init()
-  }, [id])
+  }, [id, router])
 
   // Realtime subscription
   useEffect(() => {

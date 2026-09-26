@@ -1,8 +1,11 @@
+import { randomUUID } from 'node:crypto'
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
 
 export const maxDuration = 60 // allow up to 60s for gpt-image-1
 
 export async function POST(request) {
+  let reservationId = null
+  let completed = false
   try {
     const user = await getSessionUser(request)
     if (!user) {
@@ -33,57 +36,21 @@ export async function POST(request) {
     const colors = capArr(body.colors, 20, 40)
     const occasion = Array.isArray(body.occasion) ? capArr(body.occasion, 10, 40) : capStr(body.occasion, 100)
     const customText = capStr(body.customText, 500)
-    const referenceImageUrls = capArr(body.referenceImageUrls, 10, 500)
 
-    // Check credit balance (skip for free regen)
-    // profiles_data, not the profiles view — credit_balance is masked behind
-    // auth.uid() = id in the view, which is never true for a service-role caller.
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles_data')
-      .select('credit_balance')
-      .eq('id', userId)
-      .single()
-
-    if (profileError || !profile) {
-      return Response.json({ error: 'User not found' }, { status: 404 })
+    if (body.referenceImageUrls != null && (!Array.isArray(body.referenceImageUrls) || body.referenceImageUrls.length)) {
+      return Response.json({ error: 'Reference images are not supported yet. Remove them to generate from text.' }, { status: 422 })
     }
-
-    // A free regen must point at a real, unused, original (non-regen)
-    // generation owned by this user — claimed atomically via a conditional
-    // update BEFORE generation starts, not via a check-then-flag-after
-    // sequence. Two concurrent requests racing a plain read-then-write could
-    // both pass the eligibility read and both get a free image from one
-    // eligible regen; this update can only ever succeed for one of them.
-    if (freeRegen) {
-      if (!parentGenerationId) {
-        return Response.json({ error: 'Free regen unavailable' }, { status: 403 })
-      }
-      const { data: claimed, error: claimError } = await supabase
-        .from('nail_lab_generations')
-        .update({ free_regen_used: true })
-        .eq('id', parentGenerationId)
-        .eq('user_id', userId)
-        .eq('free_regen_used', false)
-        .is('parent_generation_id', null)
-        .select('id')
-        .maybeSingle()
-
-      if (claimError || !claimed) {
-        return Response.json({ error: 'Free regen unavailable' }, { status: 403 })
-      }
+    if (freeRegen && !parentGenerationId) {
+      return Response.json({ error: 'Free regen unavailable' }, { status: 403 })
     }
-
-    if (!freeRegen && profile.credit_balance < 1) {
-      return Response.json({ error: 'Insufficient credits' }, { status: 402 })
-    }
-
-    // If generation fails anywhere after the free-regen flag is claimed
-    // above, give it back — the user shouldn't lose their one free regen to
-    // an OpenAI/storage hiccup that produced no image.
-    const refundFreeRegen = async () => {
-      if (freeRegen && parentGenerationId) {
-        await supabase.from('nail_lab_generations').update({ free_regen_used: false }).eq('id', parentGenerationId)
-      }
+    reservationId = randomUUID()
+    const { data: reserved, error: reservationError } = await supabase.rpc('reserve_generation', {
+      p_id: reservationId, p_user_id: userId, p_parent_id: freeRegen ? parentGenerationId : null,
+    })
+    if (reservationError) throw new Error('Failed to reserve generation', { cause: reservationError })
+    if (!reserved) {
+      reservationId = null
+      return Response.json({ error: freeRegen ? 'Free regen unavailable' : 'Insufficient credits' }, { status: freeRegen ? 403 : 402 })
     }
 
     // Build prompt
@@ -93,9 +60,6 @@ export async function POST(request) {
       ? ` Suited for ${Array.isArray(occasion) ? occasion.join(' or ') : occasion}.`
       : ''
     const customNote = customText ? ` Additional details: ${customText}.` : ''
-    const refNote = referenceImageUrls && referenceImageUrls.length > 0
-      ? ` Take inspiration from the reference nail designs provided — adopt their aesthetic, finish, and mood.`
-      : ''
 
     // Design name hint based on primary vibe
     const primaryVibe = Array.isArray(vibe) ? vibe[0] : vibe
@@ -132,7 +96,7 @@ NAIL DESIGN SPECS — apply to every nail:
 - Shape: ${shape}
 - Length: ${length}
 - Vibe / aesthetic: ${vibeList}
-- Colours: ${colorList}${occasionNote}${customNote}${refNote}
+- Colours: ${colorList}${occasionNote}${customNote}
 
 DESIGN NAME: Choose a name that is ${nameHint}. Subtitle should reflect shape, length or finish in 2–4 words.`
 
@@ -156,7 +120,6 @@ DESIGN NAME: Choose a name that is ${nameHint}. Subtitle should reflect shape, l
     if (!openaiRes.ok) {
       const err = await openaiRes.json()
       console.error('OpenAI error:', err)
-      await refundFreeRegen()
       return Response.json({ error: 'Image generation failed' }, { status: 500 })
     }
 
@@ -167,20 +130,18 @@ DESIGN NAME: Choose a name that is ${nameHint}. Subtitle should reflect shape, l
 
     if (!b64) {
       console.error('No image returned from OpenAI:', openaiData)
-      await refundFreeRegen()
       return Response.json({ error: 'No image returned' }, { status: 500 })
     }
 
     // Upload to Supabase Storage (private bucket)
-    const fileName = `${userId}/${Date.now()}.png`
+    const fileName = `${userId}/${reservationId}.png`
     const imageBuffer = Buffer.from(b64, 'base64')
     const { error: uploadError } = await supabase.storage
       .from('nail-lab')
-      .upload(fileName, imageBuffer, { contentType: 'image/png', upsert: false })
+      .upload(fileName, new Uint8Array(imageBuffer), { contentType: 'image/png', upsert: false })
 
     if (uploadError) {
       console.error('Storage upload error:', uploadError)
-      await refundFreeRegen()
       return Response.json({ error: 'Failed to save image' }, { status: 500 })
     }
 
@@ -197,61 +158,42 @@ DESIGN NAME: Choose a name that is ${nameHint}. Subtitle should reflect shape, l
 
     if (signError || !signedData) {
       console.error('Signed URL error:', signError)
-      await refundFreeRegen()
       return Response.json({ error: 'Failed to prepare image' }, { status: 500 })
     }
     const imageUrl = signedData.signedUrl
 
-    // Deduct 1 credit (free regens already had their one-time flag claimed
-    // atomically above, before generation started). The image is already
-    // generated and uploaded by this point, so a decrement failure here is
-    // logged for reconciliation rather than discarding the result.
-    if (!freeRegen) {
-      const { error: decError } = await supabase.rpc('decrement_credits', { user_id: userId })
-      if (decError) console.error('decrement_credits failed:', decError)
-    }
-
-    // Save generation record
-    const { data: generation, error: insertError } = await supabase
-      .from('nail_lab_generations')
-      .insert({
-        user_id: userId,
+    // The image record and reservation completion commit together. Releasing
+    // after an ambiguous network response cannot refund a completed request.
+    const { data: generationId, error: insertError } = await supabase.rpc('complete_generation', {
+      p_id: reservationId,
+      p_generation: {
         image_url: storedImageUrl,
-        vibe,
-        shape,
-        length,
-        colors: colors || [],
-        occasion: occasion || null,
-        custom_text: customText || null,
-        prompt_used: prompt,
-        reference_image_urls: referenceImageUrls || [],
-        credits_used: 1,
-        parent_generation_id: parentGenerationId || null,
-      })
-      .select()
-      .single()
-
-    if (insertError || !generation) {
-      console.error('nail_lab_generations insert failed:', insertError)
-      // The generation record — the only durable reference to what was just
-      // charged for — was lost, so refund the credit/free-regen rather than
-      // silently keeping the charge.
-      if (!freeRegen) {
-        await supabase.rpc('increment_credits', { user_id: userId, amount: 1 })
-      } else {
-        await refundFreeRegen()
-      }
-      return Response.json({ error: 'Failed to save your generation. Please try again — you have not been charged.' }, { status: 500 })
-    }
+        vibe: Array.isArray(vibe) ? vibe : [vibe], shape, length, colors,
+        occasion: Array.isArray(occasion) ? occasion : [occasion].filter(Boolean),
+        custom_text: customText || null, prompt_used: prompt,
+      },
+    })
+    if (insertError || !generationId) throw new Error('Failed to save generation', { cause: insertError })
+    completed = true
+    const { data: profile } = await supabase.from('profiles_data').select('credit_balance').eq('id', userId).single()
 
     return Response.json({
       imageUrl,
-      generationId: generation.id,
-      creditsRemaining: freeRegen ? profile.credit_balance : profile.credit_balance - 1,
+      generationId,
+      creditsRemaining: profile?.credit_balance ?? null,
     })
 
   } catch (err) {
     console.error('generate-nail-design error:', err)
-    return Response.json({ error: 'Server error' }, { status: 500 })
+    return Response.json({ error: 'Generation could not be completed. Please check your history before retrying.' }, { status: 500 })
+  } finally {
+    if (reservationId && !completed) {
+      try {
+        const { error } = await supabase.rpc('release_generation', { p_id: reservationId })
+        if (error) console.error('Generation reservation needs reconciliation:', reservationId, error)
+      } catch (error) {
+        console.error('Generation reservation needs reconciliation:', reservationId, error)
+      }
+    }
   }
 }

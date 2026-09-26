@@ -78,7 +78,7 @@ export default function BookingDetailPage() {
       setLoading(false)
     }
     init()
-  }, [id])
+  }, [id, router])
 
   const handleSaveNote = async () => {
     if (!currentUser || noteSaving) return

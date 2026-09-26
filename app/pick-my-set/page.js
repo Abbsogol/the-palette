@@ -94,7 +94,7 @@ export default function PickMySetPage() {
       <div style={{ padding: '24px 20px 20px' }}>
         <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 4px' }}>AI Stylist</p>
         <h1 style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: '500', letterSpacing: '-0.02em', margin: '0 0 6px' }}>Pick My Set</h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0 }}>Describe what you're going for and we'll pick your perfect nail set</p>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0 }}>Describe what you&apos;re going for and we&apos;ll pick your perfect nail set</p>
       </div>
 
       <div style={{ padding: '0 20px' }}>

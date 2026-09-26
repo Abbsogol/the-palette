@@ -129,7 +129,7 @@ export default function BookPage() {
       setLoading(false)
     }
     init()
-  }, [])
+  }, [creatorId, designId, prefillNote, prefillServiceId, router])
 
   // Generate time slots when date + service selected
   useEffect(() => {
@@ -173,7 +173,7 @@ export default function BookPage() {
       setSlotsLoading(false)
     }
     fetchSlots()
-  }, [selectedDate, selectedService])
+  }, [availability, creatorId, selectedDate, selectedService])
 
   const handleSubmit = async () => {
     if (!selectedService || !selectedDate || !selectedSlot) return
@@ -251,7 +251,7 @@ export default function BookPage() {
 
   if (loadError) return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '20px', textAlign: 'center' }}>
-      <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif" }}>Couldn't load booking details</p>
+      <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif" }}>Couldn&apos;t load booking details</p>
       <p style={{ color: 'var(--text-secondary)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif" }}>Please try again in a moment.</p>
       <button onClick={() => window.location.reload()} style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '12px 24px', fontSize: '14px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
         Retry
@@ -283,7 +283,7 @@ export default function BookPage() {
         Your appointment request has been sent to <strong style={{ color: 'var(--text-primary)' }}>{creator?.display_name}</strong>.
       </p>
       <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '0 0 32px' }}>
-        You'll get notified once they confirm or decline.
+        You&apos;ll get notified once they confirm or decline.
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', maxWidth: '320px' }}>
         <Link href={`/creator/${creatorId}`} style={{ background: 'var(--accent)', color: '#2C0A1E', borderRadius: '12px', padding: '13px', fontSize: '14px', fontWeight: '600', textDecoration: 'none', textAlign: 'center' }}>

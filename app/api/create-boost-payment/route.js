@@ -38,7 +38,7 @@ export async function POST(request) {
     const idempotencyKey = `boost-${user.id}-${designId}-${days}-${Math.floor(Date.now() / 300000)}`
 
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
+      integration_identifier: 'laque_checkout_qmrtxvpa',
       mode: 'payment',
       line_items: [
         {

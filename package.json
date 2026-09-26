@@ -6,22 +6,41 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:regressions": "vitest run tests/regressions",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "build:smoke": "node scripts/with-test-env.mjs node node_modules/next/dist/bin/next build",
+    "env:check": "node scripts/check-env.mjs",
+    "env:check:build": "node scripts/check-env.mjs build"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.1",
     "@vercel/analytics": "^2.0.1",
-    "next": "16.2.6",
+    "next": "16.3.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "resend": "^6.20.0",
-    "sharp": "^0.35.3",
-    "stripe": "^22.2.1"
+    "sharp": "^0.35.4",
+    "stripe": "^22.6.2"
   },
   "devDependencies": {
+    "@babel/core": "7.29.7",
+    "@babel/plugin-transform-react-jsx": "7.29.7",
+    "@electric-sql/pglite": "0.3.14",
+    "@next/env": "16.3.6",
+    "@playwright/test": "1.63.0",
     "@tailwindcss/postcss": "^4",
+    "@testing-library/dom": "10.4.2",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
     "eslint": "^9",
-    "eslint-config-next": "16.2.6",
-    "tailwindcss": "^4"
+    "eslint-config-next": "16.3.6",
+    "jsdom": "30.1.1",
+    "pg": "8.16.3",
+    "tailwindcss": "^4",
+    "vitest": "5.0.2"
   }
 }
