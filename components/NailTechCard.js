@@ -15,7 +15,7 @@ const display = (size) => ({ fontFamily: 'var(--lq-font-display)', fontWeight: 4
 const labelStyle = { ...ui(600, 11, ACCENT), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }
 const chipStyle = { background: 'rgba(255,255,255,0.06)', ...ui(500, 12, WHITE60), padding: '6px 12px', borderRadius: '1000px', textTransform: 'capitalize', border: PANEL_BORDER }
 
-export default function NailTechCard({ design, colours, renderTrigger }) {
+export default function NailTechCard({ design, colours, tags, renderTrigger }) {
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const copiedTimer = useRef(null)
@@ -39,11 +39,14 @@ export default function NailTechCard({ design, colours, renderTrigger }) {
     design.finish && `Finish: ${design.finish}`,
   ].filter(Boolean).join('\n')
 
+  const tagLine = (tags && tags.length) ? `\nTags: ${tags.join(', ')}` : undefined
+
   const shareText = [
     `💅 My nail inspo — ${design.title}`,
     '',
     specLines,
     colourLines ? `\nColours:\n${colourLines}` : '',
+    tagLine,
     '',
     `laque.app/design/${design.id}`,
   ].filter(s => s !== undefined).join('\n').trim()

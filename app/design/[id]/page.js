@@ -172,11 +172,12 @@ export default async function DesignPage({ params, searchParams }) {
 
           {/* Primary actions — Book / Boost / Show my nail tech (one primary, always) */}
           <DesignPrimaryActions
-            design={{ id: design.id, title: design.title, image_url: design.image_url }}
+            design={{ id: design.id, title: design.title, image_url: design.image_url, shape: design.shape, length: design.length, technique: design.technique, finish: design.finish }}
             creatorId={design.created_by || null}
             creatorHasServices={creatorHasServices}
             boostedUntil={design.boosted_until || null}
             colours={colours || []}
+            tags={tags}
           />
 
           {/* Spec chips */}
