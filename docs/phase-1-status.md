@@ -16,7 +16,7 @@
 - 23 passing tests for verified auth, admin/owner guards, allowed profile fields, and environment validation.
 - 10 failing regression cases asserting desired behavior for the known defects, plus three passing control cases in that suite.
 - Playwright production-build smoke tests in Chromium and mobile WebKit; all six passed.
-- GitHub Actions definition for independent lint, unit, regression, and production-build/browser checks. No production secrets are required. Publishing is blocked, so these jobs have not run on GitHub.
+- GitHub Actions definition for independent lint, unit, regression, and production-build/browser checks. No production secrets are required. Published in [draft PR #1](https://github.com/Abbsogol/the-palette/pull/1); use its Checks tab for current remote results.
 - Blank environment template, configuration checker, pinned local/CI Node version, and fake-service smoke-build launcher.
 - Issue register, read-only database catalogue queries, and staging/backup/restore runbook.
 
@@ -39,7 +39,7 @@ The regression failures are real release blockers, not skipped or expected-failu
 
 | Requirement | Status / missing evidence |
 |---|---|
-| GitHub repository access | Browser access works as repository owner Abbsogol. Terminal Git is unauthenticated; the connected integration previously rejected tree creation. Browser publishing is in progress. |
+| GitHub repository access | Browser access works as repository owner Abbsogol. Terminal Git is unauthenticated; the connected integration previously rejected tree creation. All 27 foundation files were published through the owner session to codex/phase-1-foundation and verified byte-for-byte against the local commit. Draft PR #1 is open against main. |
 | Vercel project access | Verified `sogol-s-projects1/the-palette`, production deployment `3jsKyXyJ8K6HGzo9cPbaPNkTegar`, main `22ec32f`. Nine secret variables apply to Production and Preview; none are linked from Shared. |
 | Supabase organization | Verified Abbsogol's Org, Pro, `znhsllocognxwjtcowky` |
 | Production Supabase identity | Verified `the-palette`, `faunikvhoommbebsmevg`, Ireland eu-west-1, PostgreSQL 17.6. The live frontend bundle references this project. |
@@ -56,4 +56,4 @@ No production database changes, payments, schema pushes, paid resource purchases
 
 ## Resume
 
-Finish browser publishing to `codex/phase-1-foundation`, open a draft PR against main, and verify remote CI. Keep lint and known-regression failures visible. Complete the isolated restore after approval, establish a synthetic staging target, export/replay a complete schema baseline, and run database integration tests. Track Storage recovery separately from database backup coverage.
+Verify remote CI on [draft PR #1](https://github.com/Abbsogol/the-palette/pull/1). Keep lint and known-regression failures visible. Complete the isolated restore after approval, establish a synthetic staging target, export/replay a complete schema baseline, and run database integration tests. Track Storage recovery separately from database backup coverage.
