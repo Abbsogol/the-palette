@@ -37,6 +37,18 @@ function useCountdown(endsAt) {
   return timeLeft
 }
 
+// Module-level: an inline Shell got a new identity every render, remounting the
+// subtree and stealing focus from the entry caption while typing.
+function Shell({ children }) {
+  return (
+    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
+      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 120px)' }}>{children}</div>
+    </div>
+  )
+}
+
 export default function ChallengeDetailPage() {
   const { id } = useParams()
   const router = useRouter()
@@ -169,14 +181,6 @@ export default function ChallengeDetailPage() {
   const sorted = ended
     ? [...submissions].sort((a, b) => (voteCounts[b.id] || 0) - (voteCounts[a.id] || 0))
     : submissions
-
-  const Shell = ({ children }) => (
-    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
-      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
-      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 120px)' }}>{children}</div>
-    </div>
-  )
 
   if (loading) return (
     <Shell>

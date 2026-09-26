@@ -48,6 +48,18 @@ function Row({ label, value, accent }) {
   )
 }
 
+// Module-level: an inline Shell got a new identity every render, remounting the
+// subtree and stealing focus from the private-notes textarea while typing.
+function Shell({ children }) {
+  return (
+    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
+      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 60px)' }}>{children}</div>
+    </div>
+  )
+}
+
 export default function BookingDetailPage() {
   const { id } = useParams()
   const router = useRouter()
@@ -164,14 +176,6 @@ export default function BookingDetailPage() {
     setBooking(prev => ({ ...prev, status: 'declined' }))
     setActing(null)
   }
-
-  const Shell = ({ children }) => (
-    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
-      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
-      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 60px)' }}>{children}</div>
-    </div>
-  )
 
   if (loading) return (
     <Shell>
