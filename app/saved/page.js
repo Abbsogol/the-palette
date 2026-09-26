@@ -85,8 +85,30 @@ export default function SavedPage() {
     setDesigns(saved?.map(d => d.designs).filter(Boolean) || [])
 
     const shared = (memberRows || []).map(r => r.moodboards).filter(Boolean).filter(b => b.user_id !== userId)
-    // Covers are always a design's image (SaveToBoard is the only writer),
-    // so their dims resolve from designs by URL — no duplicated columns.
+
+    // Board counts + the first (earliest-added) design per board. The first
+    // design is the fallback cover for any board that has no stored
+    // cover_image_url (e.g. legacy Pick-My-Set boards) — so a board that holds
+    // designs never shows an empty folder, matching every other board. "Make it
+    // consistent" (Sogol 2026-09-26).
+    const boardIds = [...(ownBoards || []), ...shared].map(b => b.id)
+    const counts = {}
+    const firstDesign = {}
+    if (boardIds.length) {
+      const { data: mdRows } = await supabase
+        .from('moodboard_designs')
+        .select('moodboard_id, added_at, designs(image_url, image_width, image_height)')
+        .in('moodboard_id', boardIds)
+        .order('added_at', { ascending: true })
+      mdRows?.forEach(r => {
+        counts[r.moodboard_id] = (counts[r.moodboard_id] || 0) + 1
+        if (!firstDesign[r.moodboard_id] && r.designs?.image_url) firstDesign[r.moodboard_id] = r.designs
+      })
+    }
+
+    // Covers are always a design's image (SaveToBoard/Pick-My-Set write it, and
+    // the fallback above is also a design), so their dims resolve from designs
+    // by URL — no duplicated columns.
     const coverUrls = [...new Set([...(ownBoards || []), ...shared].map(b => b.cover_image_url).filter(Boolean))]
     let coverDims = {}
     if (coverUrls.length) {
@@ -101,18 +123,14 @@ export default function SavedPage() {
     const all = [
       ...(ownBoards || []).map(b => ({ ...b, __shared: false })),
       ...shared.map(b => ({ ...b, __shared: true, __ownerName: ownerNames[b.user_id] || 'someone' })),
-    ].map(b => ({ ...b, __coverDims: coverDims[b.cover_image_url] || null }))
+    ].map(b => {
+      const fallback = !b.cover_image_url ? firstDesign[b.id] : null
+      const cover = b.cover_image_url || fallback?.image_url || null
+      const dims = b.cover_image_url ? (coverDims[b.cover_image_url] || null) : (fallback || null)
+      return { ...b, cover_image_url: cover, __coverDims: dims }
+    })
     setBoards(all)
-
-    if (all.length) {
-      const { data: countData } = await supabase
-        .from('moodboard_designs')
-        .select('moodboard_id')
-        .in('moodboard_id', all.map(b => b.id))
-      const c = {}
-      countData?.forEach(r => { c[r.moodboard_id] = (c[r.moodboard_id] || 0) + 1 })
-      setBoardCounts(c)
-    }
+    setBoardCounts(counts)
     setLoading(false)
   }
 

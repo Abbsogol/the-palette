@@ -85,7 +85,7 @@ export default function PickMySetPage() {
     const boardName = `My Set — ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
     const { data: board, error: boardError } = await supabase
       .from('moodboards')
-      .insert({ user_id: session.user.id, name: boardName, is_public: false })
+      .insert({ user_id: session.user.id, name: boardName, is_public: false, cover_image_url: results.find(d => d?.image_url)?.image_url || null })
       .select().single()
 
     if (boardError || !board) {
