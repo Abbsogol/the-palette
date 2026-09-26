@@ -1,6 +1,6 @@
 # Regression fixes — September 26, 2026
 
-The ten failures recorded against main are fixed in the local review branch. The original behavioral assertions remain enabled. No production database migration or deployment has been performed.
+The ten failures recorded against main are fixed in the review branch and published in [draft PR #1](https://github.com/Abbsogol/the-palette/pull/1). The original behavioral assertions remain enabled. No production database migration or deployment has been performed.
 
 | Case | Cause and correction |
 |---|---|
@@ -35,6 +35,6 @@ Lint fixes include stable hook dependencies, callbacks declared before use, deri
 3. Deploy the application only after migration and staging verification. Preserve the new financial ledgers on rollback. Do not replay historical successful purchases to manufacture receipts: legacy processed event IDs remain deduplicated. An older checkout without a new receipt stays unconfirmed in the UI until separately reconciled.
 4. Monitor `generation_reservations` left in `reserved` status after a terminated request. The route's finally block covers thrown failures, but cannot execute after a killed process or total database outage. An operator must inspect stale requests, then use the idempotent `release_generation` RPC where appropriate. Completed reservations cannot be released. Orphaned storage uploads may also require cleanup.
 
-The fixture schema contains only the inspected dependencies and synthetic identities, not all production RLS policies or a production restore. Full staging/restore verification and the other release issues remain open. GitHub publication is pending authenticated Git or restored integration write access; remote CI has not run these local changes.
+The fixture schema contains only the inspected dependencies and synthetic identities, not all production RLS policies or a production restore. Full staging/restore verification and the other release issues remain open. The fix commit is published in draft PR #1. Its Checks tab reports current remote CI; the counts above are the completed local verification. Production rollout remains pending.
 
 Implementation references: [Stripe webhook behavior](https://docs.stripe.com/webhooks), [Stripe Checkout fulfillment](https://docs.stripe.com/checkout/fulfillment), [Sharp input limits](https://sharp.pixelplumbing.com/api-constructor/), and [PGlite API](https://pglite.dev/docs/api).

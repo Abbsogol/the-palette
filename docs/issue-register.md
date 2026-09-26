@@ -1,6 +1,6 @@
 # Release issue register
 
-Baseline: main `22ec32f0959a529507c8bbf7302ef14d50b7015a`, checked September 26, 2026. All ten cases below are now fixed and tested in the local review branch; migration, publication, and deployment remain pending. See [fixes and verification](regression-fixes.md). IDs match the original inspection order.
+Baseline: main `22ec32f0959a529507c8bbf7302ef14d50b7015a`, checked September 26, 2026. All ten cases below are now fixed, tested, and published in the review branch; migration and deployment remain pending. See [fixes and verification](regression-fixes.md). IDs match the original inspection order.
 
 | ID | Priority | Required behavior | Test file | Fix phase |
 |---|---|---|---|---|
@@ -27,6 +27,6 @@ Other release checks:
 | Monthly credits | Benefits advertised; no invoice grant in checked-in handler | Verify deployed job or implement idempotent paid-period fulfillment |
 | Board covers | Some paths pass signed URLs | Persist stable references and test after expiration |
 | Filters/pagination | Case normalization and fixed limits need review | Test realistic datasets and older rows |
-| Lint | Fixed locally: zero errors and warnings (was 60/32) | Publish and run remote CI |
-| Dependencies | Upgraded locally: zero audit findings; build and browser checks pass | Publish and verify staging runtime |
+| Lint | Fixed locally: zero errors and warnings (was 60/32) | Verify the published PR checks |
+| Dependencies | Upgraded locally: zero audit findings; build and browser checks pass | Verify staging runtime before deployment |
 | Recovery/staging | Daily backups verified; restore and isolated staging pending | Complete the environment-and-recovery runbook |
