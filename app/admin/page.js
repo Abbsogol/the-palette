@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useCurrentTime } from '@/lib/use-current-time'
 import { supabase } from '@/lib/supabase'
 
 async function authHeaders() {
@@ -354,6 +355,7 @@ function ProductForm({ initial, onSave, onCancel, saveLabel }) {
 
 // ─── Dashboard Tab ────────────────────────────────────────────────
 function Dashboard() {
+  const now = useCurrentTime()
   const [stats, setStats] = useState(null)
 
   useEffect(() => {
@@ -383,7 +385,7 @@ function Dashboard() {
   }, [])
 
   const timeAgo = (iso) => {
-    const diff = Date.now() - new Date(iso).getTime()
+    const diff = now - new Date(iso).getTime()
     const d = Math.floor(diff / 86400000)
     const h = Math.floor(diff / 3600000)
     const m = Math.floor(diff / 60000)
@@ -496,20 +498,25 @@ function CreditsManager() {
   const [errorMsg, setErrorMsg] = useState('')
   const [loading, setLoading] = useState(true)
 
-  const fetchUsers = async (q = '') => {
+  const fetchUsers = useCallback(async (q = '') => {
+    const res = await fetch(`/api/admin-profiles?q=${encodeURIComponent(q)}`, { headers: await authHeaders() })
+    if (!res.ok) throw new Error('Unable to load users')
+    return (await res.json()).users || []
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    fetchUsers().then(users => { if (!cancelled) { setResults(users); setLoading(false) } })
+      .catch(() => { if (!cancelled) { setErrorMsg('Unable to load users'); setLoading(false) } })
+    return () => { cancelled = true }
+  }, [fetchUsers])
+
+  const search = async () => {
     setLoading(true)
-    const res = await fetch(`/api/admin-profiles?q=${encodeURIComponent(q)}`, {
-      headers: await authHeaders(),
-    })
-    const data = await res.json()
-    setResults(data.users || [])
-    setSelected(null)
-    setLoading(false)
+    try { setResults(await fetchUsers(query)); setSelected(null) }
+    catch { setErrorMsg('Unable to load users') }
+    finally { setLoading(false) }
   }
-
-  useEffect(() => { fetchUsers() }, [])
-
-  const search = () => fetchUsers(query)
 
   const updateCredits = async (delta) => {
     if (!selected || !amount || updating) return
@@ -599,19 +606,6 @@ export default function AdminPage() {
     })
   }, [])
 
-  useEffect(() => {
-    if (authed && activeTab === 'manage' && !editingDesign) loadDesigns()
-    if (authed && activeTab === 'shop') loadProducts()
-  }, [authed, activeTab, editingDesign])
-
-  const loadDesigns = async () => {
-    setLoadingDesigns(true)
-    const { data, error } = await supabase.from('designs').select('id, title, image_url, created_at, is_drop').order('created_at', { ascending: false }).limit(500)
-    if (error) console.error('admin designs fetch failed:', error)
-    setAllDesigns(data || [])
-    setLoadingDesigns(false)
-  }
-
   const loadProducts = async () => {
     setLoadingProducts(true)
     const { data, error } = await supabase.from('products').select('*').order('created_at', { ascending: false }).limit(500)
@@ -619,6 +613,29 @@ export default function AdminPage() {
     setAllProducts(data || [])
     setLoadingProducts(false)
   }
+
+  useEffect(() => {
+    let cancelled = false
+    if (authed && activeTab === 'manage' && !editingDesign) {
+      supabase.from('designs').select('id, title, image_url, created_at, is_drop')
+        .order('created_at', { ascending: false }).limit(500).then(({ data, error }) => {
+          if (cancelled) return
+          if (error) console.error('admin designs fetch failed:', error)
+          setAllDesigns(data || [])
+          setLoadingDesigns(false)
+        })
+    }
+    if (authed && activeTab === 'shop') {
+      supabase.from('products').select('*').order('created_at', { ascending: false }).limit(500)
+        .then(({ data, error }) => {
+          if (cancelled) return
+          if (error) console.error('admin products fetch failed:', error)
+          setAllProducts(data || [])
+          setLoadingProducts(false)
+        })
+    }
+    return () => { cancelled = true }
+  }, [authed, activeTab, editingDesign])
 
   const deleteDesign = async (id, title) => {
     if (!confirm(`Delete "${title}"? This cannot be undone.`)) return
@@ -784,7 +801,7 @@ export default function AdminPage() {
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
         <div style={{ width: '100%', maxWidth: '360px', textAlign: 'center' }}>
           <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Admin</p>
-          <h1 style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: '500', marginBottom: '10px' }}>You don't have access</h1>
+          <h1 style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: '500', marginBottom: '10px' }}>You don&apos;t have access</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Sign in with an admin account to view this page.</p>
         </div>
       </div>

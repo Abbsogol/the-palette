@@ -247,11 +247,6 @@ export default function NailLabPage() {
   const [occasions, setOccasions] = useState([])
   const [customText, setCustomText] = useState('')
 
-  // Reference designs
-  const [showRefPicker, setShowRefPicker] = useState(false)
-  const [allDesigns, setAllDesigns] = useState([])
-  const [refDesigns, setRefDesigns] = useState([]) // selected reference design objects
-
   // Generation
   const [generating, setGenerating] = useState(false)
   const [result, setResult] = useState(null)
@@ -286,27 +281,6 @@ export default function NailLabPage() {
     }
     load()
   }, [])
-
-  const loadDesigns = async () => {
-    if (allDesigns.length > 0) return
-    const { data } = await supabase
-      .from('designs')
-      .select('id, title, image_url, shape, occasion')
-      .eq('is_published', true)
-      .eq('is_curated', true)
-      .order('created_at', { ascending: false })
-      .limit(60)
-    setAllDesigns(data || [])
-  }
-
-  const toggleRefDesign = (design) => {
-    setRefDesigns(prev => {
-      const exists = prev.find(d => d.id === design.id)
-      if (exists) return prev.filter(d => d.id !== design.id)
-      if (prev.length >= 4) return prev
-      return [...prev, design]
-    })
-  }
 
   const toggleColor = (hex) => {
     setColors(prev => {
@@ -350,7 +324,6 @@ export default function NailLabPage() {
           vibe: vibes, shape, length, colors,
           occasion: occasions,
           customText: customText || null,
-          referenceImageUrls: refDesigns.map(d => d.image_url).filter(Boolean),
           freeRegen,
           parentGenerationId: parentId,
         }),
@@ -698,47 +671,6 @@ export default function NailLabPage() {
   // ── MAIN BUILDER ──────────────────────────────────────────────────────────
   return (
     <>
-      {/* Reference design picker overlay */}
-      {showRefPicker && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)' }}>
-          <div style={{ padding: '20px 20px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '0.5px solid var(--border)', flexShrink: 0 }}>
-            <div>
-              <p style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '600', margin: 0, fontFamily: "'DM Sans', sans-serif" }}>Reference designs</p>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '2px 0 0' }}>Pick up to 4 · {refDesigns.length} selected</p>
-            </div>
-            <button onClick={() => setShowRefPicker(false)} style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '10px', padding: '8px 18px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>
-              Done
-            </button>
-          </div>
-          <div style={{ overflowY: 'auto', flex: 1, padding: '16px 20px' }}>
-            {allDesigns.length === 0 ? (
-              <p style={{ color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center', padding: '32px 0' }}>Loading designs...</p>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
-                {allDesigns.map(d => {
-                  const selected = refDesigns.find(r => r.id === d.id)
-                  return (
-                    <button key={d.id} onClick={() => toggleRefDesign(d)}
-                      style={{ position: 'relative', background: 'var(--bg-card)', border: selected ? '2px solid var(--accent)' : '0.5px solid var(--border)', borderRadius: '10px', overflow: 'hidden', padding: 0, cursor: 'pointer', aspectRatio: '1/1' }}
-                    >
-                      {d.image_url
-                        ? <img src={d.image_url} alt={d.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                        : <div style={{ width: '100%', height: '100%', background: 'var(--bg-chip)' }} />
-                      }
-                      {selected && (
-                        <div style={{ position: 'absolute', top: '6px', right: '6px', width: '20px', height: '20px', borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><polyline points="2 6 5 9 10 3" stroke="#2C0A1E" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                        </div>
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Loading overlay */}
       {generating && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(20,20,20,0.92)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '20px' }}>
@@ -905,37 +837,10 @@ export default function NailLabPage() {
           </div>
         </Section>
 
-        {/* ── REFERENCE DESIGNS ── */}
         <Section title="Reference designs" required={false}>
-          <button
-            onClick={() => { loadDesigns(); setShowRefPicker(true) }}
-            style={{
-              width: '100%', background: 'var(--bg-card)', border: '0.5px solid var(--border)',
-              borderRadius: '12px', padding: '14px 16px',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              cursor: 'pointer', textAlign: 'left',
-            }}
-          >
-            <span style={{ color: refDesigns.length > 0 ? 'var(--text-primary)' : 'var(--text-secondary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif" }}>
-              {refDesigns.length > 0 ? `${refDesigns.length} design${refDesigns.length > 1 ? 's' : ''} selected` : 'Pick from the Laque library'}
-            </span>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="1.5"><polyline points="9 18 15 12 9 6"/></svg>
-          </button>
-
-          {refDesigns.length > 0 && (
-            <div style={{ display: 'flex', gap: '8px', marginTop: '10px', overflowX: 'auto', scrollbarWidth: 'none' }}>
-              {refDesigns.map(d => (
-                <div key={d.id} style={{ position: 'relative', width: '60px', height: '60px', flexShrink: 0, borderRadius: '8px', overflow: 'hidden', border: '0.5px solid var(--border)', background: 'var(--bg-card)' }}>
-                  {d.image_url && <img src={d.image_url} alt={d.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-                  <button onClick={() => toggleRefDesign(d)}
-                    style={{ position: 'absolute', top: '2px', right: '2px', width: '18px', height: '18px', borderRadius: '50%', background: 'rgba(0,0,0,0.7)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
-                  >
-                    <svg width="8" height="8" viewBox="0 0 10 10" fill="none"><line x1="2" y1="2" x2="8" y2="8" stroke="#fff" strokeWidth="1.5"/><line x1="8" y1="2" x2="2" y2="8" stroke="#fff" strokeWidth="1.5"/></svg>
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+          <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: 1.5 }}>
+            Image references are temporarily unavailable. Describe the colours, finish, and details you want below.
+          </p>
         </Section>
 
         {/* ── CUSTOM TEXT ── */}

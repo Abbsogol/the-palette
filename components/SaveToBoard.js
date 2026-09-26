@@ -17,46 +17,56 @@ export default function SaveToBoard({ designId, designImageUrl, renderTrigger, e
   const [togglingBoards, setTogglingBoards] = useState({}) // boardId → boolean, in-flight guard
   const [newName, setNewName] = useState('')
   const [user, setUser] = useState(null)
-  const [anyBoardSaved, setAnyBoardSaved] = useState(false)
+  const anyBoardSaved = Object.keys(saved).length > 0
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data?.user || null))
   }, [])
 
-  async function openSheet() {
-    if (!user) { setOpen(true); return }
-    setOpen(true)
+  useEffect(() => {
+    if (!open || !user) return
+    let cancelled = false
+    async function loadBoards() {
+      // Load user's boards
+      const { data: boardData, error: boardError } = await supabase
+        .from('moodboards')
+        .select('id, name, cover_image_url')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      if (boardError) {
+        if (cancelled) return
+        setLoadError(true)
+        setLoading(false)
+        return
+      }
+
+      // Load which of THIS user's own boards already contain this design —
+      // scoped to their own board ids, not every user's, so the response
+      // never includes other people's board ids for a design they saved.
+      const boardIds = (boardData || []).map(b => b.id)
+      const { data: savedData, error: savedError } = boardIds.length > 0
+        ? await supabase.from('moodboard_designs').select('moodboard_id').eq('design_id', designId).in('moodboard_id', boardIds)
+        : { data: [] }
+
+      if (savedError) throw savedError
+      const savedMap = {}
+      savedData?.forEach(r => { savedMap[r.moodboard_id] = true })
+
+      if (cancelled) return
+      setBoards(boardData || [])
+      setSaved(savedMap)
+      setLoadError(false)
+      setLoading(false)
+    }
+    loadBoards().catch(() => { if (!cancelled) { setLoadError(true); setLoading(false) } })
+    return () => { cancelled = true }
+  }, [open, user, designId])
+
+  function openSheet() {
     setLoading(true)
     setLoadError(false)
-
-    // Load user's boards
-    const { data: boardData, error: boardError } = await supabase
-      .from('moodboards')
-      .select('id, name, cover_image_url')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-
-    if (boardError) {
-      setLoadError(true)
-      setLoading(false)
-      return
-    }
-
-    // Load which of THIS user's own boards already contain this design —
-    // scoped to their own board ids, not every user's, so the response
-    // never includes other people's board ids for a design they saved.
-    const boardIds = (boardData || []).map(b => b.id)
-    const { data: savedData } = boardIds.length > 0
-      ? await supabase.from('moodboard_designs').select('moodboard_id').eq('design_id', designId).in('moodboard_id', boardIds)
-      : { data: [] }
-
-    const savedMap = {}
-    savedData?.forEach(r => { savedMap[r.moodboard_id] = true })
-
-    setBoards(boardData || [])
-    setSaved(savedMap)
-    setAnyBoardSaved(Object.keys(savedMap).length > 0)
-    setLoading(false)
+    setOpen(true)
   }
 
   async function toggleBoard(boardId) {
@@ -93,7 +103,6 @@ export default function SaveToBoard({ designId, designImageUrl, renderTrigger, e
 
         setSaved(prev => ({ ...prev, [boardId]: true }))
       }
-      setAnyBoardSaved(s => !s) // re-calc after state updates
     } finally {
       setTogglingBoards(prev => { const n = { ...prev }; delete n[boardId]; return n })
     }
@@ -121,18 +130,12 @@ export default function SaveToBoard({ designId, designImageUrl, renderTrigger, e
     setBoards(prev => [data, ...prev])
     if (!linkErr) {
       setSaved(prev => ({ ...prev, [data.id]: true }))
-      setAnyBoardSaved(true)
     } else {
       alert('Board created, but failed to save this design to it. Please try again.')
     }
     setNewName('')
     setCreating(false)
   }
-
-  // Recalculate anyBoardSaved whenever saved changes
-  useEffect(() => {
-    setAnyBoardSaved(Object.keys(saved).length > 0)
-  }, [saved])
 
   return (
     <>
@@ -258,7 +261,7 @@ export default function SaveToBoard({ designId, designImageUrl, renderTrigger, e
                   </div>
                 ) : loadError ? (
                   <div style={{ padding: '24px 20px', color: 'var(--text-secondary)', fontSize: '14px' }}>
-                    Couldn't load your boards. Please try again.
+                    Couldn&apos;t load your boards. Please try again.
                   </div>
                 ) : boards.length === 0 ? (
                   <div style={{ padding: '24px 20px', color: 'var(--text-secondary)', fontSize: '14px' }}>

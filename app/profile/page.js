@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useCurrentTime } from '@/lib/use-current-time'
 import { supabase } from '@/lib/supabase'
 import CropModal from '@/components/CropModal'
 
@@ -250,6 +251,7 @@ export default function ProfilePage() {
   const [myDesigns, setMyDesigns]         = useState([])
 
   // Salon posts (Updates)
+  const now = useCurrentTime()
   const [myPosts, setMyPosts]           = useState([])
   const [postModalOpen, setPostModalOpen] = useState(false)
   const [postText, setPostText]         = useState('')
@@ -260,20 +262,7 @@ export default function ProfilePage() {
   const [expanded, setExpanded] = useState({})
   const toggle = (key) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }))
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) loadUserData(session.user)
-      else setLoading(false)
-    })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (_event === 'PASSWORD_RECOVERY') { setResetMode(true); return }
-      if (session?.user) loadUserData(session.user)
-      else { setUser(null); setProfile(null); setLoading(false) }
-    })
-    return () => subscription.unsubscribe()
-  }, [])
-
-  const loadUserData = async (u) => {
+  const loadUserData = useCallback(async (u) => {
     setUser(u)
     const { data: prof } = await supabase.from('profiles').select('*').eq('id', u.id).single()
     setProfile(prof)
@@ -302,7 +291,22 @@ export default function ProfilePage() {
       setMyPosts(posts || [])
     }
     setLoading(false)
-  }
+  }, [router, refCode])
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) loadUserData(session.user)
+      else setLoading(false)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (_event === 'PASSWORD_RECOVERY') { setResetMode(true); return }
+      if (session?.user) loadUserData(session.user)
+      else { setUser(null); setProfile(null); setLoading(false) }
+    })
+    return () => subscription.unsubscribe()
+  }, [loadUserData])
+
+
 
   const saveField = async (field, value) => {
     try {
@@ -544,7 +548,7 @@ export default function ProfilePage() {
     return (
       <div style={{ padding: '24px 20px' }}>
         <h1 style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '22px', letterSpacing: '-0.02em', marginBottom: '4px' }}>Reset password</h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '32px' }}>We'll send a reset link to your email</p>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '32px' }}>We&apos;ll send a reset link to your email</p>
         {forgotSent ? (
           <div style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '20px', border: '0.5px solid var(--border)', textAlign: 'center' }}>
             <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '500', marginBottom: '8px' }}>Check your email</p>
@@ -579,7 +583,7 @@ export default function ProfilePage() {
     return (
       <div style={{ padding: '24px 20px' }}>
         <h1 style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '22px', letterSpacing: '-0.02em', marginBottom: '4px' }}>I am a...</h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '28px' }}>Choose how you'll use Laque</p>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '28px' }}>Choose how you&apos;ll use Laque</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
           {accountTypes.map(({ type, label, desc }) => (
             <button key={type} onClick={() => setChosenType(type)}
@@ -1226,7 +1230,7 @@ export default function ProfilePage() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {myPosts.map(post => {
-                  const diff = Date.now() - new Date(post.created_at).getTime()
+                  const diff = now - new Date(post.created_at).getTime()
                   const h = Math.floor(diff / 3600000)
                   const d = Math.floor(diff / 86400000)
                   const ago = d >= 1 ? `${d}d ago` : h >= 1 ? `${h}h ago` : 'Just now'

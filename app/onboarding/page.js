@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
@@ -63,7 +63,7 @@ function OnboardingInner() {
   const [stepIdx, setStepIdx] = useState(0)
   const [saving, setSaving]   = useState(false)
 
-  const [referralCode, setReferralCode] = useState('')
+  const [referralCode, setReferralCode] = useState(() => (searchParams.get('ref') || '').toUpperCase().trim())
   const [errorMsg, setErrorMsg] = useState('')
 
   const [d, setD] = useState({
@@ -84,21 +84,7 @@ function OnboardingInner() {
     specialties: [],
   })
 
-  useEffect(() => {
-    // Pre-fill referral code from ?ref= param
-    const ref = searchParams.get('ref')
-    if (ref) setReferralCode(ref.toUpperCase().trim())
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session?.user) {
-        router.push(ref ? `/profile?ref=${encodeURIComponent(ref)}` : '/profile')
-        return
-      }
-      init(session.user)
-    })
-  }, [])
-
-  const init = async (u) => {
+  const init = useCallback(async (u) => {
     const { data: prof } = await supabase.from('profiles').select('*').eq('id', u.id).single()
     if (!prof) { router.push('/profile'); return }
     // Already completed onboarding → go to feed
@@ -123,7 +109,22 @@ function OnboardingInner() {
       specialties:          prof.specialties            || [],
     }))
     setLoading(false)
-  }
+  }, [router])
+
+  useEffect(() => {
+    // Pre-fill referral code from ?ref= param
+    const ref = searchParams.get('ref')
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session?.user) {
+        router.push(ref ? `/profile?ref=${encodeURIComponent(ref)}` : '/profile')
+        return
+      }
+      init(session.user)
+    })
+  }, [init, router, searchParams])
+
+
 
   const accountType = profile?.account_type || 'user'
   const steps   = accountType === 'creator' ? CREATOR_STEPS : accountType === 'salon' ? SALON_STEPS : USER_STEPS
@@ -257,7 +258,7 @@ function OnboardingInner() {
                   maxLength={8}
                 />
                 <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '6px' }}>
-                  Got a code from a friend? Enter it here and you'll both earn Beauty Rewards points.
+                  Got a code from a friend? Enter it here and you&apos;ll both earn Beauty Rewards points.
                 </p>
               </div>
             </div>

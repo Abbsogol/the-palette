@@ -1,5 +1,5 @@
 import Stripe from 'stripe'
-import { getSessionUser } from '@/lib/auth'
+import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
@@ -36,6 +36,19 @@ export async function POST(request) {
     }
     const plan = PLANS[planId]
 
+    const { data: profile, error: profileError } = await supabase.from('profiles_data')
+      .select('subscription_tier, subscription_status, stripe_customer_id').eq('id', userId).single()
+    if (profileError || !profile) return Response.json({ error: 'Unable to verify subscription' }, { status: 503 })
+    if (profile.subscription_tier && profile.subscription_tier !== 'free') {
+      return Response.json({ error: 'You already have a subscription. Manage your existing plan instead.' }, { status: 409 })
+    }
+    if (profile.stripe_customer_id) {
+      const subscriptions = await stripe.subscriptions.list({ customer: profile.stripe_customer_id, status: 'all', limit: 100 })
+      if (subscriptions.has_more || subscriptions.data.some(s => !['canceled', 'incomplete_expired'].includes(s.status))) {
+        return Response.json({ error: 'An existing subscription must be managed before starting another.' }, { status: 409 })
+      }
+    }
+
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://laque.app'
 
     // Buckets rapid double-clicks/retries into the same Stripe session instead
@@ -43,9 +56,9 @@ export async function POST(request) {
     const idempotencyKey = `subscription-${userId}-${planId}-${Math.floor(Date.now() / 300000)}`
 
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
+      integration_identifier: 'laque_checkout_qmrtxvpa',
       mode: 'subscription',
-      customer_email: user.email,
+      ...(profile.stripe_customer_id ? { customer: profile.stripe_customer_id } : { customer_email: user.email }),
       line_items: [
         {
           price: plan.priceId,

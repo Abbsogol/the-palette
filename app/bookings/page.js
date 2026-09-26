@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -87,22 +87,7 @@ export default function BookingsPage() {
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('requests')
 
-  useEffect(() => {
-    const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/profile'); return }
-      const { data: profile } = await supabase.from('profiles').select('account_type').eq('id', user.id).single()
-      if (!profile || !['nail_artist', 'creator', 'salon'].includes(profile.account_type)) {
-        router.push('/profile'); return
-      }
-      setCurrentUser(user)
-      await loadBookings(user.id)
-      setLoading(false)
-    }
-    init()
-  }, [])
-
-  const loadBookings = async (userId) => {
+  const loadBookings = useCallback(async (userId) => {
     // Ordered newest-first + capped so the limit drops old history rather
     // than cutting off upcoming bookings, then reversed back to
     // chronological order for display.
@@ -126,7 +111,24 @@ export default function BookingsPage() {
 
     const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
     setBookings(chronological.map(b => ({ ...b, client: profileMap[b.client_id] || null })))
-  }
+  }, [])
+
+  useEffect(() => {
+    const init = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.push('/profile'); return }
+      const { data: profile } = await supabase.from('profiles').select('account_type').eq('id', user.id).single()
+      if (!profile || !['nail_artist', 'creator', 'salon'].includes(profile.account_type)) {
+        router.push('/profile'); return
+      }
+      setCurrentUser(user)
+      await loadBookings(user.id)
+      setLoading(false)
+    }
+    init()
+  }, [loadBookings, router])
+
+
 
   const today = new Date().toISOString().split('T')[0]
 

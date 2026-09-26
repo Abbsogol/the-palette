@@ -49,10 +49,28 @@ export default function UpgradePage() {
       setProfile(data)
       setLoading(false)
     })
-  }, [])
+  }, [router])
+
+  const handleManageSubscription = async () => {
+    setSubscribing('manage')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const response = await fetch('/api/create-billing-portal-session', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session?.access_token || ''}` },
+      })
+      const data = await response.json()
+      if (!response.ok || !data.url) throw new Error(data.error || 'Unable to open billing management')
+      window.location.assign(data.url)
+    } catch (error) {
+      alert(error.message)
+      setSubscribing(null)
+    }
+  }
 
   const handleSubscribe = async (planId) => {
     if (!profile) return
+    if (profile.subscription_tier && profile.subscription_tier !== 'free') return handleManageSubscription()
     setSubscribing(planId)
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -65,7 +83,7 @@ export default function UpgradePage() {
         body: JSON.stringify({ planId }),
       })
       const { url, error } = await res.json()
-      if (error) { alert('Something went wrong. Please try again.'); setSubscribing(null); return }
+      if (error) { alert(error); setSubscribing(null); return }
       window.location.href = url
     } catch {
       alert('Something went wrong. Please try again.')
@@ -87,7 +105,7 @@ export default function UpgradePage() {
   // thinking they need to pay again.
   if (loadError) return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '20px', textAlign: 'center' }}>
-      <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif" }}>Couldn't load your subscription status</p>
+      <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif" }}>Couldn&apos;t load your subscription status</p>
       <p style={{ color: 'var(--text-secondary)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif" }}>Please try again in a moment.</p>
       <button onClick={() => window.location.reload()} style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '12px 24px', fontSize: '14px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
         Retry
@@ -108,11 +126,20 @@ export default function UpgradePage() {
         <h1 style={{ color: 'var(--text-primary)', fontSize: '17px', fontWeight: '600', margin: 0 }}>Upgrade</h1>
       </div>
 
+      {currentTier && currentTier !== 'free' && (
+        <div style={{ padding: '20px', textAlign: 'center' }}>
+          <button onClick={handleManageSubscription} disabled={!!subscribing}
+            style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '12px 24px', fontFamily: 'inherit', cursor: 'pointer' }}>
+            {subscribing === 'manage' ? 'Opening billing…' : 'Manage subscription'}
+          </button>
+        </div>
+      )}
+
       {/* Hero */}
       <div style={{ padding: '32px 20px 24px', textAlign: 'center' }}>
         <div style={{ fontSize: '28px', marginBottom: '12px' }}>✦</div>
         <h2 style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: '700', margin: '0 0 8px' }}>Unlock the full Laque experience</h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0, lineHeight: '1.6' }}>Choose the plan that's right for you. Cancel anytime.</p>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0, lineHeight: '1.6' }}>Choose the plan that&apos;s right for you. Cancel anytime.</p>
       </div>
 
       <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -156,7 +183,7 @@ export default function UpgradePage() {
             <div style={{ padding: '4px 20px 20px' }}>
               {currentTier === 'pro_creator' ? (
                 <div style={{ textAlign: 'center', padding: '12px', background: 'rgba(212,160,192,0.08)', borderRadius: '12px' }}>
-                  <p style={{ color: 'var(--accent)', fontSize: '14px', fontWeight: '500', margin: 0 }}>You're on Pro Creator ✦</p>
+                  <p style={{ color: 'var(--accent)', fontSize: '14px', fontWeight: '500', margin: 0 }}>You&apos;re on Pro Creator ✦</p>
                 </div>
               ) : (
                 <button
@@ -214,7 +241,7 @@ export default function UpgradePage() {
           <div style={{ padding: '4px 20px 20px' }}>
             {currentTier === 'premium' ? (
               <div style={{ textAlign: 'center', padding: '12px', background: 'rgba(212,160,192,0.08)', borderRadius: '12px' }}>
-                <p style={{ color: 'var(--accent)', fontSize: '14px', fontWeight: '500', margin: 0 }}>You're on Premium ✦</p>
+                <p style={{ color: 'var(--accent)', fontSize: '14px', fontWeight: '500', margin: 0 }}>You&apos;re on Premium ✦</p>
               </div>
             ) : (
               <button

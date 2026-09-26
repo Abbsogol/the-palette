@@ -17,17 +17,19 @@ export async function POST(request) {
       return Response.json({ error: 'Missing generationId' }, { status: 400 })
     }
 
-    // Already have a design for this generation — just flip its publish state.
+    // A board save only ensures a design exists. It must never unpublish it.
     if (designId) {
       const { data: existing, error: fetchError } = await supabase
         .from('designs')
-        .select('id, created_by')
+        .select('id, created_by, source_generation_id, is_published')
         .eq('id', designId)
         .single()
 
-      if (fetchError || !existing || existing.created_by !== user.id) {
+      if (fetchError || !existing || existing.created_by !== user.id || existing.source_generation_id !== generationId) {
         return Response.json({ error: 'Design not found' }, { status: 404 })
       }
+
+      if (asDraft) return Response.json({ designId: existing.id, isPublished: existing.is_published })
 
       const { error: updateError } = await supabase
         .from('designs')
@@ -54,14 +56,16 @@ export async function POST(request) {
 
     // A retried/double-fired publish call for a generation that's already
     // been published shouldn't re-upload and create a second feed entry —
-    // just flip the existing one's publish state instead.
+    // reuse it; an explicit publish may promote a draft.
     const { data: alreadyPublished } = await supabase
       .from('designs')
-      .select('id')
+      .select('id, is_published')
+      .eq('created_by', user.id)
       .eq('source_generation_id', generationId)
       .maybeSingle()
 
     if (alreadyPublished) {
+      if (asDraft) return Response.json({ designId: alreadyPublished.id, isPublished: alreadyPublished.is_published })
       const { error: updateError } = await supabase
         .from('designs')
         .update({ is_published: !asDraft })
@@ -123,10 +127,17 @@ export async function POST(request) {
       // same generation — reuse the row that won instead of erroring out.
       const { data: winner } = await supabase
         .from('designs')
-        .select('id')
+        .select('id, is_published, image_url')
+        .eq('created_by', user.id)
         .eq('source_generation_id', generationId)
         .single()
-      if (winner) return Response.json({ publicUrl, designId: winner.id, isPublished: !asDraft })
+      if (winner) {
+        if (!asDraft && !winner.is_published) {
+          const { error } = await supabase.from('designs').update({ is_published: true }).eq('id', winner.id).eq('created_by', user.id)
+          if (error) return Response.json({ error: 'Failed to publish design' }, { status: 500 })
+        }
+        return Response.json({ publicUrl: winner.image_url, designId: winner.id, isPublished: !asDraft || winner.is_published })
+      }
     }
 
     if (insertError || !design) {

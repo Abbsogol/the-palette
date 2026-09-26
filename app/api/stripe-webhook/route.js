@@ -16,6 +16,47 @@ export async function POST(request) {
     return Response.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
+  // Credit fulfillment/refunds include the event receipt in the same database
+  // transaction as the balance. A crash cannot acknowledge an unpaid grant.
+  try {
+    const object = event.data?.object
+    const checkoutEvent = ['checkout.session.completed', 'checkout.session.async_payment_succeeded'].includes(event.type)
+    if (checkoutEvent && object?.mode === 'payment' && (!object.metadata?.type || object.metadata.type === 'credits')) {
+      if (object.payment_status !== 'paid') return Response.json({ received: true, pending: true })
+      const credits = Number(object.metadata?.credits)
+      if (!object.metadata?.userId || !Number.isSafeInteger(credits) || credits <= 0 || !object.payment_intent || !object.id) {
+        return Response.json({ error: 'Invalid credit metadata' }, { status: 400 })
+      }
+      const { error } = await supabase.rpc('apply_credit_payment', {
+        p_event_id: event.id, p_payment_intent: typeof object.payment_intent === 'string' ? object.payment_intent : object.payment_intent.id,
+        p_user_id: object.metadata.userId, p_credits: credits, p_session_id: object.id,
+      })
+      if (error) throw error
+      return Response.json({ received: true })
+    }
+    if (event.type === 'charge.refunded' && object?.payment_intent) {
+      const intentId = typeof object.payment_intent === 'string' ? object.payment_intent : object.payment_intent.id
+      const intent = await stripe.paymentIntents.retrieve(intentId)
+      if (intent.metadata?.type === 'credits') {
+        const credits = Number(intent.metadata.credits)
+        if (!intent.metadata.userId || !Number.isSafeInteger(credits) || credits <= 0 ||
+            !Number.isSafeInteger(object.amount) || object.amount <= 0 ||
+            !Number.isSafeInteger(object.amount_refunded) || object.amount_refunded < 0 || object.amount_refunded > object.amount) {
+          return Response.json({ error: 'Invalid refund metadata' }, { status: 400 })
+        }
+        const { error } = await supabase.rpc('apply_credit_payment', {
+          p_event_id: event.id, p_payment_intent: intentId, p_user_id: intent.metadata.userId, p_credits: credits,
+          p_refunded_credits: Math.round(credits * object.amount_refunded / object.amount),
+        })
+        if (error) throw error
+        return Response.json({ received: true })
+      }
+    }
+  } catch (error) {
+    console.error('Credit payment transaction failed:', error)
+    return Response.json({ error: 'Payment could not be recorded' }, { status: 500 })
+  }
+
   // Idempotency guard — skip if this exact Stripe event has already been processed
   const { error: dedupeError } = await supabase
     .from('processed_webhook_events')
@@ -42,11 +83,11 @@ export async function POST(request) {
 
   try {
     // ── Credit pack purchase (one-time payment) ────────────────────────────
-    if (event.type === 'checkout.session.completed') {
+    if (['checkout.session.completed', 'checkout.session.async_payment_succeeded'].includes(event.type)) {
       const session = event.data.object
 
       // One-time payment — could be credit pack or deposit
-      if (session.mode === 'payment') {
+      if (session.mode === 'payment' && session.payment_status === 'paid') {
         const { type, bookingId, userId, credits } = session.metadata || {}
 
         // Boost payment
@@ -84,27 +125,10 @@ export async function POST(request) {
           console.log(`Deposit paid for booking ${bookingId}`)
         }
 
-        // Credit pack payment
-        if (!type || type === 'credits') {
-          const creditAmount = parseInt(credits || '0', 10)
-
-          if (!userId || !creditAmount) {
-            return failWithRetry('Missing metadata in webhook:', session.metadata, 400)
-          }
-
-          const { error } = await supabase.rpc('increment_credits', {
-            user_id: userId,
-            amount: creditAmount,
-          })
-
-          if (error) return failWithRetry('Failed to add credits:', error)
-
-          console.log(`Added ${creditAmount} credits to user ${userId}`)
-        }
       }
 
       // Subscription checkout completed → activate subscription tier
-      if (session.mode === 'subscription') {
+      if (session.mode === 'subscription' && ['paid', 'no_payment_required'].includes(session.payment_status)) {
         const userId = session.metadata?.userId
         const planId = session.metadata?.planId
 
@@ -186,18 +210,7 @@ export async function POST(request) {
         const pi = await stripe.paymentIntents.retrieve(paymentIntentId)
         const { type, userId, credits, designId, bookingId } = pi.metadata || {}
 
-        if (type === 'credits' && userId && credits) {
-          // Proportional to the refunded amount, so a partial refund only
-          // claws back a partial share of the credits.
-          const creditAmount = parseInt(credits, 10)
-          const refundedFraction = charge.amount_refunded / charge.amount
-          const creditsToRemove = Math.round(creditAmount * refundedFraction)
-          if (creditsToRemove > 0) {
-            const { error } = await supabase.rpc('decrement_credits_by', { user_id: userId, amount: creditsToRemove })
-            if (error) return failWithRetry('Failed to reverse refunded credits:', error)
-            console.log(`Reversed ${creditsToRemove} credits from user ${userId} (refund on charge ${charge.id})`)
-          }
-        } else if (type === 'boost' && designId && charge.refunded) {
+        if (type === 'boost' && designId && charge.refunded) {
           // Boost is a single all-or-nothing state, so only a FULL refund
           // (charge.refunded, not just amount_refunded > 0) reverses it.
           const { error } = await supabase.from('designs').update({ boosted_until: null }).eq('id', designId)

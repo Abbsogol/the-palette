@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
@@ -13,18 +13,7 @@ export default function MoodboardsPage() {
   const [newName, setNewName] = useState('')
   const [showCreate, setShowCreate] = useState(false)
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data?.user) {
-        setUser(data.user)
-        loadBoards(data.user.id)
-      } else {
-        setLoading(false)
-      }
-    })
-  }, [])
-
-  async function loadBoards(uid) {
+  const loadBoards = useCallback(async (uid) => {
     setLoading(true)
 
     // Own boards + boards shared with me
@@ -64,7 +53,20 @@ export default function MoodboardsPage() {
       setCounts(c)
     }
     setLoading(false)
-  }
+  }, [])
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) {
+        setUser(data.user)
+        loadBoards(data.user.id)
+      } else {
+        setLoading(false)
+      }
+    })
+  }, [loadBoards])
+
+
 
   async function createBoard() {
     if (!newName.trim() || !user) return

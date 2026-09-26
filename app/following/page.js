@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -12,15 +12,7 @@ export default function FollowingPage() {
   const [userId, setUserId]       = useState(null)
   const [unfollowingId, setUnfollowingId] = useState(null)
 
-  useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session?.user) { router.push('/profile'); return }
-      setUserId(session.user.id)
-      await loadFollowing(session.user.id)
-    })
-  }, [])
-
-  const loadFollowing = async (uid) => {
+  const loadFollowing = useCallback(async (uid) => {
     const { data: followRows, error: followError } = await supabase
       .from('follows')
       .select('following_id')
@@ -40,7 +32,17 @@ export default function FollowingPage() {
     }
     setFollowing(result)
     setLoading(false)
-  }
+  }, [])
+
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session?.user) { router.push('/profile'); return }
+      setUserId(session.user.id)
+      await loadFollowing(session.user.id)
+    })
+  }, [loadFollowing, router])
+
+
 
   const handleUnfollow = async (followingId) => {
     if (unfollowingId) return

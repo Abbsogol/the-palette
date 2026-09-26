@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -165,6 +165,15 @@ export default function ServicesPage() {
   const [editingService, setEditingService] = useState(null)
   const [deleting, setDeleting] = useState(null)
 
+  const loadServices = useCallback(async (userId) => {
+    const { data } = await supabase
+      .from('services')
+      .select('*')
+      .eq('creator_id', userId)
+      .order('created_at', { ascending: true })
+    setServices(data || [])
+  }, [])
+
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -178,16 +187,9 @@ export default function ServicesPage() {
       setLoading(false)
     }
     init()
-  }, [])
+  }, [loadServices, router])
 
-  const loadServices = async (userId) => {
-    const { data } = await supabase
-      .from('services')
-      .select('*')
-      .eq('creator_id', userId)
-      .order('created_at', { ascending: true })
-    setServices(data || [])
-  }
+
 
   const handleSave = async (fields) => {
     const { error } = editingService

@@ -31,3 +31,17 @@ test('bottom navigation reaches the profile without authentication', async ({ pa
   await expect(page).toHaveURL(/\/profile$/)
   await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible()
 })
+
+test('search initializes a deep-linked query without a hydration error', async ({ page }) => {
+  const errors = []
+  page.on('pageerror', error => errors.push(error.message))
+  await page.goto('/search?q=bridal')
+  await expect(page.getByRole('textbox').first()).toHaveValue('bridal')
+  expect(errors).toEqual([])
+})
+
+test('an unverified checkout does not announce credits were added', async ({ page }) => {
+  await page.goto('/buy-credits/success?session_id=cs_unverified')
+  await expect(page.getByRole('heading', { name: 'Confirming your purchase' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Credits added ✦' })).toHaveCount(0)
+})

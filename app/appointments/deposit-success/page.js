@@ -12,11 +12,13 @@ function DepositSuccessContent() {
   const params = useSearchParams()
   const bookingId = params.get('booking')
   const [depositPaid, setDepositPaid] = useState(null)
-  const [checking, setChecking] = useState(true)
-  const [timedOut, setTimedOut] = useState(false)
+  const [polling, setChecking] = useState(true)
+  const checking = !!bookingId && polling
+  const [pollTimedOut, setTimedOut] = useState(false)
+  const timedOut = !bookingId || pollTimedOut
 
   useEffect(() => {
-    if (!bookingId) { setChecking(false); setTimedOut(true); return }
+    if (!bookingId) return
 
     let cancelled = false
     let timeoutId

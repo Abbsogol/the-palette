@@ -1,4 +1,5 @@
 'use client'
+import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -6,6 +7,7 @@ import SaveToBoard from './SaveToBoard'
 import CommentSheet from './CommentSheet'
 
 export default function CommunityCard({ design, currentUser, initiallyLiked }) {
+  const router = useRouter()
   const [liked, setLiked]               = useState(!!initiallyLiked)
   const [likesCount, setLikesCount]     = useState(design.likes_count || 0)
   const [commentsCount, setCommentsCount] = useState(design.comments_count || 0)
@@ -24,12 +26,12 @@ export default function CommunityCard({ design, currentUser, initiallyLiked }) {
       .eq('design_id', design.id)
       .maybeSingle()
       .then(({ data }) => setLiked(!!data))
-  }, [design.id, currentUser])
+  }, [design.id, currentUser, initiallyLiked])
 
   async function toggleLike(e) {
     e.preventDefault()
     e.stopPropagation()
-    if (!currentUser) { window.location.href = '/profile'; return }
+    if (!currentUser) { router.push('/profile'); return }
     if (likeLoading) return
     setLikeLoading(true)
     if (liked) {

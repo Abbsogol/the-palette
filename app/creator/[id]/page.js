@@ -210,7 +210,7 @@ export default function CreatorPage() {
 
   if (loadError) return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '20px', textAlign: 'center' }}>
-      <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif" }}>Couldn't load this profile</p>
+      <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif" }}>Couldn&apos;t load this profile</p>
       <p style={{ color: 'var(--text-secondary)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif" }}>Please try again in a moment.</p>
       <button onClick={() => window.location.reload()} style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '12px 24px', fontSize: '14px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
         Retry
@@ -227,7 +227,7 @@ export default function CreatorPage() {
     <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', fontFamily: "'DM Sans', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', textAlign: 'center' }}>
       <div style={{ fontSize: '28px', marginBottom: '16px' }}>✦</div>
       <p style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '600', margin: '0 0 8px' }}>This profile is unavailable</p>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0 }}>You can't view this profile.</p>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0 }}>You can&apos;t view this profile.</p>
     </div>
   )
 

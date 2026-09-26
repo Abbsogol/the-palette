@@ -13,12 +13,14 @@ function SuccessContent() {
   const plan = params.get('plan')
 
   const isPro = plan === 'pro_creator'
-  const [checking, setChecking] = useState(true)
+  const [polling, setChecking] = useState(true)
+  const checking = !!plan && polling
   const [confirmed, setConfirmed] = useState(false)
-  const [timedOut, setTimedOut] = useState(false)
+  const [pollTimedOut, setTimedOut] = useState(false)
+  const timedOut = !plan || pollTimedOut
 
   useEffect(() => {
-    if (!plan) { setChecking(false); setTimedOut(true); return }
+    if (!plan) return
 
     let cancelled = false
     let timeoutId
@@ -73,7 +75,7 @@ function SuccessContent() {
       )}
       {timedOut && (
         <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '0 0 24px' }}>
-          Still finalizing — <a onClick={() => window.location.reload()} style={{ color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline' }}>refresh</a> if this doesn't look right in a moment.
+          Still finalizing — <a onClick={() => window.location.reload()} style={{ color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline' }}>refresh</a> if this doesn&apos;t look right in a moment.
         </p>
       )}
       {confirmed && (

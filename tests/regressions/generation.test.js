@@ -39,3 +39,27 @@ it('REG-05: rejects unsupported reference-image mode without charging for a misl
   expect.soft(env.fetch).not.toHaveBeenCalled()
   expect(env.state.charged).toBe(0)
 })
+
+it.each(['network', 'invalid-json', 'missing-image', 'upload', 'sign', 'persist'])('releases a paid reservation after a %s failure', async failure => {
+  const env = setup({ balance: 1, failFetch: failure === 'network' })
+  if (failure === 'invalid-json') env.fetch.mockResolvedValue({ ok: true, json: async () => { throw new Error('Bad JSON') } })
+  if (failure === 'missing-image') env.fetch.mockResolvedValue({ ok: true, json: async () => ({ data: [] }) })
+  if (['upload', 'sign'].includes(failure)) {
+    const original = env.client.storage.from()
+    env.client.storage.from.mockReturnValue({ ...original, [failure === 'upload' ? 'upload' : 'createSignedUrl']: async () => ({ error: new Error('Storage unavailable') }) })
+  }
+  if (failure === 'persist') {
+    const rpc = env.client.rpc.getMockImplementation()
+    env.client.rpc.mockImplementation((name, args) => name === 'complete_generation' ? { error: new Error('Write failed') } : rpc(name, args))
+  }
+  expect((await POST(jsonRequest(body))).status).toBe(500)
+  expect(env.state.balance).toBe(1)
+  expect(env.state.inserts).toBe(0)
+})
+
+it('fails closed before contacting OpenAI when credit reservation is unavailable', async () => {
+  const env = setup()
+  env.client.rpc.mockResolvedValue({ error: new Error('Database unavailable') })
+  expect((await POST(jsonRequest(body))).status).toBe(500)
+  expect(env.fetch).not.toHaveBeenCalled()
+})

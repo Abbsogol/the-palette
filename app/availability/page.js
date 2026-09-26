@@ -58,21 +58,23 @@ export default function AvailabilityPage() {
         .eq('creator_id', user.id)
 
       if (rows && rows.length > 0) {
-        const loaded = { ...schedule }
-        rows.forEach(r => {
-          loaded[r.day_of_week] = {
-            is_active: r.is_active,
-            start_time: r.start_time.slice(0, 5),
-            end_time: r.end_time.slice(0, 5),
-          }
+        setSchedule(previous => {
+          const loaded = { ...previous }
+          rows.forEach(r => {
+            loaded[r.day_of_week] = {
+              is_active: r.is_active,
+              start_time: r.start_time.slice(0, 5),
+              end_time: r.end_time.slice(0, 5),
+            }
         })
-        setSchedule(loaded)
+        return loaded
+        })
       }
 
       setLoading(false)
     }
     init()
-  }, [])
+  }, [router])
 
   const toggleDay = (day) => {
     setSchedule(prev => ({
@@ -151,7 +153,7 @@ export default function AvailabilityPage() {
       </div>
 
       <p style={{ color: 'var(--text-secondary)', fontSize: '13px', padding: '0 20px 20px', margin: 0 }}>
-        Set the days and hours you're available for bookings. Clients will see this on your profile.
+        Set the days and hours you&apos;re available for bookings. Clients will see this on your profile.
       </p>
 
       {/* Summary chip */}

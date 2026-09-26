@@ -29,18 +29,11 @@ it('REG-10: a failed referral award is not acknowledged as successful and remain
   let claimed = false
   let rewards = 0
   let fail = true
-  Object.assign(auth.client, database(q => {
-    if (q.table === 'profiles') return ok({ id: 'inviter-a' })
-    if (q.table === 'profiles_data') {
-      if (q.values.referred_by === null) { claimed = false; return ok(null) }
-      if (claimed) return ok(null)
-      claimed = true; return ok({ id: user.id })
-    }
-    if (q.table === 'rewards') {
-      if (fail) return { error: { message: 'Temporary write failure' } }
-      rewards += q.values.length; return ok(null)
-    }
-    throw new Error(`Unexpected query: ${q.table}`)
+  Object.assign(auth.client, database(() => { throw new Error('Referral must use one transaction') }, async (name) => {
+    expect(name).toBe('apply_referral')
+    if (fail) return { error: { message: 'Temporary write failure' } }
+    if (!claimed) { claimed = true; rewards += 2 }
+    return ok('applied')
   }))
   const first = await referral(jsonRequest({ code: 'TESTCODE' }))
   fail = false
@@ -60,4 +53,17 @@ it('REG-01: a benign AVIF mislabeled as JPEG is rejected before storage', async 
   const response = await upload(new Request('http://localhost/api/upload-design-photo', { method: 'POST', body: form }))
   expect.soft(response.status).toBe(400)
   expect(store).not.toHaveBeenCalled()
+})
+
+it.each(['jpeg', 'png', 'webp', 'gif'])('accepts real %s bytes and stores a bounded WebP', async format => {
+  const bytes = await sharp({ create: { width: 2000, height: 20, channels: 3, background: '#ff0000' } }).toFormat(format).toBuffer()
+  const store = vi.fn(async () => ok(null))
+  Object.assign(auth.client, database(() => ok({ account_type: 'creator' })))
+  auth.client.storage = { from: () => ({ upload: store, getPublicUrl: () => ({ data: { publicUrl: 'https://storage.invalid/image.webp' } }) }) }
+  const form = new FormData()
+  form.append('file', new Blob([bytes], { type: `image/${format}` }), `photo.${format}`)
+  expect((await upload(new Request('http://localhost/api/upload-design-photo', { method: 'POST', body: form }))).status).toBe(200)
+  const metadata = await sharp(store.mock.calls[0][1]).metadata()
+  expect(metadata.format).toBe('webp')
+  expect(metadata.width).toBeLessThanOrEqual(1600)
 })

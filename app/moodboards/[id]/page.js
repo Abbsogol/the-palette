@@ -1,11 +1,12 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
-import { useParams } from 'next/navigation'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import ShareButton from '@/components/ShareButton'
 
 export default function MoodboardDetailPage() {
+  const router = useRouter()
   const { id } = useParams()
   const [board, setBoard] = useState(null)
   const [designs, setDesigns] = useState([])
@@ -27,15 +28,7 @@ export default function MoodboardDetailPage() {
   const [addingMember, setAddingMember] = useState(false)
   const searchTimeout = useRef(null)
 
-  useEffect(() => {
-    if (!id) return
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setCurrentUser(session?.user || null)
-      loadBoard(session?.user?.id || null)
-    })
-  }, [id])
-
-  async function loadBoard(currentUserId) {
+  const loadBoard = useCallback(async (currentUserId) => {
     setLoading(true)
 
     const { data: boardData } = await supabase
@@ -108,7 +101,17 @@ export default function MoodboardDetailPage() {
     }
 
     setLoading(false)
-  }
+  }, [id])
+
+  useEffect(() => {
+    if (!id) return
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCurrentUser(session?.user || null)
+      loadBoard(session?.user?.id || null)
+    })
+  }, [id, loadBoard])
+
+
 
   // Search for user by username as they type
   const handleUsernameChange = (val) => {
@@ -173,7 +176,7 @@ export default function MoodboardDetailPage() {
     setMembers(prev => prev.filter(m => m.user_id !== memberUserId))
     // If current user just removed themselves, redirect
     if (memberUserId === currentUser?.id) {
-      window.location.href = '/moodboards'
+      router.push('/moodboards')
     }
   }
 
@@ -224,7 +227,7 @@ export default function MoodboardDetailPage() {
             </div>
 
             <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '0 0 14px', lineHeight: '1.5' }}>
-              Enter someone's username to give them access to this board.
+              Enter someone&apos;s username to give them access to this board.
             </p>
 
             <input

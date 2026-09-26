@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -23,48 +23,7 @@ function MessagesInner() {
   const [conversations, setConversations] = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/profile'); return }
-      setCurrentUser(user)
-
-      // Deep link from a booking/appointment: find or create a conversation with ?with=<id>
-      const withId = searchParams.get('with')
-      if (withId && withId !== user.id) {
-        const { data: prof } = await supabase.from('profiles').select('account_type').eq('id', user.id).single()
-        const iAmCreator = prof?.account_type === 'creator' || prof?.account_type === 'salon'
-        const clientId  = iAmCreator ? withId : user.id
-        const creatorId = iAmCreator ? user.id : withId
-
-        const { data: existing } = await supabase
-          .from('conversations')
-          .select('id')
-          .eq('client_id', clientId)
-          .eq('creator_id', creatorId)
-          .maybeSingle()
-
-        let conversationId = existing?.id
-        if (!conversationId) {
-          const { data: created, error: createError } = await supabase
-            .from('conversations')
-            .insert({ client_id: clientId, creator_id: creatorId })
-            .select('id')
-            .single()
-          if (createError) console.error('conversation create error:', createError)
-          conversationId = created?.id
-        }
-
-        if (conversationId) { router.replace(`/messages/${conversationId}`); return }
-      }
-
-      await loadConversations(user.id)
-      setLoading(false)
-    }
-    init()
-  }, [])
-
-  const loadConversations = async (userId) => {
+  const loadConversations = useCallback(async (userId) => {
     const { data, error } = await supabase
       .from('conversations')
       .select('*')
@@ -106,7 +65,50 @@ function MessagesInner() {
     })
 
     setConversations(enriched)
-  }
+  }, [])
+
+  useEffect(() => {
+    const init = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.push('/profile'); return }
+      setCurrentUser(user)
+
+      // Deep link from a booking/appointment: find or create a conversation with ?with=<id>
+      const withId = searchParams.get('with')
+      if (withId && withId !== user.id) {
+        const { data: prof } = await supabase.from('profiles').select('account_type').eq('id', user.id).single()
+        const iAmCreator = prof?.account_type === 'creator' || prof?.account_type === 'salon'
+        const clientId  = iAmCreator ? withId : user.id
+        const creatorId = iAmCreator ? user.id : withId
+
+        const { data: existing } = await supabase
+          .from('conversations')
+          .select('id')
+          .eq('client_id', clientId)
+          .eq('creator_id', creatorId)
+          .maybeSingle()
+
+        let conversationId = existing?.id
+        if (!conversationId) {
+          const { data: created, error: createError } = await supabase
+            .from('conversations')
+            .insert({ client_id: clientId, creator_id: creatorId })
+            .select('id')
+            .single()
+          if (createError) console.error('conversation create error:', createError)
+          conversationId = created?.id
+        }
+
+        if (conversationId) { router.replace(`/messages/${conversationId}`); return }
+      }
+
+      await loadConversations(user.id)
+      setLoading(false)
+    }
+    init()
+  }, [loadConversations, router, searchParams])
+
+
 
   if (loading) return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

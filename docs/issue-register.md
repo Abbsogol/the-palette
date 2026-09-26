@@ -1,6 +1,6 @@
 # Release issue register
 
-Baseline: main `22ec32f0959a529507c8bbf7302ef14d50b7015a`, checked September 26, 2026. These are known application defects. Tests assert correct behavior and remain red until fixed. IDs match the original inspection order.
+Baseline: main `22ec32f0959a529507c8bbf7302ef14d50b7015a`, checked September 26, 2026. All ten cases below are now fixed and tested in the local review branch; migration, publication, and deployment remain pending. See [fixes and verification](regression-fixes.md). IDs match the original inspection order.
 
 | ID | Priority | Required behavior | Test file | Fix phase |
 |---|---|---|---|---|
@@ -15,7 +15,7 @@ Baseline: main `22ec32f0959a529507c8bbf7302ef14d50b7015a`, checked September 26,
 | REG-09 | P2 | A stable old balance cannot acknowledge fulfillment of a pending checkout. | collections.test.jsx | 3 |
 | REG-10 | P2 | Referral claim and both rewards succeed together or remain retryable. | persistence.test.js | 3 |
 
-Tests are in `tests/regressions/`. Each fix must pass the original failing scenario; database-dependent fixes also need isolated-database integration coverage. Update doubles when introducing transaction RPCs, without weakening behavioral assertions. Phase 1 does not fix these defects.
+Tests are in `tests/regressions/`. The original failing assertions remain active. Transaction RPCs have additional isolated PostgreSQL integration coverage; SDK doubles were updated to the new contracts without weakening the original outcomes.
 
 Other release checks:
 
@@ -27,6 +27,6 @@ Other release checks:
 | Monthly credits | Benefits advertised; no invoice grant in checked-in handler | Verify deployed job or implement idempotent paid-period fulfillment |
 | Board covers | Some paths pass signed URLs | Persist stable references and test after expiration |
 | Filters/pagination | Case normalization and fixed limits need review | Test realistic datasets and older rows |
-| Lint | Original baseline: 60 errors, 32 warnings | Correct violations without globally disabling rules |
-| Dependencies | September 26 audit: Next critical; Sharp, PostCSS, js-yaml, and brace-expansion high | Upgrade affected direct/transitive dependencies in Phase 2 and verify runtime behavior |
+| Lint | Fixed locally: zero errors and warnings (was 60/32) | Publish and run remote CI |
+| Dependencies | Upgraded locally: zero audit findings; build and browser checks pass | Publish and verify staging runtime |
 | Recovery/staging | Daily backups verified; restore and isolated staging pending | Complete the environment-and-recovery runbook |

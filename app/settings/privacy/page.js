@@ -82,7 +82,7 @@ export default function PrivacySettingsPage() {
       setLoading(false)
     }
     init()
-  }, [])
+  }, [router])
 
   const save = async (field, value, revert) => {
     setSaving(field)

@@ -19,40 +19,32 @@ function SuccessContent() {
     let cancelled = false
     let timeoutId
     let attempts = 0
-    let lastValue // undefined until the first read
-
-    const fetchBalance = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return null
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('credit_balance')
-        .eq('id', user.id)
-        .single()
-      return profile ? profile.credit_balance : null
-    }
-
     const tick = async () => {
-      const balance = await fetchBalance()
-      if (cancelled) return
       attempts += 1
-
-      if (balance !== null) setCreditBalance(balance)
-
-      // Settled once a read agrees with the previous one — handles both a
-      // webhook that already landed (stable on the very first read) and one
-      // that's still catching up (value changes, then stabilizes).
-      const settled = balance !== null && balance === lastValue
-      lastValue = balance
-
-      if (settled) { setChecking(false); return }
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!sessionId || !session) throw new Error('Sign in to confirm this checkout')
+        const response = await fetch(`/api/credit-checkout-status?session_id=${encodeURIComponent(sessionId)}`, {
+          headers: { Authorization: `Bearer ${session.access_token}` }, cache: 'no-store',
+        })
+        const result = await response.json()
+        if (cancelled) return
+        if (!response.ok) throw new Error(result.error || 'Unable to confirm checkout')
+        if (result.status === 'fulfilled') {
+          setCreditBalance(result.creditBalance)
+          setChecking(false)
+          return
+        }
+      } catch {
+        if (cancelled) return
+      }
       if (attempts >= MAX_POLL_ATTEMPTS) { setChecking(false); setTimedOut(true); return }
       timeoutId = setTimeout(tick, POLL_INTERVAL_MS)
     }
 
     tick()
     return () => { cancelled = true; clearTimeout(timeoutId) }
-  }, [])
+  }, [sessionId])
 
   return (
     <div style={{
@@ -79,11 +71,11 @@ function SuccessContent() {
       </div>
 
       <h1 style={{ color: 'var(--text-primary)', fontSize: '24px', fontWeight: '600', margin: '0 0 8px', letterSpacing: '-0.02em' }}>
-        Credits added ✦
+        {creditBalance !== null ? 'Credits added ✦' : 'Confirming your purchase'}
       </h1>
 
       <p style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.6', margin: '0 0 28px', maxWidth: '280px' }}>
-        Your credits are ready. Head to Nail Lab and start creating.
+        {creditBalance !== null ? 'Your purchase is recorded. Head to Nail Lab and start creating.' : 'Waiting for payment and credit confirmation.'}
       </p>
 
       {creditBalance !== null && (
@@ -106,7 +98,7 @@ function SuccessContent() {
 
       {timedOut && (
         <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '0 0 32px' }}>
-          Still finalizing — <a onClick={() => window.location.reload()} style={{ color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline' }}>refresh</a> if this doesn't look right in a moment.
+          Still finalizing — <a onClick={() => window.location.reload()} style={{ color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline' }}>refresh</a> if this doesn&apos;t look right in a moment.
         </p>
       )}
 

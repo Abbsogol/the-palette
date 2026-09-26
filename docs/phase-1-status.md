@@ -2,6 +2,8 @@
 
 **Local foundation implemented; production identity and database inventory verified. Restore and isolated staging remain pending; remote CI is linked below. Phase 1 is not complete and the app is not release-ready.**
 
+**Subsequent fix work:** the ten known regression cases and lint baseline are now resolved locally, with PostgreSQL transaction coverage and dependency updates. See [regression fixes](regression-fixes.md) for current evidence and deployment prerequisites. The verification table below records the original foundation baseline, before these fixes; the existing remote PR does not yet contain the local fix commit.
+
 ## Release baseline
 
 - Repository: `Abbsogol/the-palette`.
@@ -20,7 +22,7 @@
 - Blank environment template, configuration checker, pinned local/CI Node version, and fake-service smoke-build launcher.
 - Issue register, read-only database catalogue queries, and staging/backup/restore runbook.
 
-## Verification evidence
+## Original foundation verification evidence (before fixes)
 
 | Check | Observed result |
 |---|---|

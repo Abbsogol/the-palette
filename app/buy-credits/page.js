@@ -57,7 +57,7 @@ export default function BuyCreditsPage() {
       if (profile) setCreditBalance(profile.credit_balance)
     }
     getUser()
-  }, [])
+  }, [router])
 
   const handleBuy = async (pack) => {
     if (!currentUser) return
@@ -74,7 +74,7 @@ export default function BuyCreditsPage() {
       })
       const data = await res.json()
       if (data.url) {
-        window.location.href = data.url
+        window.location.assign(data.url)
       } else {
         alert('Something went wrong. Please try again.')
         setLoading(null)
