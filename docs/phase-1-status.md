@@ -1,6 +1,6 @@
 # Phase 1 status — September 26, 2026
 
-**Local foundation implemented; production identity and database inventory verified. Restore, isolated staging, and remote CI remain pending. Phase 1 is not complete and the app is not release-ready.**
+**Local foundation implemented; production identity and database inventory verified. Restore and isolated staging remain pending; remote CI is linked below. Phase 1 is not complete and the app is not release-ready.**
 
 ## Release baseline
 
@@ -48,7 +48,7 @@ The regression failures are real release blockers, not skipped or expected-failu
 | Backup and restore | Daily physical backups completed September 19–26; latest September 26, 07:08:04 UTC. PITR off; Storage objects excluded. Separate recovery clone quoted $9.68/month compute plus usage; approval pending, restore not started. |
 | Stripe, OpenAI, Resend access | Not verified; no local service credentials configured |
 | Database integration tests | Await real schema and an isolated test target |
-| Required GitHub checks | Workflow configuration alone does not enable branch protection; repository admin configuration remains necessary |
+| Required GitHub checks | Main branch protection created: unit, lint, regressions, and browser must pass; branches must be current; administrators cannot bypass; force pushes and deletion remain disallowed. |
 
 The former browser policy-verification error is resolved. Read-only database inspection found additional release-blocking authorization concerns; detailed evidence remains private until remediation. The generation test double now matches the deployed void debit RPC's zero-row behavior. Local doubles still do not certify RLS or transaction safety.
 
@@ -56,4 +56,4 @@ No production database changes, payments, schema pushes, paid resource purchases
 
 ## Resume
 
-Verify remote CI on [draft PR #1](https://github.com/Abbsogol/the-palette/pull/1). Keep lint and known-regression failures visible. Complete the isolated restore after approval, establish a synthetic staging target, export/replay a complete schema baseline, and run database integration tests. Track Storage recovery separately from database backup coverage.
+Follow remote CI on [draft PR #1](https://github.com/Abbsogol/the-palette/pull/1). Unit passed; lint and regressions reproduced the documented failures. Browser checks are tracked on the Checks tab. Keep lint and known-regression failures visible. Complete the isolated restore after approval, establish a synthetic staging target, export/replay a complete schema baseline, and run database integration tests. Track Storage recovery separately from database backup coverage.
