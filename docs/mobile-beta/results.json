@@ -1,5 +1,5 @@
 {
-  "recordedAt": "2026-09-27T15:26:37.617374+00:00",
+  "recordedAt": "2026-09-27T16:04:44.553163+00:00",
   "branch": "codex/native-mobile-beta",
   "phaseComplete": false,
   "environment": {
@@ -71,6 +71,18 @@
           "id": "cba6e738-3078-466e-a893-280e8915cba3",
           "status": "FINISHED"
         }
+      ],
+      "connectedBuilds": [
+        {
+          "id": "2b7f0df7-92fb-4256-93ac-4c923f764943",
+          "status": "FINISHED",
+          "platform": "ANDROID"
+        },
+        {
+          "id": "3fc3e493-07dd-4c85-9c77-78bb5f8dd79c",
+          "status": "FINISHED",
+          "platform": "IOS"
+        }
       ]
     },
     "nativeProjectGeneration": {
@@ -90,8 +102,8 @@
       "accountId": "acct_1TvxxEGpyT5aBYxx",
       "apiAccess": "passed",
       "catalog": "passed",
-      "webhook": "configured (test mode)",
-      "databaseOutcome": "not verified",
+      "webhook": "actual signed test events fulfilled and refunded receipts",
+      "databaseOutcome": "verified test deposit settlement, full cancellation refund, and automatic full late-deposit refund",
       "environments": [
         "local development",
         "Vercel Development",
@@ -115,18 +127,63 @@
         "Signed-out mutation denied",
         "Three real JWT accounts onboarded with matching database roles",
         "Private upload bytes and draft visibility verified",
-        "Publish \u2192 discover \u2192 save \u2192 collection; stranger denied",
+        "Publish → discover → save → collection; stranger denied",
         "Message retry deduped; stranger and blocked sender denied",
         "Creator timezone and hours saved through permitted API; customer denied",
         "Concurrent booking: one reservation; stranger cancellation denied; creator confirmed; Stripe test Checkout created"
       ],
-      "scheduler": "three actual HTTP200 deliveries"
+      "scheduler": "three actual HTTP200 deliveries",
+      "terminalDeletion": "Auth/profile/private Storage bytes removed"
+    },
+    "githubCI": {
+      "sha": "cc6e3f979486742aeede8e1d17c3faad996d2e08",
+      "backend": "all four jobs passed on Ubuntu",
+      "mobileChecks": "passed",
+      "nativeBuilds": {
+        "android": "passed",
+        "ios": "passed"
+      },
+      "backendRun": "https://github.com/Abbsogol/the-palette/actions/runs/36329861274",
+      "mobileRun": "https://github.com/Abbsogol/the-palette/actions/runs/36329861250",
+      "note": "These successful runs attest application commit cc6e3f9. Subsequent commits contain reports and locally exercised Maestro fixtures only; runtime/deployment code is unchanged."
+    },
+    "easMaestro": "blocked: account requires paid plan; no subscription purchased",
+    "iosNativeJourney": {
+      "status": "passed",
+      "buildId": "3fc3e493-07dd-4c85-9c77-78bb5f8dd79c",
+      "device": "iPhone 17 Simulator, iOS 27.0",
+      "runner": "Maestro 2.10.0",
+      "covered": [
+        "real beta password sign-in",
+        "saved design visible",
+        "stop/relaunch retains authenticated session",
+        "cancelled appointment shows completed full refund",
+        "cancelled appointment has no pay-deposit action",
+        "customer→creator→customer profile and saved-list isolation",
+        "creator business controls visible after signing in as creator",
+        "shared message design opens matching published detail",
+        "native customer message persisted once, independently read with creator JWT"
+      ],
+      "notCovered": [
+        "physical device",
+        "VoiceOver",
+        "Android journey",
+        "complete native billing/generation/notification matrix"
+      ],
+      "flowsPassed": 3
+    },
+    "iosLargeTextSpotCheck": {
+      "setting": "accessibility-extra-extra-extra-large",
+      "navigation": "profile → saved → design completed on the dedicated simulator",
+      "visualAcceptance": "not accepted: large heading growth and word wrapping need review",
+      "physicalAcceptance": "not verified",
+      "settingRestored": "large"
     }
   },
   "blocked": [
     "Hosted email/OAuth/AI, complete Stripe failure/retry matrix",
     "Apple/Google/RevenueCat accounts and signing",
-    "Connected native Maestro execution and complete native journeys",
+    "Complete Android/iOS native journeys beyond the three passed iOS flows",
     "Physical iPhone/Android and accessibility",
     "Store edge cases MB-003/MB-004",
     "Figma visual acceptance and licensed fonts"

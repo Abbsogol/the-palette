@@ -2,7 +2,7 @@
 
 Expo is linked to `@kiimiia/laque-mobile`. The owner still needs Apple Developer, Google Play Console and RevenueCat accounts and their platform agreements. Keep passwords, keys and recovery codes out of chat and Git. Account/project names or IDs are enough for coordination; use each provider's normal secret settings for keys.
 
-1. Create a separate Supabase project and a separate backend deployment for development/beta, with synthetic data only. Record their IDs/origins. Obtain/review a schema-only baseline and rehearse migrations 001–021 in a disposable staging database. The regression fixture is not a deployable Supabase baseline.
+1. Create a separate Supabase project and a separate backend deployment for development/beta, with synthetic data only. Record their IDs/origins. Obtain/review a schema-only baseline and rehearse migrations 001–022 in a disposable staging database. The regression fixture is not a deployable Supabase baseline.
 2. Configure separate Storage, email delivery, Google/Apple OAuth clients, Stripe **test** keys/webhook endpoint and AI credentials/budget. Verify an incoming JWT is from this project. Do not copy production environment files. The recorded production ref `faunikvhoommbebsmevg` is rejected by the mobile handshake.
 3. Register the final bundle/package IDs. Current defaults (`app.laque.mobile`, `.development` suffix) are provisional until accepted by the stores. Register custom auth callback schemes exactly, including development and beta. Configure Supabase redirect allowlists and OAuth callbacks. Universal/app links remain an additional release-hardening task; custom schemes must be exercised on both devices.
 4. The Expo project is linked in `mobile/app.config.ts`; configure APNs/FCM credentials. Both build variants use project `c798894e-db94-4b60-88ca-0f75a1e05cdd` unless explicitly overridden. Provision signing only in the normal EAS/provider workflow. `eas.json` separates development, simulator and beta; beta build config refuses missing project/service IDs.
@@ -35,7 +35,7 @@ After isolation is verified, create `beta-customer-1`, `beta-customer-2` (strang
 - Customer1 saves the public design, creates a collection and requests an available date two days ahead. Customer2 attempts the same slot concurrently and attempts to read the private design/conversation.
 - Test reports against synthetic content with a separate admin test account; never give the customer or creator admin privileges.
 - Save the resulting user/design/service/booking IDs and redacted before/after query evidence in the verification record. Do not store passwords, tokens or raw payment payloads in artifacts.
-- Native sign-in Maestro input uses TEST_EMAIL/TEST_PASSWORD from the runner's secret environment. Full native multi-account flows remain to be authored against this real fixture.
+- Connected beta Maestro input uses MAESTRO_TEST_EMAIL/MAESTRO_TEST_PASSWORD from the runner's secret environment. Full native multi-account flows remain to be authored against this real fixture.
 
 Official setup references: [Expo push](https://docs.expo.dev/push-notifications/push-notifications-setup/), [Expo native billing](https://docs.expo.dev/guides/in-app-purchases/), [Expo EAS/Maestro builds](https://docs.expo.dev/eas/workflows/examples/e2e-tests/).
 
@@ -45,4 +45,14 @@ The `preview` EAS profile builds a standalone Android APK for direct installatio
 
 From `mobile/`, use `npm run build:preview:android` or `npm run build:preview:ios` after EAS login/project linkage. The iOS preview is **not installable on an iPhone**. For an EAS build on a physical iPhone use the development/beta profile after Apple enrollment and signing; TestFlight/Play distribution and real store billing remain separate gates. Expo Go cannot verify this app's native purchase integration.
 
-See [Android APK installation](https://docs.expo.dev/build-reference/apk/), [iOS Simulator builds](https://docs.expo.dev/build-reference/simulators/) and [native purchase requirements](https://docs.expo.dev/guides/in-app-purchases/). The first EAS `e2e-smoke` builds were submitted on 27 September 2026; see [account setup evidence](account-setup.md) for status. These intentionally have no connected backend.
+See [Android APK installation](https://docs.expo.dev/build-reference/apk/), [iOS Simulator builds](https://docs.expo.dev/build-reference/simulators/) and [native purchase requirements](https://docs.expo.dev/guides/in-app-purchases/). The first EAS `e2e-smoke` builds completed on 27 September 2026; see [account setup evidence](account-setup.md) for status. These intentionally have no connected backend.
+
+## Provisioned synthetic beta access
+
+The three confirmed fixtures are `customer@laque-beta.example`, `creator@laque-beta.example` and `stranger@laque-beta.example`. They cannot receive email; use them for password-based journeys only. Their generated passwords are in the owner-readable, gitignored `.backups/beta-test-accounts.json` on the deployment workstation; do not copy that file into source control or reports. EAS Preview holds the customer credentials as secret `BETA_TEST_EMAIL`/`BETA_TEST_PASSWORD` variables for the workflow.
+
+Creator fixture: Asia/Dubai, 09:00–18:00 all week, “Beta manicure”, AED100 total/AED20 deposit, 30 minutes, synthetic service location. The customer owns a saved “Beta rose sample” and “Beta favourites” collection. Two cancelled bookings have succeeded full refunds, including one late deposit.
+
+Use `beta-preview`, not the unconfigured `e2e-smoke`, for connected testing: `npx eas-cli@latest build --profile beta-preview --platform android` (APK) or `--platform ios` (Simulator). The beta backend identity is verified through `/api/mobile/config`. Read the current build IDs in `results.json`.
+
+The mobile PR is stacked on the earlier security-review PR1 (`codex/phase-1-foundation`). The separate redesign merged to `main` has unresolved integration conflicts with that earlier branch. Merge neither branch into production until the reviewed fixes and redesign are reconciled and reverified together. Beta deployment uses the reviewed backend branch independently.

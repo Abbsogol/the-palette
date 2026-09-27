@@ -3,28 +3,51 @@ appId: app.laque.mobile
 ---
 - launchApp:
     clearState: true
-- tapOn: Profile
+    clearKeychain: true
+- tapOn: "Profile, tab,.*"
 - tapOn: Sign in
-- tapOn: Email
+- tapOn:
+    text: Email
+    index: 1
 - inputText: ${MAESTRO_TEST_EMAIL}
-- tapOn: Password
+- pressKey: Enter
+- tapOn:
+    text: Password
+    index: 1
 - inputText: ${MAESTRO_TEST_PASSWORD}
-- hideKeyboard
+- pressKey: Enter
 - tapOn:
     text: Sign in
     index: 1
+- tapOn:
+    text: Not Now
+    optional: true
 - extendedWaitUntil:
     visible: Saved designs
     timeout: 30000
 - assertVisible: Beta customer
 - tapOn: Saved designs
 - extendedWaitUntil:
-    visible: Beta rose sample
+    visible: "View Beta rose sample"
     timeout: 20000
 - stopApp
 - launchApp
-- tapOn: Profile
+- tapOn: "Profile, tab,.*"
 - extendedWaitUntil:
     visible: Saved designs
     timeout: 20000
 - assertVisible: Beta customer
+- takeScreenshot: beta-profile
+- tapOn: Appointments
+- extendedWaitUntil:
+    visible: Appointment details
+    timeout: 20000
+- tapOn:
+    text: Appointment details
+    index: 0
+- extendedWaitUntil:
+    visible: Full deposit refund completed
+    timeout: 20000
+- assertVisible: cancelled
+- assertNotVisible: Pay appointment deposit
+- takeScreenshot: beta-refund-completed

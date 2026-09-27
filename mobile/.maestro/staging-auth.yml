@@ -4,18 +4,29 @@ appId: app.laque.mobile.development
 ---
 - launchApp:
     clearState: true
-- tapOn: Profile
+    clearKeychain: true
+- tapOn: "Profile, tab,.*"
 - tapOn: Sign in
-- tapOn: Email
+- tapOn:
+    text: Email
+    index: 1
 - inputText: ${TEST_EMAIL}
-- tapOn: Password
+- pressKey: Enter
+- tapOn:
+    text: Password
+    index: 1
 - inputText: ${TEST_PASSWORD}
-- hideKeyboard
-- tapOn: Sign in
+- pressKey: Enter
+- tapOn:
+    text: Sign in
+    index: 1
+- tapOn:
+    text: Not Now
+    optional: true
 - extendedWaitUntil:
     visible: Saved designs
     timeout: 20000
 - stopApp
 - launchApp
-- tapOn: Profile
+- tapOn: "Profile, tab,.*"
 - assertVisible: Saved designs
