@@ -94,8 +94,20 @@ export async function POST(request) {
     // stored on the record below, but are NO LONGER mentioned in the prompt:
     // the /v1/images/generations call is text-only, so the old "take inspiration
     // from the reference designs" line never actually reached the model.
+    // Existing catalogue names → the prompt tells the model not to reuse them, so
+    // a generated board's title doesn't clash with a published design. Best-effort:
+    // never block a generation if this read fails.
+    let existingNames = []
+    try {
+      const { data: titleRows } = await supabase
+        .from('designs').select('title').eq('is_published', true).not('title', 'is', null).limit(500)
+      existingNames = [...new Set((titleRows || []).map(r => r.title).filter(Boolean))]
+    } catch (e) {
+      console.error('nail-lab existing-names fetch failed (continuing without avoid-list):', e)
+    }
+
     const { prompt, background, backgroundReason } = buildNailLabPrompt({
-      shape, length, vibe, colors, occasion, customText,
+      shape, length, vibe, colors, occasion, customText, existingNames,
     })
     console.log(`nail-lab background: ${background} — ${backgroundReason}`)
 
