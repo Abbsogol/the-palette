@@ -1,0 +1,134 @@
+{
+  "recordedAt": "2026-09-27T15:26:37.617374+00:00",
+  "branch": "codex/native-mobile-beta",
+  "phaseComplete": false,
+  "environment": {
+    "os": "macOS",
+    "arch": "arm64",
+    "node": "v24.20.0",
+    "database": "PostgreSQL 17.10, disposable local catalog, multiple connections"
+  },
+  "checks": {
+    "regressions": {
+      "passed": 50,
+      "failed": 0,
+      "files": 5
+    },
+    "security": {
+      "passed": 117,
+      "failed": 0,
+      "files": 6
+    },
+    "phase3": {
+      "passed": 59,
+      "failed": 0,
+      "files": 4
+    },
+    "phase4": {
+      "passed": 58,
+      "failed": 0,
+      "files": 6
+    },
+    "phase5": {
+      "passed": 143,
+      "failed": 0,
+      "files": 11
+    },
+    "phase6": {
+      "passed": 125,
+      "failed": 0,
+      "files": 12
+    },
+    "mobile-backend": {
+      "passed": 40,
+      "failed": 0,
+      "files": 6
+    },
+    "unit": {
+      "passed": 29,
+      "failed": 0
+    },
+    "mobile": {
+      "passed": 21,
+      "failed": 0
+    },
+    "browser": {
+      "passed": 20,
+      "failed": 0
+    },
+    "nativeCompilation": {
+      "ios": "passed (EAS iOS Simulator smoke build)",
+      "android": "passed (EAS smoke APK)",
+      "deviceAcceptance": "not verified",
+      "builds": [
+        {
+          "platform": "IOS",
+          "id": "149b705c-e640-485c-b1f3-08dbfb9be4f4",
+          "status": "FINISHED"
+        },
+        {
+          "platform": "ANDROID",
+          "id": "cba6e738-3078-466e-a893-280e8915cba3",
+          "status": "FINISHED"
+        }
+      ]
+    },
+    "nativeProjectGeneration": {
+      "ios": "passed",
+      "android": "passed"
+    },
+    "hermesBundleExport": {
+      "ios": "passed",
+      "android": "passed"
+    },
+    "mobileDoctor": {
+      "passed": 20,
+      "failed": 1,
+      "reason": "CocoaPods unavailable; local install failed on Ruby headers"
+    },
+    "stripeTestAccount": {
+      "accountId": "acct_1TvxxEGpyT5aBYxx",
+      "apiAccess": "passed",
+      "catalog": "passed",
+      "webhook": "configured (test mode)",
+      "databaseOutcome": "not verified",
+      "environments": [
+        "local development",
+        "Vercel Development",
+        "isolated Vercel laque-beta"
+      ]
+    },
+    "expoProject": {
+      "owner": "kiimiia",
+      "slug": "laque-mobile",
+      "projectId": "c798894e-db94-4b60-88ca-0f75a1e05cdd",
+      "linkage": "passed"
+    },
+    "hosted": {
+      "supabaseProjectRef": "atjwbdrvgljddedtwoqo",
+      "backend": "https://laque-beta.vercel.app",
+      "migrationsApplied": 22,
+      "rlsTables": 66,
+      "managedSchemaRehearsal": "passed",
+      "syntheticJourney": [
+        "Backend identity and test Stripe gate",
+        "Signed-out mutation denied",
+        "Three real JWT accounts onboarded with matching database roles",
+        "Private upload bytes and draft visibility verified",
+        "Publish \u2192 discover \u2192 save \u2192 collection; stranger denied",
+        "Message retry deduped; stranger and blocked sender denied",
+        "Creator timezone and hours saved through permitted API; customer denied",
+        "Concurrent booking: one reservation; stranger cancellation denied; creator confirmed; Stripe test Checkout created"
+      ],
+      "scheduler": "three actual HTTP200 deliveries"
+    }
+  },
+  "blocked": [
+    "Hosted email/OAuth/AI, complete Stripe failure/retry matrix",
+    "Apple/Google/RevenueCat accounts and signing",
+    "Connected native Maestro execution and complete native journeys",
+    "Physical iPhone/Android and accessibility",
+    "Store edge cases MB-003/MB-004",
+    "Figma visual acceptance and licensed fonts"
+  ]
+}

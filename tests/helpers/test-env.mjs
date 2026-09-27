@@ -8,6 +8,9 @@ export const testEnv = {
   OPENAI_API_KEY: 'offline-openai-key',
   STRIPE_SECRET_KEY: 'sk_test_offline_no_network',
   STRIPE_WEBHOOK_SECRET: 'whsec_offline_no_network',
+  // Explicit fixture IDs: never resolve a catalog from inherited service keys.
+  STRIPE_PRICE_PREMIUM: 'price_1TnxOq14PyqGjXgedydlYqto',
+  STRIPE_PRICE_PRO_CREATOR: 'price_1TnxOG14PyqGjXgeKYmTKhQf',
   CRON_SECRET: 'offline-cron-secret',
   RESEND_API_KEY: '',
 }

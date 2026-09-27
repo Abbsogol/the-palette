@@ -1,0 +1,21 @@
+# Run only on a configured staging build with a synthetic, onboarded account.
+# Supply TEST_EMAIL and TEST_PASSWORD from the staging test secret store.
+appId: app.laque.mobile.development
+---
+- launchApp:
+    clearState: true
+- tapOn: Profile
+- tapOn: Sign in
+- tapOn: Email
+- inputText: ${TEST_EMAIL}
+- tapOn: Password
+- inputText: ${TEST_PASSWORD}
+- hideKeyboard
+- tapOn: Sign in
+- extendedWaitUntil:
+    visible: Saved designs
+    timeout: 20000
+- stopApp
+- launchApp
+- tapOn: Profile
+- assertVisible: Saved designs

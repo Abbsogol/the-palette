@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState, useEffect, useCallback } from 'react'
 import { useCurrentTime } from '@/lib/use-current-time'
 import { supabase } from '@/lib/supabase'
@@ -841,6 +842,7 @@ export default function AdminPage() {
       <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Admin</p>
       <h1 style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: '500', marginBottom: '20px' }}>Laque</h1>
 
+      <Link href="/admin/reports">Safety reports</Link>
       <div style={{ display: 'flex', gap: '8px', marginBottom: '28px', flexWrap: 'wrap' }}>
         {[['upload', 'Upload Design'], ['manage', 'Manage Designs'], ['shop', 'Shop Products'], ['dashboard', 'Dashboard'], ['tags', 'Tags'], ['credits', 'Credits'], ['challenges', 'Challenges']].map(([tab, label]) => (
           <button key={tab} onClick={() => { setActiveTab(tab); setSuccessMsg(''); setAddingProduct(false) }} style={{

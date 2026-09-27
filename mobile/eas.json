@@ -1,0 +1,82 @@
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "environment": "development",
+      "env": {
+        "APP_VARIANT": "development",
+        "EXPO_PUBLIC_APP_ENV": "development"
+      }
+    },
+    "simulator": {
+      "extends": "development",
+      "ios": {
+        "simulator": true
+      }
+    },
+    "beta": {
+      "distribution": "store",
+      "environment": "preview",
+      "autoIncrement": true,
+      "env": {
+        "APP_VARIANT": "beta",
+        "EXPO_PUBLIC_APP_ENV": "beta"
+      }
+    },
+    "beta-preview": {
+      "extends": "beta",
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true
+      }
+    },
+    "e2e-smoke": {
+      "withoutCredentials": true,
+      "environment": "development",
+      "ios": {
+        "simulator": true
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "APP_VARIANT": "development",
+        "EXPO_PUBLIC_APP_ENV": "development",
+        "EXPO_PUBLIC_API_URL": "unconfigured",
+        "EXPO_PUBLIC_SUPABASE_URL": "unconfigured",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "unconfigured",
+        "EXPO_PUBLIC_SUPABASE_PROJECT_REF": "unconfigured"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "developmentClient": false,
+      "environment": "development",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true
+      },
+      "env": {
+        "APP_VARIANT": "development",
+        "EXPO_PUBLIC_APP_ENV": "development"
+      }
+    }
+  },
+  "submit": {
+    "beta": {
+      "android": {
+        "track": "internal"
+      }
+    }
+  }
+}

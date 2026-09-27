@@ -1,0 +1,9 @@
+/.backups/
+/mobile/
+/tests/
+/docs/
+/supabase/
+/.github/
+/.env*
+/playwright-report/
+/test-results/

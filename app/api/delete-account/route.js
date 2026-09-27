@@ -62,6 +62,8 @@ export async function POST(request) {
     }
     return Response.json({ error: 'File cleanup is still in progress. Please retry to finish deleting your account.' }, { status: 503 })
   } catch (error) {
+    if (error?.message?.includes('STORE_BILLING_IN_PROGRESS')) return Response.json({error:'Your store subscription or purchase is still active or being verified. Manage billing and retry once it is resolved.'},{status:409})
+    if (error?.message?.includes('BOOKING_OR_REFUND_IN_PROGRESS')) return Response.json({error:'Finish or cancel your upcoming appointments and wait for outstanding refunds before deleting your account.'},{status:409})
     console.error('Account deletion failed:', error)
     return Response.json({ error: 'Your account could not be deleted. Please retry; some files may already have been removed.' }, { status: 503 })
   }

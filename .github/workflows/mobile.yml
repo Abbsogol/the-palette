@@ -1,0 +1,82 @@
+name: Mobile verification
+on:
+  pull_request:
+  push:
+    branches: [main, 'codex/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - run: npm run verify
+      - run: npx expo export --platform ios --platform android --output-dir .expo/export
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mobile-bundles
+          path: mobile/.expo/export
+          retention-days: 7
+  android-build:
+    needs: mobile
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - run: npm ci
+      - run: npx expo prebuild --platform android --no-install
+      - run: ./android/gradlew -p android assembleRelease --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-local-smoke-apk
+          path: mobile/android/app/build/outputs/apk/release/*.apk
+          retention-days: 7
+  ios-build:
+    needs: mobile
+    runs-on: macos-26
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - run: npx expo prebuild --platform ios
+      - run: xcodebuild -workspace ios/LaQueDev.xcworkspace -scheme LaQueDev -configuration Release -sdk iphonesimulator -derivedDataPath .expo/native-build CODE_SIGNING_ALLOWED=NO
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-local-smoke-app
+          path: mobile/.expo/native-build/Build/Products/Release-iphonesimulator/*.app
+          retention-days: 7

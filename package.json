@@ -19,7 +19,8 @@
     "test:phase3": "vitest run tests/phase3",
     "test:phase4": "vitest run tests/phase4",
     "test:phase5": "vitest run tests/phase5",
-    "test:phase6": "vitest run tests/phase6"
+    "test:phase6": "vitest run tests/phase6",
+    "test:mobile-backend": "vitest run tests/mobile-backend"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.1",

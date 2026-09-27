@@ -1,0 +1,30 @@
+# Only the isolated beta customer account belongs in these environment variables.
+appId: app.laque.mobile
+---
+- launchApp:
+    clearState: true
+- tapOn: Profile
+- tapOn: Sign in
+- tapOn: Email
+- inputText: ${MAESTRO_TEST_EMAIL}
+- tapOn: Password
+- inputText: ${MAESTRO_TEST_PASSWORD}
+- hideKeyboard
+- tapOn:
+    text: Sign in
+    index: 1
+- extendedWaitUntil:
+    visible: Saved designs
+    timeout: 30000
+- assertVisible: Beta customer
+- tapOn: Saved designs
+- extendedWaitUntil:
+    visible: Beta rose sample
+    timeout: 20000
+- stopApp
+- launchApp
+- tapOn: Profile
+- extendedWaitUntil:
+    visible: Saved designs
+    timeout: 20000
+- assertVisible: Beta customer
