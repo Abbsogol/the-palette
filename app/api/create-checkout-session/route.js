@@ -1,4 +1,5 @@
 import Stripe from 'stripe'
+import { paymentCheckout } from '@/lib/payment-checkout'
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
@@ -33,11 +34,7 @@ export async function POST(request) {
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://laque.app'
 
-    // Buckets rapid double-clicks/retries into the same Stripe session instead
-    // of creating a second real Checkout Session for one intended purchase.
-    const idempotencyKey = `checkout-${userId}-${packId}-${Math.floor(Date.now() / 300000)}`
-
-    const session = await stripe.checkout.sessions.create({
+    const session = await paymentCheckout(supabase, stripe, user.id, `credits-${packId}`, {
       integration_identifier: 'laque_checkout_qmrtxvpa',
       line_items: [
         {
@@ -72,7 +69,7 @@ export async function POST(request) {
           type: 'credits',
         },
       },
-    }, { idempotencyKey })
+    })
 
     return Response.json({ url: session.url })
 

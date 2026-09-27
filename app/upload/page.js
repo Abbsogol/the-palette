@@ -50,7 +50,7 @@ export default function UploadPage() {
       const u = session.user
       setUser(u)
 
-      let { data: prof } = await supabase.from('profiles').select('*').eq('id', u.id).single()
+      const { data: prof } = await supabase.from('profiles').select('*').eq('id', u.id).single()
 
       // Must be a creator or salon
       if (prof?.account_type !== 'creator' && prof?.account_type !== 'salon') {
@@ -58,23 +58,9 @@ export default function UploadPage() {
         return
       }
 
-      // Reset weekly count if 7+ days have passed. This write is
-      // display-only — the server-side enforce_weekly_upload_limit trigger
-      // independently recomputes the same 7-day reset at insert time, so a
-      // failure here can't let anyone bypass the real limit. But the local
-      // "uploads left" count should only reflect the reset if it actually
-      // persisted, so the UI never claims more availability than the
-      // server will honor.
-      const lastReset = prof.week_reset_at ? new Date(prof.week_reset_at) : new Date(0)
-      const daysSince = (Date.now() - lastReset.getTime()) / (1000 * 60 * 60 * 24)
-      if (daysSince >= 7) {
-        const reset = { weekly_uploads: 0, week_reset_at: new Date().toISOString() }
-        const { error: resetError } = await supabase.from('profiles').update(reset).eq('id', u.id)
-        if (resetError) console.error('weekly reset failed:', resetError)
-        else prof = { ...prof, ...reset }
-      }
-
-      const used  = prof.weekly_uploads || 0
+      // The insertion trigger owns the reset; this is only a display estimate.
+      const expired = !prof.week_reset_at || new Date(prof.week_reset_at).getTime() < Date.now() - 7 * 86400000
+      const used = expired ? 0 : prof.weekly_uploads || 0
       const isPro = prof.subscription_tier === 'pro_creator'
       setUploadsLeft(isPro ? Infinity : Math.max(0, FREE_LIMIT - used))
       setAtLimit(!isPro && used >= FREE_LIMIT)
@@ -138,8 +124,7 @@ export default function UploadPage() {
         if (coloursErr) throw new Error('Failed to save colours: ' + coloursErr.message)
       }
 
-      // Tags + weekly upload count — via server route (tags table and profiles
-      // updates are blocked by RLS for direct client writes)
+      // Tags are attached through an owner-checked server route.
       const tagNames = tagsInput.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
       const finalizeRes = await fetch('/api/finalize-design-upload', {
         method: 'POST',
@@ -150,7 +135,7 @@ export default function UploadPage() {
         body: JSON.stringify({ designId: design.id, tagNames }),
       })
       if (!finalizeRes.ok) {
-        throw new Error('Design was uploaded, but tags/weekly count failed to save. Please contact support if this repeats.')
+        throw new Error('Design was uploaded, but tags failed to save. Please contact support if this repeats.')
       }
 
       // Reward for posting a design

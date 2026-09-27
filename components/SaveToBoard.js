@@ -1,8 +1,11 @@
 'use client'
+import { persistentImageReference } from '@/lib/storage-reference'
+import StorageImage from '@/components/StorageImage'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export default function SaveToBoard({ designId, designImageUrl, renderTrigger, externalOpen, onClose }) {
+  const coverReference = persistentImageReference(designImageUrl)
   const [internalOpen, setInternalOpen] = useState(false)
   const open = externalOpen !== undefined ? externalOpen : internalOpen
   const setOpen = (v) => {
@@ -94,10 +97,10 @@ export default function SaveToBoard({ designId, designImageUrl, renderTrigger, e
         if (board && !board.cover_image_url && designImageUrl) {
           const { error: coverErr } = await supabase
             .from('moodboards')
-            .update({ cover_image_url: designImageUrl })
+            .update({ cover_image_url: coverReference })
             .eq('id', boardId)
           if (!coverErr) {
-            setBoards(prev => prev.map(b => b.id === boardId ? { ...b, cover_image_url: designImageUrl } : b))
+            setBoards(prev => prev.map(b => b.id === boardId ? { ...b, cover_image_url: coverReference } : b))
           }
         }
 
@@ -113,7 +116,7 @@ export default function SaveToBoard({ designId, designImageUrl, renderTrigger, e
     setCreating(true)
     const { data, error } = await supabase
       .from('moodboards')
-      .insert({ user_id: user.id, name: newName.trim(), cover_image_url: designImageUrl || null })
+      .insert({ user_id: user.id, name: newName.trim(), cover_image_url: coverReference || null })
       .select('id, name, cover_image_url')
       .single()
 
@@ -293,7 +296,7 @@ export default function SaveToBoard({ designId, designImageUrl, renderTrigger, e
                             background: 'var(--bg-chip)', overflow: 'hidden', flexShrink: 0,
                           }}>
                             {board.cover_image_url && (
-                              <img src={board.cover_image_url} alt={board.name}
+                              <StorageImage src={board.cover_image_url} alt={board.name}
                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             )}
                           </div>

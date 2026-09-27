@@ -18,9 +18,11 @@ const fmtDate = (dateStr) => {
 }
 
 export async function GET(request) {
-  // Vercel auto-sets CRON_SECRET and passes it — reject anything else
+  // Fail closed until a scheduler secret is explicitly configured.
+  const secret = process.env.CRON_SECRET?.trim()
+  if (!secret) return Response.json({ error: 'Reminder scheduler is not configured' }, { status: 503 })
   const authHeader = request.headers.get('authorization')
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (authHeader !== `Bearer ${secret}`) {
     return new Response('Unauthorized', { status: 401 })
   }
 

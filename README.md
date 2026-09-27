@@ -31,26 +31,31 @@ Open http://localhost:3000. The environment check validates presence and basic f
 | `OPENAI_API_KEY` | Server-only generation and recommendations |
 | `STRIPE_SECRET_KEY` | Server-only Stripe API access |
 | `STRIPE_WEBHOOK_SECRET` | Webhook signature verification |
+| `STRIPE_PRICE_PREMIUM`, `STRIPE_PRICE_PRO_CREATOR` | Optional environment-specific subscription Prices; set sandbox Prices in staging |
 | `CRON_SECRET` | Scheduled reminder authentication; required by the release configuration check |
 | `RESEND_API_KEY` | Optional reminder email delivery |
 
-Never expose server credentials through `NEXT_PUBLIC_*` variables. Real environment files and backups are ignored by Git; only the blank `.env.example` is committed. Subscription price IDs and some app URLs are currently hardcoded; staging payment validation remains blocked until they are separated during the payment phase.
+Never expose server credentials through `NEXT_PUBLIC_*` variables. Real environment files and backups are ignored by Git; only the blank `.env.example` is committed. Subscription Prices have historical production defaults; configure the optional overrides and the correct app URL for isolated staging. Browser OAuth/recovery callbacks use the current origin, which must be allowed in Supabase.
 
 ## Verification
 
 ```sh
 npm run test:unit           # Existing safeguards and environment validation
 npm run test:regressions    # Desired behavior for documented defects
-npm test                   # Both suites, once (not watch mode)
+npm run test:security       # Authorization, RLS and earlier review fixes
+npm run test:phase3         # Financial flows, concurrent writes, payment/refund UI
+npm test                   # All suites once, with local in-process PostgreSQL
 npm run lint
 npm run build:smoke         # Compile with fake, loopback-only service values
 npx playwright install chromium webkit
 npm run test:e2e            # Uses the production build from build:smoke
 ```
 
-**The baseline is intentionally not green.** Ten known-defect tests assert desired behavior and fail until the corresponding fix is implemented. They are not skipped, inverted, or marked as expected failures. Existing application lint failures are retained. See [the issue register](docs/issue-register.md).
+The original ten failures, lint baseline, combined-review defects, and reproduced Phase 3 defects are corrected locally. Desired-outcome regression tests remain enabled. Local passing checks do not establish deployed correctness; see [the current Phase 3 report](docs/phase-3-review.md) and [the issue register](docs/issue-register.md).
 
 API/component tests import application code with mocked services. Unexpected `fetch` calls fail. The smoke-build launcher overrides inherited provider credentials with fake values. Browser smoke tests permit only their local app origin and cover public navigation/auth UI. None of these checks certifies deployed RLS or live fulfillment.
+
+For CI-equivalent database sequencing, point `DATABASE_TEST_URL` at a fresh **local** PostgreSQL 17 database named `palette_test`, then run `test:regressions`, `test:security`, and `test:phase3` in that order. The helpers reject non-loopback hosts and other database names. Native SQL tests exercise real transactions and roles; simplified managed Auth/Storage fixtures still require staging verification.
 
 `npm run build` uses real configuration; `build:smoke` explicitly does not. `npm run env:check:build` checks only variables needed for compilation. Both environment-check commands reject the offline placeholders.
 
@@ -59,6 +64,8 @@ API/component tests import application code with mocked services. Unexpected `fe
 GitHub Actions runs independent lint, unit, known-regression, and production-build/browser jobs without production secrets. Browser reports are retained for seven days. Failures block readiness; there is no `continue-on-error` bypass. The main branch now requires the unit, lint, regressions, and browser checks, with an up-to-date branch and no administrator bypass.
 
 - [Phase 1 evidence and remaining blockers](docs/phase-1-status.md)
+- [Phase 2 security fixes and rollout requirements](docs/phase-2-security.md)
+- [Phase 3 flow map, corrections, verification, and open gaps](docs/phase-3-review.md)
 - [Issue register and regression mapping](docs/issue-register.md)
 - [Staging, schema, and recovery runbook](docs/environment-and-recovery.md)
 - [Database inspection boundary](supabase/README.md)

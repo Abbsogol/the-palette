@@ -130,10 +130,6 @@ export default function CreatorPage() {
       if (error) { alert('Failed to follow. Please try again.'); setFollowLoading(false); return }
       setIsFollowing(true)
       setFollowerCount(c => c + 1)
-      // Notify — skip if following yourself
-      if (currentUser.id !== id) {
-        await supabase.from('notifications').insert({ user_id: id, actor_id: currentUser.id, type: 'follow' })
-      }
     }
     setFollowLoading(false)
   }

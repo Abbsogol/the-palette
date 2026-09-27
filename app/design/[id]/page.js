@@ -173,7 +173,7 @@ export default async function DesignPage({ params, searchParams }) {
           <p style={{ color: 'var(--accent)', fontSize: '13px', fontWeight: '600', margin: 0 }}>
             {isActuallyBoosted
               ? '✦ Your design is now boosted and featured in the feed!'
-              : 'Payment received — your boost will appear here in a moment.'}
+              : 'Confirming your boost — refresh to check its status.'}
           </p>
         </div>
       )}

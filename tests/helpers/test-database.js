@@ -18,5 +18,6 @@ export async function createTestDatabase() {
   }
   await db.exec(await readFile(new URL('../fixtures/entitlement-schema.sql', import.meta.url), 'utf8'))
   await db.exec(await readFile(new URL('../../supabase/migrations/202609260001_atomic_entitlements.sql', import.meta.url), 'utf8'))
+  await db.exec(await readFile(new URL('../../supabase/migrations/202609260004_credit_refund_order.sql', import.meta.url), 'utf8'))
   return db
 }

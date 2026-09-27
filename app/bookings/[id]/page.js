@@ -111,11 +111,6 @@ export default function BookingDetailPage() {
     setActing('accept')
     const { error } = await supabase.from('bookings').update({ status: 'confirmed' }).eq('id', booking.id)
     if (error) { alert('Failed to accept booking. Please try again.'); setActing(null); return }
-    await supabase.from('notifications').insert({
-      user_id: booking.client_id,
-      actor_id: currentUser.id,
-      type: 'booking_confirmed',
-    })
     setBooking(prev => ({ ...prev, status: 'confirmed' }))
     setActing(null)
   }
@@ -125,11 +120,6 @@ export default function BookingDetailPage() {
     setActing('decline')
     const { error } = await supabase.from('bookings').update({ status: 'declined' }).eq('id', booking.id)
     if (error) { alert('Failed to decline booking. Please try again.'); setActing(null); return }
-    await supabase.from('notifications').insert({
-      user_id: booking.client_id,
-      actor_id: currentUser.id,
-      type: 'booking_declined',
-    })
     setBooking(prev => ({ ...prev, status: 'declined' }))
     setActing(null)
   }

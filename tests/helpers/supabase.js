@@ -25,7 +25,7 @@ export function database(resolve, rpc = async () => { throw new Error('Unexpecte
         is(k, v) { query.filters.push(['is', k, v]); return chain },
         in(k, v) { query.filters.push(['in', k, v]); return chain },
         order() { return chain }, limit() { return chain },
-        single: run, maybeSingle: run,
+        single() { query.single = true; return run() }, maybeSingle() { query.single = true; return run() },
         then(yes, no) { return run().then(yes, no) },
       }
       return chain

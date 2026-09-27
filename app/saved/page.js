@@ -1,5 +1,6 @@
 'use client'
 
+import StorageImage from '@/components/StorageImage'
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -142,7 +143,7 @@ export default function SavedPage() {
               }}>
                 <div style={{ width: '120px', height: '90px', background: 'var(--bg-chip)', overflow: 'hidden' }}>
                   {board.cover_image_url ? (
-                    <img src={board.cover_image_url} alt={board.name}
+                    <StorageImage src={board.cover_image_url} alt={board.name}
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -186,7 +187,7 @@ export default function SavedPage() {
                 >
                   {design.image_url ? (
                     <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden' }}>
-                      <img src={design.image_url} alt={design.title} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+                      <StorageImage src={design.image_url} alt={design.title} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
                     </div>
                   ) : (
                     <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--bg-chip)' }} />

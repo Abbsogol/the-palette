@@ -17,7 +17,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mocks.getSessionUser.mockResolvedValue(user)
   mocks.constructEvent.mockImplementation(body => JSON.parse(body))
-  mocks.checkout.mockResolvedValue({ url: 'https://checkout.invalid/session' })
+  mocks.checkout.mockResolvedValue({ id:'cs_first', url: 'https://checkout.invalid/session' })
   Object.assign(mocks.client, database(() => ok(null)))
   vi.spyOn(console, 'log').mockImplementation(() => {})
   vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -55,11 +55,11 @@ it('rejects an invalid webhook signature without a database write', async () => 
   expect(mocks.client.from).not.toHaveBeenCalled()
 })
 
-it('does not repeat fulfillment for an already recorded event', async () => {
+it('acknowledges an unhandled event without a fulfillment write', async () => {
   Object.assign(mocks.client, database(() => ({ data: null, error: { code: '23505' } })))
   expect((await webhook(jsonRequest({ id: 'duplicate', type: 'checkout.session.completed' }))).status).toBe(200)
   expect(mocks.client.rpc).not.toHaveBeenCalled()
-  expect(mocks.client.calls).toHaveLength(1)
+  expect(mocks.client.calls).toHaveLength(0)
 })
 
 it.each(['checkout.session.completed', 'checkout.session.async_payment_succeeded'])('fulfills a paid %s through the atomic receipt transaction', async type => {
@@ -89,10 +89,13 @@ it('blocks another subscription during webhook delay when Stripe already has an 
 })
 
 it('allows a first subscription and reuses its known customer', async () => {
-  Object.assign(mocks.client, database(() => ok({ subscription_tier: null, stripe_customer_id: 'cus-a' })))
+  Object.assign(mocks.client, database(q => ok(q.table==='subscription_checkouts' ? {id:'attempt'} : { subscription_tier: null, stripe_customer_id: 'cus-a' }),async(name)=>{
+    expect(name).toBe('reserve_subscription_checkout')
+    return ok({id:'attempt',customer_id:'cus-a',plan_id:'premium',base_url:'https://laque.app',created_at:new Date().toISOString()})
+  }))
   mocks.subscriptions.mockResolvedValue({ data: [], has_more: false })
   expect((await subscribe(jsonRequest({ planId: 'premium' }))).status).toBe(200)
-  expect(mocks.checkout).toHaveBeenCalledWith(expect.objectContaining({ customer: 'cus-a', mode: 'subscription' }), expect.any(Object))
+  expect(mocks.checkout).toHaveBeenCalledWith(expect.objectContaining({ customer: 'cus-a', mode: 'subscription' }), {idempotencyKey:'subscription-attempt'})
 })
 
 const statusRequest = () => new Request('http://localhost/api/credit-checkout-status?session_id=cs_pending')

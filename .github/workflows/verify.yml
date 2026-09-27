@@ -65,6 +65,8 @@ jobs:
       - run: npm ci
       # Native PostgreSQL exercises concurrent connections and transactions.
       - run: npm run test:regressions
+      - run: npm run test:security
+      - run: npm run test:phase3
 
   browser:
     runs-on: ubuntu-latest

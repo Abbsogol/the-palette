@@ -14,6 +14,7 @@ beforeEach(() => {
   clients.from.mockReturnValue({ select: clients.select })
   clients.select.mockReturnValue({ eq: clients.eq })
   clients.eq.mockReturnValue({ single: clients.single })
+  clients.single.mockResolvedValue({data:{deletion_started_at:null},error:null})
 })
 
 describe('verified API identity', () => {
@@ -49,4 +50,16 @@ describe('administrative access', () => {
     clients.single.mockResolvedValue({ data: null, error: { message: 'unavailable' } })
     expect(await isAdmin('user-a')).toBe(false)
   })
+})
+
+it('rejects verified sessions for an account undergoing deletion',async()=>{
+  clients.getUser.mockResolvedValue({data:{user:{id:'deleting-user'}},error:null})
+  clients.single.mockResolvedValue({data:{deletion_started_at:'2026-09-26'},error:null})
+  const request=new Request('http://localhost',{headers:{authorization:'Bearer valid'}})
+  expect(await getSessionUser(request)).toBeNull()
+  expect(await getSessionUser(request,{allowDeleting:true})).toEqual({id:'deleting-user'})
+})
+it('authentication network failures fail closed',async()=>{
+  clients.getUser.mockRejectedValue(new Error('Network unavailable'))
+  expect(await getSessionUser(new Request('http://localhost',{headers:{authorization:'Bearer valid'}}))).toBeNull()
 })

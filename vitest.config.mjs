@@ -24,7 +24,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     env: testEnv,
-    include: ['tests/unit/**/*.test.{js,jsx}', 'tests/regressions/**/*.test.{js,jsx}'],
+    include: ['tests/unit/**/*.test.{js,jsx}', 'tests/regressions/**/*.test.{js,jsx}', 'tests/security/**/*.test.{js,jsx}', 'tests/phase3/**/*.test.{js,jsx}'],
     setupFiles: ['./tests/setup.mjs'],
     testTimeout: 5000,
     restoreMocks: true,

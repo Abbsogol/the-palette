@@ -1,5 +1,7 @@
 'use client'
 
+import StorageImage from '@/components/StorageImage'
+import DeleteAccountButton from '@/components/DeleteAccountButton'
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -417,14 +419,14 @@ export default function ProfilePage() {
 
   const handleForgotPassword = async (e) => {
     e.preventDefault(); setError(''); setSubmitting(true)
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: 'https://laque.app/profile' })
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/profile` })
     if (error) setError(error.message)
     else setForgotSent(true)
     setSubmitting(false)
   }
 
   const handleGoogleSignIn = async () => {
-    await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: 'https://laque.app/profile', queryParams: { prompt: 'select_account' } } })
+    await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/profile`, queryParams: { prompt: 'select_account' } } })
   }
 
   const handleSetGoogleAccountType = async () => {
@@ -492,12 +494,6 @@ export default function ProfilePage() {
   }
 
   const handleLogout       = async () => { await supabase.auth.signOut() }
-  const handleDeleteAccount = async () => {
-    if (!confirm('Delete your account permanently? This cannot be undone.')) return
-    await supabase.rpc('delete_own_account')
-    await supabase.auth.signOut()
-  }
-
   const handleAvatarPick = (e) => {
     const file = e.target.files[0]
     if (file) setCropFile(file)
@@ -1262,7 +1258,7 @@ export default function ProfilePage() {
                   <div key={design.id} style={{ position: 'relative', background: 'var(--bg-card)', borderRadius: '12px', border: `0.5px solid ${design.is_pinned ? 'rgba(212,160,192,0.4)' : 'var(--border)'}`, overflow: 'hidden' }}>
                     <Link href={`/design/${design.id}`} style={{ textDecoration: 'none', display: 'block' }}>
                       {design.image_url
-                        ? <div style={{ width: '100%', aspectRatio: '1/1', overflow: 'hidden' }}><img src={design.image_url} alt={design.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></div>
+                        ? <div style={{ width: '100%', aspectRatio: '1/1', overflow: 'hidden' }}><StorageImage src={design.image_url} alt={design.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></div>
                         : <div style={{ width: '100%', aspectRatio: '1/1', background: 'var(--bg-chip)' }} />
                       }
                       <div style={{ padding: '8px 10px 10px' }}>
@@ -1461,10 +1457,7 @@ export default function ProfilePage() {
         </button>
       </div>
       <div style={{ padding: '0 20px 32px' }}>
-        <button onClick={handleDeleteAccount}
-          style={{ width: '100%', background: 'none', border: 'none', padding: '8px', color: '#8B3A3A', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
-          Delete account
-        </button>
+        <DeleteAccountButton />
       </div>
 
     </div>

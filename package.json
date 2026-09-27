@@ -14,7 +14,9 @@
     "test:e2e": "playwright test",
     "build:smoke": "node scripts/with-test-env.mjs node node_modules/next/dist/bin/next build",
     "env:check": "node scripts/check-env.mjs",
-    "env:check:build": "node scripts/check-env.mjs build"
+    "env:check:build": "node scripts/check-env.mjs build",
+    "test:security": "vitest run tests/security",
+    "test:phase3": "vitest run tests/phase3"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.1",

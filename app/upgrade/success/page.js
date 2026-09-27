@@ -10,47 +10,48 @@ const MAX_POLL_ATTEMPTS = 8 // ~12s of polling, on top of the immediate first re
 
 function SuccessContent() {
   const params = useSearchParams()
-  const plan = params.get('plan')
+  const sessionId = params.get('session_id')
+  const [plan, setPlan] = useState(params.get('plan'))
 
   const isPro = plan === 'pro_creator'
   const [polling, setChecking] = useState(true)
-  const checking = !!plan && polling
+  const checking = !!sessionId && polling
   const [confirmed, setConfirmed] = useState(false)
   const [pollTimedOut, setTimedOut] = useState(false)
-  const timedOut = !plan || pollTimedOut
+  const timedOut = !sessionId || pollTimedOut
 
   useEffect(() => {
-    if (!plan) return
+    if (!sessionId) return
 
     let cancelled = false
     let timeoutId
     let attempts = 0
 
     const tick = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { if (!cancelled) { setChecking(false); setTimedOut(true) }; return }
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('subscription_tier')
-        .eq('id', user.id)
-        .single()
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) { if (!cancelled) { setChecking(false); setTimedOut(true) }; return }
+        const response = await fetch(`/api/subscription-checkout-status?session_id=${encodeURIComponent(sessionId)}`, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        })
+        const result = await response.json()
+        if (cancelled) return
+        if (response.ok && result.status === 'fulfilled' && ['premium','pro_creator'].includes(result.planId)) {
+          setPlan(result.planId)
+          setConfirmed(true)
+          setChecking(false)
+          return
+        }
+      } catch { /* A failed status read cannot confirm a subscription. */ }
       if (cancelled) return
       attempts += 1
-
-      if (profile?.subscription_tier === plan) {
-        setConfirmed(true)
-        setChecking(false)
-        return
-      }
-
       if (attempts >= MAX_POLL_ATTEMPTS) { setChecking(false); setTimedOut(true); return }
       timeoutId = setTimeout(tick, POLL_INTERVAL_MS)
     }
 
     tick()
     return () => { cancelled = true; clearTimeout(timeoutId) }
-  }, [plan])
+  }, [sessionId])
 
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', fontFamily: "'DM Sans', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px', textAlign: 'center' }}>
@@ -62,12 +63,13 @@ function SuccessContent() {
       </div>
 
       <h1 style={{ color: 'var(--text-primary)', fontSize: '24px', fontWeight: '700', margin: '0 0 10px' }}>
-        Welcome to {isPro ? 'Pro Creator' : 'Laque Premium'} ✦
+        {confirmed ? `Welcome to ${isPro ? 'Pro Creator' : 'Laque Premium'} ✦` : 'Subscription checkout'}
       </h1>
       <p style={{ color: 'var(--text-secondary)', fontSize: '15px', lineHeight: '1.6', margin: '0 0 12px', maxWidth: '300px' }}>
-        {isPro
+        {confirmed ? isPro
           ? 'Your Pro Creator subscription is now active. Start accepting bookings and publishing your designs.'
-          : 'Your Premium subscription is now active. Enjoy exclusive designs and credits every month.'}
+          : 'Your Premium subscription is now active. Enjoy exclusive designs and credits every month.'
+          : 'We will confirm your plan once payment and activation are recorded.'}
       </p>
 
       {checking && (

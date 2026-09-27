@@ -1,6 +1,6 @@
 # Regression fixes — September 26, 2026
 
-The ten failures recorded against main are fixed in the review branch and published in [draft PR #1](https://github.com/Abbsogol/the-palette/pull/1). The original behavioral assertions remain enabled. No production database migration or deployment has been performed.
+The ten failures recorded against main are fixed in the review branch and published in [draft PR #1](https://github.com/Abbsogol/the-palette/pull/1). The original behavioral assertions remain enabled. A later [combined review](phase-1-2-review.md) found REG-04 incomplete for pending first-time checkouts. That path and the other five findings are now fixed locally; see [current verification and rollout requirements](six-issue-fixes.md). No production database migration or deployment has been performed.
 
 | Case | Cause and correction |
 |---|---|

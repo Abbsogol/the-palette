@@ -41,19 +41,8 @@ export default function CommentSheet({ design, currentUser, onClose, onCommentAd
       setSubmitting(false)
       return
     }
-    await supabase.rpc('increment_comments', { design_id: design.id })
     setComments(prev => [...prev, data])
     onCommentAdded?.()
-    // Notify design owner (skip if commenting on own design)
-    if (design.created_by && design.created_by !== currentUser.id) {
-      await supabase.from('notifications').insert({
-        user_id: design.created_by,
-        actor_id: currentUser.id,
-        type: 'comment',
-        design_id: design.id,
-        comment_preview: body.trim().slice(0, 80),
-      })
-    }
     setBody('')
     setSubmitting(false)
   }
@@ -64,7 +53,6 @@ export default function CommentSheet({ design, currentUser, onClose, onCommentAd
     try {
       const { error } = await supabase.from('design_comments').delete().eq('id', comment.id)
       if (error) { alert('Failed to delete comment. Please try again.'); return }
-      await supabase.rpc('decrement_comments', { design_id: design.id })
       setComments(prev => prev.filter(c => c.id !== comment.id))
       onCommentDeleted?.()
     } finally {

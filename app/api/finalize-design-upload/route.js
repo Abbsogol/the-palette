@@ -42,16 +42,7 @@ export async function POST(request) {
     }
   }
 
-  const { data: profile } = await supabase
-    .from('profiles_data')
-    .select('weekly_uploads')
-    .eq('id', user.id)
-    .single()
-
-  await supabase
-    .from('profiles_data')
-    .update({ weekly_uploads: (profile?.weekly_uploads || 0) + 1 })
-    .eq('id', user.id)
+  // Weekly quota is recorded by the design insertion transaction.
 
   return Response.json({ ok: true })
 }

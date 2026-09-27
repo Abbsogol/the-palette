@@ -1,4 +1,5 @@
 'use client'
+import StorageImage from '@/components/StorageImage'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -153,12 +154,6 @@ export default function MoodboardDetailPage() {
       return
     }
     // Send notification
-    await supabase.from('notifications').insert({
-      user_id: searchResult.id,
-      actor_id: currentUser.id,
-      type: 'moodboard_invite',
-      design_id: null,
-    })
     setMembers(prev => [...prev, { user_id: searchResult.id, profile: searchResult, invited_by: currentUser.id }])
     setSearchResult(null)
     setSearchUsername('')
@@ -445,7 +440,7 @@ export default function MoodboardDetailPage() {
               }}>
                 <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', background: 'var(--bg-chip)' }}>
                   {d.image_url && (
-                    <img src={d.image_url} alt={d.title}
+                    <StorageImage src={d.image_url} alt={d.title}
                       loading="lazy" decoding="async"
                       style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
                   )}

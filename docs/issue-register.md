@@ -1,6 +1,6 @@
 # Release issue register
 
-Baseline: main `22ec32f0959a529507c8bbf7302ef14d50b7015a`, checked September 26, 2026. All ten cases below are now fixed, tested, and published in the review branch; migration and deployment remain pending. See [fixes and verification](regression-fixes.md). IDs match the original inspection order.
+Baseline: main `22ec32f0959a529507c8bbf7302ef14d50b7015a`, checked September 26, 2026. The original ten test cases pass in the published review branch; migration and deployment remain pending. A subsequent combined review reproduced six additional application/test defects. All six, including the REG-04 pending-checkout path, are now fixed locally with 172 automated checks passing. See [remediation and remaining rollout prerequisites](six-issue-fixes.md). See [fixes and verification](regression-fixes.md). IDs match the original inspection order.
 
 | ID | Priority | Required behavior | Test file | Fix phase |
 |---|---|---|---|---|
@@ -17,16 +17,21 @@ Baseline: main `22ec32f0959a529507c8bbf7302ef14d50b7015a`, checked September 26,
 
 Tests are in `tests/regressions/`. The original failing assertions remain active. Transaction RPCs have additional isolated PostgreSQL integration coverage; SDK doubles were updated to the new contracts without weakening the original outcomes.
 
+Phase 2 security fixes are included in [draft PR #1](https://github.com/Abbsogol/the-palette/pull/1); see [scope, evidence, and rollout requirements](phase-2-security.md). They are not applied to production.
+
+Phase 3 subsequently reproduced 18 failing checks across 15 further defect categories and corrected them locally. The user also selected automatic refunds for deposits settling after cancellation/decline; implementation and regression coverage are included. See [the current risk map, verification results, and unresolved service/recovery gaps](phase-3-review.md). Phase 3 remains open.
+
 Other release checks:
 
 | Item | Current evidence | Required closure |
 |---|---|---|
-| Authorization | Read-only production catalog captured; detailed authorization findings held privately | Remediate reviewed findings and test anonymous/cross-user/admin access in isolation |
-| Booking conflicts | Browser checks availability before insertion; catalog has no slot uniqueness/exclusion constraint or booking trigger | Verify database conflict prevention under concurrency |
-| Reminders | Cron authentication is conditional; CRON_SECRET absent from Vercel project/shared configuration | Fail closed and verify retryable notification/email delivery |
-| Monthly credits | Benefits advertised; no invoice grant in checked-in handler | Verify deployed job or implement idempotent paid-period fulfillment |
+| Authorization | Local hardening and catalog-based RLS tests added in Phase 2 | Rehearse on managed staging and roll out the migration/app together |
+| Booking conflicts | Phase 3 adds database serialization, overlap rejection and a privacy-preserving busy-slot query; native concurrent tests pass | Rehearse migration 005 and real booking journeys on managed staging |
+| Reminders | Fail-closed authentication implemented locally; hosted CRON_SECRET still absent | Configure the secret, deploy the fix, and verify retryable delivery |
+| Monthly credits | Phase 3 adds atomic once-per-period paid-invoice grants; initial/renewal/duplicate/delayed/failure cases pass locally | Reconcile historic periods and verify Stripe sandbox delivery before rollout |
+| Late deposits | Automatic full refunds implemented following the user's policy decision, with durable obligations, duplicate recovery, refund status and visible outcomes | Verify real sandbox refunds, endpoint event subscriptions and failed-refund operations |
 | Board covers | Some paths pass signed URLs | Persist stable references and test after expiration |
 | Filters/pagination | Case normalization and fixed limits need review | Test realistic datasets and older rows |
-| Lint | Fixed locally: zero errors and warnings (was 60/32) | Verify the published PR checks |
+| Lint | Fixed locally: zero errors and warnings (was 60/32) | Phase 1 PR checks passed; Phase 2 lint passes locally |
 | Dependencies | Upgraded locally: zero audit findings; build and browser checks pass | Verify staging runtime before deployment |
 | Recovery/staging | Daily backups verified; restore and isolated staging pending | Complete the environment-and-recovery runbook |

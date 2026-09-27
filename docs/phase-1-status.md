@@ -41,7 +41,7 @@ The regression failures are real release blockers, not skipped or expected-failu
 
 | Requirement | Status / missing evidence |
 |---|---|
-| GitHub repository access | Browser access works as repository owner Abbsogol. Terminal Git is unauthenticated; the connected integration previously rejected tree creation. All 27 foundation files were published through the owner session to codex/phase-1-foundation and verified byte-for-byte against the local commit. Draft PR #1 is open against main. |
+| GitHub repository access | Browser access works as repository owner Abbsogol. Terminal Git is now authenticated as Abbsogol; the owner pushed the verified fixes. All 27 foundation files were published through the owner session to codex/phase-1-foundation and verified byte-for-byte against the local commit. Draft PR #1 is open against main. |
 | Vercel project access | Verified `sogol-s-projects1/the-palette`, production deployment `3jsKyXyJ8K6HGzo9cPbaPNkTegar`, main `22ec32f`. Nine secret variables apply to Production and Preview; none are linked from Shared. |
 | Supabase organization | Verified Abbsogol's Org, Pro, `znhsllocognxwjtcowky` |
 | Production Supabase identity | Verified `the-palette`, `faunikvhoommbebsmevg`, Ireland eu-west-1, PostgreSQL 17.6. The live frontend bundle references this project. |
@@ -49,7 +49,7 @@ The regression failures are real release blockers, not skipped or expected-failu
 | Isolated staging | Not provisioned or verified. Preview must not be assumed isolated from production. |
 | Backup and restore | Daily physical backups completed September 19–26; latest September 26, 07:08:04 UTC. PITR off; Storage objects excluded. Separate recovery clone quoted $9.68/month compute plus usage; approval pending, restore not started. |
 | Stripe, OpenAI, Resend access | Not verified; no local service credentials configured |
-| Database integration tests | Await real schema and an isolated test target |
+| Database integration tests | Entitlement tests pass on native PostgreSQL; Phase 2 adds captured public-policy tests locally. Full managed staging/schema and restore evidence remains pending. |
 | Required GitHub checks | Main branch protection created: unit, lint, regressions, and browser must pass; branches must be current; administrators cannot bypass; force pushes and deletion remain disallowed. |
 
 The former browser policy-verification error is resolved. Read-only database inspection found additional release-blocking authorization concerns; detailed evidence remains private until remediation. The generation test double now matches the deployed void debit RPC's zero-row behavior. Local doubles still do not certify RLS or transaction safety.
@@ -58,4 +58,6 @@ No production database changes, payments, schema pushes, paid resource purchases
 
 ## Resume
 
-Follow remote CI on [draft PR #1](https://github.com/Abbsogol/the-palette/pull/1). Unit passed; lint and regressions reproduced the documented failures. Browser checks are tracked on the Checks tab. Keep lint and known-regression failures visible. Complete the isolated restore after approval, establish a synthetic staging target, export/replay a complete schema baseline, and run database integration tests. Track Storage recovery separately from database backup coverage.
+The subsequent [Phase 3 review](phase-3-review.md) contains the current cross-phase verification and additional transaction fixes. Its local results do not close the Phase 1 staging/restore requirements.
+
+Phase 1 fixes were pushed through `c50829a`; all four required GitHub checks and the Vercel preview passed. Phase 2 and the six combined-review fixes are now implemented locally; see [Phase 2 security evidence](phase-2-security.md) and [current remediation results](six-issue-fixes.md). Complete the isolated restore, establish synthetic staging, export/replay a complete managed schema baseline, and verify real service integrations before production rollout. Track Storage recovery separately from database backup coverage.

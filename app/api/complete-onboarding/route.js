@@ -16,25 +16,9 @@ export async function POST(request) {
   const str = (val, max) => (typeof val === 'string' && val.trim() ? val.trim().slice(0, max) : null)
   const arr = (val, max) => (Array.isArray(val) ? val.filter(v => typeof v === 'string').slice(0, max) : [])
 
-  // profiles_data, not the profiles view — credit_balance/onboarding_complete
-  // are masked/protected behind auth.uid() = id in the view for non-service-role callers.
-  const { data: existing, error: readError } = await supabase
-    .from('profiles_data')
-    .select('account_type, onboarding_complete')
-    .eq('id', user.id)
-    .single()
-
-  if (readError || !existing) {
-    return Response.json({ error: 'User not found' }, { status: 404 })
-  }
-
-  if (existing.onboarding_complete) {
-    return Response.json({ ok: true, alreadyCompleted: true })
-  }
-
-  const credits = (existing.account_type === 'creator' || existing.account_type === 'salon') ? 5 : 3
-
-  const { error } = await supabase.from('profiles_data').update({
+  const { data: completed, error } = await supabase.rpc('complete_onboarding', {
+    p_user_id: user.id,
+    p_fields: {
     display_name: str(display_name, 100),
     phone_number: str(phone_number, 30),
     location: str(location, 100),
@@ -50,14 +34,13 @@ export async function POST(request) {
     product_sensitivities: arr(product_sensitivities, 20),
     removal_needed: !!removal_needed,
     specialties: arr(specialties, 20),
-    credit_balance: credits,
-    onboarding_complete: true,
-  }).eq('id', user.id)
+    },
+  })
 
   if (error) {
     console.error('complete-onboarding error:', error)
-    return Response.json({ error: 'Failed to complete onboarding' }, { status: 500 })
+    return Response.json({ error: 'Failed to complete onboarding' }, { status: error.code === 'P0002' ? 404 : 500 })
   }
 
-  return Response.json({ ok: true })
+  return Response.json({ ok: true, alreadyCompleted: !completed })
 }

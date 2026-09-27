@@ -9,7 +9,11 @@ export async function POST(request) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const body = await request.json().catch(() => ({}))
+  const body = await request.json().catch(() => null)
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return Response.json({ error: 'Invalid settings' }, { status: 400 })
+  for (const field of ['is_private', 'show_saves']) {
+    if (field in body && typeof body[field] !== 'boolean') return Response.json({ error: `Invalid ${field}` }, { status: 400 })
+  }
   const update = {}
   for (const field of ALLOWED_FIELDS) {
     if (field in body) update[field] = body[field]

@@ -1,18 +1,9 @@
 import Stripe from 'stripe'
+import { SUBSCRIPTION_PLANS as PLANS } from '@/lib/subscription-plans'
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
-const PLANS = {
-  pro_creator: {
-    priceId: 'price_1TnxOG14PyqGjXgeKYmTKhQf',
-    name: 'Laque Pro Creator',
-  },
-  premium: {
-    priceId: 'price_1TnxOq14PyqGjXgedydlYqto',
-    name: 'Laque Premium',
-  },
-}
 
 export async function POST(request) {
   try {
@@ -34,7 +25,6 @@ export async function POST(request) {
     if (typeof planId !== 'string' || !Object.hasOwn(PLANS, planId)) {
       return Response.json({ error: 'Invalid plan' }, { status: 400 })
     }
-    const plan = PLANS[planId]
 
     const { data: profile, error: profileError } = await supabase.from('profiles_data')
       .select('subscription_tier, subscription_status, stripe_customer_id').eq('id', userId).single()
@@ -50,36 +40,53 @@ export async function POST(request) {
     }
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://laque.app'
-
-    // Buckets rapid double-clicks/retries into the same Stripe session instead
-    // of creating a second real Checkout Session for one intended subscribe.
-    const idempotencyKey = `subscription-${userId}-${planId}-${Math.floor(Date.now() / 300000)}`
-
-    const session = await stripe.checkout.sessions.create({
-      integration_identifier: 'laque_checkout_qmrtxvpa',
-      mode: 'subscription',
-      ...(profile.stripe_customer_id ? { customer: profile.stripe_customer_id } : { customer_email: user.email }),
-      line_items: [
-        {
-          price: plan.priceId,
-          quantity: 1,
-        },
-      ],
-      success_url: `${baseUrl}/upgrade/success?plan=${planId}`,
-      cancel_url: `${baseUrl}/upgrade`,
-      metadata: {
-        userId,
-        planId,
-      },
-      subscription_data: {
-        metadata: {
-          userId,
-          planId,
-        },
-      },
-    }, { idempotencyKey })
-
-    return Response.json({ url: session.url })
+    // A database reservation spans deployments, retries, tabs and plan changes.
+    // Existing attempts keep their original Stripe parameters and idempotency key.
+    for (let retry = 0; retry < 2; retry++) {
+      const { data: attempt, error } = await supabase.rpc('reserve_subscription_checkout', {
+        p_user_id: userId, p_plan_id: planId, p_email: user.email, p_base_url: baseUrl,
+      })
+      if (error) {
+        if (error.message?.includes('ALREADY_SUBSCRIBED')) return Response.json({ error: 'You already have a subscription.' }, { status: 409 })
+        throw error
+      }
+      if (!attempt?.id) throw new Error('Missing checkout reservation')
+      if (attempt.session_id) {
+        const session = await stripe.checkout.sessions.retrieve(attempt.session_id)
+        if (session.status === 'expired') {
+          const { error: expiryError } = await supabase.rpc('expire_subscription_checkout', {
+            p_user_id: userId, p_id: attempt.id, p_session_id: attempt.session_id,
+          })
+          if (expiryError) throw expiryError
+          continue
+        }
+        if (session.status === 'complete') return Response.json({ error: 'Your subscription is being processed. Please wait before starting another checkout.' }, { status: 409 })
+        if (attempt.plan_id !== planId) return Response.json({ error: 'You already have a checkout open for another plan. Complete it or wait for it to expire.' }, { status: 409 })
+        if (session.status !== 'open' || !session.url) throw new Error('Checkout is not available')
+        return Response.json({ url: session.url })
+      }
+      if (attempt.plan_id !== planId) return Response.json({ error: 'A checkout for another plan is being prepared. Please retry that plan.' }, { status: 409 })
+      // Stripe may prune idempotency keys after 24 hours. An ambiguous old
+      // create must be reconciled, never blindly replayed with a new key.
+      if (Date.now() - new Date(attempt.created_at).getTime() > 23 * 3600000) {
+        return Response.json({ error: 'We could not confirm your previous checkout. Please contact support before retrying.' }, { status: 503 })
+      }
+      const session = await stripe.checkout.sessions.create({
+        integration_identifier: 'laque_checkout_qmrtxvpa',
+        mode: 'subscription',
+        ...(attempt.customer_id ? { customer: attempt.customer_id } : { customer_email: attempt.email }),
+        line_items: [{ price: PLANS[attempt.plan_id].priceId, quantity: 1 }],
+        success_url: `${attempt.base_url}/upgrade/success?plan=${attempt.plan_id}&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${attempt.base_url}/upgrade`,
+        metadata: { userId, planId: attempt.plan_id, checkoutAttemptId: attempt.id },
+        subscription_data: { metadata: { userId, planId: attempt.plan_id } },
+      }, { idempotencyKey: `subscription-${attempt.id}` })
+      const { data: saved, error: saveError } = await supabase.from('subscription_checkouts')
+        .update({ session_id: session.id }).eq('user_id', userId).eq('id', attempt.id).select('id').single()
+      if (saveError || !saved) throw saveError || new Error('Checkout persistence failed')
+      return Response.json({ url: session.url })
+    }
+    return Response.json({ error: 'Checkout changed while processing. Please retry.' }, { status: 409 })
 
   } catch (err) {
     console.error('create-subscription error:', err)

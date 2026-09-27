@@ -142,12 +142,10 @@ export default function BookPage() {
 
       // Get existing bookings for this creator on this date
       const dateStr = toLocalDateStr(selectedDate)
-      const { data: existingBookings } = await supabase
-        .from('bookings')
-        .select('start_time, end_time')
-        .eq('creator_id', creatorId)
-        .eq('booking_date', dateStr)
-        .in('status', ['pending', 'confirmed'])
+      const { data: existingBookings, error: slotsError } = await supabase.rpc('booking_busy_slots', {
+        p_creator_id: creatorId, p_date: dateStr,
+      })
+      if (slotsError) { setSlots([]); setSlotsLoading(false); return }
 
       const booked = (existingBookings || []).map(b => ({
         start: timeToMins(b.start_time),
@@ -195,17 +193,10 @@ export default function BookPage() {
     }).select().single()
 
     if (error || !newBooking) {
-      setSubmitError('Failed to send booking request. Please try again.')
+      setSubmitError(error?.message?.includes('BOOKING_SLOT_UNAVAILABLE') ? 'That time was just booked. Please choose another slot.' : 'Failed to send booking request. Please try again.')
       setSubmitting(false)
       return
     }
-
-    // Notify the creator
-    await supabase.from('notifications').insert({
-      user_id: creatorId,
-      actor_id: currentUser.id,
-      type: 'booking_request',
-    })
 
     // Reward the client for booking
     const { data: { session } } = await supabase.auth.getSession()

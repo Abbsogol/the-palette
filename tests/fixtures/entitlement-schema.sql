@@ -3,9 +3,15 @@
 -- represented only by its ID; this is not a full RLS/production restore test.
 create schema auth;
 create table auth.users (id uuid primary key);
-create role anon;
-create role authenticated;
-create role service_role;
+do $$ begin
+  if not exists(select from pg_roles where rolname='anon') then create role anon; end if;
+  if not exists(select from pg_roles where rolname='authenticated') then create role authenticated; end if;
+  if not exists(select from pg_roles where rolname='service_role') then create role service_role; end if;
+end $$;
+-- Only loaded by the guarded disposable local test harness.
+alter role anon nobypassrls;
+alter role authenticated nobypassrls;
+alter role service_role bypassrls;
 create table public.profiles_data (
   id uuid not null,
   display_name text,
