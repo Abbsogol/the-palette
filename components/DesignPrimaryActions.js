@@ -46,7 +46,7 @@ const TechIcon = () => (
   </svg>
 )
 
-export default function DesignPrimaryActions({ design, creatorId, creatorHasServices, boostedUntil, colours, tags }) {
+export default function DesignPrimaryActions({ design, creatorId, creatorHasServices, boostedUntil, colours }) {
   const [isOwner, setIsOwner] = useState(false)
   useEffect(() => {
     if (!creatorId) return
@@ -80,7 +80,7 @@ export default function DesignPrimaryActions({ design, creatorId, creatorHasServ
         />
       )}
       <NailTechCard
-        design={design} colours={colours} tags={tags}
+        design={design} colours={colours}
         renderTrigger={({ open }) => (
           <button onClick={open} style={techIsPrimary ? primaryStyle : secondaryStyle}>
             <TechIcon /> Show my nail tech

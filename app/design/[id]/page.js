@@ -177,7 +177,6 @@ export default async function DesignPage({ params, searchParams }) {
             creatorHasServices={creatorHasServices}
             boostedUntil={design.boosted_until || null}
             colours={colours || []}
-            tags={tags}
           />
 
           {/* Spec chips */}
