@@ -1,11 +1,14 @@
 import Stripe from 'stripe'
+import { depositReturnContext, depositReturnUrls } from '@/lib/mobile-return'
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 export async function POST(request) {
   const user=await getSessionUser(request)
   if (!user) return Response.json({ error:'Unauthorized' },{ status:401 })
   try {
-    const {bookingId}=await request.json()
+    const {bookingId,returnContext}=await request.json()
+    let context
+    try { context=depositReturnContext(returnContext) } catch { return Response.json({error:'Invalid mobile return context'},{status:400}) }
     if (typeof bookingId!=='string' || !bookingId) return Response.json({ error:'Missing bookingId' },{ status:400 })
     for(let retry=0;retry<2;retry++) {
       const {data:attempt,error}=await supabase.rpc('reserve_deposit_checkout',{
@@ -28,13 +31,16 @@ export async function POST(request) {
         return Response.json({url:session.url})
       }
       if(Date.now()-new Date(attempt.created_at).getTime()>23*3600000) return Response.json({error:'Your previous checkout needs support review before retrying.'},{status:503})
+      // Bind every channel before calling Stripe. Concurrent web/mobile requests
+      // must send the same parameters for the shared idempotency key.
+      const {data:boundContext,error:bindError}=await supabase.rpc('bind_deposit_return',{p_attempt_id:attempt.id,p_user_id:user.id,p_context:context})
+      if(bindError || !boundContext)throw bindError || new Error('Return context was not saved')
       const metadata={type:'deposit',bookingId,userId:user.id,checkoutAttemptId:attempt.id}
       const session=await stripe.checkout.sessions.create({
         integration_identifier:'laque_checkout_qmrtxvpa',mode:'payment',
         line_items:[{price_data:{currency:'aed',product_data:{name:`Deposit — ${attempt.service_name}`},unit_amount:attempt.amount},quantity:1}],
         metadata,payment_intent_data:{metadata},
-        success_url:`${attempt.base_url}/appointments/deposit-success?booking=${bookingId}&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url:`${attempt.base_url}/appointments`,
+        ...depositReturnUrls(attempt,bookingId,boundContext),
       },{idempotencyKey:`deposit-${attempt.id}`})
       const {data:saved,error:saveError}=await supabase.from('deposit_checkouts').update({session_id:session.id}).eq('id',attempt.id).eq('user_id',user.id).select('id').single()
       if(saveError || !saved)throw saveError || new Error('Checkout was not saved')

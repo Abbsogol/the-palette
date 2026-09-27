@@ -26,6 +26,9 @@ export async function POST(request) {
     if (typeof planId !== 'string' || !Object.hasOwn(PLANS, planId)) {
       return Response.json({ error: 'Invalid plan' }, { status: 400 })
     }
+    if (!PLANS[planId].priceId) {
+      return Response.json({ error: 'Subscriptions are not configured for this environment.' }, { status: 503 })
+    }
 
     const { data: profile, error: profileError } = await supabase.from('profiles_data')
       .select('subscription_tier, subscription_status, stripe_customer_id').eq('id', userId).single()

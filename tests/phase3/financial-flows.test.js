@@ -319,6 +319,7 @@ it('adjacent slots remain bookable and strangers see only occupied ranges',async
   await expect(db.as('anon',null,'select * from booking_busy_slots($1,current_date+1)',[creator])).rejects.toThrow()
 })
 it('deletion and generation reservation cannot both acquire permission for new work',async()=>{
+  await db.as('authenticated',user,'select cancel_mobile_booking($1)',[booking])
   const results=await Promise.allSettled([
     db.as('service_role',null,'select begin_account_deletion($1)',[user]),
     db.as('service_role',null,'select reserve_generation($1,$2,null) as reserved',[design,user]),
@@ -327,6 +328,8 @@ it('deletion and generation reservation cannot both acquire permission for new w
   expect(results[0].status==='fulfilled'&&reserved).toBe(false)
 })
 it('new work is denied after deletion has started',async()=>{
+  // The mobile cancellation policy now requires finishing the unrelated seeded booking first.
+  await db.as('authenticated',user,'select cancel_mobile_booking($1)',[booking])
   await db.as('service_role',null,'select begin_account_deletion($1)',[user])
   expect((await db.as('service_role',null,'select reserve_generation($1,$2,null) as reserved',[design,user])).rows[0].reserved).toBe(false)
   await expect(db.as('service_role',null,"select reserve_subscription_checkout_v2($1,'premium','test@example.invalid','https://example.invalid','price_test')",[user])).rejects.toThrow('ACCOUNT_UNAVAILABLE')
