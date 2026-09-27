@@ -28,7 +28,7 @@ export async function POST(request) {
         return Response.json({url:session.url})
       }
       if(Date.now()-new Date(attempt.created_at).getTime()>23*3600000) return Response.json({error:'Your previous checkout needs support review before retrying.'},{status:503})
-      const metadata={type:'deposit',bookingId,userId:user.id}
+      const metadata={type:'deposit',bookingId,userId:user.id,checkoutAttemptId:attempt.id}
       const session=await stripe.checkout.sessions.create({
         integration_identifier:'laque_checkout_qmrtxvpa',mode:'payment',
         line_items:[{price_data:{currency:'aed',product_data:{name:`Deposit — ${attempt.service_name}`},unit_amount:attempt.amount},quantity:1}],

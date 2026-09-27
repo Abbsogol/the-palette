@@ -58,6 +58,6 @@ No production database changes, payments, schema pushes, paid resource purchases
 
 ## Resume
 
-The subsequent [Phase 3 review](phase-3-review.md) contains the current cross-phase verification and additional transaction fixes. Its local results do not close the Phase 1 staging/restore requirements.
+The subsequent [Phase 4 review](phase-4-review.md) contains the current cross-phase verification, lifecycle/transaction fixes and remaining gaps. Its local results do not close the Phase 1 staging/restore requirements.
 
 Phase 1 fixes were pushed through `c50829a`; all four required GitHub checks and the Vercel preview passed. Phase 2 and the six combined-review fixes are now implemented locally; see [Phase 2 security evidence](phase-2-security.md) and [current remediation results](six-issue-fixes.md). Complete the isolated restore, establish synthetic staging, export/replay a complete managed schema baseline, and verify real service integrations before production rollout. Track Storage recovery separately from database backup coverage.

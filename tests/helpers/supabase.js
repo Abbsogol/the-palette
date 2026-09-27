@@ -46,16 +46,16 @@ export function generationEnvironment({ balance = 1, failFetch = false } = {}) {
     if (q.table === 'nail_lab_generations' && q.operation === 'insert') return ok({ id: `generation-${++state.inserts}` })
     throw new Error(`Unexpected query: ${q.table} ${q.operation}`)
   }, async (name, args) => {
-    if (name === 'reserve_generation') {
+    if (name === 'claim_generation') {
       if (args.p_parent_id) {
-        if (state.freeRegenUsed) return ok(false)
+        if (state.freeRegenUsed) return ok('insufficient')
         state.freeRegenUsed = true
       } else {
-        if (state.balance < 1) return ok(false)
+        if (state.balance < 1) return ok('insufficient')
         state.balance--; state.charged++
       }
       state.reservation = { id: args.p_id, parent: args.p_parent_id, status: 'reserved' }
-      return ok(true)
+      return ok('claimed')
     }
     if (name === 'release_generation') {
       if (state.reservation?.id !== args.p_id || state.reservation.status !== 'reserved') return ok(false)

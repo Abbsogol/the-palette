@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { generationEnvironment, jsonRequest, user } from '../helpers/supabase'
 
@@ -19,7 +20,7 @@ function setup(options) {
 
 it('REG-02: reserves the last credit before incurring a second generation cost', async () => {
   const env = setup({ balance: 1 })
-  const responses = await Promise.all([POST(jsonRequest(body)), POST(jsonRequest(body))])
+  const responses = await Promise.all([POST(jsonRequest({ ...body, requestId: randomUUID() })), POST(jsonRequest({ ...body, requestId: randomUUID() }))])
   expect.soft(responses.filter(r => r.ok)).toHaveLength(1)
   expect.soft(env.state.generated).toBe(1)
   expect(env.state.charged).toBe(1)
@@ -27,14 +28,14 @@ it('REG-02: reserves the last credit before incurring a second generation cost',
 
 it('REG-06: restores the free regeneration after an upstream network exception', async () => {
   const env = setup({ failFetch: true })
-  expect((await POST(jsonRequest({ ...body, freeRegen: true, parentGenerationId: 'parent-a' }))).status).toBe(500)
+  expect((await POST(jsonRequest({ ...body, requestId: randomUUID(), freeRegen: true, parentGenerationId: 'parent-a' }))).status).toBe(500)
   expect(env.state.inserts).toBe(0)
   expect(env.state.freeRegenUsed).toBe(false)
 })
 
 it('REG-05: rejects unsupported reference-image mode without charging for a misleading result', async () => {
   const env = setup({ balance: 3 })
-  const response = await POST(jsonRequest({ ...body, referenceImageUrls: ['https://images.invalid/reference.jpg'] }))
+  const response = await POST(jsonRequest({ ...body, requestId: randomUUID(), referenceImageUrls: ['https://images.invalid/reference.jpg'] }))
   expect.soft([400, 422]).toContain(response.status)
   expect.soft(env.fetch).not.toHaveBeenCalled()
   expect(env.state.charged).toBe(0)
@@ -52,7 +53,7 @@ it.each(['network', 'invalid-json', 'missing-image', 'upload', 'sign', 'persist'
     const rpc = env.client.rpc.getMockImplementation()
     env.client.rpc.mockImplementation((name, args) => name === 'complete_generation' ? { error: new Error('Write failed') } : rpc(name, args))
   }
-  expect((await POST(jsonRequest(body))).status).toBe(500)
+  expect((await POST(jsonRequest({ ...body, requestId: randomUUID() }))).status).toBe(500)
   expect(env.state.balance).toBe(1)
   expect(env.state.inserts).toBe(0)
 })
@@ -60,6 +61,6 @@ it.each(['network', 'invalid-json', 'missing-image', 'upload', 'sign', 'persist'
 it('fails closed before contacting OpenAI when credit reservation is unavailable', async () => {
   const env = setup()
   env.client.rpc.mockResolvedValue({ error: new Error('Database unavailable') })
-  expect((await POST(jsonRequest(body))).status).toBe(500)
+  expect((await POST(jsonRequest({ ...body, requestId: randomUUID() }))).status).toBe(500)
   expect(env.fetch).not.toHaveBeenCalled()
 })

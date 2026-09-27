@@ -26,6 +26,12 @@ export async function GET(request) {
     }
     if (receipt?.refunded) return json({ status:'refunded' })
     if (receipt?.needs_review) return json({ status:'payment_review' })
+    if (sessionId && !receipt?.fulfilled) {
+      const { data: failure, error: failureError } = await supabase.from('checkout_failures').select('status')
+        .eq('session_id',sessionId).eq('user_id',user.id).eq('kind','deposit').eq('target_id',bookingId).maybeSingle()
+      if (failureError) throw failureError
+      if (failure) return json({ status:failure.status })
+    }
     return json({ status:booking.deposit_paid && (receipt?.fulfilled || !sessionId) ? 'fulfilled' : 'pending' })
   } catch { return json({ error:'Unable to confirm deposit' }, 503) }
 }

@@ -67,6 +67,7 @@ jobs:
       - run: npm run test:regressions
       - run: npm run test:security
       - run: npm run test:phase3
+      - run: npm run test:phase4
 
   browser:
     runs-on: ubuntu-latest

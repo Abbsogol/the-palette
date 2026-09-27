@@ -241,6 +241,7 @@ export default function ProfilePage() {
   const [resetDone, setResetDone]         = useState(false)
   const [forgotSent, setForgotSent]       = useState(false)
   const [needsAccountType, setNeedsAccountType] = useState(false)
+  const [confirmationSent, setConfirmationSent] = useState(false)
 
   // Avatar
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
@@ -397,17 +398,22 @@ export default function ProfilePage() {
   const handleCreateAccount = async () => {
     if (!chosenType) return
     setSubmitting(true); setError('')
-    const { data, error } = await supabase.auth.signUp({ email, password })
-    if (error) { setError(error.message); setSubmitting(false); return }
-    if (data.user) {
-      try {
-        await setAccountType(chosenType, displayName.trim())
-        await loadUserData(data.user)
-      } catch (err) {
-        setError(err.message)
-      }
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email, password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/profile${refCode ? `?ref=${encodeURIComponent(refCode)}` : ''}`,
+          data: { account_type: chosenType, display_name: displayName.trim() },
+        },
+      })
+      if (error) throw error
+      if (data.session?.user) await loadUserData(data.session.user)
+      else setConfirmationSent(true)
+    } catch (err) {
+      setError(err.message || 'Could not create your account. Please try again.')
+    } finally {
+      setSubmitting(false)
     }
-    setSubmitting(false)
   }
 
   const handleLogin = async (e) => {
@@ -574,6 +580,16 @@ export default function ProfilePage() {
     { type: 'creator', label: 'Nail Artist / Nail Tech', desc: 'Publish your work and build your portfolio' },
     { type: 'salon',   label: 'Salon Owner',             desc: "Showcase your salon's designs and manage your team" },
   ]
+
+  if (!user && confirmationSent) {
+    return (
+      <div style={{ padding: '24px 20px' }}>
+        <h1>Check your email</h1>
+        <p>Open the confirmation link in your email, then sign in to finish setting up your account.</p>
+        <button onClick={() => { setConfirmationSent(false); setMode('login'); setPassword('') }}>Back to sign in</button>
+      </div>
+    )
+  }
 
   if (!user && mode === 'choose-type') {
     return (

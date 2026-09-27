@@ -13,7 +13,7 @@ import { ownedNailLabPath } from '@/lib/storage-path'
 
 beforeEach(() => {
   auth.getSessionUser.mockResolvedValue(user)
-  Object.assign(auth.client, database(() => ok([])))
+  Object.assign(auth.client, database(() => ok([]), async name => { if (name === 'enqueue_booking_reminders') return ok(0); throw new Error(`Unexpected RPC: ${name}`) }))
   auth.client.storage = { from: vi.fn() }
 })
 afterEach(() => vi.unstubAllEnvs())

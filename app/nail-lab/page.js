@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import SaveToBoard from '@/components/SaveToBoard'
+import { requestGeneration, hasPendingGeneration } from '@/lib/generation-request'
 
 const VIBES = ['Minimal', 'Moody', 'Dark', 'Coastal', 'Glam', 'Y2K', 'Bridal', 'Abstract', 'Floral', 'Pastel', 'Edgy', 'Clean Girl']
 const SHAPES = ['Almond', 'Stiletto', 'Coffin', 'Square', 'Oval', 'Squoval']
@@ -268,15 +269,12 @@ export default function NailLabPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.user) { setLoadingUser(false); return }
       setCurrentUser(session.user)
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('credit_balance')
-        .eq('id', session.user.id)
-        .single()
-      if (error) console.error('credit balance fetch failed:', error)
-      // Leave credits unset (renders as "—") rather than defaulting to 0 on
-      // a fetch failure, so a real error isn't shown as "no credits left."
-      if (profile) setCredits(profile.credit_balance ?? 0)
+      try {
+        const response = await fetch('/api/generation-status', { headers: { Authorization: `Bearer ${session.access_token}` }, cache: 'no-store' })
+        const data = await response.json()
+        if (!response.ok) throw new Error(data.error)
+        setCredits(data.creditsRemaining)
+      } catch (error) { setGenError(error.message || 'Could not load your credit balance. Please reload.') }
       setLoadingUser(false)
     }
     load()
@@ -307,29 +305,18 @@ export default function NailLabPage() {
   const toggleVibe = (v) => setVibes(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v])
   const toggleOccasion = (o) => setOccasions(prev => prev.includes(o) ? prev.filter(x => x !== o) : [...prev, o])
 
-  const canGenerate = vibes.length > 0 && shape && length && currentUser && credits >= 1 && !generating
+  const pendingGeneration = hasPendingGeneration(currentUser?.id)
+  const canGenerate = vibes.length > 0 && shape && length && currentUser && (credits >= 1 || pendingGeneration) && !generating
 
   const callGenerateAPI = async (freeRegen = false, parentId = null) => {
     setGenerating(true)
     setGenError(null)
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch('/api/generate-nail-design', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-        },
-        body: JSON.stringify({
-          vibe: vibes, shape, length, colors,
-          occasion: occasions,
-          customText: customText || null,
-          freeRegen,
-          parentGenerationId: parentId,
-        }),
+      const data = await requestGeneration(session, {
+        vibe: vibes, shape, length, colors, occasion: occasions,
+        customText: customText || null, freeRegen, parentGenerationId: parentId,
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Generation failed')
       setResult(data)
       if (!parentId) setRootGenerationId(data.generationId)
       if (!freeRegen) setCredits(data.creditsRemaining)
@@ -339,6 +326,14 @@ export default function NailLabPage() {
       return true
     } catch (e) {
       setGenError(e.message)
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.access_token) {
+          const response = await fetch('/api/generation-status', { headers: { Authorization: `Bearer ${session.access_token}` }, cache: 'no-store' })
+          const status = await response.json()
+          if (response.ok) setCredits(status.creditsRemaining)
+        }
+      } catch { /* retain the original error if balance recovery is unavailable */ }
       return false
     } finally {
       setGenerating(false)
@@ -356,7 +351,7 @@ export default function NailLabPage() {
   const regen = async (free = false) => {
     if (generating) return
     if (free && freeRegenUsed) return
-    if (!free && credits < 1) return
+    if (!free && credits < 1 && !pendingGeneration) return
     const ok = await callGenerateAPI(free, rootGenerationId)
     if (free && ok) setFreeRegenUsed(true)
   }
@@ -636,10 +631,10 @@ export default function NailLabPage() {
               {generating ? 'Generating...' : <><span>Regenerate</span><span style={{ background: '#2C0A1E', color: 'var(--accent)', fontSize: '10px', fontWeight: '700', borderRadius: '8px', padding: '2px 8px', letterSpacing: '0.06em' }}>FREE</span></>}
             </button>
           ) : (
-            <button onClick={() => regen(false)} disabled={generating || credits < 1}
+            <button onClick={() => regen(false)} disabled={generating || (credits < 1 && !pendingGeneration)}
               style={{ width: '100%', background: credits >= 1 ? 'var(--accent)' : 'var(--bg-card)', color: credits >= 1 ? '#2C0A1E' : 'var(--text-secondary)', border: credits >= 1 ? 'none' : '0.5px solid var(--border)', borderRadius: '14px', padding: '15px', fontSize: '15px', fontWeight: '600', cursor: generating || credits < 1 ? 'not-allowed' : 'pointer', fontFamily: "'DM Sans', sans-serif" }}
             >
-              {generating ? 'Generating...' : credits < 1 ? 'No credits left' : 'Regenerate · 1 credit'}
+              {generating ? 'Generating...' : pendingGeneration ? 'Check pending generation' : credits < 1 ? 'No credits left' : 'Regenerate · 1 credit'}
             </button>
           )}
           <button onClick={() => { resetResult(); window.scrollTo({ top: 0 }) }}

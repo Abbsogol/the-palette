@@ -5,7 +5,7 @@ import { recordDepositRefund, refundLateDeposit } from '@/lib/deposit-refund'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 async function settleCheckout(session) {
-  if (!session.metadata?.checkoutAttemptId) return
+  if (!session.metadata?.checkoutAttemptId || session.metadata.type === 'deposit') return
   const { error } = await supabase.rpc('settle_payment_checkout', {
     p_user_id:session.metadata.userId || session.metadata.creatorId,
     p_attempt_id:session.metadata.checkoutAttemptId,p_session_id:session.id,
@@ -28,6 +28,26 @@ export async function POST(request) {
 
   try {
     const object = event.data?.object
+    if (['checkout.session.async_payment_failed', 'checkout.session.expired'].includes(event.type) && object?.mode === 'payment') {
+      const session = await stripe.checkout.sessions.retrieve(object.id)
+      if (session.id !== object.id || session.mode !== 'payment') throw new Error('Checkout identity mismatch')
+      // Ignore stale failures if Stripe now reports success or processing.
+      const terminal = event.type === 'checkout.session.expired' ? session.status === 'expired'
+        : session.status === 'complete' && session.payment_status === 'unpaid'
+      if (!terminal || session.payment_status === 'paid') return Response.json({ received: true, ignored: true })
+      const kind = session.metadata?.type || 'credits'
+      if (!['credits','boost','deposit'].includes(kind)) return Response.json({ received: true, ignored: true })
+      const userId = kind === 'boost' ? session.metadata?.creatorId : session.metadata?.userId
+      if (!userId) throw new Error('Checkout account missing')
+      const { error } = await supabase.rpc('close_failed_checkout', {
+        p_session_id: session.id, p_user_id: userId, p_kind: kind,
+        p_status: event.type === 'checkout.session.expired' ? 'expired' : 'failed',
+        p_attempt_id: session.metadata?.checkoutAttemptId || null,
+        p_target_id: kind === 'deposit' ? session.metadata?.bookingId : kind === 'boost' ? session.metadata?.designId : null,
+      })
+      if (error) throw error
+      return Response.json({ received: true })
+    }
     const paidCheckout = ['checkout.session.completed', 'checkout.session.async_payment_succeeded'].includes(event.type)
     if (paidCheckout && object?.mode === 'payment' && ['boost','deposit'].includes(object.metadata?.type)) {
       if (object.payment_status !== 'paid') return Response.json({ received: true, pending: true })

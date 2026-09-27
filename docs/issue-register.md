@@ -21,13 +21,15 @@ Phase 2 security fixes are included in [draft PR #1](https://github.com/Abbsogol
 
 Phase 3 subsequently reproduced 18 failing checks across 15 further defect categories and corrected them locally. The user also selected automatic refunds for deposits settling after cancellation/decline; implementation and regression coverage are included. See [the current risk map, verification results, and unresolved service/recovery gaps](phase-3-review.md). Phase 3 remains open.
 
+Phase 4 reproduced nine failing checks across eight additional application defects, corrected them locally, and fixed two fixture/setup issues exposed by expanded testing. Final local verification: 294 automated tests plus 16 browser checks, all passing. See [the Phase 4 flow/role/state map, individual corrections and remaining completion gates](phase-4-review.md). Phase 4 changes are included on the review branch in draft PR #1; managed staging, recovery, provider operations and exact-head Ubuntu CI remain pending.
+
 Other release checks:
 
 | Item | Current evidence | Required closure |
 |---|---|---|
 | Authorization | Local hardening and catalog-based RLS tests added in Phase 2 | Rehearse on managed staging and roll out the migration/app together |
 | Booking conflicts | Phase 3 adds database serialization, overlap rejection and a privacy-preserving busy-slot query; native concurrent tests pass | Rehearse migration 005 and real booking journeys on managed staging |
-| Reminders | Fail-closed authentication implemented locally; hosted CRON_SECRET still absent | Configure the secret, deploy the fix, and verify retryable delivery |
+| Reminders | Phase 4 atomically creates notifications and an email outbox, with idempotent per-recipient retries; hosted configuration remains unverified | Configure the secret/provider and supported retry worker cadence; verify real delivery and review alerts |
 | Monthly credits | Phase 3 adds atomic once-per-period paid-invoice grants; initial/renewal/duplicate/delayed/failure cases pass locally | Reconcile historic periods and verify Stripe sandbox delivery before rollout |
 | Late deposits | Automatic full refunds implemented following the user's policy decision, with durable obligations, duplicate recovery, refund status and visible outcomes | Verify real sandbox refunds, endpoint event subscriptions and failed-refund operations |
 | Board covers | Some paths pass signed URLs | Persist stable references and test after expiration |

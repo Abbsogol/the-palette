@@ -1,4 +1,5 @@
-import { randomUUID } from 'node:crypto'
+import { createHash } from 'node:crypto'
+import { generationIdPattern, generationResult } from '@/lib/generation-result'
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
 
 export const maxDuration = 60 // allow up to 60s for gpt-image-1
@@ -14,7 +15,10 @@ export async function POST(request) {
     const userId = user.id
 
     const body = await request.json()
-    const { freeRegen, parentGenerationId } = body
+    const { freeRegen, parentGenerationId } = body || {}
+    if (!generationIdPattern.test(body?.requestId || '')) {
+      return Response.json({ error: 'A valid generation request id is required' }, { status: 400 })
+    }
 
     if (!body.vibe || !body.shape || !body.length) {
       return Response.json({ error: 'Missing required fields' }, { status: 400 })
@@ -43,15 +47,22 @@ export async function POST(request) {
     if (freeRegen && !parentGenerationId) {
       return Response.json({ error: 'Free regen unavailable' }, { status: 403 })
     }
-    reservationId = randomUUID()
-    const { data: reserved, error: reservationError } = await supabase.rpc('reserve_generation', {
-      p_id: reservationId, p_user_id: userId, p_parent_id: freeRegen ? parentGenerationId : null,
+    const requestId = body.requestId
+    const hash = createHash('sha256').update(JSON.stringify({ vibe, shape, length, colors, occasion, customText })).digest('hex')
+    const { data: status, error: reservationError } = await supabase.rpc('claim_generation', {
+      p_id: requestId, p_user_id: userId, p_parent_id: freeRegen ? parentGenerationId : null, p_hash: hash,
     })
     if (reservationError) throw new Error('Failed to reserve generation', { cause: reservationError })
-    if (!reserved) {
-      reservationId = null
-      return Response.json({ error: freeRegen ? 'Free regen unavailable' : 'Insufficient credits' }, { status: freeRegen ? 403 : 402 })
+    if (status === 'completed') return Response.json(await generationResult(userId, requestId))
+    if (status === 'reserved') return Response.json({ status: 'pending', error: 'Your design is still generating. Retry shortly to retrieve it.' }, { status: 202 })
+    if (status === 'released') return Response.json({ status: 'released', error: 'This attempt ended. Check your balance before starting a new generation.' }, { status: 410 })
+    if (status === 'conflict') return Response.json({ error: 'This request id belongs to another generation.' }, { status: 409 })
+    if (status !== 'claimed') {
+      return Response.json({ error: freeRegen ? 'Free regen unavailable' : 'Insufficient credits or account unavailable' }, { status: freeRegen ? 403 : 402 })
     }
+    // Only the worker that won the claim may release it in finally. A replay
+    // observing pending/completed work must never cancel the original request.
+    reservationId = requestId
 
     // Build prompt
     const vibeList = Array.isArray(vibe) ? vibe.join(' + ') : vibe
@@ -115,6 +126,7 @@ DESIGN NAME: Choose a name that is ${nameHint}. Subtitle should reflect shape, l
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(requestBody),
+      signal: AbortSignal.timeout(40_000),
     })
 
     if (!openaiRes.ok) {

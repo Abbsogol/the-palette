@@ -5,6 +5,7 @@ import pg from 'pg'
 
 export async function createSecurityDatabase({ hardened = true } = {}) {
   let db
+  let releaseSetupLock = async () => {}
   if (process.env.DATABASE_TEST_URL) {
     const url = new URL(process.env.DATABASE_TEST_URL)
     if (!['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) || url.pathname !== '/palette_test') {
@@ -12,6 +13,11 @@ export async function createSecurityDatabase({ hardened = true } = {}) {
     }
     const admin = new pg.Client({ connectionString: url.href })
     await admin.connect()
+    // Roles are cluster-wide even though each suite gets its own database.
+    // Serialize fixture DDL on the shared control database, then unlock before
+    // any test runs; actual application concurrency remains fully exercised.
+    await admin.query('select pg_advisory_lock(86427004)')
+    releaseSetupLock = () => admin.query('select pg_advisory_unlock(86427004)')
     const name = `palette_security_${randomUUID().replaceAll('-', '')}`
     await admin.query(`create database ${name}`)
     url.pathname = `/${name}`
@@ -52,7 +58,11 @@ export async function createSecurityDatabase({ hardened = true } = {}) {
       await db.exec(await readFile(new URL('../../supabase/migrations/202609260003_review_fixes.sql', import.meta.url), 'utf8'))
       await db.exec(await readFile(new URL('../../supabase/migrations/202609260004_credit_refund_order.sql', import.meta.url), 'utf8'))
       await db.exec(await readFile(new URL('../../supabase/migrations/202609260005_phase3_transactions.sql', import.meta.url), 'utf8'))
+      await db.exec(await readFile(new URL('../../supabase/migrations/202609270006_phase4_lifecycle.sql', import.meta.url), 'utf8'))
+      await db.exec(await readFile(new URL('../../supabase/migrations/202609270007_refunded_generation_holds.sql', import.meta.url), 'utf8'))
+      await db.exec(await readFile(new URL('../../supabase/migrations/202609270008_checkout_failures.sql', import.meta.url), 'utf8'))
     }
+    await releaseSetupLock()
     return db
   } catch (error) { await db.close(); throw error }
 }

@@ -17,13 +17,18 @@ export async function GET(request) {
       return Response.json({ error: 'Checkout not found' }, { status: 404 })
     }
     const { data: receipt, error } = await supabase.from('credit_payments')
-      .select('fulfilled').eq('session_id', sessionId).eq('user_id', user.id).maybeSingle()
+      .select('fulfilled,refunded_credits').eq('session_id', sessionId).eq('user_id', user.id).maybeSingle()
     if (error) throw error
-    if (!receipt?.fulfilled) return Response.json({ status: session.status === 'expired' ? 'expired' : 'pending' })
+    if (!receipt?.fulfilled) {
+      const { data: failure, error: failureError } = await supabase.from('checkout_failures')
+        .select('status').eq('session_id', sessionId).eq('user_id', user.id).maybeSingle()
+      if (failureError) throw failureError
+      return Response.json({ status: failure?.status || (session.status === 'expired' ? 'expired' : 'pending') }, { headers: { 'Cache-Control': 'no-store' } })
+    }
     const { data: profile, error: balanceError } = await supabase.from('profiles_data')
       .select('credit_balance').eq('id', user.id).single()
     if (balanceError || !profile) throw balanceError || new Error('Profile missing')
-    return Response.json({ status: 'fulfilled', creditBalance: profile.credit_balance }, { headers: { 'Cache-Control': 'no-store' } })
+    return Response.json({ status: receipt.refunded_credits > 0 ? 'refund_recorded' : 'fulfilled', creditBalance: profile.credit_balance }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {
     console.error('Credit checkout status failed:', error)
     return Response.json({ error: 'Unable to confirm checkout' }, { status: 503 })

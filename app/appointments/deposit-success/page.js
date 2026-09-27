@@ -15,6 +15,8 @@ function DepositSuccessContent() {
   const [paymentStatus, setPaymentStatus] = useState('pending')
   const depositPaid = paymentStatus === 'fulfilled'
   const refundOutcome = {
+    failed: ['Deposit payment failed', 'Your payment did not complete. You can try again from your appointment.'],
+    expired: ['Checkout expired', 'This checkout expired. Open your appointment to try again.'],
     refund_pending: ['Refund in progress', 'This booking was cancelled or declined. Your deposit is being refunded automatically.'],
     refunded: ['Deposit refunded', 'Your deposit refund has been processed. Your bank may take time to display it.'],
     refund_failed: ['Refund needs attention', 'Your refund could not be completed automatically. Please contact support.'],
@@ -51,7 +53,7 @@ function DepositSuccessContent() {
       if (cancelled) return
       attempts += 1
 
-      if (['fulfilled','refund_pending','refunded','refund_failed','payment_review'].includes(status)) {
+      if (['failed','expired','fulfilled','refund_pending','refunded','refund_failed','payment_review'].includes(status)) {
         setPaymentStatus(status)
         if (status !== 'refund_pending') { setChecking(false); return }
       }
