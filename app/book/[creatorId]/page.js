@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import CheckoutSession from '@/components/CheckoutSession'
+import { useAccountAction } from '@/lib/use-account-action'
+import { bookingCalendar, calendarKey, dateInZone } from '@/lib/booking-time'
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -11,7 +14,8 @@ const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'
 
 function fmt12(t) {
   if (!t) return ''
-  const [h, m] = t.slice(0, 5).split(':').map(Number)
+  const [rawHour, m] = t.slice(0, 5).split(':').map(Number)
+  const h = rawHour % 24
   const ampm = h < 12 ? 'am' : 'pm'
   const h12 = h % 12 === 0 ? 12 : h % 12
   return `${h12}${m > 0 ? `:${String(m).padStart(2,'0')}` : ''}${ampm}`
@@ -29,22 +33,12 @@ function addMinutes(timeStr, mins) {
   return `${String(Math.floor(total / 60)).padStart(2,'0')}:${String(total % 60).padStart(2,'0')}`
 }
 
-function timeToMins(timeStr) {
-  const [h, m] = timeStr.slice(0, 5).split(':').map(Number)
-  return h * 60 + m
-}
-
-// Local calendar date as YYYY-MM-DD — Date#toISOString() converts to UTC
-// first, which shifts the date back a day for any positive UTC offset
-// (e.g. Asia/Dubai, UTC+4) once local midnight crosses into the prior UTC day.
-function toLocalDateStr(d) {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
-
 export default function BookPage() {
+  const { creatorId } = useParams()
+  return <CheckoutSession title="Sign in to book an appointment" description="Your appointment and notes belong to your signed-in account.">{userId => <BookingForm key={`${userId}:${creatorId}`} userId={userId} />}</CheckoutSession>
+}
+
+function BookingForm({ userId }) {
   const { creatorId } = useParams()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -60,7 +54,8 @@ export default function BookPage() {
   const [availability, setAvailability] = useState([]) // active days
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
+  const { run, busy: submitting } = useAccountAction(userId)
+  const [timeZone, setTimeZone] = useState(null)
   const [submitError, setSubmitError] = useState('')
   const [done, setDone] = useState(false)
 
@@ -70,15 +65,23 @@ export default function BookPage() {
   // Selections
   const [selectedService, setSelectedService] = useState(null)
   const [selectedDate, setSelectedDate] = useState(null)   // Date object
-  const [selectedSlot, setSelectedSlot] = useState(null)   // '10:00'
+  const [slotSelection, setSlotSelection] = useState(null)
   const [note, setNote] = useState('')
-  const [slots, setSlots] = useState([])
-  const [slotsLoading, setSlotsLoading] = useState(false)
+  const [slotResult, setSlotResult] = useState(null)
+  const slotKey = selectedDate && selectedService && timeZone
+    ? `${creatorId}:${calendarKey(selectedDate)}:${selectedService.id}:${timeZone}` : null
+  const slots = slotResult?.key === slotKey ? slotResult.rows : []
+  const slotsError = slotResult?.key === slotKey ? slotResult.error : ''
+  const slotsLoading = !!slotKey && slotResult?.key !== slotKey
+  const selectedSlot = slotSelection?.key === slotKey && slots.some(slot => slot.time === slotSelection.time && slot.available)
+    ? slotSelection.time : null
 
   useEffect(() => {
+    let active = true
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/profile'); return }
+      if (!active) return
+      if (user?.id !== userId) { router.push('/profile'); return }
       setCurrentUser(user)
 
       // Fetch inspiration design if provided
@@ -88,23 +91,27 @@ export default function BookPage() {
           .select('id, title, image_url')
           .eq('id', designId)
           .single()
-        if (d) {
+        if (d && active) {
           setInspDesign(d)
           setNote(`Inspiration: ${d.title}`)
         }
       }
 
-      const [{ data: prof, error: profError }, { data: svcs, error: svcsError }, { data: avail }, { data: followRow }] = await Promise.all([
+      const [{ data: prof, error: profError }, { data: svcs, error: svcsError }, { data: avail }, { data: followRow }, { data: settings, error: zoneError }] = await Promise.all([
         supabase.from('profiles').select('id, display_name, avatar_url, account_type, is_private').eq('id', creatorId).single(),
         supabase.from('services').select('*').eq('creator_id', creatorId).eq('is_active', true).order('created_at', { ascending: true }),
         supabase.from('availability').select('*').eq('creator_id', creatorId).eq('is_active', true).order('day_of_week', { ascending: true }),
         creatorId === user.id ? { data: null } : supabase.from('follows').select('*').eq('follower_id', user.id).eq('following_id', creatorId).maybeSingle(),
+        supabase.from('creator_booking_settings').select('time_zone').eq('creator_id', creatorId).maybeSingle(),
       ])
+
+      if (!active) return
+      setTimeZone(settings?.time_zone || null)
 
       // A real fetch failure previously rendered identically to "this
       // creator has no bookable services" — surfaced distinctly instead,
       // same as the existing submit-handler error treatment below.
-      if ((profError && profError.code !== 'PGRST116') || svcsError) {
+      if ((profError && profError.code !== 'PGRST116') || svcsError || zoneError) {
         console.error('book page load failed:', profError || svcsError)
         setLoadError(true)
         setLoading(false)
@@ -124,118 +131,56 @@ export default function BookPage() {
           setStep(2)
         }
       }
-      if (prefillNote) setNote(decodeURIComponent(prefillNote))
+      if (prefillNote) setNote(prefillNote)
 
       setLoading(false)
     }
     init()
-  }, [])
+    return () => { active = false }
+  }, [creatorId, designId, prefillNote, prefillServiceId, router, userId])
 
-  // Generate time slots when date + service selected
+  // The database resolves creator-local times and excludes elapsed/DST-invalid
+  // slots. A stale response for another date/service must never enable submit.
   useEffect(() => {
-    if (!selectedDate || !selectedService) return
-    const fetchSlots = async () => {
-      setSlotsLoading(true)
-      const dow = selectedDate.getDay()
-      const dayAvail = availability.find(a => a.day_of_week === dow)
-      if (!dayAvail) { setSlots([]); setSlotsLoading(false); return }
-
-      // Get existing bookings for this creator on this date
-      const dateStr = toLocalDateStr(selectedDate)
-      const { data: existingBookings } = await supabase
-        .from('bookings')
-        .select('start_time, end_time')
-        .eq('creator_id', creatorId)
-        .eq('booking_date', dateStr)
-        .in('status', ['pending', 'confirmed'])
-
-      const booked = (existingBookings || []).map(b => ({
-        start: timeToMins(b.start_time),
-        end: timeToMins(b.end_time),
-      }))
-
-      // Generate 30-min interval slots from open → close - duration
-      const openMins = timeToMins(dayAvail.start_time)
-      const closeMins = timeToMins(dayAvail.end_time)
-      const dur = selectedService.duration_minutes
-      const generated = []
-
-      for (let t = openMins; t + dur <= closeMins; t += 30) {
-        const slotEnd = t + dur
-        const blocked = booked.some(b => t < b.end && slotEnd > b.start)
-        const hh = String(Math.floor(t / 60)).padStart(2, '0')
-        const mm = String(t % 60).padStart(2, '0')
-        generated.push({ time: `${hh}:${mm}`, available: !blocked })
-      }
-
-      setSlots(generated)
-      setSelectedSlot(null)
-      setSlotsLoading(false)
-    }
-    fetchSlots()
-  }, [selectedDate, selectedService])
+    let active = true
+    if (!slotKey) return
+    supabase.rpc('booking_available_slots', {
+      p_creator_id: creatorId, p_date: calendarKey(selectedDate), p_service_id: selectedService.id,
+    }).then(({ data, error }) => {
+      if (!active) return
+      setSlotResult({ key: slotKey,
+        rows: error ? [] : (data || []).map(slot => ({ time: slot.start_time.slice(0, 5), available: slot.available })),
+        error: error ? 'Available times could not be confirmed. The creator may need to confirm their appointment time zone.' : '',
+      })
+    }).catch(() => {
+      if (active) setSlotResult({ key: slotKey, rows: [], error: 'Available times could not be loaded. Please try another date.' })
+    })
+    return () => { active = false }
+  }, [creatorId, selectedDate, selectedService, slotKey])
 
   const handleSubmit = async () => {
-    if (!selectedService || !selectedDate || !selectedSlot) return
-    setSubmitting(true)
+    if (!selectedService || !selectedDate || !selectedSlot || !timeZone) return
     setSubmitError('')
-
-    const dateStr = toLocalDateStr(selectedDate)
-    const endTime = addMinutes(selectedSlot, selectedService.duration_minutes)
-
-    const { data: newBooking, error } = await supabase.from('bookings').insert({
-      client_id: currentUser.id,
-      creator_id: creatorId,
-      service_id: selectedService.id,
-      booking_date: dateStr,
-      start_time: selectedSlot,
-      end_time: endTime,
-      status: 'pending',
-      notes: note.trim() || null,
-    }).select().single()
-
-    if (error || !newBooking) {
-      setSubmitError('Failed to send booking request. Please try again.')
-      setSubmitting(false)
-      return
-    }
-
-    // Notify the creator
-    await supabase.from('notifications').insert({
-      user_id: creatorId,
-      actor_id: currentUser.id,
-      type: 'booking_request',
-    })
-
-    // Reward the client for booking
-    const { data: { session } } = await supabase.auth.getSession()
-    fetch('/api/add-reward', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) },
-      body: JSON.stringify({ reason: 'book_appointment', ref_id: newBooking.id }),
-    })
-
-    setSubmitting(false)
-    setDone(true)
+    try {
+      const result = await run(async session => {
+        const { data: newBooking, error } = await supabase.from('bookings').insert({
+          client_id: currentUser.id, creator_id: creatorId, service_id: selectedService.id,
+          booking_date: calendarKey(selectedDate), start_time: selectedSlot,
+          end_time: addMinutes(selectedSlot, selectedService.duration_minutes), time_zone: timeZone,
+          status: 'pending', notes: note.trim() || null,
+        }).select().single()
+        if (error || !newBooking) throw new Error('That appointment time could not be confirmed. Please refresh and choose an available time.')
+        fetch('/api/add-reward', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ reason: 'book_appointment', ref_id: newBooking.id }),
+        }).catch(() => {})
+        return newBooking
+      })
+      if (result) setDone(true)
+    } catch (error) { setSubmitError(error.message) }
   }
 
-  // Build a 42-day (6-week) calendar grid, aligned to Sun–Sat columns so
-  // dates land under their correct weekday header regardless of what
-  // weekday "today" happens to be.
-  const buildCalendar = () => {
-    const activeDows = new Set(availability.map(a => a.day_of_week))
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const startOfWeek = new Date(today)
-    startOfWeek.setDate(today.getDate() - today.getDay())
-    const days = []
-    for (let i = 0; i < 42; i++) {
-      const d = new Date(startOfWeek)
-      d.setDate(startOfWeek.getDate() + i)
-      days.push({ date: d, available: d >= today && activeDows.has(d.getDay()) })
-    }
-    return days
-  }
+  const buildCalendar = () => bookingCalendar(availability, timeZone)
 
   const chevronLeft = (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -251,7 +196,7 @@ export default function BookPage() {
 
   if (loadError) return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '20px', textAlign: 'center' }}>
-      <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif" }}>Couldn't load booking details</p>
+      <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif" }}>Couldn&apos;t load booking details</p>
       <p style={{ color: 'var(--text-secondary)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif" }}>Please try again in a moment.</p>
       <button onClick={() => window.location.reload()} style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '12px 24px', fontSize: '14px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
         Retry
@@ -283,7 +228,7 @@ export default function BookPage() {
         Your appointment request has been sent to <strong style={{ color: 'var(--text-primary)' }}>{creator?.display_name}</strong>.
       </p>
       <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '0 0 32px' }}>
-        You'll get notified once they confirm or decline.
+        You&apos;ll get notified once they confirm or decline.
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', maxWidth: '320px' }}>
         <Link href={`/creator/${creatorId}`} style={{ background: 'var(--accent)', color: '#2C0A1E', borderRadius: '12px', padding: '13px', fontSize: '14px', fontWeight: '600', textDecoration: 'none', textAlign: 'center' }}>
@@ -301,6 +246,8 @@ export default function BookPage() {
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', fontFamily: "'DM Sans', sans-serif", paddingBottom: '100px' }}>
 
+      {timeZone ? <p role="status" style={{ padding: '0 20px' }}>All appointment times are in {timeZone.replaceAll('_', ' ')}.</p>
+        : <p role="alert" style={{ padding: '0 20px' }}>This creator needs to set their appointment time zone before accepting bookings.</p>}
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 20px' }}>
         <button
@@ -393,11 +340,12 @@ export default function BookPage() {
               {/* Day cells */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px' }}>
                 {calendarDays.map((item, i) => {
-                  const isSelected = selectedDate && item.date.toDateString() === selectedDate.toDateString()
-                  const isToday = item.date.toDateString() === new Date().toDateString()
+                  const isSelected = selectedDate && item.date.toISOString() === selectedDate.toISOString()
+                  const isToday = calendarKey(item.date) === dateInZone(timeZone)
                   return (
                     <button
                       key={i}
+                      aria-label={calendarKey(item.date)}
                       onClick={() => item.available && setSelectedDate(item.date)}
                       disabled={!item.available}
                       style={{
@@ -411,7 +359,7 @@ export default function BookPage() {
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}
                     >
-                      {item.date.getDate()}
+                      {item.date.getUTCDate()}
                     </button>
                   )
                 })}
@@ -421,13 +369,13 @@ export default function BookPage() {
             {/* Month label */}
             {selectedDate && (
               <p style={{ color: 'var(--text-secondary)', fontSize: '12px', textAlign: 'center', marginBottom: '20px' }}>
-                {DAY_NAMES[selectedDate.getDay()]}, {selectedDate.getDate()} {MONTH_NAMES[selectedDate.getMonth()]} {selectedDate.getFullYear()}
+                {DAY_NAMES[selectedDate.getUTCDay()]}, {selectedDate.getUTCDate()} {MONTH_NAMES[selectedDate.getUTCMonth()]} {selectedDate.getUTCFullYear()}
               </p>
             )}
 
             <button
               onClick={() => setStep(3)}
-              disabled={!selectedDate}
+              disabled={!selectedDate || !timeZone}
               style={{
                 width: '100%', background: selectedDate ? 'var(--accent)' : 'var(--bg-chip)',
                 color: selectedDate ? '#2C0A1E' : 'var(--text-secondary)',
@@ -446,9 +394,10 @@ export default function BookPage() {
           <div>
             <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '0 0 4px' }}>Pick a time</p>
             <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: '0 0 20px', opacity: 0.7 }}>
-              {DAY_NAMES[selectedDate.getDay()]}, {selectedDate.getDate()} {MONTH_NAMES[selectedDate.getMonth()]} · {selectedService?.name} ({fmtDuration(selectedService?.duration_minutes)})
+              {DAY_NAMES[selectedDate.getUTCDay()]}, {selectedDate.getUTCDate()} {MONTH_NAMES[selectedDate.getUTCMonth()]} · {selectedService?.name} ({fmtDuration(selectedService?.duration_minutes)})
             </p>
 
+            {slotsError && <p role="alert">{slotsError}</p>}
             {slotsLoading ? (
               <p style={{ color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center', padding: '32px 0' }}>Loading slots…</p>
             ) : slots.length === 0 ? (
@@ -465,7 +414,7 @@ export default function BookPage() {
                   {slots.map(slot => (
                     <button
                       key={slot.time}
-                      onClick={() => slot.available && setSelectedSlot(slot.time)}
+                      onClick={() => slot.available && setSlotSelection({ key: slotKey, time: slot.time })}
                       disabled={!slot.available}
                       style={{
                         padding: '12px 8px', borderRadius: '10px',
@@ -516,7 +465,7 @@ export default function BookPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Date</span>
                   <span style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500' }}>
-                    {DAY_NAMES[selectedDate.getDay()]}, {selectedDate.getDate()} {MONTH_NAMES[selectedDate.getMonth()]}
+                    {DAY_NAMES[selectedDate.getUTCDay()]}, {selectedDate.getUTCDate()} {MONTH_NAMES[selectedDate.getUTCMonth()]}
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>

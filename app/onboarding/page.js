@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
@@ -19,6 +19,12 @@ const SPECIALTIES = ['BIAB','Gel-X','French','Chrome','3D','Bridal','Airbrush','
 const USER_STEPS    = ['welcome','basics','style','health','credits','action','done']
 const CREATOR_STEPS = ['welcome','basics','specialties','credits','action','done']
 const SALON_STEPS   = ['welcome','basics','credits','done']
+const emptyForm = () => ({
+  display_name: '', phone_number: '', location: '', bio: '', nail_shape: null,
+  nail_length: null, nail_colors: [], nail_finishes: [], nail_techniques: [],
+  occasions: [], budget_range: null, allergies: '', product_sensitivities: [],
+  removal_needed: false, specialties: [],
+})
 
 // ── Shared styles ───────────────────────────────────────────────────────────
 const inp = {
@@ -63,43 +69,25 @@ function OnboardingInner() {
   const [stepIdx, setStepIdx] = useState(0)
   const [saving, setSaving]   = useState(false)
 
-  const [referralCode, setReferralCode] = useState('')
+  const [referralCode, setReferralCode] = useState(() => (searchParams.get('ref') || '').toUpperCase().trim())
   const [errorMsg, setErrorMsg] = useState('')
+  const loadVersion = useRef({ version: 0 })
+  const activeUserId = useRef(null)
+  const [d, setD] = useState(emptyForm)
 
-  const [d, setD] = useState({
-    display_name: '',
-    phone_number: '',
-    location: '',
-    bio: '',
-    nail_shape: null,
-    nail_length: null,
-    nail_colors: [],
-    nail_finishes: [],
-    nail_techniques: [],
-    occasions: [],
-    budget_range: null,
-    allergies: '',
-    product_sensitivities: [],
-    removal_needed: false,
-    specialties: [],
-  })
-
-  useEffect(() => {
-    // Pre-fill referral code from ?ref= param
-    const ref = searchParams.get('ref')
-    if (ref) setReferralCode(ref.toUpperCase().trim())
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session?.user) {
-        router.push(ref ? `/profile?ref=${encodeURIComponent(ref)}` : '/profile')
-        return
-      }
-      init(session.user)
-    })
+  const clearForm = useCallback(() => {
+    loadVersion.current.version++
+    activeUserId.current = null
+    setProfile(null); setD(emptyForm()); setStepIdx(0); setLoading(true)
+    setSaving(false); setErrorMsg('')
   }, [])
 
-  const init = async (u) => {
+  const init = useCallback(async (u) => {
+    clearForm()
+    activeUserId.current = u.id
+    const version = loadVersion.current.version
     const { data: prof } = await supabase.from('profiles').select('*').eq('id', u.id).single()
+    if (version !== loadVersion.current.version) return
     if (!prof) { router.push('/profile'); return }
     // Already completed onboarding → go to feed
     if (prof.onboarding_complete === true) { router.push('/feed'); return }
@@ -123,7 +111,33 @@ function OnboardingInner() {
       specialties:          prof.specialties            || [],
     }))
     setLoading(false)
-  }
+  }, [router, clearForm])
+
+  useEffect(() => {
+    let active = true
+    const requestState = loadVersion.current
+    let authChanged = false
+    const ref = searchParams.get('ref')
+    const changeSession = session => {
+      if (!session?.user) {
+        clearForm()
+        router.push(ref ? `/profile?ref=${encodeURIComponent(ref)}` : '/profile')
+        return
+      }
+      // Token refresh must not discard an in-progress form for the same user.
+      if (activeUserId.current !== session.user.id) init(session.user)
+    }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (active && !authChanged) changeSession(session)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      authChanged = true
+      changeSession(session)
+    })
+    return () => { active = false; requestState.version++; subscription.unsubscribe() }
+  }, [init, router, searchParams, clearForm])
+
+
 
   const accountType = profile?.account_type || 'user'
   const steps   = accountType === 'creator' ? CREATOR_STEPS : accountType === 'salon' ? SALON_STEPS : USER_STEPS
@@ -141,12 +155,37 @@ function OnboardingInner() {
   const setN  = (field, val) => setD(p => ({ ...p, [field]: (p[field]||[]).includes(val) ? p[field].filter(v=>v!==val) : [...(p[field]||[]),val] }))
 
   const complete = async (redirectTo = '/feed') => {
+    if (saving || !profile) return
+    const version = loadVersion.current.version
     setSaving(true)
     setErrorMsg('')
-
-    const { data: { session } } = await supabase.auth.getSession()
+    let session
     let res
     try {
+      ;({ data: { session } } = await supabase.auth.getSession())
+      if (version !== loadVersion.current.version) return
+      if (session?.user?.id !== profile.id || activeUserId.current !== profile.id) {
+        clearForm()
+        if (session?.user) await init(session.user)
+        else router.push('/profile')
+        return
+      }
+      // Apply the invitation before committing onboarding so a transient
+      // failure remains visible and retryable. The referral RPC is idempotent.
+      if (referralCode.trim()) {
+        const referralResponse = await fetch('/api/apply-referral', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ code: referralCode.trim() }),
+        })
+        const referral = await referralResponse.json().catch(() => ({}))
+        if (version !== loadVersion.current.version) return
+        if (!referralResponse.ok || referral.ok !== true) {
+          setSaving(false)
+          setErrorMsg(referral.error || 'Your invitation could not be applied. Please retry or remove the referral code to continue.')
+          return
+        }
+      }
       res = await fetch('/api/complete-onboarding', {
         method: 'POST',
         headers: {
@@ -156,28 +195,18 @@ function OnboardingInner() {
         body: JSON.stringify(d),
       })
     } catch {
+      if (version !== loadVersion.current.version) return
       setSaving(false)
       setErrorMsg('Something went wrong. Please check your connection and try again.')
       return
     }
 
     const json = await res.json().catch(() => ({}))
+    if (version !== loadVersion.current.version) return
     if (!res.ok || json.error) {
       setSaving(false)
       setErrorMsg(json.error || 'Something went wrong. Please try again.')
       return
-    }
-
-    // Apply referral code if provided
-    if (referralCode.trim()) {
-      fetch('/api/apply-referral', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-        },
-        body: JSON.stringify({ code: referralCode.trim() }),
-      }).catch(() => {})
     }
 
     setSaving(false)
@@ -257,7 +286,7 @@ function OnboardingInner() {
                   maxLength={8}
                 />
                 <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '6px' }}>
-                  Got a code from a friend? Enter it here and you'll both earn Beauty Rewards points.
+                  Got a code from a friend? Enter it here and you&apos;ll both earn Beauty Rewards points.
                 </p>
               </div>
             </div>

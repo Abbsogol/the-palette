@@ -46,11 +46,12 @@ export async function POST(request) {
   if (unauthorized) return unauthorized
 
   const { userId, credits } = await request.json().catch(() => ({}))
-  if (typeof userId !== 'string' || !userId || typeof credits !== 'number' || !Number.isFinite(credits)) {
+  if (typeof userId !== 'string' || !userId || !Number.isSafeInteger(credits) || credits < 0 || credits > 2147483647) {
     return Response.json({ error: 'Missing or invalid params' }, { status: 400 })
   }
 
-  const { error } = await supabase.from('profiles_data').update({ credit_balance: credits }).eq('id', userId)
+  const { data: updated, error } = await supabase.from('profiles_data').update({ credit_balance: credits }).eq('id', userId).select('id').single()
   if (error) return Response.json({ error: 'Failed to update credits' }, { status: 500 })
+  if (!updated) return Response.json({ error: 'User not found' }, { status: 404 })
   return Response.json({ ok: true })
 }

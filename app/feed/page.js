@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useCurrentTime } from '@/lib/use-current-time'
 import { supabase } from '@/lib/supabase'
 import CommunityCard from '@/components/CommunityCard'
 
@@ -18,14 +19,14 @@ const VIBE_FILTER = {
 }
 
 export default function FeedPage() {
+  const now = useCurrentTime()
   // Main tab: 'explore' | 'community'
   const [mainTab, setMainTab] = useState('explore')
 
   // Explore state
   const [designs, setDesigns]       = useState([])
   const [activeTab, setActiveTab]   = useState('All')
-  const [sort, setSort]             = useState('newest')
-  const [sortInitialized, setSortInitialized] = useState(false)
+  const [chosenSort, setSort] = useState(null)
   const [loadingExplore, setLoadingExplore] = useState(true)
 
   // Community state
@@ -106,14 +107,6 @@ export default function FeedPage() {
     }
     load()
   }, [])
-
-  // Auto-select "for you" sort when profile has preferences
-  useEffect(() => {
-    if (!sortInitialized && userProfile && hasPrefs) {
-      setSort('for_you')
-      setSortInitialized(true)
-    }
-  }, [userProfile])
 
   // Restore scroll on back navigation
   useEffect(() => {
@@ -215,7 +208,7 @@ export default function FeedPage() {
     const { data } = await supabase.from('stories')
       .select('*, profiles(display_name, avatar_url)')
       .eq('user_id', userId)
-      .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+      .gte('created_at', new Date(now - 24 * 60 * 60 * 1000).toISOString())
       .order('created_at', { ascending: true })
     if (!data?.length) return
 
@@ -274,7 +267,7 @@ export default function FeedPage() {
   }
 
   const timeAgo = (iso) => {
-    const diff = Date.now() - new Date(iso).getTime()
+    const diff = now - new Date(iso).getTime()
     const h = Math.floor(diff / 3600000)
     const m = Math.floor(diff / 60000)
     if (h >= 1) return `${h}h ago`
@@ -289,6 +282,8 @@ export default function FeedPage() {
     userProfile.occasions?.length ||
     userProfile.nail_finishes?.length
   )
+
+  const sort = chosenSort ?? (hasPrefs ? 'for_you' : 'newest')
 
   function scoreDesign(d) {
     if (!hasPrefs) return 0
@@ -344,7 +339,7 @@ export default function FeedPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#333', overflow: 'hidden', border: '1.5px solid #D4A0C0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   {story.profiles?.avatar_url
-                    ? <img src={story.profiles.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ? <img alt="" src={story.profiles.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     : <span style={{ color: '#D4A0C0', fontSize: '14px', fontWeight: '500' }}>{(story.profiles?.display_name || '?')[0].toUpperCase()}</span>
                   }
                 </div>
@@ -573,7 +568,7 @@ export default function FeedPage() {
           {dropDesigns.length > 0 && (
             <div style={{ marginBottom: '20px' }}>
               <div style={{ padding: '0 20px 10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase' }}>✦ This Week's Drops</span>
+                <span style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase' }}>✦ This Week&apos;s Drops</span>
                 <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>· Curated just for you</span>
               </div>
               <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', padding: '0 20px', scrollbarWidth: 'none' }}>
@@ -729,7 +724,7 @@ export default function FeedPage() {
               {updates.map(post => {
                 const name   = post.profiles?.display_name || 'Creator'
                 const avatar = post.profiles?.avatar_url
-                const diff   = Date.now() - new Date(post.created_at).getTime()
+                const diff   = now - new Date(post.created_at).getTime()
                 const h = Math.floor(diff / 3600000)
                 const d = Math.floor(diff / 86400000)
                 const ago = d >= 1 ? `${d}d ago` : h >= 1 ? `${h}h ago` : 'Just now'

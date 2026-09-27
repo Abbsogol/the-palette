@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import StorageImage from '@/components/StorageImage'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import SaveToBoard from '@/components/SaveToBoard'
@@ -25,21 +26,7 @@ export default function SavedPage() {
     }
   }, [loading])
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user || null)
-      if (session?.user) loadAll(session.user.id)
-      else setLoading(false)
-    })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null)
-      if (session?.user) loadAll(session.user.id)
-      else { setDesigns([]); setBoards([]); setLoading(false) }
-    })
-    return () => subscription.unsubscribe()
-  }, [])
-
-  const loadAll = async (userId) => {
+  const loadAll = useCallback(async (userId) => {
     setLoading(true)
     const [{ data: saved, error: savedError }, { data: boardData, error: boardsError }] = await Promise.all([
       supabase.from('saved_designs').select('design_id, designs(*)').eq('user_id', userId).order('saved_at', { ascending: false }).limit(200),
@@ -62,7 +49,23 @@ export default function SavedPage() {
     }
 
     setLoading(false)
-  }
+  }, [])
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user || null)
+      if (session?.user) loadAll(session.user.id)
+      else setLoading(false)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null)
+      if (session?.user) loadAll(session.user.id)
+      else { setDesigns([]); setBoards([]); setLoading(false) }
+    })
+    return () => subscription.unsubscribe()
+  }, [loadAll])
+
+
 
   if (loading) return <div style={{ padding: '24px 20px', color: 'var(--text-secondary)', fontSize: '14px' }}>Loading...</div>
 
@@ -140,7 +143,7 @@ export default function SavedPage() {
               }}>
                 <div style={{ width: '120px', height: '90px', background: 'var(--bg-chip)', overflow: 'hidden' }}>
                   {board.cover_image_url ? (
-                    <img src={board.cover_image_url} alt={board.name}
+                    <StorageImage src={board.cover_image_url} alt={board.name}
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -184,7 +187,7 @@ export default function SavedPage() {
                 >
                   {design.image_url ? (
                     <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden' }}>
-                      <img src={design.image_url} alt={design.title} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+                      <StorageImage src={design.image_url} alt={design.title} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
                     </div>
                   ) : (
                     <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--bg-chip)' }} />

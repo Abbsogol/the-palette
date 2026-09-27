@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import CheckoutSession from '@/components/CheckoutSession'
+import { bookingHasEnded, bookingZoneLabel } from '@/lib/booking-time'
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
@@ -11,7 +13,7 @@ const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
 function fmt12(t) {
   if (!t) return ''
   const [h, m] = t.slice(0, 5).split(':').map(Number)
-  const ampm = h < 12 ? 'am' : 'pm'
+  const ampm = h % 24 < 12 ? 'am' : 'pm'
   const h12 = h % 12 === 0 ? 12 : h % 12
   return `${h12}${m > 0 ? `:${String(m).padStart(2,'0')}` : ''}${ampm}`
 }
@@ -69,7 +71,7 @@ function AppointmentCard({ booking }) {
               {service?.name} · {fmtDate(booking.booking_date)}
             </p>
             <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '2px 0 0' }}>
-              {fmt12(booking.start_time)} – {fmt12(booking.end_time)}
+              {fmt12(booking.start_time)} – {fmt12(booking.end_time)} · {bookingZoneLabel(booking)}
               {showDepositDot && <span style={{ color: 'var(--accent)', fontWeight: '600' }}> · Deposit due</span>}
             </p>
           </div>
@@ -83,6 +85,10 @@ function AppointmentCard({ booking }) {
 }
 
 export default function AppointmentsPage() {
+  return <CheckoutSession title="Sign in to view appointments" description="Appointment details are private to the people involved.">{userId => <AppointmentsList key={userId} userId={userId} />}</CheckoutSession>
+}
+
+function AppointmentsList({ userId }) {
   const router = useRouter()
   const [currentUser, setCurrentUser] = useState(null)
   const [bookings, setBookings] = useState([])
@@ -90,9 +96,11 @@ export default function AppointmentsPage() {
   const [tab, setTab] = useState('upcoming')
 
   useEffect(() => {
+    let active = true
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/profile'); return }
+      if (!active) return
+      if (user?.id !== userId) { router.push('/profile'); return }
       setCurrentUser(user)
 
       // Ordered newest-first + capped so the limit drops old history rather
@@ -104,6 +112,7 @@ export default function AppointmentsPage() {
         .order('booking_date', { ascending: false })
         .order('start_time', { ascending: false })
         .limit(300)
+      if (!active) return
       if (error) console.error('appointments fetch failed:', error)
 
       if (!rawData) { setLoading(false); return }
@@ -116,17 +125,19 @@ export default function AppointmentsPage() {
         .select('id, display_name, username, avatar_url')
         .in('id', creatorIds)
 
+      if (!active) return
+
       const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
       setBookings(data.map(b => ({ ...b, creator: profileMap[b.creator_id] || null })))
       setLoading(false)
     }
     init()
-  }, [])
+    return () => { active = false }
+  }, [router, userId])
 
-  const today = new Date().toISOString().split('T')[0]
 
-  const upcoming = bookings.filter(b => (b.status === 'pending' || b.status === 'confirmed') && b.booking_date >= today)
-  const past     = bookings.filter(b => b.status === 'declined' || b.status === 'cancelled' || ((b.status === 'confirmed' || b.status === 'pending') && b.booking_date < today))
+  const upcoming = bookings.filter(b => (b.status === 'pending' || b.status === 'confirmed') && !bookingHasEnded(b))
+  const past     = bookings.filter(b => b.status === 'declined' || b.status === 'cancelled' || ((b.status === 'confirmed' || b.status === 'pending') && bookingHasEnded(b)))
 
   const tabs = [
     { key: 'upcoming', label: 'Upcoming', count: upcoming.length },

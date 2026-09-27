@@ -1,11 +1,13 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
-import { useParams } from 'next/navigation'
+import StorageImage from '@/components/StorageImage'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import ShareButton from '@/components/ShareButton'
 
 export default function MoodboardDetailPage() {
+  const router = useRouter()
   const { id } = useParams()
   const [board, setBoard] = useState(null)
   const [designs, setDesigns] = useState([])
@@ -26,17 +28,15 @@ export default function MoodboardDetailPage() {
   const [searchError, setSearchError] = useState('')
   const [addingMember, setAddingMember] = useState(false)
   const searchTimeout = useRef(null)
+  const loadVersion = useRef({ version: 0 })
 
-  useEffect(() => {
-    if (!id) return
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setCurrentUser(session?.user || null)
-      loadBoard(session?.user?.id || null)
-    })
-  }, [id])
-
-  async function loadBoard(currentUserId) {
+  const loadBoard = useCallback(async (currentUserId) => {
+    const version = ++loadVersion.current.version
+    const stale = () => version !== loadVersion.current.version
     setLoading(true)
+    setBoard(null); setDesigns([]); setMembers([]); setCreatorName(null)
+    setNotFound(false); setIsPrivate(false); setIsOwner(false); setIsMember(false)
+    setShowShareModal(false); setSearchResult(null)
 
     const { data: boardData } = await supabase
       .from('moodboards')
@@ -44,6 +44,7 @@ export default function MoodboardDetailPage() {
       .eq('id', id)
       .single()
 
+    if (stale()) return
     if (!boardData) { setNotFound(true); setLoading(false); return }
 
     const owner = currentUserId === boardData.user_id
@@ -58,6 +59,7 @@ export default function MoodboardDetailPage() {
         .eq('moodboard_id', id)
         .eq('user_id', currentUserId)
         .maybeSingle()
+      if (stale()) return
       member = !!memberRow
       setIsMember(member)
     }
@@ -90,6 +92,7 @@ export default function MoodboardDetailPage() {
         .eq('moodboard_id', id),
     ])
 
+    if (stale()) return
     setDesigns(boardDesigns?.map(r => r.designs).filter(Boolean) || [])
     setCreatorName(profile?.display_name || profile?.username || null)
 
@@ -100,6 +103,7 @@ export default function MoodboardDetailPage() {
         .from('profiles')
         .select('id, display_name, username, avatar_url')
         .in('id', memberIds)
+      if (stale()) return
       const profileMap = {}
       memberProfiles?.forEach(p => { profileMap[p.id] = p })
       setMembers(memberRows.map(m => ({ ...m, profile: profileMap[m.user_id] || null })))
@@ -108,7 +112,27 @@ export default function MoodboardDetailPage() {
     }
 
     setLoading(false)
-  }
+  }, [id])
+
+  useEffect(() => {
+    if (!id) return
+    const requestState = loadVersion.current
+    let active = true, observedAuthEvent = false
+    const update = session => {
+      if (!active) return
+      setCurrentUser(session?.user || null)
+      loadBoard(session?.user?.id || null)
+    }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!observedAuthEvent) update(session)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      observedAuthEvent = true
+      update(session)
+    })
+    return () => { active = false; requestState.version++; clearTimeout(searchTimeout.current); subscription.unsubscribe() }
+  }, [id, loadBoard])
+
 
   // Search for user by username as they type
   const handleUsernameChange = (val) => {
@@ -150,12 +174,6 @@ export default function MoodboardDetailPage() {
       return
     }
     // Send notification
-    await supabase.from('notifications').insert({
-      user_id: searchResult.id,
-      actor_id: currentUser.id,
-      type: 'moodboard_invite',
-      design_id: null,
-    })
     setMembers(prev => [...prev, { user_id: searchResult.id, profile: searchResult, invited_by: currentUser.id }])
     setSearchResult(null)
     setSearchUsername('')
@@ -173,7 +191,7 @@ export default function MoodboardDetailPage() {
     setMembers(prev => prev.filter(m => m.user_id !== memberUserId))
     // If current user just removed themselves, redirect
     if (memberUserId === currentUser?.id) {
-      window.location.href = '/moodboards'
+      router.push('/moodboards')
     }
   }
 
@@ -187,7 +205,7 @@ export default function MoodboardDetailPage() {
     <div style={{ padding: '24px 20px', textAlign: 'center', paddingTop: '80px', fontFamily: "'DM Sans', sans-serif" }}>
       <p style={{ fontSize: '28px', marginBottom: '12px' }}>🔒</p>
       <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '500', marginBottom: '6px' }}>This board is private</p>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '20px' }}>Only the owner can view this board.</p>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '20px' }}>Only the owner and invited members can view this board.</p>
       <Link href="/feed" style={{ color: 'var(--accent)', fontSize: '14px', textDecoration: 'none' }}>← Browse designs</Link>
     </div>
   )
@@ -224,7 +242,7 @@ export default function MoodboardDetailPage() {
             </div>
 
             <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '0 0 14px', lineHeight: '1.5' }}>
-              Enter someone's username to give them access to this board.
+              Enter someone&apos;s username to give them access to this board.
             </p>
 
             <input
@@ -442,7 +460,7 @@ export default function MoodboardDetailPage() {
               }}>
                 <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', background: 'var(--bg-chip)' }}>
                   {d.image_url && (
-                    <img src={d.image_url} alt={d.title}
+                    <StorageImage src={d.image_url} alt={d.title}
                       loading="lazy" decoding="async"
                       style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
                   )}

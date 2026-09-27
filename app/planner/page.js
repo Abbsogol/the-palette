@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import CheckoutSession from '@/components/CheckoutSession'
+import { bookingZoneLabel, calendarDate, calendarKey, dateInZone } from '@/lib/booking-time'
 
 const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -11,7 +13,7 @@ const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'
 function fmt12(t) {
   if (!t) return ''
   const [h, m] = t.slice(0, 5).split(':').map(Number)
-  const ampm = h < 12 ? 'am' : 'pm'
+  const ampm = h % 24 < 12 ? 'am' : 'pm'
   const h12 = h % 12 === 0 ? 12 : h % 12
   return `${h12}${m > 0 ? `:${String(m).padStart(2,'0')}` : ''}${ampm}`
 }
@@ -24,36 +26,50 @@ function fmtDuration(mins) {
 }
 
 function toDateStr(d) {
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`
 }
 
 function getWeekStart(d) {
   const day = new Date(d)
-  day.setDate(d.getDate() - d.getDay())
-  day.setHours(0,0,0,0)
+  day.setUTCDate(d.getUTCDate() - d.getUTCDay())
+  day.setUTCHours(0,0,0,0)
   return day
 }
 
 export default function PlannerPage() {
+  return <CheckoutSession title="Sign in to view appointments" description="Appointment details are private to the people involved.">{userId => <Planner key={userId} userId={userId} />}</CheckoutSession>
+}
+
+function Planner({ userId }) {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [bookings, setBookings] = useState([])
   const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()))
   const [selectedDay, setSelectedDay] = useState(() => toDateStr(new Date()))
   const [expanded, setExpanded] = useState(null)
+  const [timeZone, setTimeZone] = useState(null)
   const dayRefs = useRef({})
 
   useEffect(() => {
+    let active = true
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/profile'); return }
+      if (!active) return
+      if (user?.id !== userId) { router.push('/profile'); return }
 
       const { data: profile } = await supabase
         .from('profiles').select('account_type').eq('id', user.id).single()
 
+      if (!active) return
+
       if (!profile || (profile.account_type !== 'creator' && profile.account_type !== 'salon')) {
         router.push('/profile'); return
       }
+
+      const { data: settings } = await supabase.from('creator_booking_settings').select('time_zone').eq('creator_id', userId).maybeSingle()
+      if (!active) return
+      setTimeZone(settings?.time_zone || null)
+      if (settings?.time_zone) { const day = calendarDate(dateInZone(settings.time_zone)); setWeekStart(getWeekStart(day)); setSelectedDay(calendarKey(day)) }
 
       // Ordered newest-first + capped so the limit drops old history rather
       // than cutting off upcoming bookings, then reversed for display.
@@ -65,6 +81,7 @@ export default function PlannerPage() {
         .order('booking_date', { ascending: false })
         .order('start_time', { ascending: false })
         .limit(300)
+      if (!active) return
       if (error) console.error('planner bookings fetch failed:', error)
       const data = rawData ? rawData.slice().reverse() : rawData
 
@@ -72,38 +89,40 @@ export default function PlannerPage() {
         const clientIds = [...new Set(data.map(b => b.client_id))]
         const { data: profiles } = await supabase
           .from('profiles').select('id, display_name, avatar_url').in('id', clientIds)
+        if (!active) return
         const pm = Object.fromEntries((profiles || []).map(p => [p.id, p]))
         setBookings(data.map(b => ({ ...b, client: pm[b.client_id] || null })))
       }
       setLoading(false)
     }
     init()
-  }, [])
+    return () => { active = false }
+  }, [router, userId])
 
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart)
-    d.setDate(weekStart.getDate() + i)
+    d.setUTCDate(weekStart.getUTCDate() + i)
     return d
   })
 
-  const todayStr = toDateStr(new Date())
+  const todayStr = timeZone ? dateInZone(timeZone) : null
 
   const bookingsForDay = (dateStr) => bookings.filter(b => b.booking_date === dateStr)
 
   const prevWeek = () => {
-    const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(d)
+    const d = new Date(weekStart); d.setUTCDate(d.getUTCDate() - 7); setWeekStart(d)
     setSelectedDay(toDateStr(d))
   }
   const nextWeek = () => {
-    const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(d)
+    const d = new Date(weekStart); d.setUTCDate(d.getUTCDate() + 7); setWeekStart(d)
     setSelectedDay(toDateStr(d))
   }
 
   const weekLabel = () => {
-    const end = new Date(weekStart); end.setDate(weekStart.getDate() + 6)
-    if (weekStart.getMonth() === end.getMonth())
-      return `${weekStart.getDate()}–${end.getDate()} ${MONTH_NAMES[weekStart.getMonth()]}`
-    return `${weekStart.getDate()} ${MONTH_NAMES[weekStart.getMonth()]} – ${end.getDate()} ${MONTH_NAMES[end.getMonth()]}`
+    const end = new Date(weekStart); end.setUTCDate(weekStart.getUTCDate() + 6)
+    if (weekStart.getUTCMonth() === end.getUTCMonth())
+      return `${weekStart.getUTCDate()}–${end.getUTCDate()} ${MONTH_NAMES[weekStart.getUTCMonth()]}`
+    return `${weekStart.getUTCDate()} ${MONTH_NAMES[weekStart.getUTCMonth()]} – ${end.getUTCDate()} ${MONTH_NAMES[end.getUTCMonth()]}`
   }
 
   const selectDay = (dateStr) => {
@@ -124,6 +143,7 @@ export default function PlannerPage() {
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', fontFamily: "'DM Sans', sans-serif", paddingBottom: '60px' }}>
 
+      <p style={{ padding: '0 20px' }}>Appointments use their saved local date and time zone{timeZone ? ` · Your current zone: ${timeZone}` : ' · Set your time zone in Availability'}.</p>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 20px 12px' }}>
         <Link href="/bookings" style={{ color: 'var(--text-primary)', textDecoration: 'none', display: 'flex' }}>
@@ -133,7 +153,8 @@ export default function PlannerPage() {
         </Link>
         <h1 style={{ color: 'var(--text-primary)', fontSize: '17px', fontWeight: '600', margin: 0, flex: 1 }}>Planner</h1>
         <button
-          onClick={() => { setWeekStart(getWeekStart(new Date())); setSelectedDay(todayStr) }}
+          disabled={!todayStr}
+          onClick={() => { if (todayStr) { setWeekStart(getWeekStart(calendarDate(todayStr))); setSelectedDay(todayStr) } }}
           style={{ background: 'var(--bg-chip)', border: 'none', borderRadius: '8px', padding: '6px 12px', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit' }}
         >
           Today
@@ -172,10 +193,10 @@ export default function PlannerPage() {
               }}
             >
               <span style={{ fontSize: '11px', fontWeight: '600', color: isSelected ? '#2C0A1E' : 'var(--text-secondary)', letterSpacing: '0.04em' }}>
-                {DAY_SHORT[day.getDay()]}
+                {DAY_SHORT[day.getUTCDay()]}
               </span>
               <span style={{ fontSize: '17px', fontWeight: '700', color: isSelected ? '#2C0A1E' : isToday ? 'var(--accent)' : 'var(--text-primary)', lineHeight: 1 }}>
-                {day.getDate()}
+                {day.getUTCDate()}
               </span>
               {count > 0 && (
                 <span style={{
@@ -224,10 +245,10 @@ export default function PlannerPage() {
                   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                 }}>
                   <span style={{ fontSize: '8px', fontWeight: '700', color: isToday ? '#2C0A1E' : 'var(--text-secondary)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                    {DAY_SHORT[day.getDay()]}
+                    {DAY_SHORT[day.getUTCDay()]}
                   </span>
                   <span style={{ fontSize: '14px', fontWeight: '700', color: isToday ? '#2C0A1E' : 'var(--text-primary)', lineHeight: 1 }}>
-                    {day.getDate()}
+                    {day.getUTCDate()}
                   </span>
                 </div>
                 <div style={{ flex: 1, height: '0.5px', background: 'var(--border)' }} />
@@ -260,7 +281,7 @@ export default function PlannerPage() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
-                              <span style={{ color: 'var(--accent)', fontSize: '12px', fontWeight: '700' }}>{fmt12(b.start_time)}</span>
+                              <span style={{ color: 'var(--accent)', fontSize: '12px', fontWeight: '700' }}>{fmt12(b.start_time)} · {bookingZoneLabel(b)}</span>
                               {b.service?.duration_minutes && (
                                 <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>{fmtDuration(b.service.duration_minutes)}</span>
                               )}
@@ -289,7 +310,7 @@ export default function PlannerPage() {
                           <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '0.5px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                               <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Time</span>
-                              <span style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500' }}>{fmt12(b.start_time)} – {fmt12(b.end_time)}</span>
+                              <span style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500' }}>{fmt12(b.start_time)} – {fmt12(b.end_time)} · {bookingZoneLabel(b)}</span>
                             </div>
                             {b.service?.price > 0 && (
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -299,7 +320,7 @@ export default function PlannerPage() {
                             )}
                             {b.notes && (
                               <div style={{ background: 'var(--bg-chip)', borderRadius: '8px', padding: '8px 10px', marginTop: '4px' }}>
-                                <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: 0, lineHeight: '1.5', fontStyle: 'italic' }}>"{b.notes}"</p>
+                                <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: 0, lineHeight: '1.5', fontStyle: 'italic' }}>&quot;{b.notes}&quot;</p>
                               </div>
                             )}
                           </div>

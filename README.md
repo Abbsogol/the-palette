@@ -1,36 +1,79 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Laque / The Palette
 
-## Getting Started
+Next.js App Router application for nail-design discovery, AI creation, collections, messaging, and appointments. Supabase supplies auth, database, storage, and realtime; Stripe handles payments; OpenAI handles generation/recommendations; Resend optionally sends reminders.
 
-First, run the development server:
+The October 2 release baseline is **main**, not the separate `redesign` branch.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Local setup
+
+Use Node **24.20.0** (`.nvmrc`) and npm. Dependencies are recorded in `package-lock.json`.
+
+```sh
+npm ci
+cp .env.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Fill `.env.local` with isolated development/staging configuration, then run:
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+```sh
+npm run env:check
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Open http://localhost:3000. The environment check validates presence and basic formatting only; it does not verify credentials, policies, or services. Browser authentication is in `/profile`.
 
-## Learn More
+| Variable | Purpose |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Public Supabase project endpoint |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public/anon client key; access depends on RLS |
+| `NEXT_PUBLIC_APP_URL` | Canonical app URL for links and redirects |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only privileged database/storage operations |
+| `OPENAI_API_KEY` | Server-only generation and recommendations |
+| `STRIPE_SECRET_KEY` | Server-only Stripe API access |
+| `STRIPE_WEBHOOK_SECRET` | Webhook signature verification |
+| `STRIPE_PRICE_PREMIUM`, `STRIPE_PRICE_PRO_CREATOR` | Optional environment-specific subscription Prices; set sandbox Prices in staging |
+| `CRON_SECRET` | Scheduled reminder authentication; required by the release configuration check |
+| `RESEND_API_KEY` | Optional reminder email delivery |
 
-To learn more about Next.js, take a look at the following resources:
+Never expose server credentials through `NEXT_PUBLIC_*` variables. Real environment files and backups are ignored by Git; only the blank `.env.example` is committed. Subscription Prices have historical production defaults; configure the optional overrides and the correct app URL for isolated staging. Browser OAuth/recovery callbacks use the current origin, which must be allowed in Supabase.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Verification
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```sh
+npm run test:unit           # Existing safeguards and environment validation
+npm run test:regressions    # Desired behavior for documented defects
+npm run test:security       # Authorization, RLS and earlier review fixes
+npm run test:phase3         # Financial flows, concurrent writes, payment/refund UI
+npm run test:phase4         # Lifecycle, retries, terminal payments and sharing
+npm run test:phase5         # Account boundaries, subscription recovery and refunds
+npm run test:phase6         # Creator time zones, fenced reconciliation and identity races
+npm test                   # All suites once, with local in-process PostgreSQL
+npm run lint
+npx playwright install --with-deps chromium webkit
+npm run build:smoke         # Compile with fake, loopback-only service values
+npm run test:e2e            # Uses the production build from build:smoke
+```
 
-## Deploy on Vercel
+The original ten failures, lint baseline, combined-review defects, and reproduced Phase 3/4 defects are corrected on the review branch. Phase 5 adds account-bound actions and outcomes, subscription recovery, refund settlement and booking availability enforcement. Desired-outcome regression tests remain enabled. Local passing checks do not establish deployed correctness; see [the current Phase 6 report](docs/phase-6-review.md) and [the issue register](docs/issue-register.md).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+API/component tests import application code with mocked services. Unexpected `fetch` calls fail. The smoke-build launcher overrides inherited provider credentials with fake values. Browser smoke tests permit only their local app origin; signup and booking tests additionally intercept fake loopback Auth/PostgREST endpoints to exercise the browser SDK. They cover public navigation, auth UI, creator-local booking requests and visible slot errors. None of these checks certifies deployed RLS or live fulfillment.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+For CI-equivalent database sequencing, run `npm ci`, point `DATABASE_TEST_URL` at a fresh **local** PostgreSQL 17 database named `palette_test`, then run `test:regressions`, `test:security`, `test:phase3`, `test:phase4`, `test:phase5`, and `test:phase6` in that order with `CI=1`. The helpers reject non-loopback hosts and other database names. Native SQL tests exercise real transactions and roles; simplified managed Auth/Storage fixtures still require staging verification. CI uses Ubuntu; local macOS results are recorded separately.
+
+`npm run build` uses real configuration; `build:smoke` explicitly does not. `npm run env:check:build` checks only variables needed for compilation. Both environment-check commands reject the offline placeholders.
+
+## CI and release status
+
+GitHub Actions runs independent lint, unit, known-regression, and production-build/browser jobs without production secrets. Browser reports are retained for seven days. Failures block readiness; there is no `continue-on-error` bypass. The main branch now requires the unit, lint, regressions, and browser checks, with an up-to-date branch and no administrator bypass.
+
+- [Phase 1 evidence and remaining blockers](docs/phase-1-status.md)
+- [Phase 2 security fixes and rollout requirements](docs/phase-2-security.md)
+- [Phase 3 flow map, corrections, verification, and open gaps](docs/phase-3-review.md)
+- [Phase 4 lifecycle review, corrections, verification, and remaining gates](docs/phase-4-review.md)
+- [Phase 5 account boundaries, refund settlement, verification and open gates](docs/phase-5-review.md)
+- [Phase 6 creator time zones, account/payment recovery and open gates](docs/phase-6-review.md)
+- [Issue register and regression mapping](docs/issue-register.md)
+- [Staging, schema, and recovery runbook](docs/environment-and-recovery.md)
+- [Database inspection boundary](supabase/README.md)
+
+Read `AGENTS.md` and the installed Next.js documentation before framework-specific edits. Keep fixes focused; broader refactoring follows regression coverage.

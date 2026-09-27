@@ -20,14 +20,16 @@ export default function CropModal({ file, onCrop, onCancel }) {
     if (!file) return
     const url = URL.createObjectURL(file)
     objUrl.current = url
-    setSrc(url)
     const img = new window.Image()
     img.onload = () => {
+      setSrc(url)
+      setPos({ x: 0, y: 0 })
+      setZoom(1)
       setNatural({ w: img.naturalWidth, h: img.naturalHeight })
       setReady(true)
     }
     img.src = url
-    return () => URL.revokeObjectURL(url)
+    return () => { img.onload = null; URL.revokeObjectURL(url) }
   }, [file])
 
   // Image geometry — at zoom=1 the shorter edge fills CROP_SIZE
@@ -95,6 +97,9 @@ export default function CropModal({ file, onCrop, onCancel }) {
 
     const img = new window.Image()
     img.onload = () => {
+      setSrc(url)
+      setPos({ x: 0, y: 0 })
+      setZoom(1)
       const sx = (-imgLeft / dw) * natural.w
       const sy = (-imgTop  / dh) * natural.h
       const sw = (CROP_SIZE / dw) * natural.w
@@ -175,6 +180,7 @@ export default function CropModal({ file, onCrop, onCancel }) {
         {src && (
           <img
             src={src}
+            alt="Profile photo crop preview"
             draggable={false}
             style={{
               position: 'absolute',

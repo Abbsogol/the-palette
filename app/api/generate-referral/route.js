@@ -13,36 +13,10 @@ export async function POST(request) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // profiles_data, not the profiles view — referral_code is masked behind
-  // auth.uid() = id in the view, always null for a service-role caller.
-  const { data: profile } = await supabase
-    .from('profiles_data')
-    .select('referral_code')
-    .eq('id', user.id)
-    .single()
-  if (!profile) return Response.json({ error: 'User not found' }, { status: 404 })
-
-  // Already has a code — return it
-  if (profile.referral_code) return Response.json({ code: profile.referral_code })
-
-  // Generate a unique code
-  let code
-  for (let i = 0; i < 10; i++) {
-    const candidate = genCode()
-    const { data: clash } = await supabase
-      .from('profiles_data')
-      .select('id')
-      .eq('referral_code', candidate)
-      .maybeSingle()
-    if (!clash) { code = candidate; break }
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const { data: code, error } = await supabase.rpc('ensure_referral_code', { p_user_id:user.id, p_candidate:genCode() })
+    if (!error && code) return Response.json({ code })
+    if (error?.code !== '23505') break
   }
-  if (!code) return Response.json({ error: 'Could not generate code' }, { status: 500 })
-
-  const { error } = await supabase.from('profiles_data').update({ referral_code: code }).eq('id', user.id)
-  if (error) {
-    console.error('generate-referral error:', error)
-    return Response.json({ error: 'Failed to generate code' }, { status: 500 })
-  }
-
-  return Response.json({ code })
+  return Response.json({ error:'Could not generate referral code. Please retry.' },{ status:503 })
 }

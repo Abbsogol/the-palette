@@ -1,8 +1,10 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import { useCurrentTime } from '@/lib/use-current-time'
 import { supabase } from '@/lib/supabase'
 
 export default function CommentSheet({ design, currentUser, onClose, onCommentAdded, onCommentDeleted }) {
+  const now = useCurrentTime()
   const [comments, setComments] = useState([])
   const [loading, setLoading]   = useState(true)
   const [loadError, setLoadError] = useState(false)
@@ -12,21 +14,18 @@ export default function CommentSheet({ design, currentUser, onClose, onCommentAd
   const inputRef = useRef(null)
 
   useEffect(() => {
-    loadComments()
+    let cancelled = false
+    supabase.from('design_comments').select('*, profiles(display_name, avatar_url)')
+      .eq('design_id', design.id).order('created_at', { ascending: true })
+      .then(({ data, error }) => {
+        if (cancelled) return
+        setLoadError(!!error)
+        setComments(data || [])
+        setLoading(false)
+      })
     const focusTimer = setTimeout(() => inputRef.current?.focus(), 300)
-    return () => clearTimeout(focusTimer)
-  }, [])
-
-  async function loadComments() {
-    const { data, error } = await supabase
-      .from('design_comments')
-      .select('*, profiles(display_name, avatar_url)')
-      .eq('design_id', design.id)
-      .order('created_at', { ascending: true })
-    if (error) { setLoadError(true); setLoading(false); return }
-    setComments(data || [])
-    setLoading(false)
-  }
+    return () => { cancelled = true; clearTimeout(focusTimer) }
+  }, [design.id])
 
   async function submit(e) {
     e?.preventDefault()
@@ -42,19 +41,8 @@ export default function CommentSheet({ design, currentUser, onClose, onCommentAd
       setSubmitting(false)
       return
     }
-    await supabase.rpc('increment_comments', { design_id: design.id })
     setComments(prev => [...prev, data])
     onCommentAdded?.()
-    // Notify design owner (skip if commenting on own design)
-    if (design.created_by && design.created_by !== currentUser.id) {
-      await supabase.from('notifications').insert({
-        user_id: design.created_by,
-        actor_id: currentUser.id,
-        type: 'comment',
-        design_id: design.id,
-        comment_preview: body.trim().slice(0, 80),
-      })
-    }
     setBody('')
     setSubmitting(false)
   }
@@ -65,7 +53,6 @@ export default function CommentSheet({ design, currentUser, onClose, onCommentAd
     try {
       const { error } = await supabase.from('design_comments').delete().eq('id', comment.id)
       if (error) { alert('Failed to delete comment. Please try again.'); return }
-      await supabase.rpc('decrement_comments', { design_id: design.id })
       setComments(prev => prev.filter(c => c.id !== comment.id))
       onCommentDeleted?.()
     } finally {
@@ -74,7 +61,7 @@ export default function CommentSheet({ design, currentUser, onClose, onCommentAd
   }
 
   const timeAgo = (iso) => {
-    const diff = Date.now() - new Date(iso).getTime()
+    const diff = now - new Date(iso).getTime()
     const d = Math.floor(diff / 86400000)
     const h = Math.floor(diff / 3600000)
     const m = Math.floor(diff / 60000)
@@ -122,7 +109,7 @@ export default function CommentSheet({ design, currentUser, onClose, onCommentAd
             <p style={{ color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center', padding: '24px 0' }}>Loading...</p>
           ) : loadError ? (
             <p style={{ color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center', padding: '24px 0' }}>
-              Couldn't load comments. Please try again.
+              Couldn&apos;t load comments. Please try again.
             </p>
           ) : comments.length === 0 ? (
             <p style={{ color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center', padding: '24px 0' }}>

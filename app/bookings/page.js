@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import CheckoutSession from '@/components/CheckoutSession'
+import { bookingHasEnded, bookingZoneLabel } from '@/lib/booking-time'
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
@@ -11,7 +13,7 @@ const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
 function fmt12(t) {
   if (!t) return ''
   const [h, m] = t.slice(0, 5).split(':').map(Number)
-  const ampm = h < 12 ? 'am' : 'pm'
+  const ampm = h % 24 < 12 ? 'am' : 'pm'
   const h12 = h % 12 === 0 ? 12 : h % 12
   return `${h12}${m > 0 ? `:${String(m).padStart(2,'0')}` : ''}${ampm}`
 }
@@ -67,7 +69,7 @@ function BookingCard({ booking }) {
               {service?.name} · {fmtDate(booking.booking_date)}
             </p>
             <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '2px 0 0' }}>
-              {fmt12(booking.start_time)} – {fmt12(booking.end_time)}
+              {fmt12(booking.start_time)} – {fmt12(booking.end_time)} · {bookingZoneLabel(booking)}
               {booking.status === 'pending' && <span style={{ color: 'var(--accent)', fontWeight: '600' }}> · Needs response</span>}
             </p>
           </div>
@@ -81,28 +83,17 @@ function BookingCard({ booking }) {
 }
 
 export default function BookingsPage() {
+  return <CheckoutSession title="Sign in to view appointments" description="Appointment details are private to the people involved.">{userId => <BookingsList key={userId} userId={userId} />}</CheckoutSession>
+}
+
+function BookingsList({ userId }) {
   const router = useRouter()
   const [currentUser, setCurrentUser] = useState(null)
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('requests')
 
-  useEffect(() => {
-    const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/profile'); return }
-      const { data: profile } = await supabase.from('profiles').select('account_type').eq('id', user.id).single()
-      if (!profile || !['nail_artist', 'creator', 'salon'].includes(profile.account_type)) {
-        router.push('/profile'); return
-      }
-      setCurrentUser(user)
-      await loadBookings(user.id)
-      setLoading(false)
-    }
-    init()
-  }, [])
-
-  const loadBookings = async (userId) => {
+  const loadBookings = useCallback(async (userId, isActive) => {
     // Ordered newest-first + capped so the limit drops old history rather
     // than cutting off upcoming bookings, then reversed back to
     // chronological order for display.
@@ -113,6 +104,7 @@ export default function BookingsPage() {
       .order('booking_date', { ascending: false })
       .order('start_time', { ascending: false })
       .limit(300)
+    if (!isActive()) return
     if (error) console.error('bookings fetch failed:', error)
     if (!data) { setBookings([]); return }
     const chronological = data.slice().reverse()
@@ -124,17 +116,39 @@ export default function BookingsPage() {
       .select('id, display_name, username, avatar_url')
       .in('id', clientIds)
 
+    if (!isActive()) return
+
     const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
     setBookings(chronological.map(b => ({ ...b, client: profileMap[b.client_id] || null })))
-  }
+  }, [])
 
-  const today = new Date().toISOString().split('T')[0]
+  useEffect(() => {
+    let active = true
+    const init = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!active) return
+      if (user?.id !== userId) { router.push('/profile'); return }
+      const { data: profile } = await supabase.from('profiles').select('account_type').eq('id', user.id).single()
+      if (!active) return
+      if (!profile || !['nail_artist', 'creator', 'salon'].includes(profile.account_type)) {
+        router.push('/profile'); return
+      }
+      setCurrentUser(user)
+      await loadBookings(user.id, () => active)
+      if (active) setLoading(false)
+    }
+    init()
+    return () => { active = false }
+  }, [loadBookings, router, userId])
 
-  const pending   = bookings.filter(b => b.status === 'pending')
-  const upcoming  = bookings.filter(b => b.status === 'confirmed' && b.booking_date >= today)
+
+
+
+  const pending   = bookings.filter(b => b.status === 'pending' && !bookingHasEnded(b))
+  const upcoming  = bookings.filter(b => b.status === 'confirmed' && !bookingHasEnded(b))
   const past      = bookings.filter(b =>
     b.status === 'declined' || b.status === 'cancelled' ||
-    (b.status === 'confirmed' && b.booking_date < today)
+    (['confirmed','pending'].includes(b.status) && bookingHasEnded(b))
   )
 
   const tabs = [

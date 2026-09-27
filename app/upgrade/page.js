@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import CheckoutSession from '@/components/CheckoutSession'
+import { useAccountAction } from '@/lib/use-account-action'
 
 const PRO_CREATOR_FEATURES = [
   'Accept client bookings',
@@ -31,31 +33,59 @@ function CheckIcon() {
 }
 
 export default function UpgradePage() {
+  return <CheckoutSession>{userId => <UpgradeOptions userId={userId} />}</CheckoutSession>
+}
+
+function UpgradeOptions({ userId }) {
   const router = useRouter()
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
   const [subscribing, setSubscribing] = useState(null)
+  const { run, busy } = useAccountAction(userId)
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session?.user) { router.push('/profile'); return }
+    let active = true
+    const load = async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, display_name, account_type, subscription_tier')
-        .eq('id', session.user.id)
+        .select('id, display_name, account_type, subscription_tier, stripe_customer_id')
+        .eq('id', userId)
         .single()
+      if (!active) return
       if (error) { console.error('profile fetch failed:', error); setLoadError(true) }
       setProfile(data)
       setLoading(false)
-    })
-  }, [])
+    }
+    load().catch(() => { if (active) { setLoadError(true); setLoading(false) } })
+    return () => { active = false }
+  }, [userId])
+
+  const handleManageSubscription = async () => {
+    if (busy) return
+    setSubscribing('manage')
+    try {
+      const data = await run(async session => {
+      const response = await fetch('/api/create-billing-portal-session', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session?.access_token || ''}` },
+      })
+      const data = await response.json()
+      if (!response.ok || !data.url) throw new Error(data.error || 'Unable to open billing management')
+      return data
+      })
+      if (data?.url) window.location.assign(data.url)
+    } catch (error) {
+      alert(error.message)
+    } finally { setSubscribing(null) }
+  }
 
   const handleSubscribe = async (planId) => {
-    if (!profile) return
+    if (!profile || busy) return
+    if (profile.subscription_tier && profile.subscription_tier !== 'free') return handleManageSubscription()
     setSubscribing(planId)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      const data = await run(async session => {
       const res = await fetch('/api/create-subscription', {
         method: 'POST',
         headers: {
@@ -64,13 +94,13 @@ export default function UpgradePage() {
         },
         body: JSON.stringify({ planId }),
       })
-      const { url, error } = await res.json()
-      if (error) { alert('Something went wrong. Please try again.'); setSubscribing(null); return }
-      window.location.href = url
-    } catch {
-      alert('Something went wrong. Please try again.')
-      setSubscribing(null)
-    }
+      const data = await res.json()
+      if (!res.ok || !data.url) throw new Error(data.error || 'Something went wrong. Please try again.')
+      return data
+      })
+      if (data?.url) window.location.href = data.url
+    } catch (error) { alert(error.message || 'Something went wrong. Please try again.') }
+    finally { setSubscribing(null) }
   }
 
   const isCreator = profile?.account_type && ['nail_artist', 'creator', 'salon'].includes(profile.account_type)
@@ -87,7 +117,7 @@ export default function UpgradePage() {
   // thinking they need to pay again.
   if (loadError) return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '20px', textAlign: 'center' }}>
-      <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif" }}>Couldn't load your subscription status</p>
+      <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif" }}>Couldn&apos;t load your subscription status</p>
       <p style={{ color: 'var(--text-secondary)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif" }}>Please try again in a moment.</p>
       <button onClick={() => window.location.reload()} style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '12px 24px', fontSize: '14px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
         Retry
@@ -108,11 +138,20 @@ export default function UpgradePage() {
         <h1 style={{ color: 'var(--text-primary)', fontSize: '17px', fontWeight: '600', margin: 0 }}>Upgrade</h1>
       </div>
 
+      {((currentTier && currentTier !== 'free') || profile?.stripe_customer_id) && (
+        <div style={{ padding: '20px', textAlign: 'center' }}>
+          <button onClick={handleManageSubscription} disabled={busy}
+            style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '12px 24px', fontFamily: 'inherit', cursor: 'pointer' }}>
+            {subscribing === 'manage' ? 'Opening billing…' : 'Manage subscription'}
+          </button>
+        </div>
+      )}
+
       {/* Hero */}
       <div style={{ padding: '32px 20px 24px', textAlign: 'center' }}>
         <div style={{ fontSize: '28px', marginBottom: '12px' }}>✦</div>
         <h2 style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: '700', margin: '0 0 8px' }}>Unlock the full Laque experience</h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0, lineHeight: '1.6' }}>Choose the plan that's right for you. Cancel anytime.</p>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0, lineHeight: '1.6' }}>Choose the plan that&apos;s right for you. Cancel anytime.</p>
       </div>
 
       <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -156,12 +195,12 @@ export default function UpgradePage() {
             <div style={{ padding: '4px 20px 20px' }}>
               {currentTier === 'pro_creator' ? (
                 <div style={{ textAlign: 'center', padding: '12px', background: 'rgba(212,160,192,0.08)', borderRadius: '12px' }}>
-                  <p style={{ color: 'var(--accent)', fontSize: '14px', fontWeight: '500', margin: 0 }}>You're on Pro Creator ✦</p>
+                  <p style={{ color: 'var(--accent)', fontSize: '14px', fontWeight: '500', margin: 0 }}>You&apos;re on Pro Creator ✦</p>
                 </div>
               ) : (
                 <button
                   onClick={() => handleSubscribe('pro_creator')}
-                  disabled={subscribing === 'pro_creator'}
+                  disabled={busy}
                   style={{
                     width: '100%', background: 'var(--accent)', color: '#2C0A1E',
                     border: 'none', borderRadius: '12px', padding: '14px',
@@ -214,12 +253,12 @@ export default function UpgradePage() {
           <div style={{ padding: '4px 20px 20px' }}>
             {currentTier === 'premium' ? (
               <div style={{ textAlign: 'center', padding: '12px', background: 'rgba(212,160,192,0.08)', borderRadius: '12px' }}>
-                <p style={{ color: 'var(--accent)', fontSize: '14px', fontWeight: '500', margin: 0 }}>You're on Premium ✦</p>
+                <p style={{ color: 'var(--accent)', fontSize: '14px', fontWeight: '500', margin: 0 }}>You&apos;re on Premium ✦</p>
               </div>
             ) : (
               <button
                 onClick={() => handleSubscribe('premium')}
-                disabled={subscribing === 'premium'}
+                disabled={busy}
                 style={{
                   width: '100%', background: 'var(--bg-chip)', color: 'var(--text-primary)',
                   border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px',

@@ -76,21 +76,6 @@ export default function SendDesignSheet({ design, onClose }) {
       return
     }
 
-    const { error: convError } = await supabase
-      .from('conversations')
-      .update({ last_message_at: new Date().toISOString() })
-      .eq('id', conv.id)
-    if (convError) console.error('conversation update error:', convError)
-
-    // Notify the other person
-    const otherId = conv.client_id === currentUser.id ? conv.creator_id : conv.client_id
-    const { error: notifError } = await supabase.from('notifications').insert({
-      user_id: otherId,
-      actor_id: currentUser.id,
-      type: 'new_message',
-    })
-    if (notifError) console.error('notification error:', notifError)
-
     onClose()
     router.push(`/messages/${conv.id}`)
   }
@@ -153,7 +138,7 @@ export default function SendDesignSheet({ design, onClose }) {
             </div>
           ) : loadError ? (
             <div style={{ padding: '40px 20px', textAlign: 'center' }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Couldn't load your conversations. Please try again.</p>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Couldn&apos;t load your conversations. Please try again.</p>
             </div>
           ) : conversations.length === 0 ? (
             <div style={{ padding: '40px 20px', textAlign: 'center' }}>

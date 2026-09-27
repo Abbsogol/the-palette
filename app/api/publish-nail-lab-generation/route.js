@@ -1,142 +1,77 @@
+import { randomUUID } from 'node:crypto'
+import { ownedNailLabPath } from '@/lib/storage-path'
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
 
-// nail-lab is a private bucket; publishing a generation to the public feed
-// requires copying the file into the public designs bucket first, then
-// creating/updating the designs row — all server-side, since the designs
-// table's owner-scoped write policies silently reject anon-client writes
-// that don't carry the right auth context in some cases.
 export async function POST(request) {
   try {
     const user = await getSessionUser(request)
-    if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    const body = await request.json().catch(() => null)
+    if (!body || typeof body.generationId !== 'string' || !body.generationId ||
+        (body.asDraft !== undefined && typeof body.asDraft !== 'boolean')) {
+      return Response.json({ error: 'Invalid generation request' }, { status: 400 })
     }
-
-    const { generationId, designId, asDraft } = await request.json()
-    if (!generationId) {
-      return Response.json({ error: 'Missing generationId' }, { status: 400 })
-    }
-
-    // Already have a design for this generation — just flip its publish state.
-    if (designId) {
-      const { data: existing, error: fetchError } = await supabase
-        .from('designs')
-        .select('id, created_by')
-        .eq('id', designId)
-        .single()
-
-      if (fetchError || !existing || existing.created_by !== user.id) {
-        return Response.json({ error: 'Design not found' }, { status: 404 })
-      }
-
-      const { error: updateError } = await supabase
-        .from('designs')
-        .update({ is_published: !asDraft })
-        .eq('id', designId)
-
-      if (updateError) {
-        console.error('publish-nail-lab-generation update error:', updateError)
-        return Response.json({ error: 'Failed to update design' }, { status: 500 })
-      }
-
-      return Response.json({ designId, isPublished: !asDraft })
-    }
-
-    const { data: generation, error: genError } = await supabase
-      .from('nail_lab_generations')
-      .select('id, user_id, image_url, vibe, shape, length')
-      .eq('id', generationId)
-      .single()
-
+    const { generationId, designId, asDraft = false } = body
+    const { data: generation, error: genError } = await supabase.from('nail_lab_generations')
+      .select('id, user_id, image_url, vibe, shape, length').eq('id', generationId).single()
     if (genError || !generation || generation.user_id !== user.id) {
       return Response.json({ error: 'Generation not found' }, { status: 404 })
     }
-
-    // A retried/double-fired publish call for a generation that's already
-    // been published shouldn't re-upload and create a second feed entry —
-    // just flip the existing one's publish state instead.
-    const { data: alreadyPublished } = await supabase
-      .from('designs')
-      .select('id')
-      .eq('source_generation_id', generationId)
-      .maybeSingle()
-
-    if (alreadyPublished) {
-      const { error: updateError } = await supabase
-        .from('designs')
-        .update({ is_published: !asDraft })
-        .eq('id', alreadyPublished.id)
-
-      if (updateError) {
-        console.error('publish-nail-lab-generation update error:', updateError)
-        return Response.json({ error: 'Failed to update design' }, { status: 500 })
-      }
-
-      return Response.json({ designId: alreadyPublished.id, isPublished: !asDraft })
+    let query = supabase.from('designs').select('id, created_by, source_generation_id, is_published, image_url')
+    query = designId ? query.eq('id', designId) : query.eq('created_by', user.id).eq('source_generation_id', generationId)
+    const { data: existing, error: readError } = await query.maybeSingle()
+    if (readError) return Response.json({ error: 'Failed to load design' }, { status: 500 })
+    if (designId && (!existing || existing.created_by !== user.id || existing.source_generation_id !== generationId)) {
+      return Response.json({ error: 'Design not found' }, { status: 404 })
     }
-
-    const marker = '/nail-lab/'
-    const idx = generation.image_url.indexOf(marker)
-    const sourcePath = idx === -1 ? generation.image_url : generation.image_url.slice(idx + marker.length)
-
-    const { data: fileData, error: downloadError } = await supabase.storage
-      .from('nail-lab')
-      .download(sourcePath)
-
-    if (downloadError || !fileData) {
-      console.error('nail-lab download error:', downloadError)
-      return Response.json({ error: 'Failed to load generated image' }, { status: 500 })
+    // A board save never changes an existing design's publication state.
+    if (existing && (asDraft || existing.is_published)) {
+      return Response.json({ designId: existing.id, isPublished: existing.is_published })
     }
+    const sourcePath = ownedNailLabPath(generation.image_url, user.id)
+    if (!sourcePath) return Response.json({ error: 'Invalid generation image' }, { status: 400 })
 
-    const destPath = `published/${user.id}/${Date.now()}.png`
-    const buffer = Buffer.from(await fileData.arrayBuffer())
-
-    const { error: uploadError } = await supabase.storage
-      .from('designs')
-      .upload(destPath, buffer, { contentType: 'image/png', upsert: false })
-
-    if (uploadError) {
-      console.error('designs upload error:', uploadError)
-      return Response.json({ error: 'Failed to publish image' }, { status: 500 })
+    // Drafts retain an owner-only reference. Only explicit publication copies
+    // the image into a public bucket; hiding a DB row alone cannot hide a file.
+    let imageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/nail-lab/${sourcePath}`
+    let copiedPath
+    if (!asDraft) {
+      const { data: fileData, error } = await supabase.storage.from('nail-lab').download(sourcePath)
+      if (error || !fileData) return Response.json({ error: 'Failed to load generated image' }, { status: 500 })
+      copiedPath = `published/${user.id}/${randomUUID()}.png`
+      const buffer = new Uint8Array(await fileData.arrayBuffer())
+      const { error: uploadError } = await supabase.storage.from('designs').upload(copiedPath, buffer, { contentType: 'image/png', upsert: false })
+      if (uploadError) return Response.json({ error: 'Failed to publish image' }, { status: 500 })
+      imageUrl = supabase.storage.from('designs').getPublicUrl(copiedPath).data.publicUrl
     }
-
-    const { data: { publicUrl } } = supabase.storage.from('designs').getPublicUrl(destPath)
-
+    if (existing) {
+      const { error } = await supabase.from('designs').update({ is_published: true, image_url: imageUrl }).eq('id', existing.id).eq('created_by', user.id)
+      if (error) return Response.json({ error: 'Failed to publish design' }, { status: 500 })
+      return Response.json({ designId: existing.id, publicUrl: imageUrl, isPublished: true })
+    }
     const vibes = Array.isArray(generation.vibe) ? generation.vibe : [generation.vibe].filter(Boolean)
-    const { data: design, error: insertError } = await supabase
-      .from('designs')
-      .insert({
-        title: vibes.join(' + '),
-        image_url: publicUrl,
-        shape: generation.shape,
-        length: generation.length,
-        is_published: !asDraft,
-        is_curated: false,
-        created_by: user.id,
-        source_generation_id: generationId,
-      })
-      .select('id')
-      .single()
-
-    if (insertError?.code === '23505') {
-      // Lost a genuine concurrent race against another request publishing the
-      // same generation — reuse the row that won instead of erroring out.
-      const { data: winner } = await supabase
-        .from('designs')
-        .select('id')
-        .eq('source_generation_id', generationId)
-        .single()
-      if (winner) return Response.json({ publicUrl, designId: winner.id, isPublished: !asDraft })
+    const { data: design, error } = await supabase.from('designs').insert({
+      title: vibes.join(' + '), image_url: imageUrl, shape: generation.shape, length: generation.length,
+      is_published: !asDraft, is_curated: false, created_by: user.id, source_generation_id: generationId,
+    }).select('id').single()
+    if (error?.code === '23505') {
+      const { data: winner } = await supabase.from('designs').select('id, is_published, image_url')
+        .eq('created_by', user.id).eq('source_generation_id', generationId).single()
+      if (winner) {
+        if (!asDraft && !winner.is_published) {
+          const { error: promoteError } = await supabase.from('designs').update({ is_published: true, image_url: imageUrl })
+            .eq('id', winner.id).eq('created_by', user.id)
+          if (promoteError) return Response.json({ error: 'Failed to publish design' }, { status: 500 })
+          return Response.json({ designId: winner.id, publicUrl: imageUrl, isPublished: true })
+        }
+        if (copiedPath) await supabase.storage.from('designs').remove([copiedPath])
+        return Response.json({ designId: winner.id, publicUrl: winner.image_url, isPublished: winner.is_published })
+      }
     }
-
-    if (insertError || !design) {
-      console.error('designs insert error:', insertError)
-      return Response.json({ error: 'Failed to save design' }, { status: 500 })
-    }
-
-    return Response.json({ publicUrl, designId: design.id, isPublished: !asDraft })
-  } catch (err) {
-    console.error('publish-nail-lab-generation error:', err)
+    if (error || !design) return Response.json({ error: 'Failed to save design' }, { status: 500 })
+    return Response.json({ designId: design.id, publicUrl: imageUrl, isPublished: !asDraft })
+  } catch (error) {
+    console.error('publish-nail-lab-generation error:', error)
     return Response.json({ error: 'Server error' }, { status: 500 })
   }
 }

@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -154,7 +155,7 @@ export default function BatchUploadPage() {
       <div style={s.bg}>
         <div style={{ ...s.inner, paddingTop: '30vh', textAlign: 'center' }}>
           <p style={{ color: 'var(--accent)', fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Admin</p>
-          <h1 style={{ fontSize: '28px', fontWeight: '400', marginBottom: '10px' }}>You don't have access</h1>
+          <h1 style={{ fontSize: '28px', fontWeight: '400', marginBottom: '10px' }}>You don&apos;t have access</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Sign in with an admin account to view this page.</p>
         </div>
       </div>
@@ -274,7 +275,7 @@ export default function BatchUploadPage() {
             {allDone && (
               <div style={{ textAlign: 'center', marginTop: '20px' }}>
                 <p style={{ color: '#7ecf7e', fontSize: '16px', marginBottom: '12px' }}>✓ All designs uploaded!</p>
-                <a href="/" style={{ color: 'var(--accent)', fontSize: '13px' }}>View on home feed →</a>
+                <Link href="/" style={{ color: 'var(--accent)', fontSize: '13px' }}>View on home feed →</Link>
               </div>
             )}
           </>

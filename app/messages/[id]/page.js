@@ -78,7 +78,7 @@ export default function ChatPage() {
       setLoading(false)
     }
     init()
-  }, [id])
+  }, [id, router])
 
   // Realtime subscription
   useEffect(() => {
@@ -135,21 +135,6 @@ export default function ChatPage() {
       setSending(false)
       return
     }
-
-    // Update last_message_at on conversation
-    const { error: convError } = await supabase
-      .from('conversations')
-      .update({ last_message_at: new Date().toISOString() })
-      .eq('id', id)
-    if (convError) console.error('conversation update error:', convError)
-
-    // Notify the other person
-    const { error: notifError } = await supabase.from('notifications').insert({
-      user_id: other?.id,
-      actor_id: currentUser.id,
-      type: 'new_message',
-    })
-    if (notifError) console.error('notification error:', notifError)
 
     setSending(false)
   }

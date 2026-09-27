@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
 const FILTERS = {
@@ -46,16 +47,18 @@ const COLOR_MAP = {
   'glitter & multi':  ['glitter', 'sparkle', 'iridescent', 'holographic', 'rainbow', 'multi', 'neon'],
 }
 
-export default function SearchPage() {
+function SearchContent() {
+  const searchParams = useSearchParams()
   const [mainTab, setMainTab] = useState('designs')
 
   // Designs tab state
-  const [query, setQuery] = useState('')
-  const [debouncedQuery, setDebouncedQuery] = useState('')
+  const [query, setQuery] = useState(() => searchParams.get('q') || '')
+  const [debouncedQuery, setDebouncedQuery] = useState(query)
   const [activeFilters, setActiveFilters] = useState({})
-  const [tagFilter, setTagFilter] = useState(null)
+  const [tagFilter, setTagFilter] = useState(() => searchParams.get('tag'))
   const [designs, setDesigns] = useState([])
-  const [people, setPeople] = useState([])
+  const [peopleResult, setPeopleResult] = useState({ query: '', people: [] })
+  const people = peopleResult.query === debouncedQuery && debouncedQuery.trim() ? peopleResult.people : []
   const [loading, setLoading] = useState(false)
   const [openSection, setOpenSection] = useState(null)
 
@@ -64,34 +67,20 @@ export default function SearchPage() {
   const [salonsLoaded, setSalonsLoaded] = useState(false)
   const [locationFilter, setLocationFilter] = useState('')
 
-  // Read tag/query from URL on mount
-  const isFirstQuery = useRef(true)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const tag = params.get('tag')
-    const q = params.get('q')
-    if (tag) setTagFilter(tag)
-    if (q) setQuery(q)
-  }, [])
-
   // Debounce query → debouncedQuery (500ms, same semantics as the existing
   // debounce in app/moodboards/[id]/page.js) so filter-chip/tag taps (which
   // key off activeFilters/tagFilter directly, not this) stay instant while
   // typing doesn't fire a request per keystroke. Skips the debounce for the
   // very first value so a deep link (?q=...) still searches immediately.
   useEffect(() => {
-    if (isFirstQuery.current) {
-      isFirstQuery.current = false
-      setDebouncedQuery(query)
-      return
-    }
     const timer = setTimeout(() => setDebouncedQuery(query), 500)
     return () => clearTimeout(timer)
   }, [query])
 
   // People search — runs in parallel when query is non-empty
   useEffect(() => {
-    if (!debouncedQuery.trim()) { setPeople([]); return }
+    if (!debouncedQuery.trim()) return
+    let cancelled = false
     const searchPeople = async () => {
       const q = debouncedQuery.trim()
       // Two separate .ilike() queries instead of one raw .or() string — a comma or
@@ -111,9 +100,10 @@ export default function SearchPage() {
       const merged = [...(byName || [])]
       const seen = new Set(merged.map(p => p.id))
       ;(byUsername || []).forEach(p => { if (!seen.has(p.id)) merged.push(p) })
-      setPeople(merged.slice(0, 5))
+      if (!cancelled) setPeopleResult({ query: debouncedQuery, people: merged.slice(0, 5) })
     }
     searchPeople()
+    return () => { cancelled = true }
   }, [debouncedQuery])
 
   useEffect(() => {
@@ -584,4 +574,8 @@ export default function SearchPage() {
 
     </div>
   )
+}
+
+export default function SearchPage() {
+  return <Suspense fallback={<p>Loading search…</p>}><SearchContent /></Suspense>
 }

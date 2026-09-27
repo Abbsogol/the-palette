@@ -1,4 +1,5 @@
 'use client'
+import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -6,6 +7,7 @@ import SaveToBoard from './SaveToBoard'
 import CommentSheet from './CommentSheet'
 
 export default function CommunityCard({ design, currentUser, initiallyLiked }) {
+  const router = useRouter()
   const [liked, setLiked]               = useState(!!initiallyLiked)
   const [likesCount, setLikesCount]     = useState(design.likes_count || 0)
   const [commentsCount, setCommentsCount] = useState(design.comments_count || 0)
@@ -24,29 +26,24 @@ export default function CommunityCard({ design, currentUser, initiallyLiked }) {
       .eq('design_id', design.id)
       .maybeSingle()
       .then(({ data }) => setLiked(!!data))
-  }, [design.id, currentUser])
+  }, [design.id, currentUser, initiallyLiked])
 
   async function toggleLike(e) {
     e.preventDefault()
     e.stopPropagation()
-    if (!currentUser) { window.location.href = '/profile'; return }
+    if (!currentUser) { router.push('/profile'); return }
     if (likeLoading) return
     setLikeLoading(true)
     if (liked) {
       const { error } = await supabase.from('design_likes').delete().eq('user_id', currentUser.id).eq('design_id', design.id)
       if (error) { alert('Failed to unlike. Please try again.'); setLikeLoading(false); return }
-      await supabase.rpc('decrement_likes', { design_id: design.id })
       setLiked(false)
       setLikesCount(c => Math.max(0, c - 1))
     } else {
       const { error } = await supabase.from('design_likes').insert({ user_id: currentUser.id, design_id: design.id })
       if (error) { alert('Failed to like. Please try again.'); setLikeLoading(false); return }
-      await supabase.rpc('increment_likes', { design_id: design.id })
       setLiked(true)
       setLikesCount(c => c + 1)
-      if (design.created_by && design.created_by !== currentUser.id) {
-        await supabase.from('notifications').insert({ user_id: design.created_by, actor_id: currentUser.id, type: 'like', design_id: design.id })
-      }
     }
     setLikeLoading(false)
   }

@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import CheckoutSession from '@/components/CheckoutSession'
+import { useAccountAction } from '@/lib/use-account-action'
+import { bookingZoneLabel } from '@/lib/booking-time'
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
@@ -11,7 +14,7 @@ const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','
 function fmt12(t) {
   if (!t) return ''
   const [h, m] = t.slice(0,5).split(':').map(Number)
-  const ampm = h < 12 ? 'am' : 'pm'
+  const ampm = h % 24 < 12 ? 'am' : 'pm'
   const h12 = h % 12 === 0 ? 12 : h % 12
   return `${h12}${m > 0 ? `:${String(m).padStart(2,'0')}` : ''}${ampm}`
 }
@@ -39,6 +42,11 @@ function Row({ label, value, accent }) {
 
 export default function BookingDetailPage() {
   const { id } = useParams()
+  return <CheckoutSession title="Sign in to view appointments" description="Appointment details are private to the people involved.">{userId => <BookingDetail key={`${userId}:${id}`} userId={userId} />}</CheckoutSession>
+}
+
+function BookingDetail({ userId }) {
+  const { id } = useParams()
   const router = useRouter()
   const [booking, setBooking] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -48,11 +56,14 @@ export default function BookingDetailPage() {
   const [noteId, setNoteId] = useState(null)
   const [noteSaving, setNoteSaving] = useState(false)
   const [noteSaved, setNoteSaved] = useState(false)
+  const { run, busy } = useAccountAction(userId)
 
   useEffect(() => {
+    let active = true
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/profile'); return }
+      if (!active) return
+      if (user?.id !== userId) { router.push('/profile'); return }
       setCurrentUser(user)
 
       const { data } = await supabase
@@ -62,12 +73,16 @@ export default function BookingDetailPage() {
         .eq('creator_id', user.id)
         .single()
 
+      if (!active) return
+
       if (!data) { router.push('/bookings'); return }
 
       const [{ data: client }, { data: existingNote }] = await Promise.all([
         supabase.from('profiles').select('id, display_name, avatar_url, username').eq('id', data.client_id).single(),
         supabase.from('client_notes').select('*').eq('booking_id', id).maybeSingle(),
       ])
+
+      if (!active) return
 
       if (existingNote) {
         setNoteId(existingNote.id)
@@ -78,60 +93,45 @@ export default function BookingDetailPage() {
       setLoading(false)
     }
     init()
-  }, [id])
+    return () => { active = false }
+  }, [id, router, userId])
 
   const handleSaveNote = async () => {
-    if (!currentUser || noteSaving) return
+    if (!currentUser || busy) return
     setNoteSaving(true)
     setNoteSaved(false)
-    let saveError = null
-    if (noteId) {
-      const { error } = await supabase.from('client_notes').update({ note: noteText, updated_at: new Date().toISOString() }).eq('id', noteId)
-      saveError = error
-    } else {
-      const { data, error } = await supabase.from('client_notes').insert({
-        booking_id: booking.id,
-        creator_id: currentUser.id,
-        client_id: booking.client_id,
-        note: noteText,
-      }).select().single()
-      saveError = error
-      if (data) setNoteId(data.id)
-    }
-    setNoteSaving(false)
-    if (saveError) {
-      alert('Failed to save note. Please try again.')
-      return
-    }
-    setNoteSaved(true)
-    setTimeout(() => setNoteSaved(false), 2000)
+    try {
+      const saved = await run(async () => {
+        const query = noteId
+          ? supabase.from('client_notes').update({ note: noteText, updated_at: new Date().toISOString() }).eq('id', noteId).eq('creator_id', userId)
+          : supabase.from('client_notes').insert({ booking_id: booking.id, creator_id: userId, client_id: booking.client_id, note: noteText })
+        const { data, error } = await query.select('id').single()
+        if (error || !data?.id) throw new Error('Failed to save note. Please try again.')
+        return data
+      })
+      if (saved) { setNoteId(saved.id); setNoteSaved(true) }
+    } catch (error) { alert(error.message) }
+    finally { setNoteSaving(false) }
   }
 
-  const handleAccept = async () => {
-    setActing('accept')
-    const { error } = await supabase.from('bookings').update({ status: 'confirmed' }).eq('id', booking.id)
-    if (error) { alert('Failed to accept booking. Please try again.'); setActing(null); return }
-    await supabase.from('notifications').insert({
-      user_id: booking.client_id,
-      actor_id: currentUser.id,
-      type: 'booking_confirmed',
-    })
-    setBooking(prev => ({ ...prev, status: 'confirmed' }))
-    setActing(null)
+  const changeStatus = async (status, action) => {
+    if (busy) return
+    setActing(action)
+    try {
+      const updated = await run(async () => {
+        const { data, error } = await supabase.from('bookings').update({ status }).eq('id', booking.id).eq('creator_id', userId).eq('status', 'pending').select('id,status').single()
+        if (error || data?.id !== booking.id || data.status !== status) throw new Error(`Failed to ${action} booking. Please refresh and try again.`)
+        return data
+      })
+      if (updated) setBooking(previous => ({ ...previous, status: updated.status }))
+    } catch (error) { alert(error.message) }
+    finally { setActing(null) }
   }
 
+  const handleAccept = () => changeStatus('confirmed', 'accept')
   const handleDecline = async () => {
     if (!confirm('Decline this booking request?')) return
-    setActing('decline')
-    const { error } = await supabase.from('bookings').update({ status: 'declined' }).eq('id', booking.id)
-    if (error) { alert('Failed to decline booking. Please try again.'); setActing(null); return }
-    await supabase.from('notifications').insert({
-      user_id: booking.client_id,
-      actor_id: currentUser.id,
-      type: 'booking_declined',
-    })
-    setBooking(prev => ({ ...prev, status: 'declined' }))
-    setActing(null)
+    await changeStatus('declined', 'decline')
   }
 
   if (loading) return (
@@ -186,6 +186,7 @@ export default function BookingDetailPage() {
           <Row label="Service" value={service?.name || '—'} />
           <Row label="Date" value={fmtDate(booking.booking_date)} />
           <Row label="Time" value={`${fmt12(booking.start_time)} – ${fmt12(booking.end_time)}`} />
+          <Row label="Time zone" value={bookingZoneLabel(booking)} />
           <Row label="Duration" value={fmtDuration(service?.duration_minutes)} />
           {service?.price > 0 && <Row label="Price" value={`AED ${service.price}`} accent />}
           {service?.deposit_amount > 0 && (
@@ -206,11 +207,11 @@ export default function BookingDetailPage() {
         )}
 
         {/* Accept / Decline — only if pending */}
-        {booking.status === 'pending' && (
+        {booking.status === 'pending' && !!booking.starts_at && new Date(booking.starts_at) > new Date() && (
           <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
             <button
               onClick={handleAccept}
-              disabled={!!acting}
+              disabled={busy}
               style={{
                 flex: 1, padding: '14px', background: 'var(--accent)', color: '#2C0A1E',
                 border: 'none', borderRadius: '14px', fontSize: '15px', fontWeight: '600',
@@ -222,7 +223,7 @@ export default function BookingDetailPage() {
             </button>
             <button
               onClick={handleDecline}
-              disabled={!!acting}
+              disabled={busy}
               style={{
                 flex: 1, padding: '14px', background: 'rgba(229,115,115,0.1)', color: '#E07070',
                 border: '0.5px solid rgba(229,115,115,0.3)', borderRadius: '14px',
@@ -270,7 +271,7 @@ export default function BookingDetailPage() {
           />
           <button
             onClick={handleSaveNote}
-            disabled={noteSaving || !noteText.trim()}
+            disabled={busy || !noteText.trim()}
             style={{
               width: '100%', padding: '12px',
               background: noteSaved ? 'rgba(100,200,130,0.15)' : noteText.trim() ? 'var(--accent)' : 'var(--bg-chip)',

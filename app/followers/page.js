@@ -37,7 +37,7 @@ export default function FollowersPage() {
       setFollowers(data || [])
       setLoading(false)
     })
-  }, [])
+  }, [router])
 
   return (
     <div style={{ paddingBottom: '100px' }}>
@@ -58,7 +58,7 @@ export default function FollowersPage() {
       ) : followers.length === 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 20px', textAlign: 'center' }}>
           <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '500', marginBottom: '8px' }}>No followers yet</p>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>When someone follows you, they'll appear here.</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>When someone follows you, they&apos;ll appear here.</p>
         </div>
       ) : (
         <div>

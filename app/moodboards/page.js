@@ -1,5 +1,6 @@
 'use client'
-import { useState, useEffect } from 'react'
+import StorageImage from '@/components/StorageImage'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
@@ -12,20 +13,14 @@ export default function MoodboardsPage() {
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
   const [showCreate, setShowCreate] = useState(false)
+  const loadVersion = useRef({ version: 0 })
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data?.user) {
-        setUser(data.user)
-        loadBoards(data.user.id)
-      } else {
-        setLoading(false)
-      }
-    })
-  }, [])
-
-  async function loadBoards(uid) {
+  const loadBoards = useCallback(async (uid) => {
+    const version = ++loadVersion.current.version
+    const stale = () => version !== loadVersion.current.version
     setLoading(true)
+    setBoards([]); setSharedBoards([]); setCounts({}); setShowCreate(false)
+    if (!uid) { setLoading(false); return }
 
     // Own boards + boards shared with me
     const [{ data: ownData }, { data: memberRows }] = await Promise.all([
@@ -42,6 +37,7 @@ export default function MoodboardsPage() {
         .limit(200),
     ])
 
+    if (stale()) return
     const own = ownData || []
     const shared = (memberRows || [])
       .map(r => r.moodboards)
@@ -59,12 +55,30 @@ export default function MoodboardsPage() {
         .select('moodboard_id')
         .in('moodboard_id', allIds)
 
+      if (stale()) return
       const c = {}
       countData?.forEach(r => { c[r.moodboard_id] = (c[r.moodboard_id] || 0) + 1 })
       setCounts(c)
     }
     setLoading(false)
-  }
+  }, [])
+
+  useEffect(() => {
+    const requestState = loadVersion.current
+    let active = true, observedAuthEvent = false
+    const update = session => {
+      if (!active) return
+      setUser(session?.user || null)
+      loadBoards(session?.user?.id || null)
+    }
+    supabase.auth.getSession().then(({ data: { session } }) => { if (!observedAuthEvent) update(session) })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      observedAuthEvent = true
+      update(session)
+    })
+    return () => { active = false; requestState.version++; subscription.unsubscribe() }
+  }, [loadBoards])
+
 
   async function createBoard() {
     if (!newName.trim() || !user) return
@@ -117,7 +131,7 @@ export default function MoodboardsPage() {
         {/* Cover */}
         <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--bg-chip)', overflow: 'hidden', position: 'relative' }}>
           {board.cover_image_url ? (
-            <img src={board.cover_image_url} alt={board.name}
+            <StorageImage src={board.cover_image_url} alt={board.name}
               loading="lazy" decoding="async"
               style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : (
