@@ -1,4 +1,5 @@
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
+import { GENERATION_SIZE } from '@/lib/nailLab'
 
 export const maxDuration = 60 // allow up to 60s for gpt-image-1
 
@@ -141,7 +142,7 @@ DESIGN NAME: Choose a name that is ${nameHint}. Subtitle should reflect shape, l
       model: 'gpt-image-1',
       prompt,
       n: 1,
-      size: '1536x1024',
+      size: GENERATION_SIZE,
     }
 
     const openaiRes = await fetch('https://api.openai.com/v1/images/generations', {

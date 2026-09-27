@@ -2,8 +2,21 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import BackButton from '@/components/ui/BackButton'
+import Sheet from '@/components/ui/Sheet'
+
+const ACCENT = '#FF517F'
+const WHITE60 = 'rgba(255,255,255,0.6)'
+const PANEL = 'rgba(255,255,255,0.06)'
+const PANEL_BORDER = '1px solid rgba(255,255,255,0.1)'
+const BTN_GRADIENT = 'linear-gradient(90deg, #660007 47.832%, #FF517F 100%)'
+const ui = (weight, size, color = 'var(--lq-white)') => ({
+  fontFamily: 'var(--lq-font-ui)', fontWeight: weight, fontSize: `${size}px`, color, lineHeight: 1.4,
+})
+const display = (size) => ({ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: `${size}px`, color: 'var(--lq-white)', lineHeight: 1.2 })
+const fieldLabel = { ...ui(500, 11, WHITE60), letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }
+const fieldStyle = { width: '100%', background: 'rgba(255,255,255,0.04)', border: PANEL_BORDER, borderRadius: '10px', padding: '12px', ...ui(400, 14), outline: 'none', boxSizing: 'border-box' }
 
 const DURATION_OPTIONS = [
   { label: '30 min', value: 30 },
@@ -15,6 +28,8 @@ const DURATION_OPTIONS = [
   { label: '3 hr', value: 180 },
 ]
 
+// Composes the shared Sheet (which now owns the keyboard-offset lift, swipe-to-
+// close, focus/Escape/scroll-lock). Only the form + save button live here.
 function ServiceSheet({ service, onSave, onClose }) {
   const [name, setName] = useState(service?.name || '')
   const [description, setDescription] = useState(service?.description || '')
@@ -22,23 +37,6 @@ function ServiceSheet({ service, onSave, onClose }) {
   const [price, setPrice] = useState(service?.price ?? '')
   const [deposit, setDeposit] = useState(service?.deposit_amount ?? '')
   const [saving, setSaving] = useState(false)
-  const [keyboardOffset, setKeyboardOffset] = useState(0)
-
-  useEffect(() => {
-    const vv = window.visualViewport
-    if (!vv) return
-    const update = () => {
-      const offset = window.innerHeight - vv.height - vv.offsetTop
-      setKeyboardOffset(Math.max(0, offset))
-    }
-    vv.addEventListener('resize', update)
-    vv.addEventListener('scroll', update)
-    update()
-    return () => {
-      vv.removeEventListener('resize', update)
-      vv.removeEventListener('scroll', update)
-    }
-  }, [])
 
   const handleSave = async () => {
     if (!name.trim()) return
@@ -51,108 +49,59 @@ function ServiceSheet({ service, onSave, onClose }) {
     setSaving(false)
   }
 
+  const canSave = !!name.trim() && !saving
+
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 999 }}>
-      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)' }} />
-      <div style={{
-        position: 'fixed', bottom: Math.max(keyboardOffset, 60), left: 0, right: 0, zIndex: 1000,
-        background: 'var(--bg-card)', borderRadius: '20px 20px 0 0',
-        fontFamily: "'DM Sans', sans-serif",
-        maxHeight: '90dvh',
-        display: 'flex', flexDirection: 'column',
-        transition: 'bottom 0.2s ease'
-      }}>
-        {/* Fixed header */}
-        <div style={{ padding: '16px 20px 0', flexShrink: 0 }}>
-          <div style={{ width: '36px', height: '4px', borderRadius: '2px', background: 'var(--border)', margin: '0 auto 16px' }} />
-          <h2 style={{ color: 'var(--text-primary)', fontSize: '17px', fontWeight: '600', margin: '0 0 16px' }}>
-            {service ? 'Edit service' : 'Add service'}
-          </h2>
+    <Sheet
+      title={service ? 'Edit service' : 'Add service'}
+      onClose={onClose}
+      footer={
+        <button
+          onClick={handleSave}
+          disabled={!canSave}
+          style={{ width: '100%', background: name.trim() ? BTN_GRADIENT : 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '1000px', padding: '14px', ...ui(600, 15, name.trim() ? 'var(--lq-white)' : WHITE60), cursor: canSave ? 'pointer' : 'not-allowed' }}
+        >
+          {saving ? 'Saving…' : service ? 'Save changes' : 'Add service'}
+        </button>
+      }
+    >
+      <h2 style={{ ...display(22), margin: '0 0 16px' }}>{service ? 'Edit service' : 'Add service'}</h2>
+
+      {/* Name */}
+      <div style={{ marginBottom: '16px' }}>
+        <label style={fieldLabel}>Service name</label>
+        <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Full Set Acrylics" style={fieldStyle} />
+      </div>
+
+      {/* Description */}
+      <div style={{ marginBottom: '16px' }}>
+        <label style={fieldLabel}>Description <span style={{ opacity: 0.6 }}>(optional)</span></label>
+        <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="What's included…" rows={2} style={{ ...fieldStyle, resize: 'none' }} />
+      </div>
+
+      {/* Duration + Price row */}
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+        <div style={{ flex: 1 }}>
+          <label style={fieldLabel}>Duration</label>
+          <select value={duration} onChange={e => setDuration(parseInt(e.target.value))} style={fieldStyle}>
+            {DURATION_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
         </div>
-
-        {/* Scrollable fields */}
-        <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', flex: 1, padding: '0 20px' }}>
-          {/* Name */}
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Service name</label>
-            <input
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="e.g. Full Set Acrylics"
-              style={{ width: '100%', background: 'var(--bg-primary)', border: '0.5px solid var(--border)', borderRadius: '10px', padding: '12px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none', boxSizing: 'border-box' }}
-            />
-          </div>
-
-          {/* Description */}
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Description <span style={{ opacity: 0.5 }}>(optional)</span></label>
-            <textarea
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              placeholder="What's included..."
-              rows={2}
-              style={{ width: '100%', background: 'var(--bg-primary)', border: '0.5px solid var(--border)', borderRadius: '10px', padding: '12px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none', resize: 'none', boxSizing: 'border-box' }}
-            />
-          </div>
-
-          {/* Duration + Price row */}
-          <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Duration</label>
-              <select
-                value={duration}
-                onChange={e => setDuration(parseInt(e.target.value))}
-                style={{ width: '100%', background: 'var(--bg-primary)', border: '0.5px solid var(--border)', borderRadius: '10px', padding: '12px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none' }}
-              >
-                {DURATION_OPTIONS.map(o => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Price (AED)</label>
-              <input
-                type="number"
-                value={price}
-                onChange={e => setPrice(e.target.value)}
-                placeholder="0"
-                min="0"
-                style={{ width: '100%', background: 'var(--bg-primary)', border: '0.5px solid var(--border)', borderRadius: '10px', padding: '12px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none', boxSizing: 'border-box' }}
-              />
-            </div>
-          </div>
-
-          {/* Deposit */}
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
-              Deposit (AED) <span style={{ opacity: 0.5 }}>(optional)</span>
-            </label>
-            <input
-              type="number"
-              value={deposit}
-              onChange={e => setDeposit(e.target.value)}
-              placeholder="0 — no deposit required"
-              min="0"
-              style={{ width: '100%', background: 'var(--bg-primary)', border: '0.5px solid var(--border)', borderRadius: '10px', padding: '12px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", outline: 'none', boxSizing: 'border-box' }}
-            />
-            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: '6px 0 0', lineHeight: '1.5' }}>
-              Clients will see this deposit requirement when booking.
-            </p>
-          </div>
-        </div>
-
-        {/* Fixed footer button */}
-        <div style={{ padding: '12px 20px', paddingBottom: 'max(20px, env(safe-area-inset-bottom))', flexShrink: 0 }}>
-          <button
-            onClick={handleSave}
-            disabled={!name.trim() || saving}
-            style={{ width: '100%', background: name.trim() ? 'var(--accent)' : 'var(--bg-chip)', color: name.trim() ? '#2C0A1E' : 'var(--text-secondary)', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '15px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif", cursor: name.trim() ? 'pointer' : 'not-allowed' }}
-          >
-            {saving ? 'Saving…' : service ? 'Save changes' : 'Add service'}
-          </button>
+        <div style={{ flex: 1 }}>
+          <label style={fieldLabel}>Price (AED)</label>
+          <input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="0" min="0" style={fieldStyle} />
         </div>
       </div>
-    </div>
+
+      {/* Deposit */}
+      <div style={{ marginBottom: '4px' }}>
+        <label style={fieldLabel}>Deposit (AED) <span style={{ opacity: 0.6 }}>(optional)</span></label>
+        <input type="number" value={deposit} onChange={e => setDeposit(e.target.value)} placeholder="0 — no deposit required" min="0" style={fieldStyle} />
+        <p style={{ ...ui(400, 11, WHITE60), margin: '6px 0 0', lineHeight: 1.5 }}>
+          Clients will see this deposit requirement when booking.
+        </p>
+      </div>
+    </Sheet>
   )
 }
 
@@ -163,7 +112,6 @@ export default function ServicesPage() {
   const [loading, setLoading] = useState(true)
   const [showSheet, setShowSheet] = useState(false)
   const [editingService, setEditingService] = useState(null)
-  const [deleting, setDeleting] = useState(null)
 
   useEffect(() => {
     const init = async () => {
@@ -199,14 +147,6 @@ export default function ServicesPage() {
     setEditingService(null)
   }
 
-  const handleDelete = async (service) => {
-    setDeleting(service.id)
-    const { error } = await supabase.from('services').update({ is_active: false }).eq('id', service.id)
-    if (error) { alert('Failed to delete service. Please try again.'); setDeleting(null); return }
-    await loadServices(currentUser.id)
-    setDeleting(null)
-  }
-
   const handleToggle = async (service) => {
     const { error } = await supabase.from('services').update({ is_active: !service.is_active }).eq('id', service.id)
     if (error) { alert('Failed to update service. Please try again.'); return }
@@ -220,28 +160,33 @@ export default function ServicesPage() {
     return m > 0 ? `${h} hr ${m} min` : `${h} hr`
   }
 
-  if (loading) return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <p style={{ color: 'var(--text-secondary)', fontFamily: "'DM Sans', sans-serif" }}>Loading…</p>
+  const Shell = ({ children }) => (
+    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
+      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 120px)' }}>{children}</div>
     </div>
   )
 
-  return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', fontFamily: "'DM Sans', sans-serif", paddingBottom: '40px' }}>
+  if (loading) return (
+    <Shell>
+      <div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={ui(300, 14, WHITE60)}>Loading…</p>
+      </div>
+    </Shell>
+  )
 
+  return (
+    <Shell>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <Link href="/profile" style={{ color: 'var(--text-primary)', textDecoration: 'none', display: 'flex' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 12H5M12 5l-7 7 7 7"/>
-            </svg>
-          </Link>
-          <h1 style={{ color: 'var(--text-primary)', fontSize: '17px', fontWeight: '600', margin: 0 }}>My Services</h1>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: 'calc(env(safe-area-inset-top) + 16px) 20px 16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+          <BackButton fallback="/profile" />
+          <h1 style={{ ...display(24), margin: 0 }}>My Services</h1>
         </div>
         <button
           onClick={() => { setEditingService(null); setShowSheet(true) }}
-          style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '20px', padding: '7px 14px', fontSize: '13px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}
+          style={{ background: BTN_GRADIENT, color: 'var(--lq-white)', border: 'none', borderRadius: '1000px', padding: '8px 16px', ...ui(500, 13), cursor: 'pointer', flexShrink: 0 }}
         >
           + Add
         </button>
@@ -250,12 +195,12 @@ export default function ServicesPage() {
       {/* Empty state */}
       {services.length === 0 && (
         <div style={{ padding: '60px 20px', textAlign: 'center' }}>
-          <div style={{ fontSize: '32px', marginBottom: '12px' }}>✦</div>
-          <p style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '500', margin: '0 0 8px' }}>No services yet</p>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '0 0 24px' }}>Add the services you offer so clients can book you.</p>
+          <div style={{ fontSize: '32px', marginBottom: '12px', color: ACCENT }}>✦</div>
+          <p style={{ ...ui(500, 16), margin: '0 0 8px' }}>No services yet</p>
+          <p style={{ ...ui(300, 13, WHITE60), margin: '0 0 24px' }}>Add the services you offer so clients can book you.</p>
           <button
             onClick={() => { setEditingService(null); setShowSheet(true) }}
-            style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '12px 24px', fontSize: '14px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}
+            style={{ background: BTN_GRADIENT, color: 'var(--lq-white)', border: 'none', borderRadius: '1000px', padding: '12px 24px', ...ui(600, 14), cursor: 'pointer' }}
           >
             Add your first service
           </button>
@@ -265,24 +210,20 @@ export default function ServicesPage() {
       {/* Services list */}
       <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {services.map(service => (
-          <div key={service.id} style={{ background: 'var(--bg-card)', borderRadius: '14px', border: `0.5px solid ${service.is_active ? 'var(--border)' : 'rgba(255,255,255,0.05)'}`, padding: '16px', opacity: service.is_active ? 1 : 0.5 }}>
+          <div key={service.id} style={{ background: PANEL, borderRadius: '16px', border: `1px solid ${service.is_active ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)'}`, padding: '16px', opacity: service.is_active ? 1 : 0.5 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
               <div style={{ flex: 1 }}>
-                <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', margin: '0 0 4px' }}>{service.name}</p>
+                <p style={{ ...ui(600, 15), margin: '0 0 4px' }}>{service.name}</p>
                 {service.description && (
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '0 0 8px', lineHeight: '1.5' }}>{service.description}</p>
+                  <p style={{ ...ui(300, 12, WHITE60), margin: '0 0 8px', lineHeight: 1.5 }}>{service.description}</p>
                 )}
                 <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                  <span style={{ color: 'var(--accent)', fontSize: '13px', fontWeight: '600' }}>
+                  <span style={ui(600, 13, ACCENT)}>
                     {service.price > 0 ? `AED ${service.price}` : 'Free'}
                   </span>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-                    {formatDuration(service.duration_minutes)}
-                  </span>
+                  <span style={ui(400, 13, WHITE60)}>{formatDuration(service.duration_minutes)}</span>
                   {service.deposit_amount > 0 && (
-                    <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-                      · AED {service.deposit_amount} deposit
-                    </span>
+                    <span style={ui(400, 13, WHITE60)}>· AED {service.deposit_amount} deposit</span>
                   )}
                 </div>
               </div>
@@ -290,16 +231,17 @@ export default function ServicesPage() {
                 {/* Toggle active */}
                 <button
                   onClick={() => handleToggle(service)}
-                  style={{ background: service.is_active ? 'rgba(212,160,192,0.15)' : 'var(--bg-chip)', border: 'none', borderRadius: '8px', padding: '6px 10px', fontSize: '11px', fontWeight: '500', color: service.is_active ? 'var(--accent)' : 'var(--text-secondary)', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}
+                  style={{ background: service.is_active ? 'rgba(255,81,127,0.15)' : 'rgba(255,255,255,0.06)', border: 'none', borderRadius: '8px', padding: '6px 10px', ...ui(500, 11, service.is_active ? ACCENT : WHITE60), cursor: 'pointer' }}
                 >
                   {service.is_active ? 'Active' : 'Hidden'}
                 </button>
                 {/* Edit */}
                 <button
                   onClick={() => { setEditingService(service); setShowSheet(true) }}
-                  style={{ background: 'var(--bg-chip)', border: 'none', borderRadius: '8px', padding: '6px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                  aria-label={`Edit ${service.name}`}
+                  style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: '8px', padding: '6px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
                   </svg>
                 </button>
@@ -317,6 +259,6 @@ export default function ServicesPage() {
           onClose={() => { setShowSheet(false); setEditingService(null) }}
         />
       )}
-    </div>
+    </Shell>
   )
 }

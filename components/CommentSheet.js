@@ -1,6 +1,14 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import Sheet from '@/components/ui/Sheet'
+
+const ACCENT = '#FF517F'
+const WHITE60 = 'rgba(255,255,255,0.6)'
+const BTN_GRADIENT = 'linear-gradient(90deg, #660007 47.832%, #FF517F 100%)'
+const ui = (weight, size, color = 'var(--lq-white)') => ({
+  fontFamily: 'var(--lq-font-ui)', fontWeight: weight, fontSize: `${size}px`, color, lineHeight: 1.4,
+})
 
 export default function CommentSheet({ design, currentUser, onClose, onCommentAdded, onCommentDeleted }) {
   const [comments, setComments] = useState([])
@@ -85,139 +93,86 @@ export default function CommentSheet({ design, currentUser, onClose, onCommentAd
   }
 
   return (
-    <div
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
-        zIndex: 300, display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-      }}
-    >
-      <div style={{
-        background: 'var(--bg-card)', borderRadius: '20px 20px 0 0',
-        width: '100%', maxWidth: '480px',
-        maxHeight: '75vh', display: 'flex', flexDirection: 'column',
-      }}>
-        {/* Handle */}
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 8px' }}>
-          <div style={{ width: '36px', height: '4px', background: 'var(--border)', borderRadius: '2px' }} />
-        </div>
-
-        {/* Header */}
-        <div style={{
-          padding: '0 20px 12px', borderBottom: '0.5px solid var(--border)',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        }}>
-          <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0 }}>
-            Comments
-          </p>
+    <Sheet
+      title="Comments"
+      onClose={onClose}
+      footer={currentUser ? (
+        <form onSubmit={submit} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <input
+            ref={inputRef}
+            value={body}
+            onChange={e => setBody(e.target.value)}
+            placeholder="Add a comment…"
+            maxLength={500}
+            style={{
+              flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: '1000px', padding: '10px 16px', ...ui(400, 14), outline: 'none',
+            }}
+          />
           <button
-            onClick={onClose}
-            style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '20px', cursor: 'pointer', lineHeight: 1, padding: '2px' }}
-          >✕</button>
-        </div>
+            type="submit"
+            disabled={!body.trim() || submitting}
+            style={{
+              background: body.trim() ? BTN_GRADIENT : 'rgba(255,255,255,0.08)',
+              ...ui(600, 13, body.trim() ? 'var(--lq-white)' : WHITE60),
+              border: 'none', borderRadius: '1000px', padding: '10px 18px',
+              cursor: body.trim() ? 'pointer' : 'default', whiteSpace: 'nowrap',
+            }}
+          >
+            {submitting ? '…' : 'Post'}
+          </button>
+        </form>
+      ) : (
+        <a href="/profile" style={{ display: 'block', textAlign: 'center', padding: '13px', background: BTN_GRADIENT, color: 'var(--lq-white)', borderRadius: '1000px', textDecoration: 'none', ...ui(600, 14) }}>
+          Sign in to comment
+        </a>
+      )}
+    >
+      <p style={{ ...ui(600, 11, ACCENT), letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 14px' }}>Comments</p>
 
-        {/* Comment list */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px' }}>
-          {loading ? (
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center', padding: '24px 0' }}>Loading...</p>
-          ) : loadError ? (
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center', padding: '24px 0' }}>
-              Couldn't load comments. Please try again.
-            </p>
-          ) : comments.length === 0 ? (
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center', padding: '24px 0' }}>
-              No comments yet — be the first.
-            </p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {comments.map(c => {
-                const isOwn = c.user_id === currentUser?.id
-                return (
-                  <div key={c.id} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                    {/* Avatar */}
-                    <div style={{
-                      width: '32px', height: '32px', borderRadius: '50%',
-                      background: 'var(--bg-chip)', overflow: 'hidden', flexShrink: 0,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      {c.profiles?.avatar_url
-                        ? <img src={c.profiles.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        : <span style={{ color: 'var(--accent)', fontSize: '13px', fontWeight: '500' }}>
-                            {(c.profiles?.display_name || '?')[0].toUpperCase()}
-                          </span>
-                      }
-                    </div>
-                    {/* Body */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '2px' }}>
-                        <span style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500' }}>
-                          {c.profiles?.display_name || 'User'}
-                        </span>
-                        <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>{timeAgo(c.created_at)}</span>
-                      </div>
-                      <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: '1.5', margin: 0, wordBreak: 'break-word' }}>
-                        {c.body}
-                      </p>
-                    </div>
-                    {/* Delete own */}
-                    {isOwn && (
-                      <button
-                        onClick={() => deleteComment(c)}
-                        disabled={!!deletingIds[c.id]}
-                        style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '16px', cursor: deletingIds[c.id] ? 'default' : 'pointer', padding: '2px 4px', flexShrink: 0, opacity: deletingIds[c.id] ? 0.5 : 1 }}
-                      >✕</button>
-                    )}
+      {loading ? (
+        <p style={{ ...ui(300, 14, WHITE60), textAlign: 'center', padding: '24px 0' }}>Loading…</p>
+      ) : loadError ? (
+        <p style={{ ...ui(300, 14, WHITE60), textAlign: 'center', padding: '24px 0' }}>Couldn&apos;t load comments. Please try again.</p>
+      ) : comments.length === 0 ? (
+        <p style={{ ...ui(300, 14, WHITE60), textAlign: 'center', padding: '24px 0' }}>No comments yet — be the first.</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {comments.map(c => {
+            const isOwn = c.user_id === currentUser?.id
+            return (
+              <div key={c.id} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                {/* Avatar */}
+                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {c.profiles?.avatar_url
+                    ? <img src={c.profiles.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <span style={ui(500, 13, ACCENT)}>{(c.profiles?.display_name || '?')[0].toUpperCase()}</span>
+                  }
+                </div>
+                {/* Body */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '2px' }}>
+                    <span style={ui(500, 13)}>{c.profiles?.display_name || 'User'}</span>
+                    <span style={ui(300, 11, WHITE60)}>{timeAgo(c.created_at)}</span>
                   </div>
-                )
-              })}
-            </div>
-          )}
+                  <p style={{ ...ui(300, 13, 'rgba(255,255,255,0.85)'), lineHeight: 1.5, margin: 0, wordBreak: 'break-word' }}>
+                    {c.body}
+                  </p>
+                </div>
+                {/* Delete own */}
+                {isOwn && (
+                  <button
+                    onClick={() => deleteComment(c)}
+                    disabled={!!deletingIds[c.id]}
+                    aria-label="Delete comment"
+                    style={{ background: 'none', border: 'none', ...ui(400, 16, WHITE60), cursor: deletingIds[c.id] ? 'default' : 'pointer', padding: '2px 4px', flexShrink: 0, opacity: deletingIds[c.id] ? 0.5 : 1 }}
+                  >✕</button>
+                )}
+              </div>
+            )
+          })}
         </div>
-
-        {/* Input */}
-        <div style={{ padding: '12px 20px 36px', borderTop: '0.5px solid var(--border)' }}>
-          {currentUser ? (
-            <form onSubmit={submit} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <input
-                ref={inputRef}
-                value={body}
-                onChange={e => setBody(e.target.value)}
-                placeholder="Add a comment..."
-                maxLength={500}
-                style={{
-                  flex: 1, background: 'var(--bg-primary)', border: '0.5px solid var(--border)',
-                  borderRadius: '20px', padding: '10px 16px',
-                  color: 'var(--text-primary)', fontSize: '14px',
-                  fontFamily: "'DM Sans', sans-serif", outline: 'none',
-                }}
-              />
-              <button
-                type="submit"
-                disabled={!body.trim() || submitting}
-                style={{
-                  background: body.trim() ? 'var(--accent)' : 'var(--bg-chip)',
-                  color: body.trim() ? '#141414' : 'var(--text-secondary)',
-                  border: 'none', borderRadius: '20px',
-                  padding: '10px 18px', fontSize: '13px', fontWeight: '600',
-                  fontFamily: "'DM Sans', sans-serif", cursor: body.trim() ? 'pointer' : 'default',
-                  whiteSpace: 'nowrap', transition: 'background 0.15s',
-                }}
-              >
-                {submitting ? '...' : 'Post'}
-              </button>
-            </form>
-          ) : (
-            <a href="/profile" style={{
-              display: 'block', textAlign: 'center', padding: '12px',
-              background: 'var(--accent)', color: '#141414',
-              borderRadius: '12px', textDecoration: 'none',
-              fontSize: '14px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif",
-            }}>
-              Sign in to comment
-            </a>
-          )}
-        </div>
-      </div>
-    </div>
+      )}
+    </Sheet>
   )
 }

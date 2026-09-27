@@ -4,6 +4,17 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import BackButton from '@/components/ui/BackButton'
+
+const ACCENT = '#FF517F'
+const WHITE60 = 'rgba(255,255,255,0.6)'
+const PANEL = 'rgba(255,255,255,0.06)'
+const PANEL_BORDER = '1px solid rgba(255,255,255,0.1)'
+const ROW_BORDER = '1px solid rgba(255,255,255,0.08)'
+const ui = (weight, size, color = 'var(--lq-white)') => ({
+  fontFamily: 'var(--lq-font-ui)', fontWeight: weight, fontSize: `${size}px`, color, lineHeight: 1.4,
+})
+const display = (size) => ({ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: `${size}px`, color: 'var(--lq-white)', lineHeight: 1.2 })
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
@@ -30,9 +41,21 @@ function fmtDuration(mins) {
 
 function Row({ label, value, accent }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 0', borderBottom: '0.5px solid var(--border)' }}>
-      <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>{label}</span>
-      <span style={{ color: accent ? 'var(--accent)' : 'var(--text-primary)', fontSize: '13px', fontWeight: '500', textAlign: 'right', maxWidth: '60%' }}>{value}</span>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 0', borderBottom: ROW_BORDER }}>
+      <span style={ui(300, 13, WHITE60)}>{label}</span>
+      <span style={{ ...ui(500, 13, accent ? ACCENT : 'var(--lq-white)'), textAlign: 'right', maxWidth: '60%' }}>{value}</span>
+    </div>
+  )
+}
+
+// Module-level: an inline Shell got a new identity every render, remounting the
+// subtree and stealing focus from the private-notes textarea while typing.
+function Shell({ children }) {
+  return (
+    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
+      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 60px)' }}>{children}</div>
     </div>
   )
 }
@@ -41,6 +64,9 @@ export default function BookingDetailPage() {
   const { id } = useParams()
   const router = useRouter()
   const [booking, setBooking] = useState(null)
+  const [refDesign, setRefDesign] = useState(null)
+  const [clientHealth, setClientHealth] = useState(null)      // RLS-gated: only if client shared + this is a confirmed upcoming booking
+  const [clientSalonNotes, setClientSalonNotes] = useState(null) // RLS-gated: any confirmed upcoming booking (no toggle)
   const [loading, setLoading] = useState(true)
   const [acting, setActing] = useState(null)
   const [currentUser, setCurrentUser] = useState(null)
@@ -64,14 +90,31 @@ export default function BookingDetailPage() {
 
       if (!data) { router.push('/bookings'); return }
 
-      const [{ data: client }, { data: existingNote }] = await Promise.all([
+      // Client-provided notes come straight from their RLS-protected tables:
+      // health is returned only if the client turned sharing on AND this is a
+      // confirmed upcoming booking; salon notes on any confirmed upcoming
+      // booking. The database is the gate — a non-eligible read just returns
+      // nothing, so we render whatever comes back.
+      const [{ data: client }, { data: existingNote }, { data: health }, { data: salonNotes }] = await Promise.all([
         supabase.from('profiles').select('id, display_name, avatar_url, username').eq('id', data.client_id).single(),
         supabase.from('client_notes').select('*').eq('booking_id', id).maybeSingle(),
+        supabase.from('client_health_notes').select('allergies, product_sensitivities, removal_needed').eq('user_id', data.client_id).maybeSingle(),
+        supabase.from('client_booking_notes').select('booking_notes').eq('user_id', data.client_id).maybeSingle(),
       ])
+      setClientHealth(health || null)
+      setClientSalonNotes(salonNotes?.booking_notes || null)
 
       if (existingNote) {
         setNoteId(existingNote.id)
         setNoteText(existingNote.note)
+      }
+
+      // Client-attached reference design, when the booking carries one — the
+      // artist recreates this look, so it's shown as a full reserved-box,
+      // natural-aspect card (image standard). Dimensions come from the backfill.
+      if (data.reference_design_id) {
+        const { data: ref } = await supabase.from('designs').select('id, title, image_url, image_width, image_height').eq('id', data.reference_design_id).maybeSingle()
+        if (ref) setRefDesign(ref)
       }
 
       setBooking({ ...data, client })
@@ -135,32 +178,35 @@ export default function BookingDetailPage() {
   }
 
   if (loading) return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <p style={{ color: 'var(--text-secondary)', fontFamily: "'DM Sans', sans-serif" }}>Loading…</p>
-    </div>
+    <Shell>
+      <div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={ui(300, 14, WHITE60)}>Loading…</p>
+      </div>
+    </Shell>
   )
 
   const { service, client } = booking
   const statusMap = {
-    pending:   { label: 'Pending',   color: 'var(--accent)',        bg: 'rgba(212,160,192,0.12)' },
-    confirmed: { label: 'Confirmed', color: '#6CC882',              bg: 'rgba(100,200,130,0.12)' },
-    declined:  { label: 'Declined',  color: '#E07070',              bg: 'rgba(200,100,100,0.12)' },
-    cancelled: { label: 'Cancelled', color: 'var(--text-secondary)', bg: 'var(--bg-chip)' },
+    pending:   { label: 'Pending',   color: ACCENT,    bg: 'rgba(255,81,127,0.15)' },
+    confirmed: { label: 'Confirmed', color: '#6CC882', bg: 'rgba(108,200,130,0.15)' },
+    declined:  { label: 'Declined',  color: '#E07070', bg: 'rgba(224,112,112,0.15)' },
+    cancelled: { label: 'Cancelled', color: WHITE60,   bg: 'rgba(255,255,255,0.1)' },
   }
   const s = statusMap[booking.status] || statusMap.pending
+  // Client notes show only on THIS booking when it's pending/confirmed and not
+  // past — matches the DB rule, and avoids showing on a declined/past booking
+  // even if the client is eligible via another booking.
+  const bookingEligible = (booking.status === 'pending' || booking.status === 'confirmed') && booking.booking_date >= new Date().toISOString().split('T')[0]
+
+  const refHasDims = refDesign?.image_width && refDesign?.image_height
 
   return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', fontFamily: "'DM Sans', sans-serif", paddingBottom: '60px' }}>
-
+    <Shell>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 20px' }}>
-        <Link href="/bookings" style={{ color: 'var(--text-primary)', textDecoration: 'none', display: 'flex' }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M19 12H5M12 5l-7 7 7 7"/>
-          </svg>
-        </Link>
-        <h1 style={{ color: 'var(--text-primary)', fontSize: '17px', fontWeight: '600', margin: 0, flex: 1 }}>Booking</h1>
-        <span style={{ background: s.bg, color: s.color, fontSize: '12px', fontWeight: '600', padding: '4px 12px', borderRadius: '20px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: 'calc(env(safe-area-inset-top) + 16px) 20px 16px' }}>
+        <BackButton fallback="/bookings" />
+        <h1 style={{ ...display(24), margin: 0, flex: 1 }}>Booking</h1>
+        <span style={{ background: s.bg, ...ui(600, 12, s.color), padding: '4px 12px', borderRadius: '1000px' }}>
           {s.label}
         </span>
       </div>
@@ -168,21 +214,21 @@ export default function BookingDetailPage() {
       <div style={{ padding: '0 20px' }}>
 
         {/* Client card */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '16px', padding: '16px', marginBottom: '20px' }}>
-          <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'var(--bg-chip)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', background: PANEL, border: PANEL_BORDER, borderRadius: '16px', padding: '16px', marginBottom: '16px' }}>
+          <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: PANEL_BORDER }}>
             {client?.avatar_url
               ? <img src={client.avatar_url} alt={client.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : <span style={{ color: 'var(--accent)', fontSize: '20px', fontWeight: '600' }}>{(client?.display_name || '?')[0].toUpperCase()}</span>
+              : <span style={ui(600, 20, ACCENT)}>{(client?.display_name || '?')[0].toUpperCase()}</span>
             }
           </div>
           <div>
-            <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', margin: '0 0 2px' }}>{client?.display_name || 'Client'}</p>
-            {client?.username && <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: 0 }}>@{client.username}</p>}
+            <p style={{ ...ui(600, 15), margin: '0 0 2px' }}>{client?.display_name || 'Client'}</p>
+            {client?.username && <p style={ui(300, 12, WHITE60)}>@{client.username}</p>}
           </div>
         </div>
 
         {/* Details */}
-        <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '16px', padding: '0 16px', marginBottom: '20px' }}>
+        <div style={{ background: PANEL, border: PANEL_BORDER, borderRadius: '16px', padding: '0 16px', marginBottom: '16px' }}>
           <Row label="Service" value={service?.name || '—'} />
           <Row label="Date" value={fmtDate(booking.booking_date)} />
           <Row label="Time" value={`${fmt12(booking.start_time)} – ${fmt12(booking.end_time)}`} />
@@ -197,11 +243,34 @@ export default function BookingDetailPage() {
           )}
         </div>
 
-        {/* Note */}
-        {booking.notes && (
-          <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '16px', padding: '16px', marginBottom: '20px' }}>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 8px' }}>Client note</p>
-            <p style={{ color: 'var(--text-primary)', fontSize: '14px', lineHeight: '1.6', margin: 0 }}>{booking.notes}</p>
+        {/* Client note + attached reference design */}
+        {(booking.notes || refDesign) && (
+          <div style={{ background: PANEL, border: PANEL_BORDER, borderRadius: '16px', padding: '16px', marginBottom: '16px' }}>
+            {booking.notes && (
+              <>
+                <p style={{ ...ui(600, 11, ACCENT), letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 8px' }}>Client note</p>
+                <p style={{ ...ui(400, 14), lineHeight: 1.6, margin: refDesign ? '0 0 16px' : 0 }}>{booking.notes}</p>
+              </>
+            )}
+            {refDesign && (
+              <Link href={`/design/${refDesign.id}`} style={{ display: 'block', textDecoration: 'none' }}>
+                <p style={{ ...ui(600, 11, ACCENT), letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 8px' }}>Reference design</p>
+                {/* Image standard: reserved box at the design's natural aspect, no crop */}
+                <div style={{ borderRadius: '12px', overflow: 'hidden', border: PANEL_BORDER }}>
+                  <img
+                    src={refDesign.image_url}
+                    alt={refDesign.title}
+                    width={refDesign.image_width || undefined}
+                    height={refDesign.image_height || undefined}
+                    style={{ width: '100%', height: 'auto', aspectRatio: refHasDims ? `${refDesign.image_width} / ${refDesign.image_height}` : undefined, display: 'block', background: 'rgba(255,255,255,0.06)' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginTop: '10px' }}>
+                  <p style={{ ...ui(500, 13), margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{refDesign.title}</p>
+                  <span style={ui(400, 16, WHITE60)}>›</span>
+                </div>
+              </Link>
+            )}
           </div>
         )}
 
@@ -212,10 +281,9 @@ export default function BookingDetailPage() {
               onClick={handleAccept}
               disabled={!!acting}
               style={{
-                flex: 1, padding: '14px', background: 'var(--accent)', color: '#2C0A1E',
-                border: 'none', borderRadius: '14px', fontSize: '15px', fontWeight: '600',
-                fontFamily: "'DM Sans', sans-serif", cursor: acting ? 'not-allowed' : 'pointer',
-                opacity: acting ? 0.7 : 1,
+                flex: 1, padding: '14px', background: 'linear-gradient(90deg, #660007 47.832%, #FF517F 100%)', color: 'var(--lq-white)',
+                border: 'none', borderRadius: '1000px', ...ui(600, 15),
+                cursor: acting ? 'not-allowed' : 'pointer', opacity: acting ? 0.7 : 1,
               }}
             >
               {acting === 'accept' ? 'Confirming…' : 'Accept'}
@@ -224,9 +292,8 @@ export default function BookingDetailPage() {
               onClick={handleDecline}
               disabled={!!acting}
               style={{
-                flex: 1, padding: '14px', background: 'rgba(229,115,115,0.1)', color: '#E07070',
-                border: '0.5px solid rgba(229,115,115,0.3)', borderRadius: '14px',
-                fontSize: '15px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif",
+                flex: 1, padding: '14px', background: 'rgba(224,112,112,0.12)',
+                border: '1px solid rgba(224,112,112,0.3)', borderRadius: '1000px', ...ui(600, 15, '#E07070'),
                 cursor: acting ? 'not-allowed' : 'pointer', opacity: acting ? 0.7 : 1,
               }}
             >
@@ -240,21 +307,51 @@ export default function BookingDetailPage() {
           href={`/messages?with=${client?.id}`}
           style={{
             display: 'block', textAlign: 'center', padding: '13px',
-            background: 'var(--bg-card)', border: '0.5px solid var(--border)',
-            borderRadius: '14px', color: 'var(--text-primary)',
-            fontSize: '14px', fontWeight: '500', textDecoration: 'none',
+            background: PANEL, border: PANEL_BORDER, borderRadius: '1000px',
+            ...ui(500, 14), textDecoration: 'none',
           }}
         >
           Message {client?.display_name}
         </Link>
 
+        {/* Client-provided notes — read-only. The database returns these only
+            for a confirmed upcoming booking (health also requires the client to
+            have turned sharing on); otherwise the queries come back empty. */}
+        {bookingEligible && ((clientHealth && (clientHealth.allergies || clientHealth.product_sensitivities?.length || clientHealth.removal_needed)) || clientSalonNotes) && (
+          <div style={{ marginTop: '20px', background: PANEL, border: PANEL_BORDER, borderRadius: '16px', padding: '18px 16px' }}>
+            <p style={{ ...ui(600, 11, ACCENT), letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 12px' }}>
+              From {client?.display_name || 'the client'}
+            </p>
+            {clientHealth && (clientHealth.allergies || clientHealth.product_sensitivities?.length || clientHealth.removal_needed) && (
+              <div style={{ marginBottom: clientSalonNotes ? '14px' : 0 }}>
+                <p style={{ ...ui(500, 12), margin: '0 0 8px' }}>⚠︎ Health notes</p>
+                {clientHealth.allergies && (
+                  <p style={{ ...ui(300, 13), margin: '0 0 6px' }}><span style={ui(500, 13, WHITE60)}>Allergies: </span>{clientHealth.allergies}</p>
+                )}
+                {clientHealth.product_sensitivities?.length > 0 && (
+                  <p style={{ ...ui(300, 13), margin: '0 0 6px' }}><span style={ui(500, 13, WHITE60)}>Sensitivities: </span>{clientHealth.product_sensitivities.join(', ')}</p>
+                )}
+                {clientHealth.removal_needed && (
+                  <p style={{ ...ui(300, 13), margin: 0 }}>Needs removal before a new set</p>
+                )}
+              </div>
+            )}
+            {clientSalonNotes && (
+              <div>
+                <p style={{ ...ui(500, 12), margin: '0 0 6px' }}>Notes for the salon</p>
+                <p style={{ ...ui(300, 13), margin: 0, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{clientSalonNotes}</p>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Private client notes */}
-        <div style={{ marginTop: '20px', background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '16px', padding: '18px 16px' }}>
+        <div style={{ marginTop: '20px', background: PANEL, border: PANEL_BORDER, borderRadius: '16px', padding: '18px 16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', margin: 0 }}>
+            <p style={{ ...ui(600, 11, ACCENT), letterSpacing: '0.08em', textTransform: 'uppercase', margin: 0 }}>
               Private notes
             </p>
-            <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>🔒 Only you can see this</span>
+            <span style={ui(300, 11, WHITE60)}>🔒 Only you can see this</span>
           </div>
           <textarea
             value={noteText}
@@ -262,10 +359,10 @@ export default function BookingDetailPage() {
             placeholder={`Notes about ${client?.display_name || 'this client'}… e.g. prefers short almond, sensitive to acetone`}
             rows={4}
             style={{
-              width: '100%', background: 'var(--bg-chip)', border: '0.5px solid var(--border)',
-              borderRadius: '10px', padding: '10px 12px', color: 'var(--text-primary)',
-              fontSize: '14px', fontFamily: "'DM Sans', sans-serif", resize: 'none',
-              boxSizing: 'border-box', outline: 'none', lineHeight: '1.6', marginBottom: '10px',
+              width: '100%', background: 'rgba(255,255,255,0.04)', border: PANEL_BORDER,
+              borderRadius: '12px', padding: '10px 12px', color: 'var(--lq-white)',
+              ...ui(400, 14), resize: 'none',
+              boxSizing: 'border-box', outline: 'none', lineHeight: 1.6, marginBottom: '10px',
             }}
           />
           <button
@@ -273,11 +370,9 @@ export default function BookingDetailPage() {
             disabled={noteSaving || !noteText.trim()}
             style={{
               width: '100%', padding: '12px',
-              background: noteSaved ? 'rgba(100,200,130,0.15)' : noteText.trim() ? 'var(--accent)' : 'var(--bg-chip)',
-              color: noteSaved ? '#6CC882' : noteText.trim() ? '#2C0A1E' : 'var(--text-secondary)',
-              border: noteSaved ? '0.5px solid rgba(100,200,130,0.3)' : 'none',
-              borderRadius: '12px', fontSize: '14px', fontWeight: '600',
-              fontFamily: "'DM Sans', sans-serif",
+              background: noteSaved ? 'rgba(108,200,130,0.15)' : noteText.trim() ? 'linear-gradient(90deg, #660007 47.832%, #FF517F 100%)' : 'rgba(255,255,255,0.08)',
+              border: noteSaved ? '1px solid rgba(108,200,130,0.3)' : 'none',
+              borderRadius: '1000px', ...ui(600, 14, noteSaved ? '#6CC882' : noteText.trim() ? 'var(--lq-white)' : WHITE60),
               cursor: noteText.trim() && !noteSaving ? 'pointer' : 'not-allowed',
               transition: 'background 0.2s, color 0.2s',
             }}
@@ -287,6 +382,6 @@ export default function BookingDetailPage() {
         </div>
 
       </div>
-    </div>
+    </Shell>
   )
 }

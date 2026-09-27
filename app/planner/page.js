@@ -2,8 +2,18 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import BackButton from '@/components/ui/BackButton'
+
+const ACCENT = '#FF517F'
+const WINE = '#260D14'
+const WHITE60 = 'rgba(255,255,255,0.6)'
+const PANEL = 'rgba(255,255,255,0.06)'
+const PANEL_BORDER = '1px solid rgba(255,255,255,0.1)'
+const ui = (weight, size, color = 'var(--lq-white)') => ({
+  fontFamily: 'var(--lq-font-ui)', fontWeight: weight, fontSize: `${size}px`, color, lineHeight: 1.4,
+})
+const display = (size) => ({ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: `${size}px`, color: 'var(--lq-white)', lineHeight: 1.2 })
 
 const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -115,26 +125,32 @@ export default function PlannerPage() {
   const weekBookings = weekDays.reduce((n, d) => n + bookingsForDay(toDateStr(d)).length, 0)
   const confirmedCount = weekDays.reduce((n, d) => n + bookingsForDay(toDateStr(d)).filter(b => b.status === 'confirmed').length, 0)
 
-  if (loading) return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <p style={{ color: 'var(--text-secondary)', fontFamily: "'DM Sans', sans-serif" }}>Loading…</p>
+  const Shell = ({ children }) => (
+    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
+      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      {/* nav is shown on this page now — leave room so the floating bar never overlaps the last day's cards */}
+      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 120px)' }}>{children}</div>
     </div>
   )
 
-  return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', fontFamily: "'DM Sans', sans-serif", paddingBottom: '60px' }}>
+  if (loading) return (
+    <Shell>
+      <div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={ui(300, 14, WHITE60)}>Loading…</p>
+      </div>
+    </Shell>
+  )
 
+  return (
+    <Shell>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 20px 12px' }}>
-        <Link href="/bookings" style={{ color: 'var(--text-primary)', textDecoration: 'none', display: 'flex' }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M19 12H5M12 5l-7 7 7 7"/>
-          </svg>
-        </Link>
-        <h1 style={{ color: 'var(--text-primary)', fontSize: '17px', fontWeight: '600', margin: 0, flex: 1 }}>Planner</h1>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: 'calc(env(safe-area-inset-top) + 16px) 20px 12px' }}>
+        <BackButton fallback="/bookings" />
+        <h1 style={{ ...display(24), margin: 0, flex: 1 }}>Planner</h1>
         <button
           onClick={() => { setWeekStart(getWeekStart(new Date())); setSelectedDay(todayStr) }}
-          style={{ background: 'var(--bg-chip)', border: 'none', borderRadius: '8px', padding: '6px 12px', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit' }}
+          style={{ background: PANEL, border: PANEL_BORDER, borderRadius: '1000px', padding: '7px 14px', ...ui(500, 12, WHITE60), cursor: 'pointer' }}
         >
           Today
         </button>
@@ -142,11 +158,11 @@ export default function PlannerPage() {
 
       {/* Week nav */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8px 16px' }}>
-        <button onClick={prevWeek} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '8px 12px' }}>
+        <button onClick={prevWeek} aria-label="Previous week" style={{ background: 'none', border: 'none', cursor: 'pointer', color: WHITE60, padding: '8px 12px' }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
         </button>
-        <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500', margin: 0 }}>{weekLabel()}</p>
-        <button onClick={nextWeek} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '8px 12px' }}>
+        <p style={{ ...ui(500, 14), margin: 0 }}>{weekLabel()}</p>
+        <button onClick={nextWeek} aria-label="Next week" style={{ background: 'none', border: 'none', cursor: 'pointer', color: WHITE60, padding: '8px 12px' }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
         </button>
       </div>
@@ -166,22 +182,18 @@ export default function PlannerPage() {
                 flex: '0 0 auto',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
                 padding: '10px 14px', borderRadius: '14px', border: 'none', cursor: 'pointer',
-                background: isSelected ? 'var(--accent)' : isToday ? 'rgba(212,160,192,0.1)' : 'var(--bg-card)',
-                outline: isToday && !isSelected ? '0.5px solid rgba(212,160,192,0.3)' : 'none',
-                fontFamily: 'inherit',
+                background: isSelected ? ACCENT : isToday ? 'rgba(255,81,127,0.12)' : PANEL,
+                outline: isToday && !isSelected ? '1px solid rgba(255,81,127,0.3)' : 'none',
               }}
             >
-              <span style={{ fontSize: '11px', fontWeight: '600', color: isSelected ? '#2C0A1E' : 'var(--text-secondary)', letterSpacing: '0.04em' }}>
+              <span style={{ ...ui(600, 11, isSelected ? WINE : WHITE60), letterSpacing: '0.04em' }}>
                 {DAY_SHORT[day.getDay()]}
               </span>
-              <span style={{ fontSize: '17px', fontWeight: '700', color: isSelected ? '#2C0A1E' : isToday ? 'var(--accent)' : 'var(--text-primary)', lineHeight: 1 }}>
+              <span style={{ ...ui(700, 17, isSelected ? WINE : isToday ? ACCENT : 'var(--lq-white)'), lineHeight: 1 }}>
                 {day.getDate()}
               </span>
               {count > 0 && (
-                <span style={{
-                  width: '6px', height: '6px', borderRadius: '50%',
-                  background: isSelected ? '#2C0A1E' : 'var(--accent)',
-                }} />
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: isSelected ? WINE : ACCENT }} />
               )}
             </button>
           )
@@ -191,18 +203,16 @@ export default function PlannerPage() {
       {/* Weekly stats bar */}
       {weekBookings > 0 && (
         <div style={{ display: 'flex', gap: '10px', padding: '0 20px 20px' }}>
-          <div style={{ flex: 1, background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '12px', textAlign: 'center' }}>
-            <p style={{ color: 'var(--text-primary)', fontSize: '20px', fontWeight: '700', margin: '0 0 2px' }}>{confirmedCount}</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: 0 }}>Confirmed</p>
-          </div>
-          <div style={{ flex: 1, background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '12px', textAlign: 'center' }}>
-            <p style={{ color: 'var(--text-primary)', fontSize: '20px', fontWeight: '700', margin: '0 0 2px' }}>{weekBookings - confirmedCount}</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: 0 }}>Pending</p>
-          </div>
-          <div style={{ flex: 1, background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '12px', textAlign: 'center' }}>
-            <p style={{ color: 'var(--text-primary)', fontSize: '20px', fontWeight: '700', margin: '0 0 2px' }}>{weekBookings}</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: 0 }}>This week</p>
-          </div>
+          {[
+            { n: confirmedCount, label: 'Confirmed' },
+            { n: weekBookings - confirmedCount, label: 'Pending' },
+            { n: weekBookings, label: 'This week' },
+          ].map(({ n, label }) => (
+            <div key={label} style={{ flex: 1, background: PANEL, border: PANEL_BORDER, borderRadius: '14px', padding: '12px', textAlign: 'center' }}>
+              <p style={{ ...display(22), margin: '0 0 2px' }}>{n}</p>
+              <p style={{ ...ui(400, 11, WHITE60), margin: 0 }}>{label}</p>
+            </div>
+          ))}
         </div>
       )}
 
@@ -219,27 +229,27 @@ export default function PlannerPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
                 <div style={{
                   width: '36px', height: '36px', borderRadius: '10px', flexShrink: 0,
-                  background: isToday ? 'var(--accent)' : 'var(--bg-card)',
-                  border: isToday ? 'none' : '0.5px solid var(--border)',
+                  background: isToday ? ACCENT : PANEL,
+                  border: isToday ? 'none' : PANEL_BORDER,
                   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <span style={{ fontSize: '8px', fontWeight: '700', color: isToday ? '#2C0A1E' : 'var(--text-secondary)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                  <span style={{ ...ui(700, 8, isToday ? WINE : WHITE60), letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                     {DAY_SHORT[day.getDay()]}
                   </span>
-                  <span style={{ fontSize: '14px', fontWeight: '700', color: isToday ? '#2C0A1E' : 'var(--text-primary)', lineHeight: 1 }}>
+                  <span style={{ ...ui(700, 14, isToday ? WINE : 'var(--lq-white)'), lineHeight: 1 }}>
                     {day.getDate()}
                   </span>
                 </div>
-                <div style={{ flex: 1, height: '0.5px', background: 'var(--border)' }} />
+                <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
                 {dayBookings.length > 0 && (
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500' }}>
+                  <span style={ui(500, 11, WHITE60)}>
                     {dayBookings.length} {dayBookings.length === 1 ? 'appt' : 'appts'}
                   </span>
                 )}
               </div>
 
               {dayBookings.length === 0 ? (
-                <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '0 0 0 46px', opacity: 0.5 }}>Free</p>
+                <p style={{ ...ui(400, 13, WHITE60), margin: '0 0 0 46px', opacity: 0.6 }}>Free</p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginLeft: '46px' }}>
                   {dayBookings.map(b => {
@@ -250,9 +260,9 @@ export default function PlannerPage() {
                         key={b.id}
                         onClick={() => setExpanded(isExp ? null : b.id)}
                         style={{
-                          background: 'var(--bg-card)',
-                          border: '0.5px solid var(--border)',
-                          borderLeft: `3px solid ${isConfirmed ? 'var(--accent)' : 'rgba(212,160,192,0.3)'}`,
+                          background: PANEL,
+                          border: PANEL_BORDER,
+                          borderLeft: `3px solid ${isConfirmed ? ACCENT : 'rgba(255,81,127,0.35)'}`,
                           borderRadius: '12px', padding: '12px 14px',
                           cursor: 'pointer',
                         }}
@@ -260,46 +270,46 @@ export default function PlannerPage() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
-                              <span style={{ color: 'var(--accent)', fontSize: '12px', fontWeight: '700' }}>{fmt12(b.start_time)}</span>
+                              <span style={ui(700, 12, ACCENT)}>{fmt12(b.start_time)}</span>
                               {b.service?.duration_minutes && (
-                                <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>{fmtDuration(b.service.duration_minutes)}</span>
+                                <span style={ui(400, 11, WHITE60)}>{fmtDuration(b.service.duration_minutes)}</span>
                               )}
                             </div>
-                            <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '600', margin: '0 0 2px' }}>
+                            <p style={{ ...ui(600, 14), margin: '0 0 2px' }}>
                               {b.client?.display_name || 'Client'}
                             </p>
-                            <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: 0 }}>
+                            <p style={{ ...ui(400, 12, WHITE60), margin: 0 }}>
                               {b.service?.name || 'Service'}
                             </p>
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', flexShrink: 0, marginLeft: '12px' }}>
                             <span style={{
-                              fontSize: '10px', fontWeight: '700', letterSpacing: '0.04em', textTransform: 'uppercase',
-                              color: isConfirmed ? '#6CC882' : 'var(--accent)',
-                              background: isConfirmed ? 'rgba(100,200,130,0.12)' : 'rgba(212,160,192,0.12)',
+                              ...ui(700, 10, isConfirmed ? '#6CC882' : ACCENT),
+                              letterSpacing: '0.04em', textTransform: 'uppercase',
+                              background: isConfirmed ? 'rgba(108,200,130,0.12)' : 'rgba(255,81,127,0.12)',
                               padding: '3px 8px', borderRadius: '6px',
                             }}>{b.status}</span>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: isExp ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={WHITE60} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: isExp ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
                               <path d="M6 9l6 6 6-6"/>
                             </svg>
                           </div>
                         </div>
 
                         {isExp && (
-                          <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '0.5px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: PANEL_BORDER, display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Time</span>
-                              <span style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500' }}>{fmt12(b.start_time)} – {fmt12(b.end_time)}</span>
+                              <span style={ui(400, 12, WHITE60)}>Time</span>
+                              <span style={ui(500, 12)}>{fmt12(b.start_time)} – {fmt12(b.end_time)}</span>
                             </div>
                             {b.service?.price > 0 && (
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Price</span>
-                                <span style={{ color: 'var(--accent)', fontSize: '12px', fontWeight: '600' }}>AED {b.service.price}</span>
+                                <span style={ui(400, 12, WHITE60)}>Price</span>
+                                <span style={ui(600, 12, ACCENT)}>AED {b.service.price}</span>
                               </div>
                             )}
                             {b.notes && (
-                              <div style={{ background: 'var(--bg-chip)', borderRadius: '8px', padding: '8px 10px', marginTop: '4px' }}>
-                                <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: 0, lineHeight: '1.5', fontStyle: 'italic' }}>"{b.notes}"</p>
+                              <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '8px', padding: '8px 10px', marginTop: '4px' }}>
+                                <p style={{ ...ui(400, 11, WHITE60), margin: 0, lineHeight: 1.5, fontStyle: 'italic' }}>&quot;{b.notes}&quot;</p>
                               </div>
                             )}
                           </div>
@@ -315,12 +325,12 @@ export default function PlannerPage() {
 
         {weekBookings === 0 && (
           <div style={{ textAlign: 'center', padding: '40px 0' }}>
-            <p style={{ fontSize: '28px', margin: '0 0 12px' }}>✦</p>
-            <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '500', margin: '0 0 6px' }}>Nothing this week</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>No confirmed or pending appointments.</p>
+            <p style={{ fontSize: '28px', margin: '0 0 12px', color: ACCENT }}>✦</p>
+            <p style={{ ...ui(500, 15), margin: '0 0 6px' }}>Nothing this week</p>
+            <p style={ui(400, 13, WHITE60)}>No confirmed or pending appointments.</p>
           </div>
         )}
       </div>
-    </div>
+    </Shell>
   )
 }

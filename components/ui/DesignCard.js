@@ -1,0 +1,96 @@
+'use client'
+import Link from 'next/link'
+import HeartSaveButton from './HeartSaveButton'
+
+function formatCount(n) {
+  if (n == null) return '0'
+  if (n >= 1000) {
+    const k = n / 1000
+    return `${k >= 10 ? Math.round(k) : Math.round(k * 10) / 10}k`
+  }
+  return String(n)
+}
+
+// Design card from the redesign: rounded image with a glass heart-save,
+// title below, and either "Nk saves" or CAPS "SHAPE · VIBE" metadata.
+// Images render at natural aspect ratio — design boards are compositions
+// with titles and detail panels, so any crop cuts content off; card height
+// follows the image (Sogol, Search/Home review).
+export default function DesignCard({
+  design,
+  rank = null,
+  tag = null,            // small text badge top-left (e.g. 'Drop', 'Promoted')
+  meta = 'saves',        // 'saves' | 'tags'
+  width = 140,
+  currentUser = null,
+  initiallySaved = false,
+  onNavigate,
+  onSaveToggle,
+}) {
+  const tagLine = [design.shape, design.category]
+    .filter(Boolean)
+    .join(' · ')
+    .toUpperCase()
+
+  return (
+    <div style={{ width: typeof width === 'number' ? `${width}px` : width, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 'var(--lq-space-sm)' }}>
+      <div style={{ position: 'relative', borderRadius: 'var(--lq-radius-card-lg)', overflow: 'hidden' }}>
+        <Link href={`/design/${design.id}`} onClick={onNavigate} aria-label={design.title || 'View design'}>
+          <img
+            src={design.image_url}
+            alt={design.title || 'Nail design'}
+            loading="lazy"
+            width={design.image_width || undefined}
+            height={design.image_height || undefined}
+            style={{ width: '100%', height: 'auto', aspectRatio: design.image_width && design.image_height ? `${design.image_width} / ${design.image_height}` : undefined, display: 'block', background: 'rgba(255,255,255,0.06)' }}
+          />
+        </Link>
+        {rank != null && (
+          <span aria-label={`Rank ${rank}`} style={{
+            position: 'absolute', top: '12px', left: '12px',
+            width: '24px', height: '24px', borderRadius: 'var(--lq-radius-pill)',
+            background: 'var(--lq-accent-b)', color: 'var(--lq-white)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: 'var(--lq-font-ui)', fontSize: '12px', fontWeight: 500,
+          }}>
+            {rank}
+          </span>
+        )}
+        {tag && rank == null && (
+          <span style={{
+            position: 'absolute', top: '12px', left: '12px',
+            padding: '3px 10px', borderRadius: 'var(--lq-radius-pill)',
+            background: tag === 'Drop' ? 'var(--lq-accent-b)' : 'rgba(32, 5, 11, 0.65)',
+            border: tag === 'Drop' ? 'none' : '1px solid var(--lq-glass-border)',
+            color: 'var(--lq-white)', backdropFilter: 'blur(4px)',
+            fontFamily: 'var(--lq-font-ui)', fontSize: '10px', fontWeight: 500, letterSpacing: '0.04em',
+          }}>
+            {tag}
+          </span>
+        )}
+        <span style={{ position: 'absolute', bottom: '4px', right: '4px' }}>
+          <HeartSaveButton designId={design.id} currentUser={currentUser} initiallySaved={initiallySaved} onToggle={onSaveToggle} />
+        </span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+        <p style={{
+          fontFamily: 'var(--lq-font-ui)', fontWeight: 400, fontSize: '17px', lineHeight: 1.2,
+          color: 'var(--lq-white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>
+          {design.title || 'Untitled'}
+        </p>
+        {meta === 'saves' ? (
+          <p style={{ fontFamily: 'var(--lq-font-ui)', fontWeight: 300, fontSize: '12px', color: 'var(--lq-white)', opacity: 0.92 }}>
+            {formatCount(design.saves_count)} saves
+          </p>
+        ) : (
+          tagLine && (
+            <p style={{ fontFamily: 'var(--lq-font-ui)', fontWeight: 300, fontSize: '11px', letterSpacing: '0.06em', color: 'var(--lq-white)', opacity: 0.92 }}>
+              {tagLine}
+            </p>
+          )
+        )}
+      </div>
+    </div>
+  )
+}

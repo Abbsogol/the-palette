@@ -2,10 +2,24 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { LaqueWordmark } from '@/components/ui/icons'
 
 async function authHeaders() {
   const { data: { session } } = await supabase.auth.getSession()
   return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
+}
+
+// All admin image writes go through /api/upload-image (shared resize+WebP
+// pipeline) — direct client uploads stored raw multi-MB files untransformed.
+async function uploadViaApi(file, purpose, slug) {
+  const fd = new FormData()
+  fd.append('file', file)
+  fd.append('purpose', purpose)
+  if (slug) fd.append('slug', slug)
+  const res = await fetch('/api/upload-image', { method: 'POST', headers: await authHeaders(), body: fd })
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok || json.error) throw new Error('Image upload failed: ' + (json.error || res.status))
+  return json
 }
 
 const SHAPES = ['Round', 'Square', 'Oval', 'Coffin', 'Almond', 'Stiletto', 'Ballerina', 'Squoval']
@@ -66,14 +80,7 @@ function DesignForm({ initial, onSave, onCancel, saveLabel }) {
   const addColour = () => setColours(prev => [...prev, { colour_name: '', hex_code: '', brand_name: '', brand_code: '' }])
   const removeColour = i => setColours(prev => prev.filter((_, idx) => idx !== i))
 
-  const uploadImage = async (file, slug) => {
-    const ext = file.name.split('.').pop()
-    const fileName = `${Date.now()}-${slug}.${ext}`
-    const { error } = await supabase.storage.from('designs').upload(fileName, file, { cacheControl: '3600', upsert: false })
-    if (error) throw new Error('Image upload failed: ' + error.message)
-    const { data: { publicUrl } } = supabase.storage.from('designs').getPublicUrl(fileName)
-    return publicUrl
-  }
+  const uploadImage = (file, slug) => uploadViaApi(file, 'admin-design', slug)
 
   const removeExistingExtra = (id) => {
     setRemovedExtraIds(prev => [...prev, id])
@@ -96,11 +103,17 @@ function DesignForm({ initial, onSave, onCancel, saveLabel }) {
       const allTechniques = [...selectedTechniques]
       if (customTechnique.trim()) allTechniques.push(customTechnique.trim())
       let mainUrl = mainImagePreview
-      if (mainImageFile) mainUrl = await uploadImage(mainImageFile, slug)
+      let mainDims = {}
+      if (mainImageFile) {
+        const up = await uploadImage(mainImageFile, slug)
+        mainUrl = up.publicUrl
+        mainDims = { image_width: up.width ?? null, image_height: up.height ?? null }
+      }
       await onSave({
         title: title.trim(),
         description: description.trim() || null,
         image_url: mainUrl,
+        ...mainDims,
         shape: shape || null,
         length: length || null,
         occasion: allOccasions.join(', ') || null,
@@ -242,11 +255,7 @@ function ProductForm({ initial, onSave, onCancel, saveLabel }) {
     try {
       let imageUrl = imagePreview
       if (imageFile) {
-        const ext = imageFile.name.split('.').pop()
-        const fileName = `product-${Date.now()}.${ext}`
-        const { error } = await supabase.storage.from('designs').upload(fileName, imageFile, { cacheControl: '3600', upsert: false })
-        if (error) throw new Error('Image upload failed: ' + error.message)
-        imageUrl = supabase.storage.from('designs').getPublicUrl(fileName).data.publicUrl
+        imageUrl = (await uploadViaApi(imageFile, 'admin-product')).publicUrl
       }
       await onSave({
         name: name.trim(),
@@ -673,23 +682,17 @@ export default function AdminPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const saveNew = async ({ title, description, image_url, shape, length, occasion, technique, colours, tagNames, newExtraFiles, slug }) => {
+  const saveNew = async ({ title, description, image_url, image_width = null, image_height = null, shape, length, occasion, technique, colours, tagNames, newExtraFiles, slug }) => {
     if (!image_url) throw new Error('Please select a main photo')
 
-    const uploadImage = async (file, name) => {
-      const ext = file.name.split('.').pop()
-      const fileName = `${Date.now()}-${name}.${ext}`
-      const { error } = await supabase.storage.from('designs').upload(fileName, file, { cacheControl: '3600', upsert: false })
-      if (error) throw new Error('Image upload failed: ' + error.message)
-      return supabase.storage.from('designs').getPublicUrl(fileName).data.publicUrl
-    }
+    const uploadImage = (file, name) => uploadViaApi(file, 'admin-design', name)
 
     const { data: { session } } = await supabase.auth.getSession()
-    const { data: design, error } = await supabase.from('designs').insert({ title, description, image_url, shape, length, occasion, technique, is_published: true, is_curated: true, created_by: session?.user?.id || null }).select().single()
+    const { data: design, error } = await supabase.from('designs').insert({ title, description, image_url, image_width, image_height, shape, length, occasion, technique, is_published: true, is_curated: true, created_by: session?.user?.id || null }).select().single()
     if (error) throw new Error(error.message)
 
     for (let i = 0; i < newExtraFiles.length; i++) {
-      const url = await uploadImage(newExtraFiles[i].file, `${slug}-extra-${i + 1}`)
+      const url = (await uploadImage(newExtraFiles[i].file, `${slug}-extra-${i + 1}`)).publicUrl
       const { error: imgErr } = await supabase.from('design_images').insert({ design_id: design.id, image_url: url, image_order: i + 1 })
       if (imgErr) throw new Error('Failed to save extra image: ' + imgErr.message)
     }
@@ -713,13 +716,7 @@ export default function AdminPage() {
   const saveEdit = async ({ title, description, image_url, shape, length, occasion, technique, colours, tagNames, newExtraFiles, removedExtraIds, slug }) => {
     const id = editingDesign.id
 
-    const uploadImage = async (file, name) => {
-      const ext = file.name.split('.').pop()
-      const fileName = `${Date.now()}-${name}.${ext}`
-      const { error } = await supabase.storage.from('designs').upload(fileName, file, { cacheControl: '3600', upsert: false })
-      if (error) throw new Error('Image upload failed: ' + error.message)
-      return supabase.storage.from('designs').getPublicUrl(fileName).data.publicUrl
-    }
+    const uploadImage = (file, name) => uploadViaApi(file, 'admin-design', name)
 
     const { error } = await supabase.from('designs').update({ title, description, image_url, shape, length, occasion, technique }).eq('id', id)
     if (error) throw new Error(error.message)
@@ -730,7 +727,7 @@ export default function AdminPage() {
     }
     const existingCount = editingDesign.extraImages.filter(img => !removedExtraIds.includes(img.id)).length
     for (let i = 0; i < newExtraFiles.length; i++) {
-      const url = await uploadImage(newExtraFiles[i].file, `${slug}-extra-${existingCount + i + 1}`)
+      const url = (await uploadImage(newExtraFiles[i].file, `${slug}-extra-${existingCount + i + 1}`)).publicUrl
       const { error: imgErr } = await supabase.from('design_images').insert({ design_id: id, image_url: url, image_order: existingCount + i + 1 })
       if (imgErr) throw new Error('Failed to save extra image: ' + imgErr.message)
     }
@@ -822,7 +819,7 @@ export default function AdminPage() {
   return (
     <div style={{ padding: '24px 20px 60px', maxWidth: '600px', margin: '0 auto' }}>
       <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Admin</p>
-      <h1 style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: '500', marginBottom: '20px' }}>Laque</h1>
+      <h1 style={{ color: 'var(--text-primary)', marginBottom: '20px' }}><LaqueWordmark height={22} /></h1>
 
       <div style={{ display: 'flex', gap: '8px', marginBottom: '28px', flexWrap: 'wrap' }}>
         {[['upload', 'Upload Design'], ['manage', 'Manage Designs'], ['shop', 'Shop Products'], ['dashboard', 'Dashboard'], ['tags', 'Tags'], ['credits', 'Credits'], ['challenges', 'Challenges']].map(([tab, label]) => (

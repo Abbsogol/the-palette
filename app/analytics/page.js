@@ -4,13 +4,26 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import BackButton from '@/components/ui/BackButton'
+import { useScrollMemory } from '@/lib/scrollMemory'
+
+const ACCENT = '#FF517F'
+const WHITE60 = 'rgba(255,255,255,0.6)'
+const PANEL = 'rgba(255,255,255,0.06)'
+const PANEL_BORDER = '1px solid rgba(255,255,255,0.1)'
+const ROW_BORDER = '1px solid rgba(255,255,255,0.08)'
+const ui = (weight, size, color = 'var(--lq-white)') => ({
+  fontFamily: 'var(--lq-font-ui)', fontWeight: weight, fontSize: `${size}px`, color, lineHeight: 1.4,
+})
+const display = (size) => ({ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: `${size}px`, color: 'var(--lq-white)', lineHeight: 1.2 })
+const sectionLabel = { ...ui(600, 11, ACCENT), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }
 
 export default function AnalyticsPage() {
   const router = useRouter()
   const [designs, setDesigns]   = useState([])
   const [followers, setFollowers] = useState(0)
   const [loading, setLoading]   = useState(true)
-  const [userId, setUserId]     = useState(null)
+  useScrollMemory(null, !loading)
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -29,8 +42,6 @@ export default function AnalyticsPage() {
         router.push('/profile')
         return
       }
-
-      setUserId(me.id)
 
       const [{ data: d }, { count: fCount }] = await Promise.all([
         supabase
@@ -51,10 +62,20 @@ export default function AnalyticsPage() {
     })
   }, [])
 
-  if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Loading...</p>
+  const Shell = ({ children }) => (
+    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
+      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 120px)' }}>{children}</div>
     </div>
+  )
+
+  if (loading) return (
+    <Shell>
+      <div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={ui(300, 14, WHITE60)}>Loading…</p>
+      </div>
+    </Shell>
   )
 
   const totalLikes    = designs.reduce((s, d) => s + (d.likes_count || 0), 0)
@@ -79,34 +100,27 @@ export default function AnalyticsPage() {
   ]
 
   return (
-    <div style={{ paddingBottom: '100px' }}>
-
+    <Shell>
       {/* Header */}
-      <div style={{ padding: '20px 20px 16px', display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '0.5px solid var(--border)' }}>
-        <button onClick={() => router.back()} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}>
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <path d="M13 16L7 10L13 4" stroke="var(--text-secondary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
-        <h1 style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '600', margin: 0 }}>Analytics</h1>
+      <div style={{ padding: 'calc(env(safe-area-inset-top) + 16px) 20px 16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <BackButton fallback="/profile" />
+        <h1 style={{ ...display(24), margin: 0 }}>Analytics</h1>
       </div>
 
-      <div style={{ padding: '20px 16px' }}>
+      <div style={{ padding: '4px 16px' }}>
 
         {/* Overview grid */}
-        <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>Overview</p>
+        <p style={sectionLabel}>Overview</p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '24px' }}>
           {overviewStats.map(({ label, value }) => (
             <div key={label} style={{
-              background: 'var(--bg-card)', borderRadius: '14px',
-              border: '0.5px solid var(--border)', padding: '16px',
+              background: PANEL, borderRadius: '16px', border: PANEL_BORDER, padding: '16px',
               display: 'flex', flexDirection: 'column', gap: '4px',
             }}>
-              <span style={{ color: 'var(--text-primary)', fontSize: '24px', fontWeight: '600', lineHeight: 1 }}>{value.toLocaleString()}</span>
-              <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{label}</span>
+              <span style={{ ...display(28), lineHeight: 1 }}>{value.toLocaleString()}</span>
+              <span style={ui(400, 12, WHITE60)}>{label}</span>
             </div>
           ))}
-          {/* 5th card spans full width on odd grid */}
         </div>
 
         {/* Top design */}
@@ -114,17 +128,17 @@ export default function AnalyticsPage() {
           const eng = (topDesign.likes_count || 0) + (topDesign.saves_count || 0) + (topDesign.comments_count || 0)
           return (
             <>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>Top Design</p>
+              <p style={sectionLabel}>Top Design</p>
               <Link href={`/design/${topDesign.id}`} style={{ textDecoration: 'none', display: 'block', marginBottom: '24px' }}>
-                <div style={{ background: 'var(--bg-card)', borderRadius: '14px', border: '0.5px solid var(--border)', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: '14px', padding: '12px' }}>
-                  <div style={{ width: '64px', height: '64px', borderRadius: '10px', overflow: 'hidden', background: 'var(--bg-chip)', flexShrink: 0 }}>
+                <div style={{ background: PANEL, borderRadius: '16px', border: PANEL_BORDER, overflow: 'hidden', display: 'flex', alignItems: 'center', gap: '14px', padding: '12px' }}>
+                  <div style={{ width: '64px', height: '64px', borderRadius: '12px', overflow: 'hidden', background: 'rgba(255,255,255,0.06)', flexShrink: 0 }}>
                     {topDesign.image_url
                       ? <img src={topDesign.image_url} alt={topDesign.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       : <div style={{ width: '100%', height: '100%' }} />
                     }
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500', margin: '0 0 6px', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{topDesign.title}</p>
+                    <p style={{ ...ui(500, 14), margin: '0 0 6px', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{topDesign.title}</p>
                     <div style={{ display: 'flex', gap: '14px' }}>
                       <StatPill icon="heart" value={topDesign.likes_count || 0} />
                       <StatPill icon="bookmark" value={topDesign.saves_count || 0} />
@@ -132,8 +146,8 @@ export default function AnalyticsPage() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', flexShrink: 0 }}>
-                    <span style={{ color: 'var(--accent)', fontSize: '18px', fontWeight: '700' }}>{eng}</span>
-                    <span style={{ color: 'var(--text-secondary)', fontSize: '10px', fontWeight: '500', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Engagements</span>
+                    <span style={ui(700, 18, ACCENT)}>{eng}</span>
+                    <span style={{ ...ui(500, 10, WHITE60), letterSpacing: '0.05em', textTransform: 'uppercase' }}>Engagements</span>
                   </div>
                 </div>
               </Link>
@@ -144,29 +158,29 @@ export default function AnalyticsPage() {
         {/* Per-design table */}
         {designs.length > 0 ? (
           <>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>All Designs</p>
-            <div style={{ background: 'var(--bg-card)', borderRadius: '14px', border: '0.5px solid var(--border)', overflow: 'hidden' }}>
+            <p style={sectionLabel}>All Designs</p>
+            <div style={{ background: PANEL, borderRadius: '16px', border: PANEL_BORDER, overflow: 'hidden' }}>
               {/* Column headers */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 42px 42px 42px', gap: '8px', padding: '10px 14px', borderBottom: '0.5px solid var(--border)' }}>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500' }}>Design</span>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', textAlign: 'center' }}>♥</span>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', textAlign: 'center' }}>⊹</span>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', textAlign: 'center' }}>✦</span>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 42px 42px 42px', gap: '8px', padding: '10px 14px', borderBottom: ROW_BORDER }}>
+                <span style={ui(500, 11, WHITE60)}>Design</span>
+                <span style={{ ...ui(500, 11, WHITE60), textAlign: 'center' }}>♥</span>
+                <span style={{ ...ui(500, 11, WHITE60), textAlign: 'center' }}>⊹</span>
+                <span style={{ ...ui(500, 11, WHITE60), textAlign: 'center' }}>✦</span>
               </div>
               {byEngagement.map((d, i) => (
-                <Link key={d.id} href={`/design/${d.id}`} style={{ textDecoration: 'none', display: 'grid', gridTemplateColumns: '1fr 42px 42px 42px', gap: '8px', alignItems: 'center', padding: '12px 14px', borderBottom: i < byEngagement.length - 1 ? '0.5px solid var(--border)' : 'none' }}>
+                <Link key={d.id} href={`/design/${d.id}`} style={{ textDecoration: 'none', display: 'grid', gridTemplateColumns: '1fr 42px 42px 42px', gap: '8px', alignItems: 'center', padding: '12px 14px', borderBottom: i < byEngagement.length - 1 ? ROW_BORDER : 'none' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                    <div style={{ width: '38px', height: '38px', borderRadius: '8px', overflow: 'hidden', background: 'var(--bg-chip)', flexShrink: 0 }}>
+                    <div style={{ width: '38px', height: '38px', borderRadius: '8px', overflow: 'hidden', background: 'rgba(255,255,255,0.06)', flexShrink: 0 }}>
                       {d.image_url
                         ? <img src={d.image_url} alt={d.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         : <div style={{ width: '100%', height: '100%' }} />
                       }
                     </div>
-                    <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', margin: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{d.title}</p>
+                    <p style={{ ...ui(500, 13), margin: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{d.title}</p>
                   </div>
-                  <span style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', textAlign: 'center' }}>{(d.likes_count || 0).toLocaleString()}</span>
-                  <span style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', textAlign: 'center' }}>{(d.saves_count || 0).toLocaleString()}</span>
-                  <span style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', textAlign: 'center' }}>{(d.comments_count || 0).toLocaleString()}</span>
+                  <span style={{ ...ui(500, 13), textAlign: 'center' }}>{(d.likes_count || 0).toLocaleString()}</span>
+                  <span style={{ ...ui(500, 13), textAlign: 'center' }}>{(d.saves_count || 0).toLocaleString()}</span>
+                  <span style={{ ...ui(500, 13), textAlign: 'center' }}>{(d.comments_count || 0).toLocaleString()}</span>
                 </Link>
               ))}
             </div>
@@ -178,12 +192,12 @@ export default function AnalyticsPage() {
             </div>
           </>
         ) : (
-          <div style={{ background: 'var(--bg-card)', borderRadius: '14px', border: '0.5px solid var(--border)', padding: '32px', textAlign: 'center' }}>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>No published designs yet</p>
+          <div style={{ background: PANEL, borderRadius: '16px', border: PANEL_BORDER, padding: '32px', textAlign: 'center' }}>
+            <p style={ui(300, 14, WHITE60)}>No published designs yet</p>
           </div>
         )}
       </div>
-    </div>
+    </Shell>
   )
 }
 
@@ -195,10 +209,10 @@ function StatPill({ icon, value }) {
   }
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-      <svg width="11" height="11" viewBox="0 0 24 24" style={{ color: 'var(--text-secondary)', flexShrink: 0 }}>
+      <svg width="11" height="11" viewBox="0 0 24 24" style={{ color: 'rgba(255,255,255,0.6)', flexShrink: 0 }}>
         {icons[icon]}
       </svg>
-      <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{value.toLocaleString()}</span>
+      <span style={ui(400, 12, WHITE60)}>{value.toLocaleString()}</span>
     </div>
   )
 }
@@ -206,8 +220,8 @@ function StatPill({ icon, value }) {
 function LegendItem({ symbol, label }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-      <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>{symbol}</span>
-      <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>{label}</span>
+      <span style={ui(400, 11, WHITE60)}>{symbol}</span>
+      <span style={ui(400, 11, WHITE60)}>{label}</span>
     </div>
   )
 }

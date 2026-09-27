@@ -3,15 +3,31 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import Chip from '@/components/ui/Chip'
+import SearchInput from '@/components/ui/SearchInput'
+import IconButton from '@/components/ui/IconButton'
+import PillButton from '@/components/ui/PillButton'
+import HeartSaveButton from '@/components/ui/HeartSaveButton'
+import FavouriteButton from '@/components/ui/FavouriteButton'
+import Sheet from '@/components/ui/Sheet'
+import { LaqueWordmark, CandleFilterIcon } from '@/components/ui/icons'
+import { useScrollMemory } from '@/lib/scrollMemory'
+import { useTabSwipe } from '@/lib/tabSwipe'
 
+// Filter taxonomy from the redesign's filter panel (117:1700). Occasion keeps
+// party/birthday/office beyond the drawn 18 — 72/46/53 published designs use
+// them (checked 2026-08-19), dropping them would strand those designs. Length
+// is kept as a sixth group by Sogol's call (data exists, not drawn).
 const FILTERS = {
-  vibe: ['dark & moody', 'minimal & clean', 'floral', 'coastal & summer', 'y2k & retro', 'pastel & soft', 'bridal & wedding', 'korean style', 'abstract & art', 'celestial', 'autumn & winter', 'boho & earthy', 'french tip', 'gothic soft', 'academia'],
-  color: ['black', 'white & nude', 'pink & mauve', 'red & berry', 'purple & lilac', 'blue & teal', 'green & sage', 'brown & caramel', 'gold & chrome', 'glitter & multi'],
-  shape: ['stiletto', 'almond', 'square', 'round', 'coffin', 'oval', 'ballerina', 'squoval', 'flare'],
+  vibe: ['dark & moody', 'minimal & clean', 'floral', 'coastal & summer', 'y2k & retro', 'pastel & soft', 'bridal & wedding', 'korean style', 'celestial', 'abstract & art', 'autumn & winter', 'boho & earthy', 'french tip', 'gothic soft', 'academia'],
+  color: ['black', 'white', 'pink', 'nude', 'mauve', 'berry', 'red', 'purple', 'lilac', 'blue', 'teal', 'green', 'sage', 'brown', 'caramel', 'gold', 'chrome', 'yellow', 'glitter', 'multi'],
+  shape: ['stiletto', 'almond', 'square', 'coffin', 'oval', 'squoval', 'round', 'flare', 'ballerina'],
   length: ['short', 'medium', 'long', 'extra long'],
-  occasion: ['everyday', 'night out', 'editorial', 'statement', 'wedding', 'bridal', 'party', 'birthday', 'office', 'date night', 'festival', 'holiday', 'vacation', 'new year\'s', 'christmas', 'halloween', 'valentine\'s', 'summer', 'autumn', 'winter', 'spring'],
-  technique: ['gel', 'acrylic', 'dip powder', 'polygel', 'hard gel', 'biab', 'nail polish', 'press-on', 'chrome powder', 'cat eye', '3d gel', 'nail art', 'stamping', 'ombre', 'glitter', 'foil', 'airbrush'],
+  occasion: ['everyday', 'night out', 'editorial', 'statement', 'wedding', 'bridal', 'date night', 'festival', 'holiday', 'vacation', "new year's", 'christmas', 'halloween', "valentine's", 'summer', 'autumn', 'winter', 'spring', 'party', 'birthday', 'office'],
+  technique: ['gel', 'acrylic', 'dip powder', 'polygel', 'hard gel', 'biab', 'nail polish', 'press-on', 'airbrush', 'cat eye', '3d gel', 'nail art', 'stamping', 'ombre', 'glitter', 'foil', 'chrome powder'],
 }
+
+const GROUP_LABELS = { vibe: 'Vibe & Style', color: 'Color', shape: 'Shape', length: 'Length', occasion: 'Occasion', technique: 'Technique' }
 
 // Maps vibe filter values → category keywords to match against
 const VIBE_MAP = {
@@ -32,39 +48,139 @@ const VIBE_MAP = {
   'academia':          ['academia', 'dead poets', 'leather', 'ink bleed'],
 }
 
-// Maps color filter → search terms for colour_name in design_colours table
-const COLOR_MAP = {
-  'black':            ['black', 'noir', 'ebony', 'onyx', 'obsidian'],
-  'white & nude':     ['white', 'nude', 'ivory', 'cream', 'milk', 'sheer', 'vanilla', 'champagne', 'pearl'],
-  'pink & mauve':     ['pink', 'mauve', 'rose', 'blush', 'petal', 'peach', 'coral', 'dusty'],
-  'red & berry':      ['red', 'berry', 'crimson', 'cherry', 'burgundy', 'wine', 'blood', 'cranberry'],
-  'purple & lilac':   ['purple', 'lilac', 'lavender', 'violet', 'plum', 'grape', 'amethyst'],
-  'blue & teal':      ['blue', 'teal', 'navy', 'cobalt', 'aqua', 'cyan', 'ocean', 'sapphire'],
-  'green & sage':     ['green', 'sage', 'mint', 'olive', 'moss', 'forest', 'emerald', 'matcha'],
-  'brown & caramel':  ['brown', 'caramel', 'tan', 'chocolate', 'espresso', 'coffee', 'terracotta', 'sienna'],
-  'gold & chrome':    ['gold', 'chrome', 'silver', 'metallic', 'mirror', 'foil', 'bronze', 'copper'],
-  'glitter & multi':  ['glitter', 'sparkle', 'iridescent', 'holographic', 'rainbow', 'multi', 'neon'],
+// The drawn 20 colour swatches, each mapping to colour_name search terms in
+// the design_colours table (split out from the old 10 grouped colours).
+const COLOR_SWATCHES = {
+  black:   { hex: '#1A1A1A', terms: ['black', 'noir', 'ebony', 'onyx', 'obsidian'] },
+  white:   { hex: '#F2F0EB', terms: ['white', 'ivory', 'milk', 'pearl', 'porcelain'] },
+  pink:    { hex: '#F2A7BC', terms: ['pink', 'blush', 'petal', 'peach', 'coral', 'rose'] },
+  nude:    { hex: '#E3C3A8', terms: ['nude', 'cream', 'sheer', 'vanilla', 'champagne', 'beige'] },
+  mauve:   { hex: '#C08A96', terms: ['mauve', 'dusty'] },
+  berry:   { hex: '#8E2E4F', terms: ['berry', 'cranberry', 'raspberry'] },
+  red:     { hex: '#C21F30', terms: ['red', 'crimson', 'cherry', 'blood', 'scarlet', 'burgundy', 'wine'] },
+  purple:  { hex: '#7B4FA3', terms: ['purple', 'violet', 'plum', 'grape', 'amethyst'] },
+  lilac:   { hex: '#C4A6DE', terms: ['lilac', 'lavender'] },
+  blue:    { hex: '#3D6FD1', terms: ['blue', 'navy', 'cobalt', 'sapphire', 'denim'] },
+  teal:    { hex: '#2E9C9C', terms: ['teal', 'aqua', 'cyan', 'turquoise', 'ocean'] },
+  green:   { hex: '#3E8E5A', terms: ['green', 'mint', 'olive', 'moss', 'forest', 'emerald', 'matcha'] },
+  sage:    { hex: '#9CAF88', terms: ['sage', 'eucalyptus'] },
+  brown:   { hex: '#6B4A32', terms: ['brown', 'chocolate', 'espresso', 'coffee', 'mocha'] },
+  caramel: { hex: '#B07B4F', terms: ['caramel', 'tan', 'toffee', 'honey', 'terracotta', 'sienna'] },
+  gold:    { hex: '#D4AF37', terms: ['gold', 'bronze', 'copper', 'brass'] },
+  chrome:  { hex: '#C6C9D2', terms: ['chrome', 'silver', 'metallic', 'mirror', 'steel'] },
+  yellow:  { hex: '#E9C46A', terms: ['yellow', 'lemon', 'butter', 'mustard'] },
+  glitter: { hex: 'linear-gradient(135deg, #E9DFF2, #C9A9E0, #F2E3C9)', terms: ['glitter', 'sparkle', 'shimmer', 'holographic', 'iridescent'] },
+  multi:   { hex: 'conic-gradient(#F2A7BC, #E9C46A, #3E8E5A, #3D6FD1, #7B4FA3, #F2A7BC)', terms: ['multi', 'rainbow', 'multicolor'] },
+}
+
+const EMPTY_FILTERS = { vibe: [], color: [], shape: [], length: [], occasion: [], technique: [] }
+
+const ui = (weight, size, color = 'var(--lq-white)') => ({
+  fontFamily: 'var(--lq-font-ui)', fontWeight: weight, fontSize: `${size}px`, color, lineHeight: 1.25,
+})
+
+function formatCount(n) {
+  if (n == null) return '0'
+  if (n >= 1000) {
+    const k = n / 1000
+    return `${k >= 10 ? Math.round(k) : Math.round(k * 10) / 10}k`
+  }
+  return String(n)
+}
+
+const countActive = (f) => Object.values(f).reduce((n, arr) => n + arr.length, 0)
+
+// Builds the designs query for the current selections. Multi-select: OR
+// within a group, AND across groups. Color needs a pre-query against
+// design_colours; resolves to { query } — wrapped, because the builder is
+// a thenable and returning it bare from an async function would execute it
+// (`await` adopts thenables). Resolves to null when a selection provably
+// matches nothing.
+async function buildDesignQuery({ filters, text, tagFilter, sort, forCount = false }) {
+  let q = forCount
+    ? supabase.from('designs').select('id', { count: 'exact', head: true })
+    : supabase.from('designs').select('*')
+  q = q.eq('is_published', true)
+  if (!forCount) {
+    q = sort === 'most_saved'
+      ? q.order('saves_count', { ascending: false })
+      : q.order('created_at', { ascending: false })
+  }
+
+  if (text?.trim()) q = q.ilike('title', `%${text.trim()}%`)
+
+  if (filters.vibe.length) {
+    const keywords = [...new Set(filters.vibe.flatMap(v => VIBE_MAP[v] || []))]
+    if (keywords.length) q = q.or(keywords.map(kw => `category.ilike.%${kw}%`).join(','))
+  }
+
+  if (filters.color.length) {
+    const terms = [...new Set(filters.color.flatMap(c => COLOR_SWATCHES[c]?.terms || []))]
+    if (terms.length) {
+      const { data: colorRows } = await supabase
+        .from('design_colours')
+        .select('design_id')
+        .or(terms.map(t => `colour_name.ilike.%${t}%`).join(','))
+      const ids = [...new Set(colorRows?.map(r => r.design_id) || [])]
+      if (ids.length === 0) return null
+      q = q.in('id', ids)
+    }
+  }
+
+  if (filters.shape.length) q = q.in('shape', filters.shape)
+  if (filters.length.length) q = q.in('length', filters.length)
+  if (filters.occasion.length) q = q.or(filters.occasion.map(o => `occasion.ilike.%${o}%`).join(','))
+  if (filters.technique.length) q = q.or(filters.technique.map(t => `technique.ilike.%${t}%`).join(','))
+
+  if (tagFilter) {
+    const { data: tagRow } = await supabase.from('tags').select('id').eq('name', tagFilter).maybeSingle()
+    if (!tagRow) return null
+    const { data: designTagRows } = await supabase.from('design_tags').select('design_id').eq('tag_id', tagRow.id)
+    const ids = designTagRows?.map(r => r.design_id) || []
+    if (ids.length === 0) return null
+    q = q.in('id', ids)
+  }
+
+  return { query: q }
 }
 
 export default function SearchPage() {
   const [mainTab, setMainTab] = useState('designs')
+  const [currentUser, setCurrentUser] = useState(null)
 
   // Designs tab state
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
-  const [activeFilters, setActiveFilters] = useState({})
+  const [filters, setFilters] = useState(EMPTY_FILTERS)
+  const [sort, setSort] = useState('newest')
   const [tagFilter, setTagFilter] = useState(null)
   const [designs, setDesigns] = useState([])
+  const [savedDesignIds, setSavedDesignIds] = useState(new Set())
   const [people, setPeople] = useState([])
   const [loading, setLoading] = useState(false)
-  const [openSection, setOpenSection] = useState(null)
 
-  // Salons tab state
+  // Filter panel state (staged locally, applied on "Show N Results")
+  const [panelOpen, setPanelOpen] = useState(false)
+  const [panelFilters, setPanelFilters] = useState(EMPTY_FILTERS)
+  const [panelCount, setPanelCount] = useState(null)
+
+  // Artists & Salons tab state
   const [salons, setSalons] = useState([])
   const [salonsLoaded, setSalonsLoaded] = useState(false)
   const [locationFilter, setLocationFilter] = useState('')
+  const [favouriteIds, setFavouriteIds] = useState(new Set())
+  const [creatorRatings, setCreatorRatings] = useState(new Map())
+  const [artistSort, setArtistSort] = useState('az')          // 'az' | 'newest'
+  const [artistFilters, setArtistFilters] = useState({ role: [], city: [] })
+  const [artistPanelFilters, setArtistPanelFilters] = useState({ role: [], city: [] })
+  const [artistPanelOpen, setArtistPanelOpen] = useState(false)
+  // ?favourites=1 (profile "Favorites" tile): show only favourited creators
+  const [favouritesOnly, setFavouritesOnly] = useState(false)
 
-  // Read tag/query from URL on mount
+  // Read tag/query/filters/tab from URL on mount. The tab param makes
+  // back-navigation from a creator profile and ?tab=artists deep links both
+  // land on the Artists tab; switching happens after the session resolves so
+  // the favourites batch can use the real user.
   const isFirstQuery = useRef(true)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -72,13 +188,28 @@ export default function SearchPage() {
     const q = params.get('q')
     if (tag) setTagFilter(tag)
     if (q) setQuery(q)
+    if (params.get('filters')) setPanelOpen(true)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const u = session?.user || null
+      setCurrentUser(u)
+      const wantsFavourites = params.get('favourites') === '1'
+      if (wantsFavourites && u) setFavouritesOnly(true)
+      if (wantsFavourites && !u) {
+        // Guests have no favourites list — drop the param instead of
+        // silently showing an unfiltered grid under a "favourites" URL.
+        params.delete('favourites')
+        const qs = params.toString()
+        window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
+      }
+      if (params.get('tab') === 'artists' || wantsFavourites) switchMainTab('salons', u)
+    })
   }, [])
 
   // Debounce query → debouncedQuery (500ms, same semantics as the existing
-  // debounce in app/moodboards/[id]/page.js) so filter-chip/tag taps (which
-  // key off activeFilters/tagFilter directly, not this) stay instant while
-  // typing doesn't fire a request per keystroke. Skips the debounce for the
-  // very first value so a deep link (?q=...) still searches immediately.
+  // debounce in app/moodboards/[id]/page.js) so filter taps (which key off
+  // `filters` directly, not this) stay instant while typing doesn't fire a
+  // request per keystroke. Skips the debounce for the very first value so a
+  // deep link (?q=...) still searches immediately.
   useEffect(() => {
     if (isFirstQuery.current) {
       isFirstQuery.current = false
@@ -116,471 +247,590 @@ export default function SearchPage() {
     searchPeople()
   }, [debouncedQuery])
 
+  // Results fetch
   useEffect(() => {
-    const fetch = async () => {
+    const run = async () => {
       setLoading(true)
-
-      let q = supabase
-        .from('designs')
-        .select('*')
-        .eq('is_published', true)
-        .order('created_at', { ascending: false })
-
-      if (debouncedQuery.trim()) {
-        q = q.ilike('title', `%${debouncedQuery.trim()}%`)
-      }
-
-      // Vibe filter — OR across category keywords
-      if (activeFilters.vibe) {
-        const keywords = VIBE_MAP[activeFilters.vibe] || []
-        const orParts = keywords.map(kw => `category.ilike.%${kw}%`)
-        if (orParts.length) q = q.or(orParts.join(','))
-      }
-
-      // Color filter — find design IDs that have a matching colour entry
-      if (activeFilters.color) {
-        const terms = COLOR_MAP[activeFilters.color] || []
-        const colorOrParts = terms.map(t => `colour_name.ilike.%${t}%`)
-        if (colorOrParts.length) {
-          const { data: colorRows } = await supabase
-            .from('design_colours')
+      try {
+        const built = await buildDesignQuery({ filters, text: debouncedQuery, tagFilter, sort })
+        if (!built) { setDesigns([]); return }
+        const { data, error } = await built.query.limit(100)
+        if (error) { console.error('search fetch failed:', error); return }
+        setDesigns(data || [])
+        if (currentUser && data?.length) {
+          const { data: savedRows } = await supabase
+            .from('saved_designs')
             .select('design_id')
-            .or(colorOrParts.join(','))
-          const colorDesignIds = [...new Set(colorRows?.map(r => r.design_id) || [])]
-          if (colorDesignIds.length > 0) {
-            q = q.in('id', colorDesignIds)
-          } else {
-            setDesigns([])
-            setLoading(false)
-            return
-          }
+            .eq('user_id', currentUser.id)
+            .in('design_id', data.map(d => d.id))
+          setSavedDesignIds(new Set((savedRows || []).map(r => r.design_id)))
         }
+      } catch (err) {
+        console.error('search fetch failed:', err)
+      } finally {
+        setLoading(false)
       }
-
-      if (activeFilters.shape) q = q.eq('shape', activeFilters.shape)
-      if (activeFilters.length) q = q.eq('length', activeFilters.length)
-      if (activeFilters.occasion) q = q.ilike('occasion', `%${activeFilters.occasion}%`)
-      if (activeFilters.technique) q = q.ilike('technique', `%${activeFilters.technique}%`)
-
-      // Tag filter: look up tag ID then filter designs by it
-      if (tagFilter) {
-        const { data: tagRow } = await supabase
-          .from('tags')
-          .select('id')
-          .eq('name', tagFilter)
-          .maybeSingle()
-
-        if (tagRow) {
-          const { data: designTagRows } = await supabase
-            .from('design_tags')
-            .select('design_id')
-            .eq('tag_id', tagRow.id)
-
-          const ids = designTagRows?.map(r => r.design_id) || []
-          if (ids.length > 0) {
-            q = q.in('id', ids)
-          } else {
-            setDesigns([])
-            setLoading(false)
-            return
-          }
-        } else {
-          setDesigns([])
-          setLoading(false)
-          return
-        }
-      }
-
-      const { data, error } = await q.limit(100)
-      if (error) console.error('search fetch failed:', error)
-      setDesigns(data || [])
-      setLoading(false)
     }
+    run()
+  }, [debouncedQuery, filters, tagFilter, sort, currentUser])
 
-    fetch()
-  }, [debouncedQuery, activeFilters, tagFilter])
+  // Live result count while the panel is open (debounced on staged edits)
+  useEffect(() => {
+    if (!panelOpen) return
+    setPanelCount(null)
+    const timer = setTimeout(async () => {
+      try {
+        const built = await buildDesignQuery({ filters: panelFilters, text: debouncedQuery, tagFilter, forCount: true })
+        if (!built) { setPanelCount(0); return }
+        const { count, error } = await built.query
+        if (!error) setPanelCount(count ?? 0)
+      } catch (err) {
+        console.error('filter count failed:', err)
+      }
+    }, 350)
+    return () => clearTimeout(timer)
+  }, [panelOpen, panelFilters, debouncedQuery, tagFilter])
 
-  const switchMainTab = async (tab) => {
+  const openPanel = () => { setPanelFilters(filters); setPanelOpen(true) }
+  const applyPanel = () => { setFilters(panelFilters); setPanelOpen(false) }
+  const togglePanelValue = (group, value) => {
+    setPanelFilters(prev => {
+      const has = prev[group].includes(value)
+      return { ...prev, [group]: has ? prev[group].filter(v => v !== value) : [...prev[group], value] }
+    })
+  }
+
+  const switchMainTab = async (tab, userOverride) => {
     setMainTab(tab)
+    // Keep the tab in the URL so back/deep-link restore it
+    const params = new URLSearchParams(window.location.search)
+    if (tab === 'salons') params.set('tab', 'artists')
+    else {
+      params.delete('tab')
+      params.delete('favourites')
+      setFavouritesOnly(false)
+    }
+    const qs = params.toString()
+    window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
+    const user = userOverride !== undefined ? userOverride : currentUser
     if (tab === 'salons' && !salonsLoaded) {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, display_name, username, avatar_url, account_type, location, bio')
+        .select('id, display_name, username, avatar_url, account_type, location, bio, created_at')
         .in('account_type', ['nail_artist', 'creator', 'salon'])
         .order('display_name', { ascending: true })
         .limit(200)
       if (error) console.error('salons fetch failed:', error)
       setSalons(data || [])
       setSalonsLoaded(true)
+      if (data?.length) {
+        const { data: ratingRows, error: ratingError } = await supabase
+          .from('reviews')
+          .select('creator_id, rating')
+          .in('creator_id', data.map(s => s.id))
+        if (ratingError) console.error('ratings fetch failed:', ratingError)
+        const agg = new Map()
+        ;(ratingRows || []).forEach(r => {
+          const cur = agg.get(r.creator_id) || { sum: 0, count: 0 }
+          agg.set(r.creator_id, { sum: cur.sum + r.rating, count: cur.count + 1 })
+        })
+        setCreatorRatings(new Map([...agg].map(([cid, { sum, count }]) => [cid, { avg: Math.round((sum / count) * 10) / 10, count }])))
+      }
+      if (user && data?.length) {
+        const { data: favRows, error: favError } = await supabase
+          .from('favourite_creators')
+          .select('creator_id')
+          .eq('user_id', user.id)
+          .in('creator_id', data.map(s => s.id))
+        if (favError) console.error('favourites fetch failed:', favError)
+        setFavouriteIds(new Set((favRows || []).map(r => r.creator_id)))
+      }
     }
   }
 
-  const filteredSalons = locationFilter.trim()
-    ? salons.filter(s =>
+  const clearFavourites = () => {
+    setFavouritesOnly(false)
+    const params = new URLSearchParams(window.location.search)
+    params.delete('favourites')
+    const qs = params.toString()
+    window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
+  }
+
+  // Artists pipeline: favourites scope -> text search -> role/city filters -> sort
+  const applyArtistFilters = (list, f) => list
+    .filter(s => f.role.length === 0 || f.role.includes(s.account_type === 'salon' ? 'salon' : 'nail artist'))
+    .filter(s => f.city.length === 0 || f.city.some(c => (s.location || '').trim().toLowerCase() === c.toLowerCase()))
+  const favouriteScopedSalons = favouritesOnly ? salons.filter(s => favouriteIds.has(s.id)) : salons
+  const textFilteredSalons = locationFilter.trim()
+    ? favouriteScopedSalons.filter(s =>
         s.location?.toLowerCase().includes(locationFilter.trim().toLowerCase()) ||
         s.display_name?.toLowerCase().includes(locationFilter.trim().toLowerCase()) ||
         s.username?.toLowerCase().includes(locationFilter.trim().toLowerCase())
       )
-    : salons
+    : favouriteScopedSalons
+  const filteredSalons = applyArtistFilters(textFilteredSalons, artistFilters)
+    .sort((a, b) => artistSort === 'newest'
+      ? new Date(b.created_at) - new Date(a.created_at)
+      : (a.display_name || '').localeCompare(b.display_name || ''))
+  const artistCities = [...new Map(
+    salons.map(s => (s.location || '').trim()).filter(Boolean).map(c => [c.toLowerCase(), c])
+  ).values()].sort((a, b) => a.localeCompare(b))
+  const artistActiveCount = artistFilters.role.length + artistFilters.city.length
+  const artistPanelCount = applyArtistFilters(textFilteredSalons, artistPanelFilters).length
 
-  const toggleFilter = (category, value) => {
-    setActiveFilters(prev => ({
-      ...prev,
-      [category]: prev[category] === value ? undefined : value,
-    }))
-  }
+  const activeCount = countActive(filters)
+  const hasActive = activeCount > 0 || query.trim() || tagFilter
 
-  const clearAll = () => {
-    setActiveFilters({})
-    setQuery('')
-    setTagFilter(null)
-  }
+  const metaLine = (d) => [
+    d.shape, d.length,
+    ...(d.technique || '').split(',').map(t => t.trim()).filter(Boolean).slice(0, 2),
+    d.category,
+    (d.occasion || '').split(',')[0]?.trim(),
+  ].filter(Boolean)
 
-  const hasActiveFilters = Object.values(activeFilters).some(Boolean) || query.trim() || tagFilter
+  // ready must fire AFTER the grid renders, not before: loading starts false
+  // here, so gate on designs being present too (the old ad-hoc restore guarded
+  // on designs.length !== 0 for the same reason).
+  // Tab-suffixed so each tab restores its OWN scroll position — the swipe must
+  // land the scroll on the tab the gesture arrives at, not carry the departing
+  // tab's position (Sogol's verification requirement). Ready gate is per-tab:
+  // the designs grid vs the salons list.
+  useScrollMemory(mainTab, mainTab === 'designs' ? (!loading && designs.length > 0) : salonsLoaded)
+  const swipeRef = useTabSwipe({ tabs: ['designs', 'salons'], active: mainTab, onSelect: switchMainTab })
 
   return (
-    <div style={{ padding: '24px 20px 0' }}>
+    <div style={{ position: 'relative' }}>
 
-      <div style={{ marginBottom: '16px' }}>
-        <h1 style={{ color: 'var(--text-primary)', fontWeight: '500', fontSize: '22px', letterSpacing: '-0.02em', marginBottom: '4px' }}>
-          Search
-        </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
-          Find designs, nail artists & salons
-        </p>
+      {/* Fixed blurred-wine page background. z-index 0 + positioned content
+          above it — a negative z-index would paint it behind the body's own
+          background colour and the page would render flat dark. */}
+      <div aria-hidden className="lq-bg-wine" style={{
+        position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)',
+        width: '100%', maxWidth: '480px', zIndex: 0,
+      }}>
+        <div className="lq-grain" />
       </div>
 
-      {/* Main tabs */}
-      <div style={{ display: 'flex', borderBottom: '0.5px solid var(--border)', marginBottom: '20px' }}>
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', minHeight: '100dvh', padding: 'calc(env(safe-area-inset-top) + 12px) 24px 24px' }}>
+
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--lq-white)', marginBottom: '16px' }}>
+        <LaqueWordmark height={18} />
+      </div>
+      <h1 style={{ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: '34px', color: 'var(--lq-white)', lineHeight: 1.15 }}>Search</h1>
+      <p style={{ ...ui(300, 14, 'var(--lq-white-80)'), marginTop: '4px', marginBottom: '18px' }}>Find designs, nail artists & salons</p>
+
+      {/* Tabs */}
+      <div role="tablist" aria-label="Search sections" style={{ display: 'flex', gap: '28px', marginBottom: '18px' }}>
         {[['designs', 'Designs'], ['salons', 'Artists & Salons']].map(([val, label]) => (
-          <button
-            key={val}
-            onClick={() => switchMainTab(val)}
-            style={{
-              flex: 1, background: 'none', border: 'none',
-              borderBottom: mainTab === val ? '2px solid var(--accent)' : '2px solid transparent',
-              color: mainTab === val ? 'var(--text-primary)' : 'var(--text-secondary)',
-              fontSize: '14px', fontWeight: mainTab === val ? '600' : '400',
-              fontFamily: "'DM Sans', sans-serif",
-              padding: '10px 0', cursor: 'pointer',
-              transition: 'color 0.15s',
-            }}
-          >
-            {label}
+          <button key={val} role="tab" aria-selected={mainTab === val} onClick={() => switchMainTab(val)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', minHeight: '44px' }}>
+            <span style={ui(mainTab === val ? 400 : 300, 15, mainTab === val ? 'var(--lq-white)' : 'var(--lq-white-80)')}>{label}</span>
+            <span aria-hidden style={{ width: '100%', height: '2px', borderRadius: 'var(--lq-radius-pill)', background: mainTab === val ? 'var(--lq-accent-b)' : 'transparent' }} />
           </button>
         ))}
       </div>
 
-      {/* ── SALONS TAB ─────────────────────────────────────────────────────── */}
-      {mainTab === 'salons' && (
-        <div>
-          {/* Location filter */}
-          <div style={{ position: 'relative', marginBottom: '16px' }}>
-            <svg style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
-              width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M8 1.5C5.79 1.5 4 3.29 4 5.5C4 8.5 8 14.5 8 14.5C8 14.5 12 8.5 12 5.5C12 3.29 10.21 1.5 8 1.5Z" stroke="#888888" strokeWidth="1.3"/>
-              <circle cx="8" cy="5.5" r="1.5" stroke="#888888" strokeWidth="1.3"/>
-            </svg>
-            <input
-              type="text"
-              placeholder="Search by name, @username or city..."
-              value={locationFilter}
-              onChange={e => setLocationFilter(e.target.value)}
-              style={{
-                width: '100%', background: 'var(--bg-card)', border: '0.5px solid var(--border)',
-                borderRadius: '12px', padding: '12px 12px 12px 38px',
-                color: 'var(--text-primary)', fontSize: '14px',
-                fontFamily: "'DM Sans', sans-serif", outline: 'none', boxSizing: 'border-box',
-              }}
-            />
-          </div>
+      {/* Search input — serves the active tab */}
+      <div style={{ marginBottom: '16px' }}>
+        {mainTab === 'designs' ? (
+          <SearchInput
+            variant="solid"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            label="Search designs"
+          />
+        ) : (
+          <SearchInput
+            variant="solid"
+            value={locationFilter}
+            onChange={e => setLocationFilter(e.target.value)}
+            placeholder="Search by name, @username or city..."
+            label="Search artists and salons by name, username or city"
+          />
+        )}
+      </div>
 
-          {!salonsLoaded ? (
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center', padding: '48px 0' }}>Loading...</p>
-          ) : filteredSalons.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '48px 0' }}>
-              <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '500', marginBottom: '8px' }}>
-                {locationFilter.trim() ? 'No salons found in that area' : 'No salons yet'}
-              </p>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-                {locationFilter.trim() ? 'Try a different city or area.' : 'Salons will appear here once they sign up.'}
-              </p>
-            </div>
-          ) : (
-            <div>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginBottom: '12px' }}>
-                {filteredSalons.length} result{filteredSalons.length !== 1 ? 's' : ''}
-              </p>
-              {filteredSalons.map(salon => (
-                <Link
-                  key={salon.id}
-                  href={`/creator/${salon.id}`}
-                  style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 0', borderBottom: '0.5px solid var(--border)', textDecoration: 'none' }}
-                >
-                  <div style={{
-                    width: '52px', height: '52px', borderRadius: '50%',
-                    background: 'var(--bg-chip)', overflow: 'hidden', flexShrink: 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    border: '0.5px solid var(--border)',
-                  }}>
-                    {salon.avatar_url
-                      ? <img src={salon.avatar_url} alt={salon.display_name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      : <span style={{ color: 'var(--accent)', fontSize: '19px', fontWeight: '500' }}>
-                          {(salon.display_name || '?')[0].toUpperCase()}
-                        </span>
-                    }
+      {/* Swipe region — designs + salons content only (excludes the header,
+          tabs and the sheets). The no-fight guard inside protects the People
+          row's horizontal scroll. flexGrow so the swipe area fills below the
+          tabs down to the nav even when a query returns no results. */}
+      <div ref={swipeRef} style={{ flexGrow: 1 }}>
+      {/* ── DESIGNS TAB ──────────────────────────────────────────────────── */}
+      {mainTab === 'designs' && <>
+
+        {/* Active tag chip */}
+        {tagFilter && (
+          <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={ui(300, 12, 'var(--lq-white-80)')}>Tag:</span>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: '6px',
+              background: 'var(--lq-accent-b)', color: 'var(--lq-white)',
+              ...ui(500, 12), padding: '5px 12px', borderRadius: 'var(--lq-radius-pill)',
+            }}>
+              #{tagFilter}
+              <button onClick={() => setTagFilter(null)} aria-label={`Remove tag filter ${tagFilter}`}
+                style={{ background: 'none', border: 'none', color: 'var(--lq-white)', cursor: 'pointer', padding: '4px', lineHeight: 1, fontSize: '14px' }}>×</button>
+            </span>
+          </div>
+        )}
+
+        {/* Count + sort row */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', minHeight: '32px' }}>
+          <p style={ui(300, 13, 'var(--lq-white-80)')} aria-live="polite">
+            {loading ? 'Searching…' : `${designs.length} ${hasActive ? `result${designs.length !== 1 ? 's' : ''}` : `design${designs.length !== 1 ? 's' : ''}`}`}
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '2px', color: 'var(--lq-white)' }}>
+            <IconButton
+              label={`Open search filters${activeCount > 0 ? `, ${activeCount} active` : ''}`}
+              onClick={openPanel}
+              variant="plain"
+              visualSize={32}
+              badge={activeCount > 0 ? (
+                <span style={{
+                  position: 'absolute', top: '-4px', right: '-4px', minWidth: '16px', height: '16px',
+                  borderRadius: 'var(--lq-radius-pill)', background: 'var(--lq-accent-b)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px',
+                  color: 'var(--lq-white)', fontSize: '9px', fontWeight: 700, fontFamily: 'var(--lq-font-ui)',
+                }}>{activeCount}</span>
+              ) : null}
+            >
+              <CandleFilterIcon size={22} />
+            </IconButton>
+            <button
+              onClick={() => setSort(s => s === 'newest' ? 'most_saved' : 'newest')}
+              aria-label={`Sort: ${sort === 'newest' ? 'newest first' : 'most saved first'}. Tap to switch.`}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', cursor: 'pointer', padding: '10px 0 10px 6px', minHeight: '44px', color: 'var(--lq-white)' }}
+            >
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <path d="M6 4v12M6 16l-2.5-2.5M6 16l2.5-2.5M14 16V4M14 4l-2.5 2.5M14 4l2.5 2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span style={ui(300, 12)}>{sort === 'newest' ? 'Newest' : 'Most saved'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* People results */}
+        {people.length > 0 && (
+          <div style={{ marginBottom: '20px' }}>
+            <p style={{ ...ui(500, 11, 'var(--lq-accent-b)'), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>People</p>
+            <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', scrollbarWidth: 'none', margin: '0 -24px', padding: '0 24px' }}>
+              {people.map(person => (
+                <Link key={person.id} href={`/creator/${person.id}`} style={{
+                  flexShrink: 0, textDecoration: 'none',
+                  background: 'var(--lq-glass)', border: '1px solid var(--lq-glass-border)',
+                  borderRadius: 'var(--lq-radius-tile)', padding: '12px 14px',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', minWidth: '96px',
+                }}>
+                  <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(255,255,255,0.15)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {person.avatar_url
+                      ? <img src={person.avatar_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : <span style={ui(400, 18)}>{(person.display_name || '?')[0].toUpperCase()}</span>}
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
-                      <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {salon.display_name || 'Salon'}
-                      </p>
-                      <span style={{ background: 'var(--bg-chip)', color: 'var(--accent)', fontSize: '9px', fontWeight: '600', padding: '2px 7px', borderRadius: '20px', letterSpacing: '0.04em', flexShrink: 0 }}>
-                        {salon.account_type === 'salon' ? 'SALON' : 'NAIL ARTIST'}
-                      </span>
-                    </div>
-                    {salon.location && (
-                      <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '0 0 2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                        📍 {salon.location}
-                      </p>
-                    )}
-                    {salon.bio && (
-                      <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {salon.bio}
-                      </p>
-                    )}
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ ...ui(400, 12), maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{person.display_name || 'Creator'}</p>
+                    {person.username && <p style={{ ...ui(300, 10, 'var(--lq-white-80)'), margin: '2px 0 0', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>@{person.username}</p>}
                   </div>
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
-                    <path d="M6 4L10 8L6 12" stroke="var(--text-secondary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
+                  <span style={{ background: 'var(--lq-accent-b)', color: 'var(--lq-white)', ...ui(500, 9), padding: '3px 9px', borderRadius: 'var(--lq-radius-pill)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                    {person.account_type === 'salon' ? 'Salon' : 'Nail Artist'}
+                  </span>
                 </Link>
               ))}
             </div>
-          )}
-        </div>
-      )}
-
-      {/* ── DESIGNS TAB ────────────────────────────────────────────────────── */}
-      {mainTab === 'designs' && <>
-
-      {/* Active tag chip */}
-      {tagFilter && (
-        <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Tag:</span>
-          <span style={{
-            display: 'inline-flex', alignItems: 'center', gap: '6px',
-            background: 'var(--accent)', color: '#2C0A1E',
-            fontSize: '12px', fontWeight: '600',
-            padding: '5px 12px', borderRadius: '20px',
-          }}>
-            #{tagFilter}
-            <button
-              onClick={() => setTagFilter(null)}
-              style={{ background: 'none', border: 'none', color: '#2C0A1E', cursor: 'pointer', padding: 0, lineHeight: 1, fontSize: '14px' }}
-            >×</button>
-          </span>
-        </div>
-      )}
-
-      {/* Search bar */}
-      <div style={{ position: 'relative', marginBottom: '16px' }}>
-        <svg style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
-          width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <circle cx="7" cy="7" r="5" stroke="#888888" strokeWidth="1.5"/>
-          <path d="M11 11L14 14" stroke="#888888" strokeWidth="1.5" strokeLinecap="round"/>
-        </svg>
-        <input
-          type="text"
-          placeholder="Search designs, nail artists, salons..."
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          style={{
-            width: '100%',
-            background: 'var(--bg-card)',
-            border: '0.5px solid var(--border)',
-            borderRadius: '12px',
-            padding: '12px 12px 12px 38px',
-            color: 'var(--text-primary)',
-            fontSize: '14px',
-            fontFamily: "'DM Sans', sans-serif",
-            outline: 'none',
-            boxSizing: 'border-box',
-          }}
-        />
-      </div>
-
-      {/* Filter sections */}
-      <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {Object.entries(FILTERS).map(([category, options]) => (
-          <div key={category} style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', overflow: 'hidden' }}>
-            <button
-              onClick={() => setOpenSection(openSection === category ? null : category)}
-              style={{
-                width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '12px 16px', background: 'none', border: 'none', cursor: 'pointer',
-                fontFamily: "'DM Sans', sans-serif",
-              }}
-            >
-              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', textTransform: 'capitalize' }}>
-                  {category === 'vibe' ? 'Vibe / Style' : category === 'color' ? 'Color' : category}
-                </span>
-                {activeFilters[category] && (
-                  <span style={{ background: 'var(--accent)', color: '#2C0A1E', fontSize: '10px', fontWeight: '600', padding: '2px 8px', borderRadius: '20px', textTransform: 'capitalize' }}>
-                    {activeFilters[category]}
-                  </span>
-                )}
-              </span>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"
-                style={{ transform: openSection === category ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
-                <path d="M3 5L7 9L11 5" stroke="#888888" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
-            {openSection === category && (
-              <div style={{ padding: '0 16px 12px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                {options.map(option => {
-                  const isActive = activeFilters[category] === option
-                  return (
-                    <button
-                      key={option}
-                      onClick={() => toggleFilter(category, option)}
-                      style={{
-                        background: isActive ? 'var(--accent)' : 'var(--bg-chip)',
-                        color: isActive ? '#2C0A1E' : 'var(--text-secondary)',
-                        border: 'none', borderRadius: '20px', padding: '6px 14px',
-                        fontSize: '12px', fontWeight: '500',
-                        fontFamily: "'DM Sans', sans-serif",
-                        cursor: 'pointer', textTransform: 'capitalize',
-                      }}
-                    >
-                      {option}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
           </div>
-        ))}
-      </div>
+        )}
 
-      {hasActiveFilters && (
-        <button
-          onClick={clearAll}
-          style={{
-            background: 'none', border: '0.5px solid var(--border)', borderRadius: '20px',
-            padding: '6px 16px', color: 'var(--text-secondary)', fontSize: '12px',
-            fontFamily: "'DM Sans', sans-serif", cursor: 'pointer', marginBottom: '20px',
-          }}
-        >
-          Clear all filters
-        </button>
-      )}
-
-      {loading ? (
-        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center', padding: '32px 0' }}>
-          Loading...
-        </p>
-      ) : designs.length > 0 || people.length > 0 ? (
-        <>
-          {/* ── People results ── */}
-          {people.length > 0 && (
-            <div style={{ marginBottom: '20px' }}>
-              <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>
-                People
-              </p>
-              <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', scrollbarWidth: 'none' }}>
-                {people.map(person => (
-                  <Link key={person.id} href={`/creator/${person.id}`} style={{
-                    flexShrink: 0, textDecoration: 'none',
-                    background: 'var(--bg-card)', border: '0.5px solid var(--border)',
-                    borderRadius: '14px', padding: '12px 14px',
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
-                    minWidth: '90px',
-                  }}>
-                    <div style={{
-                      width: '48px', height: '48px', borderRadius: '50%',
-                      background: 'var(--bg-chip)', overflow: 'hidden',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      {person.avatar_url
-                        ? <img src={person.avatar_url} alt={person.display_name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        : <span style={{ color: 'var(--accent)', fontSize: '18px', fontWeight: '500' }}>
-                            {(person.display_name || '?')[0].toUpperCase()}
-                          </span>
-                      }
-                    </div>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                        <p style={{ color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500', margin: 0, maxWidth: '70px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {person.display_name || 'Creator'}
-                        </p>
-                        {person.is_verified && (
-                          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
-                            <circle cx="8" cy="8" r="7" fill="#D4A0C0"/>
-                            <path d="M5 8L7 10L11 6" stroke="#2C0A1E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        )}
-                      </div>
-                      {person.username && (
-                        <p style={{ color: 'var(--text-secondary)', fontSize: '10px', margin: '2px 0 0', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          @{person.username}
-                        </p>
-                      )}
-                    </div>
-                    <span style={{
-                      background: 'var(--bg-chip)', color: 'var(--accent)',
-                      fontSize: '10px', fontWeight: '500', padding: '3px 8px',
-                      borderRadius: '20px', letterSpacing: '0.04em',
-                    }}>
-                      {person.account_type === 'salon' ? 'Salon' : 'Nail Artist'}
-                    </span>
+        {/* Design results — full-width cards as drawn */}
+        {loading ? (
+          <p style={{ ...ui(300, 14, 'var(--lq-white-80)'), textAlign: 'center', padding: '32px 0' }}>Loading...</p>
+        ) : designs.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {designs.map((design, i) => (
+              <article key={design.id}>
+                <div style={{ position: 'relative', borderRadius: 'var(--lq-radius-card-lg)', overflow: 'hidden' }}>
+                  <Link href={`/design/${design.id}?from=%2Fsearch`} aria-label={design.title || 'View design'}>
+                    {design.image_url ? (
+                      // Natural aspect ratio — design boards are wide compositions
+                      // with titles and side panels; cropping them cuts words off.
+                      // First cards load eagerly so the fold never sits blank.
+                      <img src={design.image_url} alt={design.title} loading={i < 2 ? 'eager' : 'lazy'}
+                        fetchPriority={i === 0 ? 'high' : undefined} decoding="async"
+                        width={design.image_width || undefined} height={design.image_height || undefined}
+                        style={{ width: '100%', height: 'auto', aspectRatio: design.image_width && design.image_height ? `${design.image_width} / ${design.image_height}` : undefined, display: 'block', background: 'rgba(255,255,255,0.06)' }} />
+                    ) : (
+                      <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'rgba(255,255,255,0.06)' }} />
+                    )}
                   </Link>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {designs.length > 0 && <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginBottom: '12px' }}>
-            {designs.length} design{designs.length !== 1 ? 's' : ''}
-          </p>}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-            {designs.map(design => (
-              <Link
-                key={design.id}
-                href={`/design/${design.id}?from=%2Fsearch`}
-                style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', overflow: 'hidden', textDecoration: 'none', display: 'block' }}
-              >
-                {design.image_url ? (
-                  <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden' }}>
-                    <img src={design.image_url} alt={design.title} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
-                  </div>
-                ) : (
-                  <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'var(--bg-chip)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>No image</span>
-                  </div>
-                )}
-                <div style={{ padding: '10px 12px 12px' }}>
-                  <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', marginBottom: '4px', lineHeight: '1.3' }}>
-                    {design.title}
-                  </p>
-                  <p style={{ color: 'var(--accent)', fontSize: '10px', fontWeight: '500', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                    {design.shape} · {design.occasion}
-                  </p>
+                  <span style={{ position: 'absolute', bottom: '4px', right: '4px' }}>
+                    <HeartSaveButton designId={design.id} currentUser={currentUser} initiallySaved={savedDesignIds.has(design.id)} />
+                  </span>
                 </div>
-              </Link>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '12px', padding: '10px 2px 0' }}>
+                  <Link href={`/design/${design.id}?from=%2Fsearch`} style={{ textDecoration: 'none', minWidth: 0 }}>
+                    <h2 style={{ ...ui(400, 19), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{design.title}</h2>
+                  </Link>
+                  <span style={{ ...ui(300, 12, 'var(--lq-white-80)'), flexShrink: 0 }}>{formatCount(design.saves_count)} saves</span>
+                </div>
+                {metaLine(design).length > 0 && (
+                  <p style={{ ...ui(300, 12, 'var(--lq-white-80)'), padding: '4px 2px 0', textTransform: 'capitalize' }}>
+                    {metaLine(design).join(' • ')}
+                  </p>
+                )}
+              </article>
             ))}
           </div>
-        </>
-      ) : (
-        <div style={{ textAlign: 'center', padding: '48px 0' }}>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>No designs found</p>
-          {hasActiveFilters && (
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '8px' }}>Try adjusting your filters</p>
+        ) : (
+          <div style={{ textAlign: 'center', padding: '48px 0' }}>
+            <p style={ui(400, 14)}>No designs found</p>
+            {hasActive && <p style={{ ...ui(300, 13, 'var(--lq-white-80)'), marginTop: '8px' }}>Try adjusting your filters</p>}
+          </div>
+        )}
+
+      </>}
+
+      {/* ── ARTISTS & SALONS TAB ─────────────────────────────────────────── */}
+      {mainTab === 'salons' && (
+        <div>
+          {favouritesOnly && (
+            <div style={{ display: 'flex', marginBottom: '14px' }}>
+              <button
+                onClick={clearFavourites}
+                aria-label="Showing your favourites only. Tap to show all artists and salons."
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '8px', minHeight: '44px',
+                  background: 'linear-gradient(90deg, #FF517F 39.5%, #99314C 100%)',
+                  border: 'none', borderRadius: 'var(--lq-radius-pill)', padding: '8px 16px',
+                  cursor: 'pointer', color: 'var(--lq-white)',
+                }}
+              >
+                <span style={ui(500, 13)}>♥ My Favourites</span>
+                <span aria-hidden="true" style={ui(400, 13, 'var(--lq-white-80)')}>✕</span>
+              </button>
+            </div>
+          )}
+          {!salonsLoaded ? (
+            <p style={{ ...ui(300, 14, 'var(--lq-white-80)'), textAlign: 'center', padding: '48px 0' }}>Loading...</p>
+          ) : filteredSalons.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '48px 0' }}>
+              <p style={{ ...ui(400, 15), marginBottom: '8px' }}>
+                {favouritesOnly ? 'No favourites yet' : locationFilter.trim() ? 'No artists or salons found' : 'No salons yet'}
+              </p>
+              <p style={ui(300, 13, 'var(--lq-white-80)')}>
+                {favouritesOnly ? 'Tap the heart on an artist or salon to add them here.' : locationFilter.trim() ? 'Try a different name or city.' : 'Salons will appear here once they sign up.'}
+              </p>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', minHeight: '32px' }}>
+                <p style={ui(300, 13, 'var(--lq-white-80)')} aria-live="polite">
+                  {filteredSalons.length} {filteredSalons.length === 1 ? 'item' : 'items'}
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '2px', color: 'var(--lq-white)' }}>
+                  <IconButton
+                    label={`Filter artists and salons${artistActiveCount > 0 ? `, ${artistActiveCount} active` : ''}`}
+                    onClick={() => { setArtistPanelFilters(artistFilters); setArtistPanelOpen(true) }}
+                    variant="plain"
+                    visualSize={32}
+                    badge={artistActiveCount > 0 ? (
+                      <span style={{
+                        position: 'absolute', top: '-4px', right: '-4px', minWidth: '16px', height: '16px',
+                        borderRadius: 'var(--lq-radius-pill)', background: 'var(--lq-accent-b)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px',
+                        color: 'var(--lq-white)', fontSize: '9px', fontWeight: 700, fontFamily: 'var(--lq-font-ui)',
+                      }}>{artistActiveCount}</span>
+                    ) : null}
+                  >
+                    <CandleFilterIcon size={22} />
+                  </IconButton>
+                  <button
+                    onClick={() => setArtistSort(s => s === 'az' ? 'newest' : 'az')}
+                    aria-label={`Sort: ${artistSort === 'az' ? 'alphabetical' : 'newest first'}. Tap to switch.`}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', cursor: 'pointer', padding: '10px 0 10px 6px', minHeight: '44px', color: 'var(--lq-white)' }}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                      <path d="M6 4v12M6 16l-2.5-2.5M6 16l2.5-2.5M14 16V4M14 4l-2.5 2.5M14 4l2.5 2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <span style={ui(300, 12)}>{artistSort === 'az' ? 'A–Z' : 'Newest'}</span>
+                  </button>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                {filteredSalons.map(salon => (
+                  <div key={salon.id} style={{ position: 'relative' }}>
+                    <Link href={`/creator/${salon.id}`} style={{
+                      textDecoration: 'none',
+                      background: 'var(--lq-wine)',
+                      borderRadius: 'var(--lq-radius-sheet)', padding: '16px 12px',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    }}>
+                      <div style={{ width: '112px', height: '112px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '-8px' }}>
+                        {salon.avatar_url
+                          ? <img src={salon.avatar_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          : <span style={ui(400, 32)}>{(salon.display_name || salon.username) ? (salon.display_name || salon.username)[0].toUpperCase() : '?'}</span>}
+                      </div>
+                      <span style={{ background: 'linear-gradient(90deg, #FF517F 39.5%, #99314C 100%)', color: 'var(--lq-white)', ...ui(500, 10), padding: '4px 8px', borderRadius: 'var(--lq-radius-pill)', letterSpacing: '0.04em', textTransform: 'uppercase', position: 'relative' }}>
+                        {salon.account_type === 'salon' ? 'Salon' : 'Nail Artist'}
+                      </span>
+                      <p style={{ ...ui(400, 16), textAlign: 'center', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '12px' }}>
+                        {salon.display_name || salon.username || 'Unnamed Artist'}
+                      </p>
+                      <p style={{ ...ui(300, 12), display: 'flex', alignItems: 'center', gap: '10px', margin: '8px 0 0', maxWidth: '100%', overflow: 'hidden' }}>
+                        {salon.location && (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '3px', minWidth: 0 }}>
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
+                              <path fillRule="evenodd" clipRule="evenodd" d="M5.631 11.067C5.631 11.067 2 8.009 2 5C2 3.93913 2.42143 2.92172 3.17157 2.17157C3.92172 1.42143 4.93913 1 6 1C7.06087 1 8.07828 1.42143 8.82843 2.17157C9.57857 2.92172 10 3.93913 10 5C10 8.009 6.369 11.067 6.369 11.067C6.167 11.253 5.8345 11.251 5.631 11.067ZM6 6.75C6.9665 6.75 7.75 5.9665 7.75 5C7.75 4.0335 6.9665 3.25 6 3.25C5.0335 3.25 4.25 4.0335 4.25 5C4.25 5.9665 5.0335 6.75 6 6.75Z" fill="currentColor" />
+                            </svg>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{salon.location}</span>
+                          </span>
+                        )}
+                        {/* Real averages from the reviews table; "★ New" only
+                            for creators without reviews yet. */}
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
+                          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                            <path d="M7.8143 1.38595L6.14467 4.64873C6.04314 4.85424 5.89319 5.03201 5.70772 5.16672C5.52226 5.30143 5.30684 5.38906 5.08 5.42206L1.63667 5.9254L4.33867 10.2067L3.75133 13.6327L7.34267 12.3874C7.54552 12.2809 7.77121 12.2252 8.00033 12.2252C8.22945 12.2252 8.45514 12.2809 8.658 12.3874L12.2507 13.6327L11.6627 10.2061L14.3647 5.92606L10.9207 5.42206C10.6941 5.3888 10.479 5.30106 10.2937 5.16636C10.1085 5.03167 9.95879 4.85404 9.85733 4.64873L8.18703 1.38595H7.8143Z" fill="currentColor" />
+                          </svg>
+                          {creatorRatings.has(salon.id)
+                            ? <>{creatorRatings.get(salon.id).avg} <span style={{ color: 'var(--lq-white-80)' }}>({creatorRatings.get(salon.id).count})</span></>
+                            : 'New'}
+                        </span>
+                      </p>
+                    </Link>
+                    <span style={{ position: 'absolute', top: '4px', right: '4px' }}>
+                      <FavouriteButton creatorId={salon.id} currentUser={currentUser} initiallyFavourited={favouriteIds.has(salon.id)} />
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
       )}
+      </div>{/* end swipe region */}
 
-      </>}
+      </div>
+
+      {/* ── FILTER PANEL ─────────────────────────────────────────────────── */}
+      {panelOpen && (
+        <Sheet
+          fullScreen
+          title="Search filters"
+          onClose={() => setPanelOpen(false)}
+          footer={
+            <PillButton variant="primary" fullWidth onClick={applyPanel}>
+              {panelCount == null ? 'Show Results' : `Show ${panelCount} Result${panelCount !== 1 ? 's' : ''}`}
+            </PillButton>
+          }
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <h2 style={{ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: '30px', color: 'var(--lq-white)' }}>Filters</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <button onClick={() => setPanelFilters(EMPTY_FILTERS)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '12px 8px', ...ui(300, 13, 'var(--lq-white-80)'), textDecoration: 'underline' }}>
+                Clear All
+              </button>
+              <IconButton label="Close filters" onClick={() => setPanelOpen(false)} variant="plain" visualSize={32}>
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                  <path d="M4 4L14 14M14 4L4 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </IconButton>
+            </div>
+          </div>
+
+          {Object.entries(FILTERS).map(([group, options]) => (   /* designs panel groups */
+            <div key={group} style={{ marginBottom: '20px' }}>
+              <p style={{ ...ui(400, 16), marginBottom: '10px' }}>
+                {GROUP_LABELS[group]}
+                <span style={ui(300, 14, 'var(--lq-white-80)')}> ( {panelFilters[group].length} )</span>
+              </p>
+              {group === 'color' ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '4px 8px' }}>
+                  {options.map(name => {
+                    const sw = COLOR_SWATCHES[name]
+                    const active = panelFilters.color.includes(name)
+                    return (
+                      <button key={name} onClick={() => togglePanelValue('color', name)} aria-pressed={active}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px 0', minHeight: '44px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
+                        <span aria-hidden style={{
+                          width: '32px', height: '32px', borderRadius: '50%',
+                          background: sw.hex,
+                          border: active ? '2px solid var(--lq-accent-b)' : '1px solid var(--lq-glass-border)',
+                          boxShadow: active ? '0 0 0 2px rgba(255, 81, 127, 0.35)' : 'none',
+                        }} />
+                        <span style={{ ...ui(300, 11, active ? 'var(--lq-white)' : 'var(--lq-white-80)'), textTransform: 'capitalize' }}>{name}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0 8px' }}>
+                  {options.map(option => (
+                    <Chip key={option} active={panelFilters[group].includes(option)} onClick={() => togglePanelValue(group, option)}>
+                      <span style={{ textTransform: 'capitalize' }}>{option}</span>
+                    </Chip>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </Sheet>
+      )}
+
+      {/* ── ARTISTS FILTER PANEL ─────────────────────────────────────────── */}
+      {artistPanelOpen && (
+        <Sheet
+          fullScreen
+          title="Filter artists and salons"
+          onClose={() => setArtistPanelOpen(false)}
+          footer={
+            <PillButton variant="primary" fullWidth onClick={() => { setArtistFilters(artistPanelFilters); setArtistPanelOpen(false) }}>
+              {`Show ${artistPanelCount} Result${artistPanelCount !== 1 ? 's' : ''}`}
+            </PillButton>
+          }
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <h2 style={{ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: '30px', color: 'var(--lq-white)' }}>Filters</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <button onClick={() => setArtistPanelFilters({ role: [], city: [] })}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '12px 8px', ...ui(300, 13, 'var(--lq-white-80)'), textDecoration: 'underline' }}>
+                Clear All
+              </button>
+              <IconButton label="Close filters" onClick={() => setArtistPanelOpen(false)} variant="plain" visualSize={32}>
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                  <path d="M4 4L14 14M14 4L4 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </IconButton>
+            </div>
+          </div>
+
+          {[
+            ['role', 'Type', ['nail artist', 'salon']],
+            ['city', 'City', artistCities],
+          ].map(([group, label, options]) => (
+            <div key={group} style={{ marginBottom: '20px' }}>
+              <p style={{ ...ui(400, 16), marginBottom: '10px' }}>
+                {label}
+                <span style={ui(300, 14, 'var(--lq-white-80)')}> ( {artistPanelFilters[group].length} )</span>
+              </p>
+              {options.length === 0 ? (
+                <p style={ui(300, 13, 'var(--lq-white-80)')}>No cities on profiles yet</p>
+              ) : (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0 8px' }}>
+                  {options.map(option => (
+                    <Chip key={option}
+                      active={artistPanelFilters[group].includes(option)}
+                      onClick={() => setArtistPanelFilters(prev => {
+                        const has = prev[group].includes(option)
+                        return { ...prev, [group]: has ? prev[group].filter(v => v !== option) : [...prev[group], option] }
+                      })}>
+                      <span style={{ textTransform: 'capitalize' }}>{option}</span>
+                    </Chip>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </Sheet>
+      )}
 
     </div>
   )

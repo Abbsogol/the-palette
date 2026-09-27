@@ -46,16 +46,28 @@ export async function POST(request) {
     nail_techniques: arr(nail_techniques, 20),
     occasions: arr(occasions, 20),
     budget_range: str(budget_range, 50),
-    allergies: str(allergies, 500),
-    product_sensitivities: arr(product_sensitivities, 20),
-    removal_needed: !!removal_needed,
     specialties: arr(specialties, 20),
     credit_balance: credits,
     onboarding_complete: true,
   }).eq('id', user.id)
 
   if (error) {
-    console.error('complete-onboarding error:', error)
+    console.error('complete-onboarding error:', error.code)
+    return Response.json({ error: 'Failed to complete onboarding' }, { status: 500 })
+  }
+
+  // Health notes live in their own RLS table (client_health_notes), not on the
+  // profile. Sharing stays OFF — share_with_tech isn't set here, so it keeps its
+  // column default (false) on insert and is left untouched on any later re-run.
+  const { error: healthErr } = await supabase.from('client_health_notes').upsert({
+    user_id: user.id,
+    allergies: str(allergies, 500),
+    product_sensitivities: arr(product_sensitivities, 20),
+    removal_needed: !!removal_needed,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'user_id' })
+  if (healthErr) {
+    console.error('complete-onboarding health error:', healthErr.code)
     return Response.json({ error: 'Failed to complete onboarding' }, { status: 500 })
   }
 

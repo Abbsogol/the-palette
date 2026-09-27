@@ -3,7 +3,14 @@
 import { useState, useRef, useEffect } from 'react'
 
 const CROP_SIZE = 320   // circle diameter in px
+const ACCENT = '#FF517F'
 
+// NOTE: this overlay deliberately does NOT use the shared Sheet primitive.
+// The whole screen is a pan/pinch-zoom crop surface (touchAction: none), so
+// the Sheet's swipe-down-to-close would fight the crop drag. It's a separate
+// implementation on purpose — but it carries the same a11y contract by hand:
+// aria-modal dialog, Escape closes, focus in on open + returned on close,
+// body scroll locked while open. (Logged in OVERLAY-INVENTORY.md.)
 export default function CropModal({ file, onCrop, onCancel }) {
   const [src, setSrc]         = useState(null)
   const [natural, setNatural] = useState({ w: 1, h: 1 })
@@ -15,6 +22,9 @@ export default function CropModal({ file, onCrop, onCancel }) {
   const lastPos   = useRef({ x: 0, y: 0 })
   const lastDist  = useRef(null)
   const objUrl    = useRef(null)
+  const panelRef  = useRef(null)
+  const onCancelRef = useRef(onCancel)
+  onCancelRef.current = onCancel
 
   useEffect(() => {
     if (!file) return
@@ -29,6 +39,21 @@ export default function CropModal({ file, onCrop, onCancel }) {
     img.src = url
     return () => URL.revokeObjectURL(url)
   }, [file])
+
+  // A11y contract (mount only): focus in + return, Escape closes, scroll lock.
+  useEffect(() => {
+    const prevFocus = document.activeElement
+    panelRef.current?.focus()
+    const onKey = (e) => { if (e.key === 'Escape') onCancelRef.current() }
+    document.addEventListener('keydown', onKey)
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prevOverflow
+      if (prevFocus?.focus) prevFocus.focus()
+    }
+  }, [])
 
   // Image geometry — at zoom=1 the shorter edge fills CROP_SIZE
   const r     = natural.w / natural.h
@@ -114,13 +139,19 @@ export default function CropModal({ file, onCrop, onCancel }) {
       Events are captured on the outer full-screen div.
     */
     <div
+      ref={panelRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Crop photo"
+      tabIndex={-1}
       style={{
-        position: 'fixed', inset: 0, zIndex: 300,
-        background: '#080808',
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: '#0A0508',
         touchAction: 'none',
         userSelect: 'none',
         WebkitUserSelect: 'none',
         cursor: 'grab',
+        outline: 'none',
         display: 'flex', flexDirection: 'column',
       }}
       onTouchStart={onTouchStart}
@@ -135,7 +166,7 @@ export default function CropModal({ file, onCrop, onCancel }) {
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0,
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        padding: '52px 20px 0',
+        padding: 'calc(env(safe-area-inset-top) + 20px) 20px 0',
         zIndex: 10,
         pointerEvents: 'none',
       }}>
@@ -144,14 +175,12 @@ export default function CropModal({ file, onCrop, onCancel }) {
           style={{
             pointerEvents: 'auto',
             background: 'none', border: 'none',
-            color: 'rgba(255,255,255,0.65)', fontSize: '15px',
-            cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
-            padding: '8px 0',
+            fontFamily: 'var(--lq-font-ui)', fontWeight: 400, fontSize: '15px', color: 'rgba(255,255,255,0.65)',
+            cursor: 'pointer', padding: '8px 0',
           }}
         >Cancel</button>
         <p style={{
-          color: 'rgba(255,255,255,0.35)', fontSize: '12px',
-          fontFamily: "'DM Sans', sans-serif",
+          fontFamily: 'var(--lq-font-ui)', fontWeight: 400, fontSize: '12px', color: 'rgba(255,255,255,0.4)',
           letterSpacing: '0.04em', textTransform: 'uppercase',
           margin: 0,
         }}>Drag anywhere · Pinch to zoom</p>
@@ -166,7 +195,7 @@ export default function CropModal({ file, onCrop, onCancel }) {
         width: CROP_SIZE, height: CROP_SIZE,
         borderRadius: '50%', overflow: 'hidden',
         border: '2px solid rgba(255,255,255,0.5)',
-        background: '#1a1a1a',
+        background: '#1A0E13',
         pointerEvents: 'none',
         zIndex: 2,
         opacity: ready ? 1 : 0,
@@ -189,7 +218,7 @@ export default function CropModal({ file, onCrop, onCancel }) {
       {/* ── Bottom controls ──────────────────────────────────────────── */}
       <div style={{
         position: 'absolute', bottom: 0, left: 0, right: 0,
-        padding: '0 24px 52px',
+        padding: '0 24px calc(env(safe-area-inset-bottom) + 32px)',
         zIndex: 10,
         display: 'flex', flexDirection: 'column', gap: '18px',
         pointerEvents: 'none',
@@ -207,7 +236,8 @@ export default function CropModal({ file, onCrop, onCancel }) {
           <input
             type="range" min="0.5" max="5" step="0.01" value={zoom}
             onChange={e => setZoom(parseFloat(e.target.value))}
-            style={{ flex: 1, accentColor: '#D4A0C0' }}
+            aria-label="Zoom"
+            style={{ flex: 1, accentColor: ACCENT }}
           />
           {/* Large magnifier */}
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
@@ -222,15 +252,14 @@ export default function CropModal({ file, onCrop, onCancel }) {
           disabled={cropping}
           style={{
             pointerEvents: 'auto',
-            background: '#D4A0C0',
+            background: 'linear-gradient(90deg, #660007 47.832%, #FF517F 100%)',
             border: 'none',
-            borderRadius: '16px', padding: '17px',
-            color: '#2C0A1E', fontSize: '16px', fontWeight: '700',
-            cursor: cropping ? 'default' : 'pointer', fontFamily: "'DM Sans', sans-serif",
-            letterSpacing: '-0.01em',
+            borderRadius: '1000px', padding: '17px',
+            fontFamily: 'var(--lq-font-ui)', fontWeight: 600, fontSize: '16px', color: 'var(--lq-white)',
+            cursor: cropping ? 'default' : 'pointer',
             opacity: cropping ? 0.7 : 1,
           }}
-        >{cropping ? 'Processing...' : 'Use Photo'}</button>
+        >{cropping ? 'Processing…' : 'Use Photo'}</button>
       </div>
     </div>
   )
