@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import CheckoutSession from '@/components/CheckoutSession'
 
 const POLL_INTERVAL_MS = 1500
 const MAX_POLL_ATTEMPTS = 8 // ~12s of polling, on top of the immediate first read
@@ -12,13 +13,18 @@ function DepositSuccessContent() {
   const params = useSearchParams()
   const bookingId = params.get('booking')
   const sessionId = params.get('session_id')
+  return <CheckoutSession>{userId => <DepositResult key={`${bookingId || 'none'}:${sessionId || 'none'}`} bookingId={bookingId} sessionId={sessionId} userId={userId} />}</CheckoutSession>
+}
+
+function DepositResult({ bookingId, sessionId, userId }) {
   const [paymentStatus, setPaymentStatus] = useState('pending')
   const depositPaid = paymentStatus === 'fulfilled'
   const refundOutcome = {
     failed: ['Deposit payment failed', 'Your payment did not complete. You can try again from your appointment.'],
     expired: ['Checkout expired', 'This checkout expired. Open your appointment to try again.'],
-    refund_pending: ['Refund in progress', 'This booking was cancelled or declined. Your deposit is being refunded automatically.'],
+    refund_pending: ['Refund in progress', 'Your deposit refund is still being processed. Refresh this page to check its status.'],
     refunded: ['Deposit refunded', 'Your deposit refund has been processed. Your bank may take time to display it.'],
+    partial_refund: ['Partial refund recorded', 'Part of your deposit has been refunded. Contact support if you need help with the remaining amount.'],
     refund_failed: ['Refund needs attention', 'Your refund could not be completed automatically. Please contact support.'],
     payment_review: ['Payment needs review', 'Your payment is recorded and needs review. Please contact support.'],
   }[paymentStatus]
@@ -36,7 +42,7 @@ function DepositSuccessContent() {
 
     const fetchStatus = async () => {
       const { data:{ session } } = await supabase.auth.getSession()
-      if (!session?.access_token) return 'pending'
+      if (cancelled || !session?.access_token || session.user?.id !== userId) return 'pending'
       const query = new URLSearchParams({ booking:bookingId })
       if (sessionId) query.set('session_id',sessionId)
       const response = await fetch(`/api/deposit-checkout-status?${query}`, { headers:{ Authorization:`Bearer ${session.access_token}` } })
@@ -53,7 +59,7 @@ function DepositSuccessContent() {
       if (cancelled) return
       attempts += 1
 
-      if (['failed','expired','fulfilled','refund_pending','refunded','refund_failed','payment_review'].includes(status)) {
+      if (['failed','expired','fulfilled','refund_pending','refunded','partial_refund','refund_failed','payment_review'].includes(status)) {
         setPaymentStatus(status)
         if (status !== 'refund_pending') { setChecking(false); return }
       }
@@ -63,7 +69,7 @@ function DepositSuccessContent() {
 
     tick()
     return () => { cancelled = true; clearTimeout(timeoutId) }
-  }, [bookingId, sessionId])
+  }, [bookingId, sessionId, userId])
 
   return (
     <div style={{

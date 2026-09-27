@@ -1,6 +1,7 @@
 import Stripe from 'stripe'
 import { SUBSCRIPTION_PLANS as PLANS } from '@/lib/subscription-plans'
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
+import { releaseSubscriptionCheckout } from '@/lib/subscription-checkout'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
@@ -53,13 +54,7 @@ export async function POST(request) {
       if (!attempt?.id) throw new Error('Missing checkout reservation')
       if (attempt.session_id) {
         const session = await stripe.checkout.sessions.retrieve(attempt.session_id)
-        if (session.status === 'expired') {
-          const { error: expiryError } = await supabase.rpc('expire_subscription_checkout', {
-            p_user_id: userId, p_id: attempt.id, p_session_id: attempt.session_id,
-          })
-          if (expiryError) throw expiryError
-          continue
-        }
+        if (await releaseSubscriptionCheckout(supabase, stripe, userId, attempt, session)) continue
         if (session.status === 'complete') return Response.json({ error: 'Your subscription is being processed. Please wait before starting another checkout.' }, { status: 409 })
         if (attempt.plan_id !== planId) return Response.json({ error: 'You already have a checkout open for another plan. Complete it or wait for it to expire.' }, { status: 409 })
         if (session.status !== 'open' || !session.url) throw new Error('Checkout is not available')

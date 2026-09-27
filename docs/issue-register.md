@@ -15,23 +15,25 @@ Baseline: main `22ec32f0959a529507c8bbf7302ef14d50b7015a`, checked September 26,
 | REG-09 | P2 | A stable old balance cannot acknowledge fulfillment of a pending checkout. | collections.test.jsx | 3 |
 | REG-10 | P2 | Referral claim and both rewards succeed together or remain retryable. | persistence.test.js | 3 |
 
-Tests are in `tests/regressions/`. The original failing assertions remain active. Transaction RPCs have additional isolated PostgreSQL integration coverage; SDK doubles were updated to the new contracts without weakening the original outcomes.
+Original regression tests are in `tests/regressions/`, with additional isolated PostgreSQL integration coverage. The desired outcomes remain enforced as contracts change. In Phase 5, REG-03's route test checks cumulative successful refund totals passed to the transaction; `tests/phase5/payment-interactions.test.js` verifies the resulting credit balance against real SQL, replacing the former simulated subtraction. SDK doubles are not treated as evidence of database effects.
 
 Phase 2 security fixes are included in [draft PR #1](https://github.com/Abbsogol/the-palette/pull/1); see [scope, evidence, and rollout requirements](phase-2-security.md). They are not applied to production.
 
 Phase 3 subsequently reproduced 18 failing checks across 15 further defect categories and corrected them locally. The user also selected automatic refunds for deposits settling after cancellation/decline; implementation and regression coverage are included. See [the current risk map, verification results, and unresolved service/recovery gaps](phase-3-review.md). Phase 3 remains open.
 
-Phase 4 reproduced nine failing checks across eight additional application defects, corrected them locally, and fixed two fixture/setup issues exposed by expanded testing. Final local verification: 294 automated tests plus 16 browser checks, all passing. See [the Phase 4 flow/role/state map, individual corrections and remaining completion gates](phase-4-review.md). Phase 4 changes are included on the review branch in draft PR #1; managed staging, recovery, provider operations and exact-head Ubuntu CI remain pending.
+Phase 4 reproduced nine failing checks across eight additional application defects, corrected them locally, and fixed two fixture/setup issues exposed by expanded testing. Final local verification: 294 automated tests plus 16 browser checks, all passing. See [the Phase 4 flow/role/state map, individual corrections and remaining completion gates](phase-4-review.md). Phase 4 changes are included on the review branch in draft PR #1; commit `4fcfa34` also passed [its Ubuntu CI run](https://github.com/Abbsogol/the-palette/actions/runs/36305381069). Managed staging, recovery and provider operations remain pending.
+
+Phase 5 findings and corrections are grouped into 11 categories: terminal subscription recovery, unpaid entitlements, truthful checkout outcomes, account-state isolation, account-bound actions, onboarding referral recovery, paid/free regeneration, cumulative refund settlement, refund/deletion races, reminder cancellation, and booking availability. Final local verification: **438 unit/component/database tests plus 16 browser checks passed, with 0 failed or skipped**. See [the Phase 5 report](phase-5-review.md) for reproduced cases, final verification and the full flow/role/state map. Phase 5 remains open: exact booking time-zone policy, isolated managed services, historical reconciliation, operational recovery and CI for the new changes are still required.
 
 Other release checks:
 
 | Item | Current evidence | Required closure |
 |---|---|---|
 | Authorization | Local hardening and catalog-based RLS tests added in Phase 2 | Rehearse on managed staging and roll out the migration/app together |
-| Booking conflicts | Phase 3 adds database serialization, overlap rejection and a privacy-preserving busy-slot query; native concurrent tests pass | Rehearse migration 005 and real booking journeys on managed staging |
-| Reminders | Phase 4 atomically creates notifications and an email outbox, with idempotent per-recipient retries; hosted configuration remains unverified | Configure the secret/provider and supported retry worker cadence; verify real delivery and review alerts |
+| Booking conflicts/availability | Phase 3 adds serialization and private busy slots; Phase 5 enforces configured days, working hours and slot alignment on direct authenticated inserts | Resolve appointment time-zone policy and elapsed slots; rehearse migrations and real booking journeys on managed staging |
+| Reminders | Phase 4 adds an atomic outbox and per-recipient retries; Phase 5 rechecks cancellation before payload preparation | Configure the secret/provider and supported retry worker cadence; verify real delivery and review alerts |
 | Monthly credits | Phase 3 adds atomic once-per-period paid-invoice grants; initial/renewal/duplicate/delayed/failure cases pass locally | Reconcile historic periods and verify Stripe sandbox delivery before rollout |
-| Late deposits | Automatic full refunds implemented following the user's policy decision, with durable obligations, duplicate recovery, refund status and visible outcomes | Verify real sandbox refunds, endpoint event subscriptions and failed-refund operations |
+| Refunds/late deposits | Automatic late-deposit refunds follow the user's policy; Phase 5 separates cumulative successful money from pending/failed refunds and prevents unsafe deletion | Verify real sandbox refunds, endpoint subscriptions, historical state and failed-refund review operations |
 | Board covers | Some paths pass signed URLs | Persist stable references and test after expiration |
 | Filters/pagination | Case normalization and fixed limits need review | Test realistic datasets and older rows |
 | Lint | Fixed locally: zero errors and warnings (was 60/32) | Phase 1 PR checks passed; Phase 2 lint passes locally |

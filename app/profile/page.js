@@ -2,11 +2,12 @@
 
 import StorageImage from '@/components/StorageImage'
 import DeleteAccountButton from '@/components/DeleteAccountButton'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useCurrentTime } from '@/lib/use-current-time'
 import { supabase } from '@/lib/supabase'
+import { updateSessionPassword } from '@/lib/update-session-password'
 import CropModal from '@/components/CropModal'
 
 // ── Option lists ───────────────────────────────────────────────────────────
@@ -18,6 +19,7 @@ const TECHNIQUES = ['French','Ombré','BIAB','Gel-X','Airbrush','3D','Aura','Chr
 const OCCASIONS  = ['Everyday','Bridal','Party','Work','Vacation','Eid','Birthday','Holiday','Christmas','Summer','Winter']
 const BUDGETS    = ['Under $50','$50–$100','$100–$150','$150+']
 const CONTACTS   = ['App notification','SMS','Email','WhatsApp','Phone call']
+const avatarStoragePath = userId => `avatars/${userId}/${crypto.randomUUID()}.jpg`
 const SENSITIVITIES = ['Acrylic','Gel','Acetone','Glue','BIAB','Primer','UV light']
 const UNDERTONES    = ['Warm','Cool','Neutral','Olive','Deep Warm','Deep Cool']
 
@@ -132,7 +134,7 @@ function EditRow({ label, field, value, placeholder, multiline, onSave, validate
 }
 
 // ── Username editable row (with format validation + unique error) ──────────
-function UsernameRow({ value }) {
+function UsernameRow({ value, onSave }) {
   const [editing, setEditing] = useState(false)
   const [input, setInput]     = useState('')
   const [saving, setSaving]   = useState(false)
@@ -149,22 +151,9 @@ function UsernameRow({ value }) {
     if (!val) { setError('Username cannot be empty'); return }
     if (!USERNAME_RE.test(val)) { setError('3–30 chars, lowercase letters, numbers, _ and . only'); return }
     setSaving(true); setError('')
-    const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/update-profile', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-      },
-      body: JSON.stringify({ username: val }),
-    })
-    const json = await res.json().catch(() => ({}))
+    const saved = await onSave('username', val)
     setSaving(false)
-    if (!res.ok || json.error) {
-      if (json.code === '23505' || json.error?.includes('unique')) setError('Username already taken')
-      else setError(json.error || 'Failed to save')
-      return
-    }
+    if (!saved) return
     setCurrent(val); setEditing(false)
   }
 
@@ -225,6 +214,8 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [managingSubscription, setManagingSubscription] = useState(false)
+  const loadVersion = useRef({ version: 0 })
+  const activeUserId = useRef(null)
 
   // Auth state
   const [mode, setMode]                   = useState('login')
@@ -265,22 +256,39 @@ export default function ProfilePage() {
   const [expanded, setExpanded] = useState({})
   const toggle = (key) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }))
 
+  const clearUserData = useCallback(() => {
+    setProfile(null); setSavedCount(0); setFollowerCount(0); setFollowingCount(0)
+    setMyDesigns([]); setMyPosts([]); setNeedsAccountType(false); setExpanded({})
+    setCropFile(null); setPostModalOpen(false); setPostText(''); setEditingPostId(null)
+    setPostSaving(false); setUploadingAvatar(false); setManagingSubscription(false); setSubmitting(false)
+    setError(''); setNewPassword(''); setResetMode(false); setResetDone(false)
+  }, [])
+
   const loadUserData = useCallback(async (u) => {
+    const version = ++loadVersion.current.version
+    if (activeUserId.current !== u.id) {
+      clearUserData()
+      setLoading(true)
+    }
+    activeUserId.current = u.id
     setUser(u)
     const { data: prof } = await supabase.from('profiles').select('*').eq('id', u.id).single()
+    if (version !== loadVersion.current.version) return
     setProfile(prof)
     // New users (onboarding_complete === false explicitly) → send to onboarding
     if (prof?.onboarding_complete === false) {
       router.push(refCode ? `/onboarding?ref=${encodeURIComponent(refCode)}` : '/onboarding')
       return
     }
-    if (!prof?.account_type) setNeedsAccountType(true)
+    setNeedsAccountType(!prof?.account_type)
     const { count: sc } = await supabase.from('saved_designs').select('*', { count: 'exact', head: true }).eq('user_id', u.id)
+    if (version !== loadVersion.current.version) return
     setSavedCount(sc || 0)
     const [{ count: frs }, { count: fng }] = await Promise.all([
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', u.id),
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', u.id),
     ])
+    if (version !== loadVersion.current.version) return
     setFollowerCount(frs || 0)
     setFollowingCount(fng || 0)
     if (prof?.account_type === 'creator' || prof?.account_type === 'salon') {
@@ -290,30 +298,48 @@ export default function ProfilePage() {
           .order('created_at', { ascending: false }),
         supabase.from('salon_posts').select('*').eq('creator_id', u.id).order('created_at', { ascending: false }),
       ])
+      if (version !== loadVersion.current.version) return
       setMyDesigns(designs || [])
       setMyPosts(posts || [])
     }
     setLoading(false)
-  }, [router, refCode])
+  }, [router, refCode, clearUserData])
 
   useEffect(() => {
+    let active = true
+    const requestState = loadVersion.current
+    let authChanged = false
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!active || authChanged) return
       if (session?.user) loadUserData(session.user)
       else setLoading(false)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (_event === 'PASSWORD_RECOVERY') { setResetMode(true); return }
+      authChanged = true
+      if (_event === 'PASSWORD_RECOVERY') {
+        loadVersion.current.version++; clearUserData()
+        activeUserId.current = session?.user?.id || null
+        setUser(session?.user || null); setResetMode(true); setLoading(false)
+        return
+      }
       if (session?.user) loadUserData(session.user)
-      else { setUser(null); setProfile(null); setLoading(false) }
+      else {
+        loadVersion.current.version++; activeUserId.current = null
+        clearUserData(); setUser(null); setLoading(false); setPassword('')
+      }
     })
-    return () => subscription.unsubscribe()
-  }, [loadUserData])
+    return () => { active = false; requestState.version++; subscription.unsubscribe() }
+  }, [loadUserData, clearUserData])
 
 
 
   const saveField = async (field, value) => {
+    const accountId = user?.id
     try {
       const { data: { session } } = await supabase.auth.getSession()
+      if (!accountId || session?.user?.id !== accountId || activeUserId.current !== accountId) {
+        throw new Error('Your account changed. Reload your profile before saving.')
+      }
       const res = await fetch('/api/update-profile', {
         method: 'POST',
         headers: {
@@ -324,6 +350,7 @@ export default function ProfilePage() {
       })
       const json = await res.json().catch(() => ({}))
       if (!res.ok || json.error) throw new Error(json.error || 'Failed to save')
+      if (activeUserId.current !== accountId) return false
       setProfile(prev => ({ ...prev, [field]: value }))
       return true
     } catch (err) {
@@ -338,14 +365,17 @@ export default function ProfilePage() {
 
   const handleSubmitPost = async () => {
     if (!postText.trim() || postSaving) return
+    const accountId = user?.id
     setPostSaving(true)
     let postError = null
     if (editingPostId) {
       const { error } = await supabase.from('salon_posts').update({ body: postText.trim(), updated_at: new Date().toISOString() }).eq('id', editingPostId)
+      if (activeUserId.current !== accountId) return
       postError = error
       if (!error) setMyPosts(prev => prev.map(p => p.id === editingPostId ? { ...p, body: postText.trim() } : p))
     } else {
       const { data, error } = await supabase.from('salon_posts').insert({ creator_id: user.id, body: postText.trim() }).select().single()
+      if (activeUserId.current !== accountId) return
       postError = error
       if (data) setMyPosts(prev => [data, ...prev])
     }
@@ -383,6 +413,9 @@ export default function ProfilePage() {
 
   const setAccountType = async (accountType, name) => {
     const { data: { session } } = await supabase.auth.getSession()
+    if (!user?.id || session?.user?.id !== user.id || activeUserId.current !== user.id) {
+      throw new Error('Your account changed. Reload your profile before saving.')
+    }
     const res = await fetch('/api/set-account-type', {
       method: 'POST',
       headers: {
@@ -441,6 +474,7 @@ export default function ProfilePage() {
     const name = displayName.trim() || user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User'
     try {
       await setAccountType(chosenType, name)
+      if (activeUserId.current !== user.id) return
       await loadUserData(user)
     } catch (err) {
       setError(err.message)
@@ -465,6 +499,7 @@ export default function ProfilePage() {
     if (!confirm('Switch your account to a Creator account?')) return
     try {
       await setAccountType('creator')
+      if (activeUserId.current !== user.id) return
       setProfile(prev => ({ ...prev, account_type: 'creator' }))
     } catch (err) {
       alert(err.message || 'Something went wrong. Please try again.')
@@ -476,11 +511,13 @@ export default function ProfilePage() {
     setManagingSubscription(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
+      if (!user?.id || session?.user?.id !== user.id || activeUserId.current !== user.id) throw new Error('Your account changed. Reload before managing billing.')
       const res = await fetch('/api/create-billing-portal-session', {
         method: 'POST',
         headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
       })
       const data = await res.json()
+      if (activeUserId.current !== user.id) return
       if (data.url) window.location.href = data.url
       else { alert(data.error || 'Something went wrong.'); setManagingSubscription(false) }
     } catch {
@@ -493,10 +530,20 @@ export default function ProfilePage() {
     e.preventDefault()
     if (newPassword.length < 6) { setError('Password must be at least 6 characters'); return }
     setSubmitting(true); setError('')
-    const { error } = await supabase.auth.updateUser({ password: newPassword })
-    if (error) setError(error.message)
-    else { setResetDone(true); setResetMode(false) }
-    setSubmitting(false)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!user?.id || session?.user?.id !== user.id || activeUserId.current !== user.id) {
+        throw new Error('Your account changed. Open the recovery link again before resetting your password.')
+      }
+      await updateSessionPassword(session, newPassword)
+      if (activeUserId.current !== user.id) return
+      setResetDone(true); setResetMode(false)
+      await loadUserData(user)
+    } catch (error) {
+      setError(error.message || 'Could not update your password. Please retry.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const handleLogout       = async () => { await supabase.auth.signOut() }
@@ -510,12 +557,11 @@ export default function ProfilePage() {
     setCropFile(null)
     if (!user) return
     setUploadingAvatar(true)
-    const path = `avatars/${user.id}/${Date.now()}.jpg`
+    const path = avatarStoragePath(user.id)
     const { error: uploadError } = await supabase.storage.from('designs').upload(path, croppedFile, { upsert: false })
     if (uploadError) { alert('Upload failed: ' + uploadError.message); setUploadingAvatar(false); return }
     const { data: { publicUrl } } = supabase.storage.from('designs').getPublicUrl(path)
-    const bustedUrl = `${publicUrl}?t=${Date.now()}`
-    await saveField('avatar_url', bustedUrl)
+    await saveField('avatar_url', publicUrl)
     setUploadingAvatar(false)
   }
 
@@ -881,7 +927,7 @@ export default function ProfilePage() {
           <EditRow label="Display name" field="display_name" value={profile?.display_name} placeholder="Your name" onSave={saveField} />
         </div>
         <div style={{ borderTop: '0.5px solid var(--border)' }}>
-          <UsernameRow value={profile?.username} />
+          <UsernameRow key={user.id} value={profile?.username} onSave={saveField} />
         </div>
         <div style={{ borderTop: '0.5px solid var(--border)', padding: '14px 16px' }}>
           <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '6px' }}>Email</p>
@@ -1347,8 +1393,8 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* Manage subscription — only show if already subscribed */}
-      {profile?.subscription_tier && (
+      {/* Billing stays available when payment failure has removed entitlements. */}
+      {(profile?.subscription_tier || profile?.stripe_customer_id) && (
         <div style={{ margin: '0 20px 14px' }}>
           <button onClick={handleManageSubscription} disabled={managingSubscription} style={{
             width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',

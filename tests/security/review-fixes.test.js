@@ -75,7 +75,7 @@ beforeEach(async () => {
   mocks.create.mockImplementation(async (params,options) => {
     // Stripe's idempotency contract: one external session per stable key.
     if (!sessions.has(options.idempotencyKey)) sessions.set(options.idempotencyKey,{
-      id:`cs_${sessions.size+1}`,url:`https://checkout.invalid/${sessions.size+1}`,status:'open',metadata:params.metadata,
+      id:`cs_${sessions.size+1}`,url:`https://checkout.invalid/${sessions.size+1}`,mode:'subscription',status:'open',metadata:params.metadata,
     })
     return sessions.get(options.idempotencyKey)
   })

@@ -42,7 +42,7 @@ export default function UpgradePage() {
       if (!session?.user) { router.push('/profile'); return }
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, display_name, account_type, subscription_tier')
+        .select('id, display_name, account_type, subscription_tier, stripe_customer_id')
         .eq('id', session.user.id)
         .single()
       if (error) { console.error('profile fetch failed:', error); setLoadError(true) }
@@ -126,7 +126,7 @@ export default function UpgradePage() {
         <h1 style={{ color: 'var(--text-primary)', fontSize: '17px', fontWeight: '600', margin: 0 }}>Upgrade</h1>
       </div>
 
-      {currentTier && currentTier !== 'free' && (
+      {((currentTier && currentTier !== 'free') || profile?.stripe_customer_id) && (
         <div style={{ padding: '20px', textAlign: 'center' }}>
           <button onClick={handleManageSubscription} disabled={!!subscribing}
             style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '12px 24px', fontFamily: 'inherit', cursor: 'pointer' }}>

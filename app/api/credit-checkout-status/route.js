@@ -1,5 +1,6 @@
 import Stripe from 'stripe'
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
+import { stripeId } from '@/lib/subscription-plans'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
@@ -17,8 +18,17 @@ export async function GET(request) {
       return Response.json({ error: 'Checkout not found' }, { status: 404 })
     }
     const { data: receipt, error } = await supabase.from('credit_payments')
-      .select('fulfilled,refunded_credits').eq('session_id', sessionId).eq('user_id', user.id).maybeSingle()
+      .select('fulfilled,refunded_credits,payment_intent').eq('session_id', sessionId).eq('user_id', user.id).maybeSingle()
     if (error) throw error
+    const intentId = receipt?.payment_intent || stripeId(session.payment_intent)
+    if (intentId) {
+      const { data: refund, error: refundError } = await supabase.from('payment_refund_states').select('status')
+        .eq('payment_intent', intentId).eq('user_id', user.id).eq('kind', 'credits').maybeSingle()
+      if (refundError) throw refundError
+      if (refund && refund.status !== 'none') {
+        return Response.json({ status: ['refunded','partially_refunded'].includes(refund.status) ? 'refund_recorded' : refund.status }, { headers: { 'Cache-Control':'no-store' } })
+      }
+    }
     if (!receipt?.fulfilled) {
       const { data: failure, error: failureError } = await supabase.from('checkout_failures')
         .select('status').eq('session_id', sessionId).eq('user_id', user.id).maybeSingle()

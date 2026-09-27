@@ -1,11 +1,12 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 import { database, jsonRequest, ok, user } from '../helpers/supabase'
 
-const mocks = vi.hoisted(() => ({ getSessionUser: vi.fn(), client: {}, constructEvent: vi.fn(), retrieve: vi.fn(), checkout: vi.fn(), subscriptions: vi.fn(), session: vi.fn() }))
+const mocks = vi.hoisted(() => ({ getSessionUser: vi.fn(), client: {}, constructEvent: vi.fn(), retrieve: vi.fn(), checkout: vi.fn(), subscriptions: vi.fn(), session: vi.fn(), refunds: vi.fn() }))
 vi.mock('@/lib/auth', () => ({ getSessionUser: mocks.getSessionUser, serviceClient: mocks.client }))
 vi.mock('stripe', () => ({ default: class Stripe {
   webhooks = { constructEvent: mocks.constructEvent }
   paymentIntents = { retrieve: mocks.retrieve }
+  refunds = { list: mocks.refunds }
   checkout = { sessions: { create: mocks.checkout, retrieve: mocks.session } }
   subscriptions = { list: mocks.subscriptions }
 } }))
@@ -23,22 +24,23 @@ beforeEach(() => {
   vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 
-it('REG-03: two partial refunds reverse only the cumulative entitlement owed', async () => {
-  const removals = []
-  let reversed = 0
+it('REG-03: partial refunds pass cumulative successful amounts to the atomic entitlement transaction', async () => {
+  const totals = []
   Object.assign(mocks.client, database(() => ok(null), async (name, args) => {
-    expect(name).toBe('apply_credit_payment')
-    removals.push(Math.max(0, args.p_refunded_credits - reversed))
-    reversed = Math.max(reversed, args.p_refunded_credits)
-    return ok(40 - reversed)
+    if (name === 'claim_payment_refund_check') return ok('claim-token')
+    if (name === 'release_payment_refund_check') return ok(null)
+    expect(name).toBe('finish_payment_refund_check')
+    totals.push(args.p_succeeded)
+    return ok(true)
   }))
-  mocks.retrieve.mockResolvedValue({ metadata: { type: 'credits', userId: user.id, credits: '40' } })
+  mocks.retrieve.mockResolvedValue({ id: 'pi-a', amount_received: 10000, currency: 'aed', metadata: { type: 'credits', userId: user.id, credits: '40' } })
   for (const [id, refunded] of [['event-a', 2500], ['event-b', 5000]]) {
+    mocks.refunds.mockResolvedValue({ data: [{ id: 're-a', payment_intent: 'pi-a', amount: refunded, currency: 'aed', status: 'succeeded' }], has_more: false })
     expect((await webhook(jsonRequest({ id, type: 'charge.refunded', data: { object: {
       id: 'charge-a', payment_intent: 'pi-a', amount: 10000, amount_refunded: refunded, refunded: false,
     } } }))).status).toBe(200)
   }
-  expect(removals.reduce((sum, n) => sum + n, 0)).toBe(20)
+  expect(totals).toEqual([2500,5000])
 })
 
 it('REG-04: an already subscribed account cannot start another subscription checkout', async () => {

@@ -1,7 +1,9 @@
 import Stripe from 'stripe'
 import { planForPrice, stripeId, subscriptionPlan } from '@/lib/subscription-plans'
 import { serviceClient as supabase } from '@/lib/auth'
-import { recordDepositRefund, refundLateDeposit } from '@/lib/deposit-refund'
+import { reconcileLateDepositRefund, refundLateDeposit } from '@/lib/deposit-refund'
+import { reconcilePaymentRefund } from '@/lib/refund-status'
+import { releaseSubscriptionCheckout } from '@/lib/subscription-checkout'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 async function settleCheckout(session) {
@@ -28,6 +30,15 @@ export async function POST(request) {
 
   try {
     const object = event.data?.object
+    if (['checkout.session.async_payment_failed', 'checkout.session.expired'].includes(event.type) && object?.mode === 'subscription') {
+      const session = await stripe.checkout.sessions.retrieve(object.id)
+      if (session.id !== object.id || session.mode !== 'subscription' || !session.metadata?.userId) throw new Error('Checkout identity mismatch')
+      const { data: attempt, error } = await supabase.from('subscription_checkouts').select('id,session_id')
+        .eq('user_id', session.metadata.userId).eq('id', session.metadata.checkoutAttemptId).maybeSingle()
+      if (error) throw error
+      if (attempt) await releaseSubscriptionCheckout(supabase, stripe, session.metadata.userId, { ...attempt, session_id: attempt.session_id || session.id }, session)
+      return Response.json({ received: true })
+    }
     if (['checkout.session.async_payment_failed', 'checkout.session.expired'].includes(event.type) && object?.mode === 'payment') {
       const session = await stripe.checkout.sessions.retrieve(object.id)
       if (session.id !== object.id || session.mode !== 'payment') throw new Error('Checkout identity mismatch')
@@ -62,29 +73,20 @@ export async function POST(request) {
       await settleCheckout(object)
       return Response.json({ received:true })
     }
-    if (['refund.created','refund.updated','refund.failed'].includes(event.type) && object?.metadata?.type === 'late_deposit') {
+    if (['refund.created','refund.updated','refund.failed'].includes(event.type)) {
       const refund = await stripe.refunds.retrieve(object.id)
-      await recordDepositRefund(supabase, refund, event.created)
+      const intentId = stripeId(refund.payment_intent)
+      if (!await reconcileLateDepositRefund(supabase, stripe, intentId, event.created)) {
+        const intent = await stripe.paymentIntents.retrieve(intentId)
+        await reconcilePaymentRefund(supabase, stripe, intent, event.id)
+      }
       return Response.json({ received:true })
     }
     if (event.type === 'charge.refunded' && object?.payment_intent) {
       const intent = await stripe.paymentIntents.retrieve(stripeId(object.payment_intent))
-      const meta = intent.metadata || {}
-      if (['boost','deposit'].includes(meta.type)) {
-        if (!Number.isSafeInteger(object.amount) || object.amount<=0 || !Number.isSafeInteger(object.amount_refunded) || object.amount_refunded<0 || object.amount_refunded>object.amount) {
-          return Response.json({ error:'Invalid refund amount' },{ status:400 })
-        }
-        // These entitlements are reversed only on a full refund. Partial
-        // credit-pack refunds follow their separate cumulative credit ledger.
-        if (object.amount_refunded<object.amount) return Response.json({ received:true })
-        const { error } = await supabase.rpc('apply_order_payment', {
-          p_event_id:event.id, p_intent:stripeId(object.payment_intent), p_user_id:meta.type==='boost'?meta.creatorId:meta.userId,
-          p_kind:meta.type, p_target_id:meta.type==='boost'?meta.designId:meta.bookingId,
-          p_units:meta.type==='boost'?Number(meta.days):0, p_refunded:true,
-        })
-        if (error) throw error
-        return Response.json({ received:true })
-      }
+      if (intent.metadata?.type === 'deposit' && await reconcileLateDepositRefund(supabase, stripe, intent.id || stripeId(object.payment_intent), event.created)) return Response.json({ received: true })
+      await reconcilePaymentRefund(supabase, stripe, intent, event.id)
+      return Response.json({ received: true })
     }
     if (['invoice.paid','invoice.payment_failed'].includes(event.type)) {
       const invoice = await stripe.invoices.retrieve(object.id)
@@ -154,24 +156,6 @@ export async function POST(request) {
       await settleCheckout(object)
       return Response.json({ received: true })
     }
-    if (event.type === 'charge.refunded' && object?.payment_intent) {
-      const intentId = typeof object.payment_intent === 'string' ? object.payment_intent : object.payment_intent.id
-      const intent = await stripe.paymentIntents.retrieve(intentId)
-      if (intent.metadata?.type === 'credits') {
-        const credits = Number(intent.metadata.credits)
-        if (!intent.metadata.userId || !Number.isSafeInteger(credits) || credits <= 0 ||
-            !Number.isSafeInteger(object.amount) || object.amount <= 0 ||
-            !Number.isSafeInteger(object.amount_refunded) || object.amount_refunded < 0 || object.amount_refunded > object.amount) {
-          return Response.json({ error: 'Invalid refund metadata' }, { status: 400 })
-        }
-        const { error } = await supabase.rpc('apply_credit_payment', {
-          p_event_id: event.id, p_payment_intent: intentId, p_user_id: intent.metadata.userId, p_credits: credits,
-          p_refunded_credits: Math.round(credits * object.amount_refunded / object.amount),
-        })
-        if (error) throw error
-        return Response.json({ received: true })
-      }
-    }
   } catch (error) {
     console.error('Credit payment transaction failed:', error)
     return Response.json({ error: 'Payment could not be recorded' }, { status: 500 })
@@ -205,6 +189,19 @@ export async function POST(request) {
         p_session_id: subscriptionCheckout ? object.id : null,
       })
       if (error) throw error
+      if (subscriptionLifecycle && ['canceled', 'incomplete_expired'].includes(subscription.status)) {
+        const { data: attempt, error: attemptError } = await supabase.from('subscription_checkouts')
+          .select('id,session_id').eq('user_id', userId).maybeSingle()
+        if (attemptError) throw attemptError
+        if (attempt?.session_id) {
+          const session = await stripe.checkout.sessions.retrieve(attempt.session_id)
+          // A late cancellation of an older subscription must not release a
+          // newer payable checkout owned by the same account.
+          if (stripeId(session.subscription) === subscription.id) {
+            await releaseSubscriptionCheckout(supabase, stripe, userId, attempt, session)
+          }
+        }
+      }
       return Response.json({ received: true })
     } catch (error) {
       console.error('Subscription transaction failed:', error)

@@ -13,16 +13,23 @@ export async function GET(request) {
       .select('deposit_paid').eq('id',bookingId).eq('client_id',user.id).maybeSingle()
     if (bookingError) throw bookingError
     if (!booking) return json({ error:'Booking not found' }, 404)
-    let query = supabase.from('order_payments').select('refund_required,refund_status,refunded,needs_review,fulfilled,created_at')
+    let query = supabase.from('order_payments').select('payment_intent,refund_required,refund_status,refunded,needs_review,refund_reconciliation_pending,fulfilled,created_at')
       .eq('user_id',user.id).eq('kind','deposit').eq('target_id',bookingId)
     if (sessionId) query = query.eq('session_id',sessionId)
     const { data:receipts, error } = await query
     if (error) throw error
     const receipt = receipts?.sort((a,b) => new Date(b.created_at)-new Date(a.created_at))[0]
     if (receipt?.refund_required) {
+      if (receipt.refund_reconciliation_pending) return json({ status: 'payment_review' })
       const status = receipt.refund_status === 'succeeded' ? 'refunded'
         : ['failed','canceled','requires_action'].includes(receipt.refund_status) ? 'refund_failed' : 'refund_pending'
       return json({ status })
+    }
+    if (receipt?.payment_intent) {
+      const { data: refund, error: refundError } = await supabase.from('payment_refund_states').select('status')
+        .eq('payment_intent', receipt.payment_intent).eq('user_id', user.id).eq('kind', 'deposit').maybeSingle()
+      if (refundError) throw refundError
+      if (refund && refund.status !== 'none') return json({ status: refund.status === 'partially_refunded' ? 'partial_refund' : refund.status })
     }
     if (receipt?.refunded) return json({ status:'refunded' })
     if (receipt?.needs_review) return json({ status:'payment_review' })

@@ -17,7 +17,8 @@
     "env:check:build": "node scripts/check-env.mjs build",
     "test:security": "vitest run tests/security",
     "test:phase3": "vitest run tests/phase3",
-    "test:phase4": "vitest run tests/phase4"
+    "test:phase4": "vitest run tests/phase4",
+    "test:phase5": "vitest run tests/phase5"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.1",

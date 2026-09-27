@@ -11,7 +11,7 @@ import DepositSuccess from '@/app/appointments/deposit-success/page'
 beforeEach(()=>{
   vi.useFakeTimers()
   Object.assign(mock.client,database(()=>ok({subscription_tier:null,deposit_paid:false,status:'pending'})))
-  mock.client.auth={getUser:async()=>({data:{user}}),getSession:async()=>({data:{session:{user,access_token:'test-token'}}})}
+  mock.client.auth={onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}}),getUser:async()=>({data:{user}}),getSession:async()=>({data:{session:{user,access_token:'test-token'}}})}
   vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({status:'pending'})})))
 })
 afterEach(cleanup)

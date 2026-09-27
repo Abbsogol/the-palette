@@ -42,12 +42,12 @@ test('search initializes a deep-linked query without a hydration error', async (
 
 test('an unverified checkout does not announce credits were added', async ({ page }) => {
   await page.goto('/buy-credits/success?session_id=cs_unverified')
-  await expect(page.getByRole('heading', { name: 'Confirming your purchase' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Sign in to view your checkout' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Credits added ✦' })).toHaveCount(0)
 })
 
 test('a subscription redirect does not claim activation without confirmation', async ({ page }) => {
   await page.goto('/upgrade/success?plan=premium&session_id=cs_unverified')
-  await expect(page.getByRole('heading', { name: 'Subscription checkout' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Sign in to view your checkout' })).toBeVisible()
   await expect(page.getByText(/subscription is now active/i)).toHaveCount(0)
 })

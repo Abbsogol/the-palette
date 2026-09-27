@@ -234,7 +234,25 @@ function Chip({ label, active, onClick }) {
 }
 
 export default function NailLabPage() {
-  const [currentUser, setCurrentUser] = useState(null)
+  const [user, setUser] = useState(undefined)
+  useEffect(() => {
+    let active = true, changed = false
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      changed = true
+      if (active) setUser(session?.user || null)
+    })
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (active && !changed) setUser(session?.user || null)
+    }).catch(() => { if (active && !changed) setUser(null) })
+    return () => { active = false; subscription.unsubscribe() }
+  }, [])
+  if (user === undefined) return <p>Loading...</p>
+  // A new account gets a new builder. Private images, prompts, open dialogs,
+  // and callbacks from the previous account cannot enter its component state.
+  return <NailLabBuilder key={user?.id || 'signed-out'} currentUser={user} />
+}
+
+function NailLabBuilder({ currentUser }) {
   const [credits, setCredits] = useState(null)
   const [loadingUser, setLoadingUser] = useState(true)
 
@@ -267,8 +285,7 @@ export default function NailLabPage() {
   useEffect(() => {
     const load = async () => {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.user) { setLoadingUser(false); return }
-      setCurrentUser(session.user)
+      if (!session?.user || session.user.id !== currentUser?.id) { setLoadingUser(false); return }
       try {
         const response = await fetch('/api/generation-status', { headers: { Authorization: `Bearer ${session.access_token}` }, cache: 'no-store' })
         const data = await response.json()
@@ -278,7 +295,7 @@ export default function NailLabPage() {
       setLoadingUser(false)
     }
     load()
-  }, [])
+  }, [currentUser?.id])
 
   const toggleColor = (hex) => {
     setColors(prev => {
@@ -313,12 +330,16 @@ export default function NailLabPage() {
     setGenError(null)
     try {
       const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user || session.user.id !== currentUser?.id) throw new Error('Your account changed. Reload before generating.')
       const data = await requestGeneration(session, {
         vibe: vibes, shape, length, colors, occasion: occasions,
         customText: customText || null, freeRegen, parentGenerationId: parentId,
       })
       setResult(data)
-      if (!parentId) setRootGenerationId(data.generationId)
+      if (!freeRegen) {
+        setRootGenerationId(data.generationId)
+        setFreeRegenUsed(false)
+      }
       if (!freeRegen) setCredits(data.creditsRemaining)
       setPublishedDesignId(null)
       setPublishStatus(null)
@@ -328,7 +349,7 @@ export default function NailLabPage() {
       setGenError(e.message)
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        if (session?.access_token) {
+        if (session?.access_token && session.user.id === currentUser?.id) {
           const response = await fetch('/api/generation-status', { headers: { Authorization: `Bearer ${session.access_token}` }, cache: 'no-store' })
           const status = await response.json()
           if (response.ok) setCredits(status.creditsRemaining)
@@ -362,6 +383,7 @@ export default function NailLabPage() {
   // reliably reachable from the anon client for this cross-bucket flow).
   const publishGeneration = async (asDraft) => {
     const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.user || session.user.id !== currentUser?.id) throw new Error('Your account changed. Reload before publishing.')
     const res = await fetch('/api/publish-nail-lab-generation', {
       method: 'POST',
       headers: {

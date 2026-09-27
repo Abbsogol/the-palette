@@ -26,6 +26,7 @@ beforeEach(async () => {
   await db.query('insert into public.conversations(id,client_id,creator_id) values ($1,$2,$3)', [conversation, alice, bob])
   await db.query("insert into public.messages(id,conversation_id,sender_id,content) values ($1,$2,$3,'Original')", [message, conversation, alice])
   await db.query("insert into public.services(id,creator_id,name,duration_minutes,price) values ($1,$2,'Manicure',60,100)", [service,bob])
+  await db.query("insert into public.availability(creator_id,day_of_week,start_time,end_time) select $1,generate_series(0,6),'09:00'::time,'17:00'::time", [bob])
   await db.query("insert into public.bookings(id,client_id,creator_id,service_id,booking_date,start_time,end_time) values ($1,$2,$3,$4,current_date+1,'10:00','11:00')", [booking,alice,bob,service])
   await db.query("insert into public.moodboards(id,user_id,name) values ($1,$2,'Private board')", [board,alice])
 })

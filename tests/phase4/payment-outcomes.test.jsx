@@ -2,7 +2,7 @@
 import { act, cleanup, render, screen } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-vi.mock('@/lib/supabase', () => ({ supabase: { auth: { getSession: async () => ({ data: { session: { access_token: 'test-only' } } }) } } }))
+vi.mock('@/lib/supabase', () => ({ supabase: { auth: { onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }), getSession: async () => ({ data: { session: { user: { id: 'checkout-owner' }, access_token: 'test-only' } } }) } } }))
 vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams('session_id=cs_purchase&booking=booking') }))
 import Credits from '@/app/buy-credits/success/page'
 import Deposit from '@/app/appointments/deposit-success/page'

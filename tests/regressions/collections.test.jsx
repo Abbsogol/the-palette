@@ -18,7 +18,7 @@ beforeEach(() => {
     if (q.table === 'profiles') return ok({ credit_balance: 0 })
     throw new Error(`Unexpected query: ${q.table}`)
   }))
-  mocks.client.auth = { getUser: vi.fn(async () => ({ data: { user } })), getSession: vi.fn(async () => ({ data: { session: { user, access_token: 'test-token' } } })) }
+  mocks.client.auth = { onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }), getUser: vi.fn(async () => ({ data: { user } })), getSession: vi.fn(async () => ({ data: { session: { user, access_token: 'test-token' } } })) }
 })
 afterEach(cleanup)
 

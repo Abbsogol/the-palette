@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import CheckoutSession from '@/components/CheckoutSession'
 
 const POLL_INTERVAL_MS = 1500
 const MAX_POLL_ATTEMPTS = 8 // ~12s of polling, on top of the immediate first read
@@ -11,10 +12,10 @@ const MAX_POLL_ATTEMPTS = 8 // ~12s of polling, on top of the immediate first re
 function SuccessContent() {
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('session_id')
-  return <CheckoutResult key={sessionId || 'none'} sessionId={sessionId} />
+  return <CheckoutSession>{userId => <CheckoutResult key={sessionId || 'none'} sessionId={sessionId} userId={userId} />}</CheckoutSession>
 }
 
-function CheckoutResult({ sessionId }) {
+function CheckoutResult({ sessionId, userId }) {
   const [outcome, setOutcome] = useState('pending')
   const [creditBalance, setCreditBalance] = useState(null)
   const [checking, setChecking] = useState(true)
@@ -28,14 +29,15 @@ function CheckoutResult({ sessionId }) {
       attempts += 1
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        if (!sessionId || !session) throw new Error('Sign in to confirm this checkout')
+        if (cancelled) return
+        if (!sessionId || !session || session.user?.id !== userId) throw new Error('Sign in to confirm this checkout')
         const response = await fetch(`/api/credit-checkout-status?session_id=${encodeURIComponent(sessionId)}`, {
           headers: { Authorization: `Bearer ${session.access_token}` }, cache: 'no-store',
         })
         const result = await response.json()
         if (cancelled) return
         if (!response.ok) throw new Error(result.error || 'Unable to confirm checkout')
-        if (['fulfilled','refund_recorded','failed','expired'].includes(result.status)) {
+        if (['fulfilled','refund_recorded','refund_pending','payment_review','failed','expired'].includes(result.status)) {
           setOutcome(result.status)
           setCreditBalance(result.creditBalance ?? null)
           setChecking(false)
@@ -50,11 +52,13 @@ function CheckoutResult({ sessionId }) {
 
     tick()
     return () => { cancelled = true; clearTimeout(timeoutId) }
-  }, [sessionId])
+  }, [sessionId, userId])
 
   const [heading, description] = {
     fulfilled: ['Credits added ✦', 'Your purchase is recorded. Head to Nail Lab and start creating.'],
     refund_recorded: ['Refund recorded', 'This purchase has a refund recorded. Your current credit balance is shown below.'],
+    refund_pending: ['Refund in progress', 'Your refund is still being processed. Your current credit balance is shown below.'],
+    payment_review: ['Payment needs review', 'Your refund needs attention. Please contact support before starting a replacement purchase.'],
     failed: ['Payment failed', 'Your payment did not complete. You can try again.'],
     expired: ['Checkout expired', 'This checkout expired. Start a new checkout when you are ready.'],
     pending: ['Confirming your purchase', 'Waiting for payment and credit confirmation.'],

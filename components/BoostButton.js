@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 
 const BOOST_OPTIONS = [
@@ -15,26 +15,59 @@ function fmtDate(iso) {
 }
 
 export default function BoostButton({ designId, creatorId, boostedUntil }) {
-  const [show, setShow] = useState(false)
+  const [userId, setUserId] = useState(null)
+  useEffect(() => {
+    let active = true, changed = false
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      changed = true
+      if (active) setUserId(session?.user?.id || null)
+    })
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (active && !changed) setUserId(session?.user?.id || null)
+    }).catch(() => { if (active && !changed) setUserId(null) })
+    return () => { active = false; subscription.unsubscribe() }
+  }, [])
+  if (!userId || userId !== creatorId) return null
+  return <OwnedBoost key={`${userId}:${designId}`} designId={designId} creatorId={creatorId} boostedUntil={boostedUntil} />
+}
+
+function OwnedBoost({ designId, creatorId, boostedUntil }) {
   const [modalOpen, setModalOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [selected, setSelected] = useState(null)
+  const [refundStatus, setRefundStatus] = useState('none')
+  const requestState = useRef({ active: false, pending: false })
 
   const isActive = boostedUntil && new Date(boostedUntil) > new Date()
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user?.id === creatorId) setShow(true)
-    })
-  }, [creatorId])
-
-  if (!show) return null
+    let cancelled = false
+    const state = requestState.current
+    state.active = true
+    const load = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (cancelled || session?.user?.id !== creatorId) return
+        const response = await fetch(`/api/boost-checkout-status?designId=${encodeURIComponent(designId)}`, {
+          headers: { Authorization: `Bearer ${session.access_token}` }, cache: 'no-store',
+        })
+        const result = await response.json()
+        if (!cancelled) setRefundStatus(response.ok ? result.status : 'unavailable')
+      } catch { if (!cancelled) setRefundStatus('unavailable') }
+    }
+    load()
+    return () => { cancelled = true; state.active = false }
+  }, [creatorId, designId])
 
   const handleBoost = async () => {
-    if (!selected || loading) return
+    const state = requestState.current
+    if (!selected || state.pending || !state.active) return
+    state.pending = true
     setLoading(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
+      if (!state.active) return
+      if (session?.user?.id !== creatorId) throw new Error('Your account changed')
       const res = await fetch('/api/create-boost-payment', {
         method: 'POST',
         headers: {
@@ -44,9 +77,13 @@ export default function BoostButton({ designId, creatorId, boostedUntil }) {
         body: JSON.stringify({ designId, days: selected.days, price: selected.price }),
       })
       const data = await res.json()
+      if (!state.active) return
+      const { data: { session: currentSession } } = await supabase.auth.getSession()
+      if (!state.active || currentSession?.user?.id !== creatorId) return
       if (data.url) window.location.href = data.url
-      else { alert(data.error || 'Something went wrong'); setLoading(false) }
-    } catch { alert('Something went wrong'); setLoading(false) }
+      else alert(data.error || 'Something went wrong')
+    } catch { if (state.active) alert('Something went wrong') }
+    finally { if (state.active) { state.pending = false; setLoading(false) } }
   }
 
   return (
@@ -70,6 +107,16 @@ export default function BoostButton({ designId, creatorId, boostedUntil }) {
         </svg>
         {isActive ? `Boosted · ${fmtDate(boostedUntil)}` : '✦ Boost'}
       </button>
+      {refundStatus !== 'none' && (
+        <p role="status" style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>
+          {{
+            payment_review: 'A boost refund needs attention. Please contact support.',
+            refund_pending: 'A boost refund is still being processed.',
+            refund_recorded: 'A refund is recorded for a boost purchase.',
+            unavailable: 'Refund status could not be checked. Refresh to try again.',
+          }[refundStatus]}
+        </p>
+      )}
 
       {/* Modal */}
       {modalOpen && (

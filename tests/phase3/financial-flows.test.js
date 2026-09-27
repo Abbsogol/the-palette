@@ -41,6 +41,7 @@ beforeEach(async()=>{
   await db.query("update profiles_data set account_type='creator' where id=$1",[creator])
   await db.query("insert into designs(id,created_by,title,is_published) values ($1,$2,'Paid promotion',true)",[design,creator])
   await db.query("insert into services(id,creator_id,name,duration_minutes,price,deposit_amount) values ($1,$2,'Manicure',60,100,25)",[service,creator])
+  await db.query("insert into availability(creator_id,day_of_week,start_time,end_time) select $1,generate_series(0,6),'09:00'::time,'17:00'::time",[creator])
   await db.query("insert into bookings(id,client_id,creator_id,service_id,booking_date,start_time,end_time) values ($1,$2,$3,$4,current_date+1,'10:00','11:00')",[booking,user,creator,service])
   mock.user.mockResolvedValue({id:user,email:'user@example.invalid'});mock.admin.mockResolvedValue(true)
   Object.assign(mock.client,sqlSupabase(db))
@@ -51,8 +52,9 @@ beforeEach(async()=>{
   })
   mock.session.mockImplementation(async id=>[...sessions.values()].find(s=>s.id===id))
   refunds=new Map()
+  mock.intent.mockImplementation(async id=>({id,amount_received:2500,currency:'aed',metadata:{type:'deposit',bookingId:booking,userId:user}}))
   mock.refund.mockImplementation(async(params,options)=>{
-    if(!refunds.has(options.idempotencyKey))refunds.set(options.idempotencyKey,{...params,id:`re_${options.idempotencyKey}`,status:'succeeded'})
+    if(!refunds.has(options.idempotencyKey))refunds.set(options.idempotencyKey,{...params,id:`re_${options.idempotencyKey}`,status:'succeeded',amount:2500,currency:'aed'})
     return refunds.get(options.idempotencyKey)
   })
   mock.refundRetrieve.mockImplementation(async id=>[...refunds.values()].find(r=>r.id===id))
@@ -78,14 +80,16 @@ it('P3-03: refunding an old boost preserves a different paid boost',async()=>{
   const meta={type:'boost',designId:design,creatorId:creator,days:'1'}
   await checkout('evt_boost_a','checkout.session.completed',meta,'pi_a')
   await checkout('evt_boost_b','checkout.session.completed',{...meta,days:'3'},'pi_b')
-  mock.intent.mockResolvedValue({metadata:meta})
+  mock.intent.mockResolvedValue({id:'pi_a',amount_received:1500,currency:'aed',metadata:meta})
+  refunds.set('manual-boost-a',{id:'re_boost_a',payment_intent:'pi_a',amount:1500,currency:'aed',status:'succeeded'})
   await event('evt_refund_a','charge.refunded',{id:'ch_a',payment_intent:'pi_a',refunded:true,amount:1500,amount_refunded:1500})
   expect(new Date(await scalar('select boosted_until from designs where id=$1',[design])).getTime()).toBeGreaterThan(Date.now()+2*86400000)
 })
 it('P3-04: an old deposit refund cannot clear the newer paid deposit',async()=>{
   await db.query("update bookings set deposit_paid=true,stripe_payment_intent='pi_new' where id=$1",[booking])
-  mock.intent.mockResolvedValue({metadata:{type:'deposit',bookingId:booking,userId:user}})
-  await event('evt_refund_old','charge.refunded',{id:'ch_old',payment_intent:'pi_old',refunded:true,amount:2500,amount_refunded:2500})
+  mock.intent.mockResolvedValue({id:'pi_old',amount_received:2500,currency:'aed',metadata:{type:'deposit',bookingId:booking,userId:user}})
+  refunds.set('manual-old',{id:'re_old',payment_intent:'pi_old',amount:2500,currency:'aed',status:'succeeded'})
+  expect((await event('evt_refund_old','charge.refunded',{id:'ch_old',payment_intent:'pi_old',refunded:true,amount:2500,amount_refunded:2500})).status).toBe(200)
   expect(await scalar('select deposit_paid from bookings where id=$1',[booking])).toBe(true)
 })
 it.each(['cancelled','declined'])('P3-05: a %s booking cannot collect a deposit',async status=>{
@@ -230,14 +234,16 @@ it('concurrent separate boost purchases both contribute their paid duration',asy
   expect(until).toBeLessThan(Date.now()+2.01*86400000)
 })
 it('boost refund before fulfillment is remembered and cannot be resurrected',async()=>{
-  const meta={type:'boost',designId:design,creatorId:creator,days:'1'};mock.intent.mockResolvedValue({metadata:meta})
+  const meta={type:'boost',designId:design,creatorId:creator,days:'1'};mock.intent.mockResolvedValue({id:'pi_early',amount_received:1500,currency:'aed',metadata:meta})
+  refunds.set('manual-boost-early',{id:'re_boost_early',payment_intent:'pi_early',amount:1500,currency:'aed',status:'succeeded'})
   await event('evt_refund_first','charge.refunded',{payment_intent:'pi_early',amount:1500,amount_refunded:1500,refunded:true})
   await checkout('evt_late','checkout.session.completed',meta,'pi_early')
   expect(await scalar('select boosted_until from designs where id=$1',[design])).toBeNull()
   expect((await db.query("select fulfilled,refunded from order_payments where payment_intent='pi_early'")).rows).toEqual([{fulfilled:true,refunded:true}])
 })
 it('partial boost refund does not erase the promotion',async()=>{
-  const meta={type:'boost',designId:design,creatorId:creator,days:'1'};mock.intent.mockResolvedValue({metadata:meta})
+  const meta={type:'boost',designId:design,creatorId:creator,days:'1'};mock.intent.mockResolvedValue({id:'pi_a',amount_received:1500,currency:'aed',metadata:meta})
+  refunds.set('manual-boost-partial',{id:'re_boost_partial',payment_intent:'pi_a',amount:500,currency:'aed',status:'succeeded'})
   await checkout('evt_paid','checkout.session.completed',meta,'pi_a')
   const before=await scalar('select boosted_until from designs where id=$1',[design])
   await event('evt_partial','charge.refunded',{payment_intent:'pi_a',amount:1500,amount_refunded:500,refunded:false})
@@ -266,8 +272,9 @@ it('a deposit records its payment identity and only its matching refund clears i
   expect((await checkout('evt_deposit','checkout.session.completed',meta,'pi_deposit')).status).toBe(200)
   expect(mock.refund).not.toHaveBeenCalled()
   expect((await db.query('select deposit_paid,stripe_payment_intent,status from bookings where id=$1',[booking])).rows).toEqual([{deposit_paid:true,stripe_payment_intent:'pi_deposit',status:'pending'}])
-  mock.intent.mockResolvedValue({metadata:meta})
-  await event('evt_refund','charge.refunded',{payment_intent:'pi_deposit',amount:2500,amount_refunded:2500,refunded:true})
+  mock.intent.mockResolvedValue({id:'pi_deposit',amount_received:2500,currency:'aed',metadata:meta})
+  refunds.set('manual-deposit',{id:'re_deposit',payment_intent:'pi_deposit',amount:2500,currency:'aed',status:'succeeded'})
+  expect((await event('evt_refund','charge.refunded',{payment_intent:'pi_deposit',amount:2500,amount_refunded:2500,refunded:true})).status).toBe(200)
   expect(await scalar('select deposit_paid from bookings where id=$1',[booking])).toBe(false)
 })
 it.each(['cancelled','declined'])('a late deposit for a %s booking automatically requests a full refund',async status=>{
@@ -340,7 +347,11 @@ const depositRequest = (session='cs_pi_late_retry') => new Request(`http://local
 it('concurrent duplicate late deposit events issue only one refund',async()=>{
   await db.query("update bookings set status='cancelled' where id=$1",[booking])
   const responses=await Promise.all([lateDeposit(),lateDeposit('evt_late_async','checkout.session.async_payment_succeeded')])
-  expect(responses.map(r=>r.status)).toEqual([200,200])
+  expect(responses.some(r=>r.status===200)).toBe(true)
+  expect(responses.every(r=>[200,500].includes(r.status))).toBe(true)
+  // A concurrent reader retries its event after the winner releases the lease.
+  // Acknowledging it early could lose a newer provider state.
+  expect((await lateDeposit('evt_late_async','checkout.session.async_payment_succeeded')).status).toBe(200)
   expect(refunds.size).toBe(1)
   expect(await scalar('select count(*)::integer from order_payments')).toBe(1)
   expect(await scalar('select deposit_paid from bookings where id=$1',[booking])).toBe(false)
@@ -370,7 +381,7 @@ it('an accepted refund survives a failed database acknowledgment without another
 it('delayed refund updates change the owner-visible outcome without resurrecting a booking',async()=>{
   await db.query("update bookings set status='cancelled' where id=$1",[booking])
   mock.refund.mockImplementation(async params=>{
-    const refund={...params,id:'re_pending',status:'pending'};refunds.set('pending',refund);return refund
+    const refund={...params,id:'re_pending',status:'pending',amount:2500,currency:'aed'};refunds.set('pending',refund);return refund
   })
   expect((await lateDeposit()).status).toBe(200)
   expect(await (await depositStatus(depositRequest())).json()).toEqual({status:'refund_pending'})
@@ -408,6 +419,7 @@ it('deposit status is private and does not acknowledge an unrelated checkout',as
 it('a prior subscription cannot acknowledge an unrelated new checkout',async()=>{
   await setupSubscription()
   mock.session.mockResolvedValue({mode:'subscription',metadata:{userId:user},payment_status:'paid',customer:'cus_current',subscription:'sub_other'})
+  mock.subscription.mockResolvedValue({...await mock.subscription(),id:'sub_other'})
   const response=await subscriptionStatus(new Request('http://localhost/api/subscription-checkout-status?session_id=cs_new'))
   expect(await response.json()).toEqual({status:'pending'})
   expect(response.headers.get('cache-control')).toBe('no-store')

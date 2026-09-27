@@ -61,6 +61,10 @@ export async function createSecurityDatabase({ hardened = true } = {}) {
       await db.exec(await readFile(new URL('../../supabase/migrations/202609270006_phase4_lifecycle.sql', import.meta.url), 'utf8'))
       await db.exec(await readFile(new URL('../../supabase/migrations/202609270007_refunded_generation_holds.sql', import.meta.url), 'utf8'))
       await db.exec(await readFile(new URL('../../supabase/migrations/202609270008_checkout_failures.sql', import.meta.url), 'utf8'))
+      await db.exec(await readFile(new URL('../../supabase/migrations/202609270009_subscription_recovery.sql', import.meta.url), 'utf8'))
+      await db.exec(await readFile(new URL('../../supabase/migrations/202609270010_refund_reconciliation.sql', import.meta.url), 'utf8'))
+      await db.exec(await readFile(new URL('../../supabase/migrations/202609270011_booking_availability.sql', import.meta.url), 'utf8'))
+      await db.exec(await readFile(new URL('../../supabase/migrations/202609270012_payment_refund_states.sql', import.meta.url), 'utf8'))
     }
     await releaseSetupLock()
     return db

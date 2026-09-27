@@ -1,5 +1,6 @@
 import Stripe from 'stripe'
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
+import { releaseSubscriptionCheckout } from '@/lib/subscription-checkout'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
@@ -7,24 +8,24 @@ export async function POST(request) {
   const user = await getSessionUser(request, { allowDeleting:true })
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
   try {
-    const { data: profile, error: profileError } = await supabase.from('profiles_data')
-      .select('subscription_tier').eq('id', user.id).single()
+    const billingFields = 'subscription_tier,stripe_subscription_id,subscription_status'
+    let { data: profile, error: profileError } = await supabase.from('profiles_data')
+      .select(billingFields).eq('id', user.id).single()
     if (profileError || !profile) throw profileError || new Error('Account unavailable')
     const { data: pendingCheckout, error: checkoutError } = await supabase.from('subscription_checkouts')
       .select('id, session_id').eq('user_id', user.id).maybeSingle()
     if (checkoutError) throw checkoutError
     let checkout = pendingCheckout
     if (checkout?.session_id) {
-      const session = await stripe.checkout.sessions.retrieve(checkout.session_id)
-      if (session.status === 'expired') {
-        const { error: expiryError } = await supabase.rpc('expire_subscription_checkout', {
-          p_user_id: user.id, p_id: checkout.id, p_session_id: checkout.session_id,
-        })
-        if (expiryError) throw expiryError
+      if (await releaseSubscriptionCheckout(supabase, stripe, user.id, checkout)) {
         checkout = null
+        ;({ data: profile, error: profileError } = await supabase.from('profiles_data')
+          .select(billingFields).eq('id', user.id).single())
+        if (profileError || !profile) throw profileError || new Error('Account unavailable')
       }
     }
-    if ((profile.subscription_tier && profile.subscription_tier !== 'free') || checkout) {
+    const billableSubscription = profile.stripe_subscription_id && !['canceled', 'incomplete_expired'].includes(profile.subscription_status)
+    if ((profile.subscription_tier && profile.subscription_tier !== 'free') || billableSubscription || checkout) {
       return Response.json({ error: 'Please cancel your subscription or let your pending checkout expire before deleting your account. Contact support if checkout could not be confirmed.' }, { status: 409 })
     }
     for (const table of ['deposit_checkouts','payment_checkouts']) {
