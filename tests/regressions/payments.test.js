@@ -27,6 +27,7 @@ beforeEach(() => {
 it('REG-03: partial refunds pass cumulative successful amounts to the atomic entitlement transaction', async () => {
   const totals = []
   Object.assign(mocks.client, database(() => ok(null), async (name, args) => {
+    if (name === 'mark_payment_refund_pending') return ok(true)
     if (name === 'claim_payment_refund_check') return ok('claim-token')
     if (name === 'release_payment_refund_check') return ok(null)
     expect(name).toBe('finish_payment_refund_check')
@@ -92,8 +93,8 @@ it('blocks another subscription during webhook delay when Stripe already has an 
 
 it('allows a first subscription and reuses its known customer', async () => {
   Object.assign(mocks.client, database(q => ok(q.table==='subscription_checkouts' ? {id:'attempt'} : { subscription_tier: null, stripe_customer_id: 'cus-a' }),async(name)=>{
-    expect(name).toBe('reserve_subscription_checkout')
-    return ok({id:'attempt',customer_id:'cus-a',plan_id:'premium',base_url:'https://laque.app',created_at:new Date().toISOString()})
+    expect(name).toBe('reserve_subscription_checkout_v2')
+    return ok({id:'attempt',customer_id:'cus-a',plan_id:'premium',price_id:'price_test',base_url:'https://laque.app',created_at:new Date().toISOString()})
   }))
   mocks.subscriptions.mockResolvedValue({ data: [], has_more: false })
   expect((await subscribe(jsonRequest({ planId: 'premium' }))).status).toBe(200)

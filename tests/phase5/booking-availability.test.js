@@ -12,6 +12,7 @@ beforeEach(async () => {
   await db.query("update profiles_data set account_type='creator' where id=$1", [creator])
   await db.query("insert into services(id,creator_id,name,duration_minutes,price) values ($1,$2,'Manicure',60,100)", [service, creator])
   await db.query("insert into availability(creator_id,day_of_week,start_time,end_time) select $1,generate_series(0,6),'09:00'::time,'17:00'::time", [creator])
+  await db.query("insert into creator_booking_settings(creator_id,time_zone) values($1,'UTC')",[creator])
 })
 const book = (day=1,start='10:00',end='11:00',role='authenticated',who=client) => db.as(role,who,
   "insert into bookings(client_id,creator_id,service_id,booking_date,start_time,end_time,status) values ($1,$2,$3,current_date+$4::integer,$5,$6,'pending') returning id", [client,creator,service,day,start,end])

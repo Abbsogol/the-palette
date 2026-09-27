@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase'
 // Financial outcomes belong to the authenticated account as well as the URL.
 // Remount the result when identity changes so old state and pending requests
 // cannot enter the next account's result page.
-export default function CheckoutSession({ children }) {
+export default function CheckoutSession({ children, title = 'Sign in to view your checkout', description = 'Your payment details are available only to the account that started checkout.' }) {
   const [user, setUser] = useState(undefined)
   useEffect(() => {
     let active = true, changed = false
@@ -23,8 +23,8 @@ export default function CheckoutSession({ children }) {
   if (user === undefined) return <p>Checking your session…</p>
   if (!user) return (
     <div style={{ padding: '40px 24px', textAlign: 'center' }}>
-      <h1>Sign in to view your checkout</h1>
-      <p>Your payment details are available only to the account that started checkout.</p>
+      <h1>{title}</h1>
+      <p>{description}</p>
       <Link href="/profile">Sign in</Link>
     </div>
   )

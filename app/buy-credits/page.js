@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import CheckoutSession from '@/components/CheckoutSession'
+import { useAccountAction } from '@/lib/use-account-action'
 
 const PACKS = [
   {
@@ -39,31 +40,33 @@ const PACKS = [
 ]
 
 export default function BuyCreditsPage() {
-  const router = useRouter()
-  const [currentUser, setCurrentUser] = useState(null)
+  return <CheckoutSession>{userId => <CreditStore userId={userId} />}</CheckoutSession>
+}
+
+function CreditStore({ userId }) {
   const [creditBalance, setCreditBalance] = useState(null)
   const [loading, setLoading] = useState(null) // which pack is loading
+  const { run, busy } = useAccountAction(userId)
 
   useEffect(() => {
+    let active = true
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/profile'); return }
-      setCurrentUser(user)
       const { data: profile } = await supabase
         .from('profiles')
         .select('credit_balance')
-        .eq('id', user.id)
+        .eq('id', userId)
         .single()
-      if (profile) setCreditBalance(profile.credit_balance)
+      if (active && profile) setCreditBalance(profile.credit_balance)
     }
     getUser()
-  }, [router])
+    return () => { active = false }
+  }, [userId])
 
   const handleBuy = async (pack) => {
-    if (!currentUser) return
+    if (busy) return
     setLoading(pack.id)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      const data = await run(async session => {
       const res = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: {
@@ -73,17 +76,14 @@ export default function BuyCreditsPage() {
         body: JSON.stringify({ packId: pack.id }),
       })
       const data = await res.json()
-      if (data.url) {
-        window.location.assign(data.url)
-      } else {
-        alert('Something went wrong. Please try again.')
-        setLoading(null)
-      }
+      if (!res.ok || !data.url) throw new Error(data.error || 'Something went wrong. Please try again.')
+      return data
+      })
+      if (data?.url) window.location.assign(data.url)
     } catch (err) {
       console.error(err)
-      alert('Something went wrong. Please try again.')
-      setLoading(null)
-    }
+      alert(err.message || 'Something went wrong. Please try again.')
+    } finally { setLoading(null) }
   }
 
   return (
@@ -177,7 +177,7 @@ export default function BuyCreditsPage() {
 
             <button
               onClick={() => handleBuy(pack)}
-              disabled={!!loading}
+              disabled={busy}
               style={{
                 width: '100%',
                 background: pack.popular ? 'var(--accent)' : 'var(--bg-chip)',

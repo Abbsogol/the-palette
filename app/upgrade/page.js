@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import CheckoutSession from '@/components/CheckoutSession'
+import { useAccountAction } from '@/lib/use-account-action'
 
 const PRO_CREATOR_FEATURES = [
   'Accept client bookings',
@@ -31,49 +33,59 @@ function CheckIcon() {
 }
 
 export default function UpgradePage() {
+  return <CheckoutSession>{userId => <UpgradeOptions userId={userId} />}</CheckoutSession>
+}
+
+function UpgradeOptions({ userId }) {
   const router = useRouter()
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
   const [subscribing, setSubscribing] = useState(null)
+  const { run, busy } = useAccountAction(userId)
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session?.user) { router.push('/profile'); return }
+    let active = true
+    const load = async () => {
       const { data, error } = await supabase
         .from('profiles')
         .select('id, display_name, account_type, subscription_tier, stripe_customer_id')
-        .eq('id', session.user.id)
+        .eq('id', userId)
         .single()
+      if (!active) return
       if (error) { console.error('profile fetch failed:', error); setLoadError(true) }
       setProfile(data)
       setLoading(false)
-    })
-  }, [router])
+    }
+    load().catch(() => { if (active) { setLoadError(true); setLoading(false) } })
+    return () => { active = false }
+  }, [userId])
 
   const handleManageSubscription = async () => {
+    if (busy) return
     setSubscribing('manage')
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      const data = await run(async session => {
       const response = await fetch('/api/create-billing-portal-session', {
         method: 'POST',
         headers: { Authorization: `Bearer ${session?.access_token || ''}` },
       })
       const data = await response.json()
       if (!response.ok || !data.url) throw new Error(data.error || 'Unable to open billing management')
-      window.location.assign(data.url)
+      return data
+      })
+      if (data?.url) window.location.assign(data.url)
     } catch (error) {
       alert(error.message)
-      setSubscribing(null)
-    }
+    } finally { setSubscribing(null) }
   }
 
   const handleSubscribe = async (planId) => {
-    if (!profile) return
+    if (!profile || busy) return
     if (profile.subscription_tier && profile.subscription_tier !== 'free') return handleManageSubscription()
     setSubscribing(planId)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      const data = await run(async session => {
       const res = await fetch('/api/create-subscription', {
         method: 'POST',
         headers: {
@@ -82,13 +94,13 @@ export default function UpgradePage() {
         },
         body: JSON.stringify({ planId }),
       })
-      const { url, error } = await res.json()
-      if (error) { alert(error); setSubscribing(null); return }
-      window.location.href = url
-    } catch {
-      alert('Something went wrong. Please try again.')
-      setSubscribing(null)
-    }
+      const data = await res.json()
+      if (!res.ok || !data.url) throw new Error(data.error || 'Something went wrong. Please try again.')
+      return data
+      })
+      if (data?.url) window.location.href = data.url
+    } catch (error) { alert(error.message || 'Something went wrong. Please try again.') }
+    finally { setSubscribing(null) }
   }
 
   const isCreator = profile?.account_type && ['nail_artist', 'creator', 'salon'].includes(profile.account_type)
@@ -128,7 +140,7 @@ export default function UpgradePage() {
 
       {((currentTier && currentTier !== 'free') || profile?.stripe_customer_id) && (
         <div style={{ padding: '20px', textAlign: 'center' }}>
-          <button onClick={handleManageSubscription} disabled={!!subscribing}
+          <button onClick={handleManageSubscription} disabled={busy}
             style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '12px 24px', fontFamily: 'inherit', cursor: 'pointer' }}>
             {subscribing === 'manage' ? 'Opening billing…' : 'Manage subscription'}
           </button>
@@ -188,7 +200,7 @@ export default function UpgradePage() {
               ) : (
                 <button
                   onClick={() => handleSubscribe('pro_creator')}
-                  disabled={subscribing === 'pro_creator'}
+                  disabled={busy}
                   style={{
                     width: '100%', background: 'var(--accent)', color: '#2C0A1E',
                     border: 'none', borderRadius: '12px', padding: '14px',
@@ -246,7 +258,7 @@ export default function UpgradePage() {
             ) : (
               <button
                 onClick={() => handleSubscribe('premium')}
-                disabled={subscribing === 'premium'}
+                disabled={busy}
                 style={{
                   width: '100%', background: 'var(--bg-chip)', color: 'var(--text-primary)',
                   border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px',

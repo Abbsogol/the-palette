@@ -33,7 +33,7 @@ beforeEach(async () => {
 })
 async function startDeposit() {
   await db.query("insert into services(id,creator_id,name,duration_minutes,price,deposit_amount) values ($1,$2,'Manicure',60,100,25)", [service, creator])
-  await db.query("insert into bookings(id,client_id,creator_id,service_id,booking_date,start_time,end_time,status) values ($1,$2,$3,$4,current_date+1,'10:00','11:00','confirmed')", [booking, user, creator, service])
+  await db.query("insert into bookings(id,client_id,creator_id,service_id,booking_date,start_time,end_time,status,time_zone) values ($1,$2,$3,$4,current_date+1,'10:00','11:00','confirmed','UTC')", [booking, user, creator, service])
   return deposit(jsonRequest({ bookingId: booking }))
 }
 const event = (type = 'checkout.session.async_payment_failed') => webhook(jsonRequest({ id: 'evt_failed', type, created: 100, data: { object: session } }))

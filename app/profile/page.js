@@ -465,7 +465,20 @@ export default function ProfilePage() {
   }
 
   const handleGoogleSignIn = async () => {
-    await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/profile`, queryParams: { prompt: 'select_account' } } })
+    if (submitting) return
+    setSubmitting(true); setError('')
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/profile${refCode ? `?ref=${encodeURIComponent(refCode)}` : ''}`,
+          queryParams: { prompt: 'select_account' },
+        },
+      })
+      if (error) throw error
+    } catch (error) {
+      setError(error.message || 'Google sign-in could not be started. Please retry.')
+    } finally { setSubmitting(false) }
   }
 
   const handleSetGoogleAccountType = async () => {
@@ -740,7 +753,7 @@ export default function ProfilePage() {
           <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>or</span>
           <div style={{ flex: 1, height: '0.5px', background: 'var(--border)' }} />
         </div>
-        <button onClick={handleGoogleSignIn}
+        <button onClick={handleGoogleSignIn} disabled={submitting}
           style={{ width: '100%', background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px', fontSize: '14px', fontFamily: "'DM Sans', sans-serif", fontWeight: '500', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
           <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
             <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/>
@@ -1519,7 +1532,7 @@ export default function ProfilePage() {
         </button>
       </div>
       <div style={{ padding: '0 20px 32px' }}>
-        <DeleteAccountButton />
+        <DeleteAccountButton key={user.id} userId={user.id} />
       </div>
 
     </div>

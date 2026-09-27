@@ -23,10 +23,14 @@ const scalar = async (sql, args = []) => Object.values((await db.query(sql, args
 const profile = async () => (await db.query('select * from profiles_data where id=$1', [user])).rows[0]
 const attempt = async () => (await db.query('select * from subscription_checkouts where user_id=$1', [user])).rows[0]
 const rpcKeys = {
-  reserve_subscription_checkout: ['p_user_id', 'p_plan_id', 'p_email', 'p_base_url'],
+  reserve_subscription_checkout_v2: ['p_user_id', 'p_plan_id', 'p_email', 'p_base_url', 'p_price_id'],
   expire_subscription_checkout: ['p_user_id', 'p_id', 'p_session_id'],
   close_terminal_subscription_checkout: ['p_user_id', 'p_attempt_id', 'p_session_id', 'p_subscription_id', 'p_customer_id', 'p_status'],
-  apply_subscription_event: ['p_event_id', 'p_user_id', 'p_subscription_id', 'p_customer_id', 'p_plan_id', 'p_status', 'p_created', 'p_attempt_id', 'p_session_id'],
+  resolve_subscription_price: ['p_price_id','p_plan_id'],
+  subscription_owner_matches: ['p_subscription_id','p_customer_id','p_user_id'],
+  claim_subscription_reconciliation: ['p_subscription_id','p_customer_id','p_user_id'],
+  finish_subscription_reconciliation: ['p_subscription_id','p_token','p_event_id','p_plan_id','p_status','p_created','p_attempt_id','p_session_id'],
+  release_subscription_reconciliation: ['p_subscription_id','p_token'],
   begin_account_deletion: ['p_user_id'], delete_account: ['p_user_id'], account_storage_objects: ['p_user_id'],
 }
 beforeAll(async () => { db = await createSecurityDatabase() }, 30000)
@@ -205,7 +209,7 @@ it.each(['unpaid', 'paused', 'incomplete'])('a remaining %s billing relationship
   expect(await profile()).toBeTruthy()
   expect(await scalar('select count(*)::integer from auth.users where id=$1', [user])).toBe(1)
   await expect(db.as('authenticated', user, 'select delete_own_account()')).rejects.toThrow('BILLING_IN_PROGRESS')
-  await expect(db.as('service_role', null, "select reserve_subscription_checkout($1,'premium','user@example.invalid','https://example.invalid')", [user])).rejects.toThrow('ALREADY_SUBSCRIBED')
+  await expect(db.as('service_role', null, "select reserve_subscription_checkout_v2($1,'premium','user@example.invalid','https://example.invalid','price_test')", [user])).rejects.toThrow('ALREADY_SUBSCRIBED')
 })
 
 const sendEvent = (type, object, id = 'evt_terminal') => webhook(jsonRequest({ id, type, created: 200, data: { object } }))

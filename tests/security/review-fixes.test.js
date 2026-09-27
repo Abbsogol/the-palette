@@ -28,13 +28,17 @@ const attempt = async () => (await db.query('select * from subscription_checkout
 // SDK transport double only: all RPCs and mutations execute real migrated SQL,
 // with the same service role as production. Unknown operations fail loudly.
 const rpcSignatures = {
-  reserve_subscription_checkout: ['p_user_id','p_plan_id','p_email','p_base_url'],
+  reserve_subscription_checkout_v2: ['p_user_id','p_plan_id','p_email','p_base_url','p_price_id'],
   expire_subscription_checkout: ['p_user_id','p_id','p_session_id'],
   complete_onboarding: ['p_user_id','p_fields'],
   account_storage_objects: ['p_user_id'],
   delete_account: ['p_user_id'],
   begin_account_deletion: ['p_user_id'],
-  apply_subscription_event: ['p_event_id','p_user_id','p_subscription_id','p_customer_id','p_plan_id','p_status','p_created','p_attempt_id','p_session_id'],
+  resolve_subscription_price: ['p_price_id','p_plan_id'],
+  subscription_owner_matches: ['p_subscription_id','p_customer_id','p_user_id'],
+  claim_subscription_reconciliation: ['p_subscription_id','p_customer_id','p_user_id'],
+  finish_subscription_reconciliation: ['p_subscription_id','p_token','p_event_id','p_plan_id','p_status','p_created','p_attempt_id','p_session_id'],
+  release_subscription_reconciliation: ['p_subscription_id','p_token'],
 }
 const sdk = () => database(async q => {
   try {

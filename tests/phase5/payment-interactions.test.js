@@ -40,7 +40,7 @@ beforeEach(async () => {
   await db.query('insert into auth.users(id) values ($1),($2)', [user, creator])
   await db.query("update profiles_data set account_type='creator' where id=$1", [creator])
   await db.query("insert into services(id,creator_id,name,duration_minutes,price,deposit_amount) values ($1,$2,'Manicure',60,100,25)", [service, creator])
-  await db.query("insert into bookings(id,client_id,creator_id,service_id,booking_date,start_time,end_time,status) values ($1,$2,$3,$4,current_date+1,'10:00','11:00','cancelled')", [booking, user, creator, service])
+  await db.query("insert into bookings(id,client_id,creator_id,service_id,booking_date,start_time,end_time,status,time_zone) values ($1,$2,$3,$4,current_date+1,'10:00','11:00','cancelled','UTC')", [booking, user, creator, service])
   Object.assign(mock.client, sqlSupabase(db))
   mock.user.mockResolvedValue({ id: user })
   refunds = []
@@ -145,8 +145,10 @@ it('a newer refund event retries while an earlier reconciliation holds a stale p
   const newer = await event('evt_manual_succeeded', 'refund.updated', manual, 200)
   release()
   expect(newer.status).toBe(500)
-  expect((await first).status).toBe(200)
-  expect(await outcome()).toEqual({ status: 'refund_pending' })
+  // The new event also invalidates the earlier provider snapshot. Neither
+  // worker may acknowledge it until a fresh reconciliation succeeds.
+  expect((await first).status).toBe(500)
+  expect(await outcome()).toEqual({ status: 'payment_review' })
   expect((await event('evt_manual_succeeded', 'refund.updated', manual, 200)).status).toBe(200)
   expect(await outcome()).toEqual({ status: 'refunded' })
 })
@@ -369,7 +371,7 @@ it('a changed refund metadata owner cannot create review state for another accou
   const manual = await creditPayment(); refunds.push(manual)
   mock.intent.mockResolvedValue({ id: 'pi_credit', amount_received: 1000, currency: 'aed', metadata: { type: 'credits', userId: creator, credits: '5' } })
   expect((await event('evt_wrong_owner', 'refund.updated', manual)).status).toBe(500)
-  expect(await scalar('select count(*)::integer from payment_refund_states')).toBe(0)
+  expect((await db.query('select user_id,status from payment_refund_states')).rows).toEqual([{ user_id: user, status: 'payment_review' }])
   expect(await scalar('select credit_balance from profiles_data where id=$1', [user])).toBe(5)
 })
 

@@ -46,18 +46,19 @@ npm run test:security       # Authorization, RLS and earlier review fixes
 npm run test:phase3         # Financial flows, concurrent writes, payment/refund UI
 npm run test:phase4         # Lifecycle, retries, terminal payments and sharing
 npm run test:phase5         # Account boundaries, subscription recovery and refunds
+npm run test:phase6         # Creator time zones, fenced reconciliation and identity races
 npm test                   # All suites once, with local in-process PostgreSQL
 npm run lint
+npx playwright install --with-deps chromium webkit
 npm run build:smoke         # Compile with fake, loopback-only service values
-npx playwright install chromium webkit
 npm run test:e2e            # Uses the production build from build:smoke
 ```
 
-The original ten failures, lint baseline, combined-review defects, and reproduced Phase 3/4 defects are corrected on the review branch. Phase 5 adds account-bound actions and outcomes, subscription recovery, refund settlement and booking availability enforcement. Desired-outcome regression tests remain enabled. Local passing checks do not establish deployed correctness; see [the current Phase 5 report](docs/phase-5-review.md) and [the issue register](docs/issue-register.md).
+The original ten failures, lint baseline, combined-review defects, and reproduced Phase 3/4 defects are corrected on the review branch. Phase 5 adds account-bound actions and outcomes, subscription recovery, refund settlement and booking availability enforcement. Desired-outcome regression tests remain enabled. Local passing checks do not establish deployed correctness; see [the current Phase 6 report](docs/phase-6-review.md) and [the issue register](docs/issue-register.md).
 
-API/component tests import application code with mocked services. Unexpected `fetch` calls fail. The smoke-build launcher overrides inherited provider credentials with fake values. Browser smoke tests permit only their local app origin; signup tests additionally intercept the fake loopback Auth endpoint to exercise the browser SDK. They cover public navigation and auth UI. None of these checks certifies deployed RLS or live fulfillment.
+API/component tests import application code with mocked services. Unexpected `fetch` calls fail. The smoke-build launcher overrides inherited provider credentials with fake values. Browser smoke tests permit only their local app origin; signup and booking tests additionally intercept fake loopback Auth/PostgREST endpoints to exercise the browser SDK. They cover public navigation, auth UI, creator-local booking requests and visible slot errors. None of these checks certifies deployed RLS or live fulfillment.
 
-For CI-equivalent database sequencing, run `npm ci`, point `DATABASE_TEST_URL` at a fresh **local** PostgreSQL 17 database named `palette_test`, then run `test:regressions`, `test:security`, `test:phase3`, `test:phase4`, and `test:phase5` in that order with `CI=1`. The helpers reject non-loopback hosts and other database names. Native SQL tests exercise real transactions and roles; simplified managed Auth/Storage fixtures still require staging verification. CI uses Ubuntu; local macOS results are recorded separately.
+For CI-equivalent database sequencing, run `npm ci`, point `DATABASE_TEST_URL` at a fresh **local** PostgreSQL 17 database named `palette_test`, then run `test:regressions`, `test:security`, `test:phase3`, `test:phase4`, `test:phase5`, and `test:phase6` in that order with `CI=1`. The helpers reject non-loopback hosts and other database names. Native SQL tests exercise real transactions and roles; simplified managed Auth/Storage fixtures still require staging verification. CI uses Ubuntu; local macOS results are recorded separately.
 
 `npm run build` uses real configuration; `build:smoke` explicitly does not. `npm run env:check:build` checks only variables needed for compilation. Both environment-check commands reject the offline placeholders.
 
@@ -70,6 +71,7 @@ GitHub Actions runs independent lint, unit, known-regression, and production-bui
 - [Phase 3 flow map, corrections, verification, and open gaps](docs/phase-3-review.md)
 - [Phase 4 lifecycle review, corrections, verification, and remaining gates](docs/phase-4-review.md)
 - [Phase 5 account boundaries, refund settlement, verification and open gates](docs/phase-5-review.md)
+- [Phase 6 creator time zones, account/payment recovery and open gates](docs/phase-6-review.md)
 - [Issue register and regression mapping](docs/issue-register.md)
 - [Staging, schema, and recovery runbook](docs/environment-and-recovery.md)
 - [Database inspection boundary](supabase/README.md)

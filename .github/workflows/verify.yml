@@ -69,6 +69,7 @@ jobs:
       - run: npm run test:phase3
       - run: npm run test:phase4
       - run: npm run test:phase5
+      - run: npm run test:phase6
 
   browser:
     runs-on: ubuntu-latest

@@ -1,11 +1,18 @@
 import Stripe from 'stripe'
-import { planForPrice, stripeId, subscriptionPlan } from '@/lib/subscription-plans'
+import { stripeId } from '@/lib/subscription-plans'
 import { serviceClient as supabase } from '@/lib/auth'
 import { reconcileLateDepositRefund, refundLateDeposit } from '@/lib/deposit-refund'
 import { reconcilePaymentRefund } from '@/lib/refund-status'
 import { releaseSubscriptionCheckout } from '@/lib/subscription-checkout'
+import { reconcileSubscription } from '@/lib/subscription-reconciliation'
+import { resolvePricePlan } from '@/lib/subscription-price'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+async function markRefundPending(intentId) {
+  if (!intentId) return
+  const { error } = await supabase.rpc('mark_payment_refund_pending', { p_intent: intentId })
+  if (error) throw error
+}
 async function settleCheckout(session) {
   if (!session.metadata?.checkoutAttemptId || session.metadata.type === 'deposit') return
   const { error } = await supabase.rpc('settle_payment_checkout', {
@@ -74,17 +81,25 @@ export async function POST(request) {
       return Response.json({ received:true })
     }
     if (['refund.created','refund.updated','refund.failed'].includes(event.type)) {
+      const eventIntentId = stripeId(object.payment_intent)
+      await markRefundPending(eventIntentId)
       const refund = await stripe.refunds.retrieve(object.id)
+      if (refund.id !== object.id) throw new Error('Refund identity mismatch')
       const intentId = stripeId(refund.payment_intent)
-      if (!await reconcileLateDepositRefund(supabase, stripe, intentId, event.created)) {
+      if (!intentId) return Response.json({ received: true, ignored: true })
+      if (eventIntentId && eventIntentId !== intentId) throw new Error('Refund payment identity mismatch')
+      if (!eventIntentId) await markRefundPending(intentId)
+      if (!await reconcileLateDepositRefund(supabase, stripe, intentId, event.created, refund)) {
         const intent = await stripe.paymentIntents.retrieve(intentId)
-        await reconcilePaymentRefund(supabase, stripe, intent, event.id)
+        await reconcilePaymentRefund(supabase, stripe, intent, event.id, refund)
       }
       return Response.json({ received:true })
     }
     if (event.type === 'charge.refunded' && object?.payment_intent) {
-      const intent = await stripe.paymentIntents.retrieve(stripeId(object.payment_intent))
-      if (intent.metadata?.type === 'deposit' && await reconcileLateDepositRefund(supabase, stripe, intent.id || stripeId(object.payment_intent), event.created)) return Response.json({ received: true })
+      const intentId = stripeId(object.payment_intent)
+      await markRefundPending(intentId)
+      if (await reconcileLateDepositRefund(supabase, stripe, intentId, event.created)) return Response.json({ received: true })
+      const intent = await stripe.paymentIntents.retrieve(intentId)
       await reconcilePaymentRefund(supabase, stripe, intent, event.id)
       return Response.json({ received: true })
     }
@@ -92,6 +107,14 @@ export async function POST(request) {
       const invoice = await stripe.invoices.retrieve(object.id)
       const subscriptionId = stripeId(invoice.parent?.subscription_details?.subscription || invoice.subscription)
       if (!subscriptionId) return Response.json({ received:true })
+      if (event.type === 'invoice.payment_failed') {
+        await reconcileSubscription(supabase, stripe, {
+          subscriptionId, customerId: stripeId(invoice.customer),
+          userId: invoice.parent?.subscription_details?.metadata?.userId,
+          eventId: event.id, created: event.created,
+        })
+        return Response.json({ received:true })
+      }
       const subscription = await stripe.subscriptions.retrieve(subscriptionId)
       const customerId = stripeId(subscription.customer)
       if (stripeId(invoice.customer)!==customerId) throw new Error('Invoice customer mismatch')
@@ -104,30 +127,26 @@ export async function POST(request) {
       // Metadata is only a bootstrap fallback while checkout is still binding.
       const userId = owner?.user_id || profile?.id || subscription.metadata?.userId
       if (!userId) throw new Error('Invoice account not bound')
-      if (event.type==='invoice.payment_failed') {
-        const { error } = await supabase.rpc('apply_subscription_event', {
-          p_event_id:event.id,p_user_id:userId,p_subscription_id:subscriptionId,p_customer_id:customerId,
-          p_plan_id:subscriptionPlan(subscription),p_status:subscription.status,p_created:event.created,
-        })
-        if (error) throw error
-        return Response.json({ received:true })
-      }
       if (invoice.status!=='paid' || !['subscription_create','subscription_cycle'].includes(invoice.billing_reason)) {
         return Response.json({ received:true, ignored:true })
       }
       if (invoice.lines?.has_more) throw new Error('Invoice line pagination requires reconciliation')
-      const lines=(invoice.lines?.data || []).filter(line => {
+      const candidates=(invoice.lines?.data || []).filter(line => {
         const detail=line.parent?.subscription_item_details
-        return detail && !detail.proration && detail.subscription===subscriptionId && line.quantity===1 &&
-          planForPrice(line.pricing?.price_details?.price)
+        return detail && !detail.proration && detail.subscription===subscriptionId && line.quantity===1
       })
-      if (lines.length!==1 || !Number.isSafeInteger(lines[0].period?.start) || !Number.isSafeInteger(lines[0].period?.end)) {
+      const lines=[]
+      for (const line of candidates) {
+        const plan=await resolvePricePlan(supabase,line.pricing?.price_details?.price)
+        if (plan) lines.push({line,plan})
+      }
+      if (lines.length!==1 || !Number.isSafeInteger(lines[0].line.period?.start) || !Number.isSafeInteger(lines[0].line.period?.end)) {
         throw new Error('Invoice period or Price is not recognized')
       }
-      const line=lines[0]
+      const {line,plan}=lines[0]
       const { error } = await supabase.rpc('grant_subscription_credits', {
         p_event_id:event.id,p_invoice_id:invoice.id,p_user_id:userId,p_subscription_id:subscriptionId,p_customer_id:customerId,
-        p_period_start:line.period.start,p_period_end:line.period.end,p_plan_id:planForPrice(line.pricing.price_details.price),
+        p_period_start:line.period.start,p_period_end:line.period.end,p_plan_id:plan,
       })
       if (error) throw error
       return Response.json({ received:true })
@@ -172,23 +191,12 @@ export async function POST(request) {
       const subscriptionId = subscriptionCheckout
         ? (typeof object.subscription === 'string' ? object.subscription : object.subscription?.id) : object.id
       if (!subscriptionId) return Response.json({ error: 'Missing subscription identity' }, { status: 400 })
-      // Stripe events can arrive out of order. Read current state rather than
-      // reactivating a subscription from an old checkout/update snapshot.
-      const subscription = await stripe.subscriptions.retrieve(subscriptionId)
-      const customerId = typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id
-      const sessionCustomer = typeof object.customer === 'string' ? object.customer : object.customer?.id
-      const userId = subscription.metadata?.userId
-      if (!userId || (subscriptionCheckout && (object.metadata?.userId !== userId || sessionCustomer !== customerId))) {
-        return Response.json({ error: 'Subscription identity mismatch' }, { status: 400 })
-      }
-      const { error } = await supabase.rpc('apply_subscription_event', {
-        p_event_id: event.id, p_user_id: userId, p_subscription_id: subscription.id,
-        p_customer_id: customerId, p_plan_id: subscriptionPlan(subscription),
-        p_status: subscription.status, p_created: event.created,
-        p_attempt_id: subscriptionCheckout ? object.metadata?.checkoutAttemptId || null : null,
-        p_session_id: subscriptionCheckout ? object.id : null,
+      const result = await reconcileSubscription(supabase, stripe, {
+        subscriptionId, customerId: stripeId(object.customer), userId: object.metadata?.userId,
+        eventId: event.id, created: event.created, session: subscriptionCheckout ? object : null,
       })
-      if (error) throw error
+      if (!result) return Response.json({ received: true })
+      const { subscription, userId } = result
       if (subscriptionLifecycle && ['canceled', 'incomplete_expired'].includes(subscription.status)) {
         const { data: attempt, error: attemptError } = await supabase.from('subscription_checkouts')
           .select('id,session_id').eq('user_id', userId).maybeSingle()

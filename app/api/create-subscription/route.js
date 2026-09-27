@@ -44,8 +44,8 @@ export async function POST(request) {
     // A database reservation spans deployments, retries, tabs and plan changes.
     // Existing attempts keep their original Stripe parameters and idempotency key.
     for (let retry = 0; retry < 2; retry++) {
-      const { data: attempt, error } = await supabase.rpc('reserve_subscription_checkout', {
-        p_user_id: userId, p_plan_id: planId, p_email: user.email, p_base_url: baseUrl,
+      const { data: attempt, error } = await supabase.rpc('reserve_subscription_checkout_v2', {
+        p_user_id: userId, p_plan_id: planId, p_email: user.email, p_base_url: baseUrl, p_price_id: PLANS[planId].priceId,
       })
       if (error) {
         if (error.message?.includes('ALREADY_SUBSCRIBED')) return Response.json({ error: 'You already have a subscription.' }, { status: 409 })
@@ -63,14 +63,14 @@ export async function POST(request) {
       if (attempt.plan_id !== planId) return Response.json({ error: 'A checkout for another plan is being prepared. Please retry that plan.' }, { status: 409 })
       // Stripe may prune idempotency keys after 24 hours. An ambiguous old
       // create must be reconciled, never blindly replayed with a new key.
-      if (Date.now() - new Date(attempt.created_at).getTime() > 23 * 3600000) {
+      if (!attempt.price_id || Date.now() - new Date(attempt.created_at).getTime() > 23 * 3600000) {
         return Response.json({ error: 'We could not confirm your previous checkout. Please contact support before retrying.' }, { status: 503 })
       }
       const session = await stripe.checkout.sessions.create({
         integration_identifier: 'laque_checkout_qmrtxvpa',
         mode: 'subscription',
         ...(attempt.customer_id ? { customer: attempt.customer_id } : { customer_email: attempt.email }),
-        line_items: [{ price: PLANS[attempt.plan_id].priceId, quantity: 1 }],
+        line_items: [{ price: attempt.price_id, quantity: 1 }],
         success_url: `${attempt.base_url}/upgrade/success?plan=${attempt.plan_id}&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${attempt.base_url}/upgrade`,
         metadata: { userId, planId: attempt.plan_id, checkoutAttemptId: attempt.id },

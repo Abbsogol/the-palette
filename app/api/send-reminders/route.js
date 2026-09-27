@@ -7,10 +7,8 @@ export async function GET(request) {
   if (!secret) return Response.json({ error: 'Reminder scheduler is not configured' }, { status: 503 })
   if (request.headers.get('authorization') !== `Bearer ${secret}`) return new Response('Unauthorized', { status: 401 })
   try {
-    const tomorrow = new Date()
-    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1)
     const { data: bookings, error } = await supabase.rpc('enqueue_booking_reminders', {
-      p_date: tomorrow.toISOString().slice(0, 10),
+      p_date: null, // The database uses each appointment's recorded creator zone.
     })
     if (error) throw error
     const delivery = process.env.RESEND_API_KEY

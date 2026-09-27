@@ -45,7 +45,7 @@ async function seedBoard() {
 }
 async function seedBooking() {
   await db.query("insert into services(id,creator_id,name,duration_minutes,price) values ($1,$2,'Manicure',60,100)", [service, owner])
-  await db.query("insert into bookings(id,client_id,creator_id,service_id,booking_date,start_time,end_time,status) values ($1,$2,$3,$4,current_date+1,'10:00','11:00','confirmed')", [booking, member, owner, service])
+  await db.query("insert into bookings(id,client_id,creator_id,service_id,booking_date,start_time,end_time,status,time_zone) values ($1,$2,$3,$4,current_date+1,'10:00','11:00','confirmed','UTC')", [booking, member, owner, service])
 }
 const rpc = async (name, args = {}) => {
   const { data, error } = await mock.client.rpc(name, args)
@@ -74,7 +74,7 @@ it('P4-03: retrying an acknowledged generation intent returns the saved result w
 })
 it('P4-04: an interrupted reminder transaction cannot permanently consume the booking claim', async () => {
   await db.query("insert into services(id,creator_id,name,duration_minutes,price) values ($1,$2,'Manicure',60,100)", [service, owner])
-  await db.query("insert into bookings(id,client_id,creator_id,service_id,booking_date,start_time,end_time,status) values ($1,$2,$3,$4,current_date+1,'10:00','11:00','confirmed')", [booking, member, owner, service])
+  await db.query("insert into bookings(id,client_id,creator_id,service_id,booking_date,start_time,end_time,status,time_zone) values ($1,$2,$3,$4,current_date+1,'10:00','11:00','confirmed','UTC')", [booking, member, owner, service])
   const client = sqlSupabase(db)
   // Simulate a broken follow-up connection after the claim. A single DB
   // transaction must roll back both the claim and notifications on failure.

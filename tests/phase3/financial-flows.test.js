@@ -42,7 +42,8 @@ beforeEach(async()=>{
   await db.query("insert into designs(id,created_by,title,is_published) values ($1,$2,'Paid promotion',true)",[design,creator])
   await db.query("insert into services(id,creator_id,name,duration_minutes,price,deposit_amount) values ($1,$2,'Manicure',60,100,25)",[service,creator])
   await db.query("insert into availability(creator_id,day_of_week,start_time,end_time) select $1,generate_series(0,6),'09:00'::time,'17:00'::time",[creator])
-  await db.query("insert into bookings(id,client_id,creator_id,service_id,booking_date,start_time,end_time) values ($1,$2,$3,$4,current_date+1,'10:00','11:00')",[booking,user,creator,service])
+  await db.query("insert into creator_booking_settings(creator_id,time_zone) values($1,'UTC')",[creator])
+  await db.query("insert into bookings(id,client_id,creator_id,service_id,booking_date,start_time,end_time,time_zone) values ($1,$2,$3,$4,current_date+1,'10:00','11:00','UTC')",[booking,user,creator,service])
   mock.user.mockResolvedValue({id:user,email:'user@example.invalid'});mock.admin.mockResolvedValue(true)
   Object.assign(mock.client,sqlSupabase(db))
   sessions=new Map()
@@ -328,7 +329,7 @@ it('deletion and generation reservation cannot both acquire permission for new w
 it('new work is denied after deletion has started',async()=>{
   await db.as('service_role',null,'select begin_account_deletion($1)',[user])
   expect((await db.as('service_role',null,'select reserve_generation($1,$2,null) as reserved',[design,user])).rows[0].reserved).toBe(false)
-  await expect(db.as('service_role',null,"select reserve_subscription_checkout($1,'premium','test@example.invalid','https://example.invalid')",[user])).rejects.toThrow('ACCOUNT_UNAVAILABLE')
+  await expect(db.as('service_role',null,"select reserve_subscription_checkout_v2($1,'premium','test@example.invalid','https://example.invalid','price_test')",[user])).rejects.toThrow('ACCOUNT_UNAVAILABLE')
 })
 it('browser roles cannot mutate the new ledgers or bypass the deletion wrappers',async()=>{
   for(const role of ['anon','authenticated']) {
@@ -389,13 +390,19 @@ it('delayed refund updates change the owner-visible outcome without resurrecting
   const refund=refunds.get('pending');refund.status='succeeded'
   expect((await event('evt_refund_success','refund.updated',refund,200)).status).toBe(200)
   expect(await (await depositStatus(depositRequest())).json()).toEqual({status:'refunded'})
-  // An older event cannot overwrite the newer stored status, even if a
-  // concurrent provider read returned the old state before the update.
+  // Contradictory provider snapshots retain review until a consistent retry;
+  // neither an older event nor one in the same second can overwrite settlement.
   mock.refundRetrieve.mockResolvedValueOnce({...refund,status:'pending'})
-  expect((await event('evt_refund_stale','refund.updated',refund,150)).status).toBe(200)
+  expect((await event('evt_refund_stale','refund.updated',refund,150)).status).toBe(500)
+  expect(await scalar('select needs_review from order_payments')).toBe(true)
   expect(await scalar('select refund_status from order_payments')).toBe('succeeded')
+  expect((await event('evt_refund_stale','refund.updated',refund,150)).status).toBe(200)
+  expect(await scalar('select needs_review from order_payments')).toBe(false)
   mock.refundRetrieve.mockResolvedValueOnce({...refund,status:'pending'})
+  expect((await event('evt_refund_same_second','refund.updated',refund,200)).status).toBe(500)
+  expect(await scalar('select needs_review from order_payments')).toBe(true)
   expect((await event('evt_refund_same_second','refund.updated',refund,200)).status).toBe(200)
+  expect(await scalar('select needs_review from order_payments')).toBe(false)
   expect(await scalar('select refund_status from order_payments')).toBe('succeeded')
   // A bank can subsequently reject an initially processed refund.
   refund.status='failed'

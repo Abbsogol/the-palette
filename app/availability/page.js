@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import CheckoutSession from '@/components/CheckoutSession'
+import { useAccountAction } from '@/lib/use-account-action'
 
 const DAYS = [
   { label: 'Sunday',    short: 'Sun', value: 0 },
@@ -30,11 +32,19 @@ const DEFAULT_START = '10:00'
 const DEFAULT_END = '19:00'
 
 export default function AvailabilityPage() {
+  return <CheckoutSession title="Sign in to manage availability" description="Your working hours belong to your creator account.">{userId => <AvailabilityForm key={userId} userId={userId} />}</CheckoutSession>
+}
+
+function AvailabilityForm({ userId }) {
   const router = useRouter()
-  const [currentUser, setCurrentUser] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const { run, busy: saving } = useAccountAction(userId)
+  const [timeZone, setTimeZone] = useState('')
+  const [zones] = useState(() => ['UTC', ...Intl.supportedValuesOf('timeZone')])
+  const [saveError, setSaveError] = useState('')
   const [saved, setSaved] = useState(false)
+  const [loadError, setLoadError] = useState('')
+  const [loadAttempt, setLoadAttempt] = useState(0)
 
   // Schedule: day_of_week → { is_active, start_time, end_time }
   const [schedule, setSchedule] = useState(() =>
@@ -42,20 +52,31 @@ export default function AvailabilityPage() {
   )
 
   useEffect(() => {
+    let active = true
     const init = async () => {
+      try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/profile'); return }
-      const { data: profile } = await supabase.from('profiles').select('account_type').eq('id', user.id).single()
+      if (!active) return
+      if (user?.id !== userId) { router.push('/profile'); return }
+      const { data: profile, error: profileError } = await supabase.from('profiles').select('account_type').eq('id', user.id).single()
+      if (!active) return
+      if (profileError) throw profileError
       if (!profile || !['nail_artist', 'creator', 'salon'].includes(profile.account_type)) {
         router.push('/profile'); return
       }
-      setCurrentUser(user)
+      const { data: settings, error: settingsError } = await supabase.from('creator_booking_settings').select('time_zone').eq('creator_id', userId).maybeSingle()
+      if (!active) return
+      if (settingsError) throw settingsError
 
       // Load existing availability
-      const { data: rows } = await supabase
+      const { data: rows, error: hoursError } = await supabase
         .from('availability')
         .select('*')
         .eq('creator_id', user.id)
+
+      if (!active) return
+      if (hoursError) throw hoursError
+      setTimeZone(settings?.time_zone || '')
 
       if (rows && rows.length > 0) {
         setSchedule(previous => {
@@ -72,9 +93,13 @@ export default function AvailabilityPage() {
       }
 
       setLoading(false)
+      } catch {
+        if (active) { setLoadError('Availability could not be loaded. Please retry.'); setLoading(false) }
+      }
     }
     init()
-  }, [router])
+    return () => { active = false }
+  }, [router, userId, loadAttempt])
 
   const toggleDay = (day) => {
     setSchedule(prev => ({
@@ -93,27 +118,19 @@ export default function AvailabilityPage() {
   }
 
   const handleSave = async () => {
-    setSaving(true)
-
-    // Upsert all 7 days
-    const rows = DAYS.map(d => ({
-      creator_id: currentUser.id,
-      day_of_week: d.value,
-      is_active: schedule[d.value].is_active,
-      start_time: schedule[d.value].start_time,
-      end_time: schedule[d.value].end_time,
-    }))
-
-    const { error } = await supabase
-      .from('availability')
-      .upsert(rows, { onConflict: 'creator_id,day_of_week' })
-
-    setSaving(false)
-    if (error) {
-      alert('Failed to save availability. Please try again.')
-      return
-    }
-    setSaved(true)
+    setSaveError(''); setSaved(false)
+    try {
+      const result = await run(async session => {
+        const response = await fetch('/api/update-availability', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ timeZone, schedule: DAYS.map(d => ({ day_of_week: d.value, ...schedule[d.value] })) }),
+        })
+        const data = await response.json()
+        if (!response.ok) throw new Error(data.error || 'Availability could not be saved.')
+        return data
+      })
+      if (result?.ok) setSaved(true)
+    } catch (error) { setSaveError(error.message) }
   }
 
   const chevronRight = (
@@ -125,6 +142,13 @@ export default function AvailabilityPage() {
   if (loading) return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <p style={{ color: 'var(--text-secondary)', fontFamily: "'DM Sans', sans-serif" }}>Loading…</p>
+    </div>
+  )
+
+  if (loadError) return (
+    <div style={{ padding: '40px 20px' }}>
+      <p role="alert">{loadError}</p>
+      <button onClick={() => { setLoading(true); setLoadError(''); setLoadAttempt(value => value + 1) }}>Retry</button>
     </div>
   )
 
@@ -145,7 +169,7 @@ export default function AvailabilityPage() {
         </div>
         <button
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || !timeZone}
           style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '20px', padding: '7px 16px', fontSize: '13px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}
         >
           {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save'}
@@ -155,6 +179,16 @@ export default function AvailabilityPage() {
       <p style={{ color: 'var(--text-secondary)', fontSize: '13px', padding: '0 20px 20px', margin: 0 }}>
         Set the days and hours you&apos;re available for bookings. Clients will see this on your profile.
       </p>
+
+      <div style={{ padding: '0 20px 20px' }}>
+        <label htmlFor="appointment-zone">Appointment time zone</label>
+        <select id="appointment-zone" value={timeZone} onChange={event => { setTimeZone(event.target.value); setSaved(false) }} style={{ width: '100%', padding: '12px', marginTop: '8px', color: 'var(--text-primary)', background: 'var(--bg-card)' }}>
+          <option value="">Choose where you offer appointments</option>
+          {[...new Set([...zones, ...(timeZone ? [timeZone] : [])])].map(zone => <option key={zone} value={zone}>{zone.replaceAll('_', ' ')}</option>)}
+        </select>
+        <p>All working hours use this time zone. Saved appointments keep their original time.</p>
+        {saveError && <p role="alert">{saveError}</p>}
+      </div>
 
       {/* Summary chip */}
       {activeDays.length > 0 && (
@@ -235,6 +269,7 @@ export default function AvailabilityPage() {
                       {TIME_OPTIONS.filter(t => t.value > s.start_time).map(t => (
                         <option key={t.value} value={t.value}>{t.label}</option>
                       ))}
+                      <option value="24:00">12:00 am (midnight)</option>
                     </select>
                   </div>
                 </div>

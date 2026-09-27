@@ -27,7 +27,8 @@ beforeEach(async () => {
   await db.query("insert into public.messages(id,conversation_id,sender_id,content) values ($1,$2,$3,'Original')", [message, conversation, alice])
   await db.query("insert into public.services(id,creator_id,name,duration_minutes,price) values ($1,$2,'Manicure',60,100)", [service,bob])
   await db.query("insert into public.availability(creator_id,day_of_week,start_time,end_time) select $1,generate_series(0,6),'09:00'::time,'17:00'::time", [bob])
-  await db.query("insert into public.bookings(id,client_id,creator_id,service_id,booking_date,start_time,end_time) values ($1,$2,$3,$4,current_date+1,'10:00','11:00')", [booking,alice,bob,service])
+  await db.query("insert into creator_booking_settings(creator_id,time_zone) values($1,'UTC')",[bob])
+  await db.query("insert into public.bookings(id,client_id,creator_id,service_id,booking_date,start_time,end_time,time_zone) values ($1,$2,$3,$4,current_date+1,'10:00','11:00','UTC')", [booking,alice,bob,service])
   await db.query("insert into public.moodboards(id,user_id,name) values ($1,$2,'Private board')", [board,alice])
 })
 
@@ -137,7 +138,7 @@ it('generates one notification from a real action and rejects forged notificatio
 })
 
 it('rejects reviews of another client’s appointment and preserves legitimate review edits', async () => {
-  await db.query("update bookings set booking_date=current_date-1,status='confirmed' where id=$1",[booking])
+  await db.query("update bookings set booking_date=current_date-1,starts_at=(current_date-1+'10:00'::time) at time zone 'UTC',ends_at=(current_date-1+'11:00'::time) at time zone 'UTC',status='confirmed' where id=$1",[booking])
   await expect(as(other,'insert into reviews(booking_id,reviewer_id,creator_id,rating) values ($1,$2,$3,5)',[booking,other,bob])).rejects.toThrow()
   await as(alice,'insert into reviews(booking_id,reviewer_id,creator_id,rating) values ($1,$2,$3,5)',[booking,alice,bob])
   await as(alice,"update reviews set text='Updated review',rating=4 where booking_id=$1",[booking])

@@ -14,7 +14,7 @@ beforeEach(() => {
     for (const column of projection) if (!Object.hasOwn(row, column)) throw new Error(`Unsupported profiles projection: ${column}`)
     return ok(Object.fromEntries(projection.map(column => [column, row[column]])))
   }))
-  mock.client.auth = { getSession: async () => ({ data: { session: { user, access_token: 'token' } } }) }
+  mock.client.auth = { onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }), getSession: async () => ({ data: { session: { user, access_token: 'token' } } }) }
   vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, json: async () => ({ error: 'Billing temporarily unavailable' }) })))
   vi.spyOn(window, 'alert').mockImplementation(() => {})
 })
