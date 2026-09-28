@@ -20,6 +20,12 @@ const tabs = [
 
 export default function BottomNav() {
   const pathname = usePathname()
+  if (pathname === '/privacy') return null
+  return <AppBottomNav />
+}
+
+function AppBottomNav() {
+  const pathname = usePathname()
   const [unreadMessages, setUnreadMessages] = useState(0)
 
   useEffect(() => {
