@@ -23,41 +23,54 @@ export default function SaveToBoard({ designId, designImageUrl, renderTrigger, e
     supabase.auth.getUser().then(({ data }) => setUser(data?.user || null))
   }, [])
 
-  async function openSheet() {
-    if (!user) { setOpen(true); return }
+  function openSheet() {
     setOpen(true)
-    setLoading(true)
-    setLoadError(false)
-
-    // Load user's boards
-    const { data: boardData, error: boardError } = await supabase
-      .from('moodboards')
-      .select('id, name, cover_image_url')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-
-    if (boardError) {
-      setLoadError(true)
-      setLoading(false)
-      return
-    }
-
-    // Load which of THIS user's own boards already contain this design —
-    // scoped to their own board ids, not every user's, so the response
-    // never includes other people's board ids for a design they saved.
-    const boardIds = (boardData || []).map(b => b.id)
-    const { data: savedData } = boardIds.length > 0
-      ? await supabase.from('moodboard_designs').select('moodboard_id').eq('design_id', designId).in('moodboard_id', boardIds)
-      : { data: [] }
-
-    const savedMap = {}
-    savedData?.forEach(r => { savedMap[r.moodboard_id] = true })
-
-    setBoards(boardData || [])
-    setSaved(savedMap)
-    setAnyBoardSaved(Object.keys(savedMap).length > 0)
-    setLoading(false)
   }
+
+  // Load the user's boards whenever the sheet is open. This used to live only in
+  // openSheet (the trigger's onClick), so opening the sheet EXTERNALLY — as Nail
+  // Lab does via `externalOpen` with no trigger — never loaded the boards and the
+  // list always read "No boards yet". Keying on `open` covers both entry paths.
+  useEffect(() => {
+    if (!open || !user) return
+    let cancelled = false
+    ;(async () => {
+      setLoading(true)
+      setLoadError(false)
+
+      // Load user's boards
+      const { data: boardData, error: boardError } = await supabase
+        .from('moodboards')
+        .select('id, name, cover_image_url')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      if (cancelled) return
+      if (boardError) {
+        setLoadError(true)
+        setLoading(false)
+        return
+      }
+
+      // Load which of THIS user's own boards already contain this design —
+      // scoped to their own board ids, not every user's, so the response
+      // never includes other people's board ids for a design they saved.
+      const boardIds = (boardData || []).map(b => b.id)
+      const { data: savedData } = boardIds.length > 0
+        ? await supabase.from('moodboard_designs').select('moodboard_id').eq('design_id', designId).in('moodboard_id', boardIds)
+        : { data: [] }
+
+      if (cancelled) return
+      const savedMap = {}
+      savedData?.forEach(r => { savedMap[r.moodboard_id] = true })
+
+      setBoards(boardData || [])
+      setSaved(savedMap)
+      setAnyBoardSaved(Object.keys(savedMap).length > 0)
+      setLoading(false)
+    })()
+    return () => { cancelled = true }
+  }, [open, user, designId])
 
   async function toggleBoard(boardId) {
     if (!user || togglingBoards[boardId]) return

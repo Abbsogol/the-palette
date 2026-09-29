@@ -2,7 +2,7 @@ import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
 import { GENERATION_SIZE } from '@/lib/nailLab'
 import { buildNailLabPrompt } from '@/lib/nailPrompt'
 
-export const maxDuration = 60 // allow up to 60s for gpt-image-1
+export const maxDuration = 300 // gpt-image-1 at high quality can exceed 60s; 300 = Vercel Pro ceiling (a Hobby project caps at 60 and will fail the build at this value)
 
 export async function POST(request) {
   try {
@@ -113,12 +113,15 @@ export async function POST(request) {
 
     // Always use standard images/generations — gpt-image-1 returns base64.
     // quality 'high' is the maximum gpt-image-1 supports (raises per-image cost).
+    // moderation 'low' — the strict default ('auto') was refusing ordinary nail
+    // words like "gothic"; these are nail designs, so relax the filter.
     const requestBody = {
       model: 'gpt-image-1',
       prompt,
       n: 1,
       size: GENERATION_SIZE,
       quality: 'high',
+      moderation: 'low',
     }
 
     const openaiRes = await fetch('https://api.openai.com/v1/images/generations', {
@@ -131,10 +134,32 @@ export async function POST(request) {
     })
 
     if (!openaiRes.ok) {
-      const err = await openaiRes.json()
-      console.error('OpenAI error:', err)
+      let err = null
+      try { err = await openaiRes.json() } catch {}
+      const oaCode = err?.error?.code || ''
+      const oaType = err?.error?.type || ''
+      const oaMsg = err?.error?.message || ''
+      console.error('OpenAI error:', openaiRes.status, JSON.stringify(err))
       await refundFreeRegen()
-      return Response.json({ error: 'Image generation failed' }, { status: 500 })
+
+      // Content-policy / moderation refusal → tell the user to reword (no credit
+      // was taken; the deduction happens only after a successful generation below).
+      const isModeration = openaiRes.status === 400 && (
+        oaCode === 'moderation_blocked' ||
+        oaType === 'image_generation_user_error' ||
+        /safety system|content policy|moderation|not allowed|rejected/i.test(oaMsg)
+      )
+      if (isModeration) {
+        return Response.json({ error: 'Some wording in your description was blocked. Try describing the look differently.' }, { status: 400 })
+      }
+      // Rate limit → the service is busy, retry shortly.
+      if (openaiRes.status === 429 || oaCode === 'rate_limit_exceeded') {
+        return Response.json({ error: 'The image service is busy right now. Please try again in a moment.' }, { status: 429 })
+      }
+      // Anything else → surface the actual reason in the response, since the
+      // Vercel logs aren't readable — so a repeat failure is diagnosable in-app.
+      const reason = oaMsg || oaCode || `HTTP ${openaiRes.status}`
+      return Response.json({ error: `Couldn't generate this design (${reason}). Please try again.` }, { status: 500 })
     }
 
     const openaiData = await openaiRes.json()

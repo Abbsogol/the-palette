@@ -1055,6 +1055,9 @@ export default function NailLabPage() {
                   boxSizing: 'border-box', minHeight: '80px',
                 }}
               />
+              <p style={{ ...ui(300, 11, MUTED60), margin: 0, lineHeight: 1.4 }}>
+                Describe the finish and details — e.g. glossy, matte, chrome, cat eye, glitter, French tip, fine line art. The more you describe, the closer it lands.
+              </p>
             </div>
           </div>
 
