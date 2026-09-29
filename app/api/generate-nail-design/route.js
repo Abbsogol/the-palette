@@ -2,7 +2,7 @@ import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
 import { GENERATION_SIZE } from '@/lib/nailLab'
 import { buildNailLabPrompt } from '@/lib/nailPrompt'
 
-export const maxDuration = 60 // allow up to 60s for gpt-image-1
+export const maxDuration = 300 // gpt-image-1 at high quality can exceed 60s; 300 = Vercel Pro ceiling (a Hobby project caps at 60 and will fail the build at this value)
 
 export async function POST(request) {
   try {
