@@ -146,17 +146,25 @@ export default function BatchUploadPage() {
   }
 
   const s = {
-    bg: { minHeight: '100vh', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontFamily: 'DM Sans, sans-serif', paddingBottom: '60px' },
+    bg: {
+      minHeight: '100dvh', color: '#fff', fontFamily: 'var(--lq-font-ui)', paddingBottom: '60px', position: 'relative',
+      '--text-primary': '#fff',
+      '--text-secondary': 'rgba(255,255,255,0.6)',
+      '--accent': '#FF517F',
+      '--bg-card': 'rgba(255,255,255,0.06)',
+      '--bg-chip': 'rgba(255,255,255,0.08)',
+      '--border': 'rgba(255,255,255,0.12)',
+    },
     inner: { maxWidth: '600px', margin: '0 auto', padding: '0 20px' },
     input: { width: '100%', background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '10px', padding: '11px 13px', color: 'var(--text-primary)', fontSize: '13px', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' },
-    btn: { background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '10px', padding: '13px 20px', fontWeight: '500', fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit', width: '100%' },
+    btn: { background: 'var(--accent)', color: '#260D14', border: 'none', borderRadius: '10px', padding: '13px 20px', fontWeight: '500', fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit', width: '100%' },
     card: { background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '14px', padding: '16px', marginBottom: '12px' },
     label: { color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px', display: 'block' },
   }
 
   if (checkingAuth) {
     return (
-      <div style={s.bg}>
+      <div className="lq-bg-wine" style={s.bg}>
         <div style={{ ...s.inner, paddingTop: '30vh' }}>
           <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Loading…</p>
         </div>
@@ -165,10 +173,10 @@ export default function BatchUploadPage() {
   }
   if (!authed) {
     return (
-      <div style={s.bg}>
+      <div className="lq-bg-wine" style={s.bg}>
         <div style={{ ...s.inner, paddingTop: '30vh', textAlign: 'center' }}>
           <p style={{ color: 'var(--accent)', fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Admin</p>
-          <h1 style={{ fontSize: '28px', fontWeight: '400', marginBottom: '10px' }}>You don't have access</h1>
+          <h1 style={{ fontFamily: 'var(--lq-font-display)', fontSize: '28px', fontWeight: '400', marginBottom: '10px' }}>You don't have access</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Sign in with an admin account to view this page.</p>
         </div>
       </div>
@@ -178,10 +186,10 @@ export default function BatchUploadPage() {
   const allDone = progress.length > 0 && progress.every(p => p.status === 'done')
 
   return (
-    <div style={s.bg}>
+    <div className="lq-bg-wine" style={s.bg}>
       <div style={{ ...s.inner, paddingTop: '32px' }}>
         <a href="/admin" style={{ color: 'var(--text-secondary)', fontSize: '12px', textDecoration: 'none' }}>← Back to Admin</a>
-        <h1 style={{ fontSize: '24px', fontWeight: '400', margin: '12px 0 4px' }}>Batch Upload</h1>
+        <h1 style={{ fontFamily: 'var(--lq-font-display)', fontSize: '24px', fontWeight: '400', margin: '12px 0 4px' }}>Batch Upload</h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '28px' }}>Paste your JSON specs from ChatGPT, attach images, and upload everything at once.</p>
 
         <div style={{ marginBottom: '20px' }}>

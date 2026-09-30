@@ -38,6 +38,30 @@ const TECHNIQUES = [
 ]
 const PRODUCT_CATEGORIES = ['Polishes & Gels', 'Tools & Kits', 'Beauty']
 
+// Wine shell for the admin panel. Restyle only: it maps the old admin CSS
+// variables to the app's wine palette (so every existing `var(--...)` inline
+// style recolours automatically) and sets Jost as the base UI font. No wiring,
+// inserts, or handlers change.
+function AdminShell({ children }) {
+  return (
+    <div className="lq-bg-wine" style={{
+      minHeight: '100dvh', position: 'relative', fontFamily: 'var(--lq-font-ui)',
+      '--text-primary': '#fff',
+      '--text-secondary': 'rgba(255,255,255,0.6)',
+      '--accent': '#FF517F',
+      '--bg-card': 'rgba(255,255,255,0.06)',
+      '--bg-chip': 'rgba(255,255,255,0.08)',
+      '--border': 'rgba(255,255,255,0.12)',
+    }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
+      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      <div style={{ position: 'relative' }}>{children}</div>
+    </div>
+  )
+}
+
+const adminHeading = { fontFamily: 'var(--lq-font-display)', fontWeight: 400 }
+
 // ─── Design Form ─────────────────────────────────────────────────
 function DesignForm({ initial, onSave, onCancel, saveLabel }) {
   const [title, setTitle] = useState(initial?.title || '')
@@ -73,6 +97,20 @@ function DesignForm({ initial, onSave, onCancel, saveLabel }) {
   const [tagsInput, setTagsInput] = useState(initial?.tags?.join(', ') || '')
   const [submitting, setSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  const [dupTitle, setDupTitle] = useState(null)
+
+  // Advisory only: warn (never block) if a design with this title already exists.
+  // A debounced read; the save path is untouched.
+  useEffect(() => {
+    const t = title.trim()
+    if (!t) { setDupTitle(null); return }
+    const timer = setTimeout(async () => {
+      const { data } = await supabase.from('designs').select('id, title').ilike('title', t).limit(1)
+      const hit = data && data[0]
+      setDupTitle(hit && hit.id !== initial?.id ? hit.title : null)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [title, initial?.id])
 
   const toggleOccasion = o => setSelectedOccasions(prev => prev.includes(o) ? prev.filter(x => x !== o) : [...prev, o])
   const toggleTechnique = t => setSelectedTechniques(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t])
@@ -168,6 +206,11 @@ function DesignForm({ initial, onSave, onCancel, saveLabel }) {
 
       <Section label="Title *">
         <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Blood Cathedral" style={inputStyle} />
+        {dupTitle && (
+          <p style={{ color: '#F0B466', fontSize: '12px', marginTop: '6px' }}>
+            There&apos;s already a design called &ldquo;{dupTitle}&rdquo;. You can still save.
+          </p>
+        )}
       </Section>
 
       <Section label="Description">
@@ -225,7 +268,7 @@ function DesignForm({ initial, onSave, onCancel, saveLabel }) {
             Cancel
           </button>
         )}
-        <button onClick={handleSubmit} disabled={submitting} style={{ flex: 2, background: submitting ? 'var(--bg-chip)' : 'var(--accent)', color: submitting ? 'var(--text-secondary)' : '#2C0A1E', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '15px', fontWeight: '500', cursor: submitting ? 'not-allowed' : 'pointer' }}>
+        <button onClick={handleSubmit} disabled={submitting} style={{ flex: 2, background: submitting ? 'var(--bg-chip)' : 'var(--accent)', color: submitting ? 'var(--text-secondary)' : '#260D14', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '15px', fontWeight: '500', cursor: submitting ? 'not-allowed' : 'pointer' }}>
           {submitting ? 'Saving...' : saveLabel}
         </button>
       </div>
@@ -330,7 +373,7 @@ function ProductForm({ initial, onSave, onCancel, saveLabel }) {
               position: 'absolute', top: '3px',
               left: isFeatured ? '23px' : '3px',
               width: '18px', height: '18px', borderRadius: '50%',
-              background: isFeatured ? '#2C0A1E' : 'var(--text-secondary)',
+              background: isFeatured ? '#260D14' : 'var(--text-secondary)',
               transition: 'left 0.2s',
             }} />
           </div>
@@ -352,7 +395,7 @@ function ProductForm({ initial, onSave, onCancel, saveLabel }) {
             Cancel
           </button>
         )}
-        <button onClick={handleSubmit} disabled={submitting} style={{ flex: 2, background: submitting ? 'var(--bg-chip)' : 'var(--accent)', color: submitting ? 'var(--text-secondary)' : '#2C0A1E', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '15px', fontWeight: '500', cursor: submitting ? 'not-allowed' : 'pointer' }}>
+        <button onClick={handleSubmit} disabled={submitting} style={{ flex: 2, background: submitting ? 'var(--bg-chip)' : 'var(--accent)', color: submitting ? 'var(--text-secondary)' : '#260D14', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '15px', fontWeight: '500', cursor: submitting ? 'not-allowed' : 'pointer' }}>
           {submitting ? 'Saving...' : saveLabel}
         </button>
       </div>
@@ -478,7 +521,7 @@ function TagsManager() {
     <div>
       <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
         <input value={newTag} onChange={e => setNewTag(e.target.value)} onKeyDown={e => e.key === 'Enter' && addTag()} placeholder="New tag name…" style={inputStyle} />
-        <button onClick={addTag} disabled={!newTag.trim() || adding} style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '10px', padding: '11px 16px', fontSize: '13px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit', opacity: (!newTag.trim() || adding) ? 0.5 : 1, flexShrink: 0 }}>
+        <button onClick={addTag} disabled={!newTag.trim() || adding} style={{ background: 'var(--accent)', color: '#260D14', border: 'none', borderRadius: '10px', padding: '11px 16px', fontSize: '13px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit', opacity: (!newTag.trim() || adding) ? 0.5 : 1, flexShrink: 0 }}>
           {adding ? '…' : 'Add'}
         </button>
       </div>
@@ -547,7 +590,7 @@ function CreditsManager() {
     <div>
       <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
         <input value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && search()} placeholder="Search by name or username…" style={inputStyle} />
-        <button onClick={search} style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '10px', padding: '11px 16px', fontSize: '13px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Search</button>
+        <button onClick={search} style={{ background: 'var(--accent)', color: '#260D14', border: 'none', borderRadius: '10px', padding: '11px 16px', fontSize: '13px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Search</button>
       </div>
       {loading && <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Loading…</p>}
       {!loading && results.map(u => (
@@ -585,6 +628,8 @@ export default function AdminPage() {
   const [checkingAuth, setCheckingAuth] = useState(true)
   const [activeTab, setActiveTab] = useState('upload')
   const [successMsg, setSuccessMsg] = useState('')
+  // Bumped after a successful publish to remount the upload form clean.
+  const [formKey, setFormKey] = useState(0)
 
   // Design state
   const [allDesigns, setAllDesigns] = useState([])
@@ -712,6 +757,7 @@ export default function AdminPage() {
     }
     setSuccessMsg(`✓ "${design.title}" published!`)
     setActiveTab('upload')
+    setFormKey(k => k + 1) // remount the form clean, ready for the next design
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -773,52 +819,61 @@ export default function AdminPage() {
   // ── Auth gate ─────────────────────────────────────────────────────
   if (checkingAuth) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Loading…</p>
-      </div>
+      <AdminShell>
+        <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Loading…</p>
+        </div>
+      </AdminShell>
     )
   }
   if (!authed) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-        <div style={{ width: '100%', maxWidth: '360px', textAlign: 'center' }}>
-          <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Admin</p>
-          <h1 style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: '500', marginBottom: '10px' }}>You don't have access</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Sign in with an admin account to view this page.</p>
+      <AdminShell>
+        <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ width: '100%', maxWidth: '360px', textAlign: 'center' }}>
+            <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Admin</p>
+            <h1 style={{ ...adminHeading, color: 'var(--text-primary)', fontSize: '26px', marginBottom: '10px' }}>You don't have access</h1>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Sign in with an admin account to view this page.</p>
+          </div>
         </div>
-      </div>
+      </AdminShell>
     )
   }
 
   // ── Edit design view ─────────────────────────────────────────────
   if (editingDesign) {
     return (
-      <div style={{ padding: '24px 20px 60px', maxWidth: '600px', margin: '0 auto' }}>
-        <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Admin · Edit Design</p>
-        <h1 style={{ color: 'var(--text-primary)', fontSize: '20px', fontWeight: '500', marginBottom: '24px' }}>{editingDesign.title}</h1>
-        <DesignForm initial={editingDesign} onSave={saveEdit} onCancel={() => setEditingDesign(null)} saveLabel="Save Changes" />
-        <div style={{ marginTop: '32px', borderTop: '0.5px solid var(--border)', paddingTop: '24px' }}>
-          <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>Shop This Look</p>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginBottom: '16px' }}>Tap a product to link or unlink it from this design.</p>
-          <LinkedProducts designId={editingDesign.id} />
+      <AdminShell>
+        <div style={{ padding: '24px 20px 60px', maxWidth: '600px', margin: '0 auto' }}>
+          <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Admin · Edit Design</p>
+          <h1 style={{ ...adminHeading, color: 'var(--text-primary)', fontSize: '24px', marginBottom: '24px' }}>{editingDesign.title}</h1>
+          <DesignForm initial={editingDesign} onSave={saveEdit} onCancel={() => setEditingDesign(null)} saveLabel="Save Changes" />
+          <div style={{ marginTop: '32px', borderTop: '0.5px solid var(--border)', paddingTop: '24px' }}>
+            <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>Shop This Look</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginBottom: '16px' }}>Tap a product to link or unlink it from this design.</p>
+            <LinkedProducts designId={editingDesign.id} />
+          </div>
         </div>
-      </div>
+      </AdminShell>
     )
   }
 
   // ── Edit product view ────────────────────────────────────────────
   if (editingProduct) {
     return (
-      <div style={{ padding: '24px 20px 60px', maxWidth: '600px', margin: '0 auto' }}>
-        <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Admin · Edit Product</p>
-        <h1 style={{ color: 'var(--text-primary)', fontSize: '20px', fontWeight: '500', marginBottom: '24px' }}>{editingProduct.name}</h1>
-        <ProductForm initial={editingProduct} onSave={saveEditProduct} onCancel={() => setEditingProduct(null)} saveLabel="Save Changes" />
-      </div>
+      <AdminShell>
+        <div style={{ padding: '24px 20px 60px', maxWidth: '600px', margin: '0 auto' }}>
+          <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Admin · Edit Product</p>
+          <h1 style={{ ...adminHeading, color: 'var(--text-primary)', fontSize: '24px', marginBottom: '24px' }}>{editingProduct.name}</h1>
+          <ProductForm initial={editingProduct} onSave={saveEditProduct} onCancel={() => setEditingProduct(null)} saveLabel="Save Changes" />
+        </div>
+      </AdminShell>
     )
   }
 
   // ── Main tabs ────────────────────────────────────────────────────
   return (
+    <AdminShell>
     <div style={{ padding: '24px 20px 60px', maxWidth: '600px', margin: '0 auto' }}>
       <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Admin</p>
       <h1 style={{ color: 'var(--text-primary)', marginBottom: '20px' }}><LaqueWordmark height={22} /></h1>
@@ -827,7 +882,7 @@ export default function AdminPage() {
         {[['upload', 'Upload Design'], ['manage', 'Manage Designs'], ['shop', 'Shop Products'], ['dashboard', 'Dashboard'], ['tags', 'Tags'], ['credits', 'Credits'], ['challenges', 'Challenges']].map(([tab, label]) => (
           <button key={tab} onClick={() => { setActiveTab(tab); setSuccessMsg(''); setAddingProduct(false) }} style={{
             background: activeTab === tab ? 'var(--accent)' : 'var(--bg-chip)',
-            color: activeTab === tab ? '#2C0A1E' : 'var(--text-secondary)',
+            color: activeTab === tab ? '#260D14' : 'var(--text-secondary)',
             border: 'none', borderRadius: '20px', padding: '7px 18px',
             fontSize: '13px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit',
           }}>
@@ -844,7 +899,7 @@ export default function AdminPage() {
 
       {/* ── UPLOAD TAB ── */}
       {activeTab === 'upload' && (
-        <DesignForm initial={null} onSave={saveNew} onCancel={null} saveLabel="Publish Design" />
+        <DesignForm key={formKey} initial={null} onSave={saveNew} onCancel={null} saveLabel="Publish Design" />
       )}
 
       {/* ── MANAGE TAB ── */}
@@ -892,7 +947,7 @@ export default function AdminPage() {
               {allProducts.length} product{allProducts.length !== 1 ? 's' : ''} in shop
             </p>
             {!addingProduct && (
-              <button onClick={() => setAddingProduct(true)} style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '20px', padding: '7px 16px', fontSize: '13px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit' }}>
+              <button onClick={() => setAddingProduct(true)} style={{ background: 'var(--accent)', color: '#260D14', border: 'none', borderRadius: '20px', padding: '7px 16px', fontSize: '13px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit' }}>
                 + Add Product
               </button>
             )}
@@ -949,6 +1004,7 @@ export default function AdminPage() {
       {activeTab === 'challenges' && <ChallengesManager />}
 
     </div>
+    </AdminShell>
   )
 }
 
@@ -1018,7 +1074,7 @@ function LinkedProducts({ designId }) {
               width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0,
               background: isLinked ? 'var(--accent)' : 'var(--bg-chip)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: isLinked ? '#2C0A1E' : 'var(--text-secondary)',
+              color: isLinked ? '#260D14' : 'var(--text-secondary)',
               fontSize: '14px', fontWeight: '700',
             }}>
               {saving === product.id ? '…' : isLinked ? '✓' : '+'}
@@ -1048,7 +1104,7 @@ function ChipGroup({ items, selected, onToggle }) {
         return (
           <button key={item} onClick={() => onToggle(item)} style={{
             background: isActive ? 'var(--accent)' : 'var(--bg-chip)',
-            color: isActive ? '#2C0A1E' : 'var(--text-secondary)',
+            color: isActive ? '#260D14' : 'var(--text-secondary)',
             border: 'none', borderRadius: '20px', padding: '6px 14px',
             fontSize: '12px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit',
           }}>{item}</button>
@@ -1147,7 +1203,7 @@ function ChallengesManager() {
       <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Challenge title e.g. Spring Florals" style={inputStyle} />
       <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Description (optional)" rows={3} style={{ ...inputStyle, resize: 'none' }} />
       <input type="datetime-local" value={endsAt} onChange={e => setEndsAt(e.target.value)} style={inputStyle} />
-      <button onClick={handleCreate} disabled={saving || !title.trim() || !endsAt} style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '10px', padding: '11px 24px', fontSize: '14px', fontWeight: '600', fontFamily: 'inherit', cursor: 'pointer', marginBottom: '24px' }}>
+      <button onClick={handleCreate} disabled={saving || !title.trim() || !endsAt} style={{ background: 'var(--accent)', color: '#260D14', border: 'none', borderRadius: '10px', padding: '11px 24px', fontSize: '14px', fontWeight: '600', fontFamily: 'inherit', cursor: 'pointer', marginBottom: '24px' }}>
         {saving ? 'Creating…' : 'Create Challenge'}
       </button>
       {msg && <p style={{ color: '#6CC882', fontSize: '13px', marginBottom: '16px' }}>{msg}</p>}
