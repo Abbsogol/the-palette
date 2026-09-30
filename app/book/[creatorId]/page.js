@@ -503,6 +503,16 @@ function BookPageInner() {
           {/* ── STEP 2: Pick a date (250:2180) ── */}
           {step === 2 && (
             <div>
+              {availability.length === 0 ? (
+                <div style={{ background: PANEL, border: PANEL_BORDER, borderRadius: '16px', padding: '32px 20px', textAlign: 'center' }}>
+                  <p style={{ ...ui(500, 15), margin: '0 0 8px' }}>{creator?.display_name || 'This artist'} hasn't opened any booking dates yet</p>
+                  <p style={{ ...ui(300, 13, WHITE50), margin: '0 0 20px', lineHeight: 1.5 }}>Check back soon, or send a message to ask about their availability.</p>
+                  <Link href={`/messages?with=${creatorId}`} style={{ display: 'inline-block', background: BTN_GRADIENT, borderRadius: '1000px', padding: '13px 28px', ...ui(500, 14), textDecoration: 'none' }}>
+                    Message {creator?.display_name || 'artist'}
+                  </Link>
+                </div>
+              ) : (
+                <>
               {/* Calendar card. The frame draws month ‹ › paging; the
                   existing logic is a fixed 6-week window from today, so the
                   arrows are omitted rather than shipped dead (logged). */}
@@ -547,6 +557,8 @@ function BookPageInner() {
               )}
 
               {continueBtn(!!selectedDate, () => setStep(3))}
+                </>
+              )}
             </div>
           )}
 

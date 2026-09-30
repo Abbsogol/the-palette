@@ -196,6 +196,17 @@ export default function AvailabilityPage() {
         </div>
       )}
 
+      {/* No hours yet — clients can't book until at least one day is on */}
+      {activeDays.length === 0 && (
+        <div style={{ padding: '0 20px 16px' }}>
+          <div style={{ background: 'rgba(255,180,90,0.1)', border: '1px solid rgba(255,180,90,0.35)', borderRadius: '12px', padding: '10px 14px' }}>
+            <p style={{ ...ui(500, 12, '#F0B466'), margin: 0, lineHeight: 1.5 }}>
+              You haven&apos;t set any hours yet — clients can&apos;t book you until you turn on at least one day below.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Days */}
       <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {DAYS.map(day => {
