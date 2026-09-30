@@ -687,8 +687,10 @@ export default function AdminPage() {
 
     const uploadImage = (file, name) => uploadViaApi(file, 'admin-design', name)
 
-    const { data: { session } } = await supabase.auth.getSession()
-    const { data: design, error } = await supabase.from('designs').insert({ title, description, image_url, image_width, image_height, shape, length, occasion, technique, is_published: true, is_curated: true, created_by: session?.user?.id || null }).select().single()
+    // House/curated designs carry no owner (created_by: null) so they show no
+    // byline, matching the original house designs. Artist/salon uploads and Nail
+    // Lab publishing set created_by on their own paths and are unaffected.
+    const { data: design, error } = await supabase.from('designs').insert({ title, description, image_url, image_width, image_height, shape, length, occasion, technique, is_published: true, is_curated: true, created_by: null }).select().single()
     if (error) throw new Error(error.message)
 
     for (let i = 0; i < newExtraFiles.length; i++) {
