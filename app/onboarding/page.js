@@ -216,7 +216,7 @@ function OnboardingInner() {
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', padding: '0 32px' }}>
             <div style={{ fontSize: '52px', marginBottom: '28px', lineHeight: 1 }}>💅</div>
             <h1 style={{ ...display(30), marginBottom: '14px' }}>
-              Welcome to Laque{d.display_name ? `, ${d.display_name.split(' ')[0]}` : ''}
+              Welcome to laQue{d.display_name ? `, ${d.display_name.split(' ')[0]}` : ''}
             </h1>
             <p style={{ ...ui(300, 15, WHITE60), lineHeight: 1.8, marginBottom: '20px' }}>
               {accountType === 'creator'
@@ -449,7 +449,7 @@ function OnboardingInner() {
     if (current === 'done') {
       return (
         <button onClick={() => complete('/feed')} disabled={saving} style={primaryBtn}>
-          {saving ? 'Setting up…' : accountType === 'creator' ? 'Go to the feed →' : 'Explore Laque →'}
+          {saving ? 'Setting up…' : accountType === 'creator' ? 'Go to the feed →' : 'Explore laQue →'}
         </button>
       )
     }

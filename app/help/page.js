@@ -52,7 +52,7 @@ const SECTIONS = [
       },
       {
         q: 'What can I do with my generated designs?',
-        a: 'You can save generated designs to a board, share them, or publish them to the Laque library (creator accounts only). Published designs appear on your profile.',
+        a: 'You can save generated designs to a board, share them, or publish them to the laQue library (creator accounts only). Published designs appear on your profile.',
       },
       {
         q: 'Can I regenerate a design?',
@@ -64,7 +64,7 @@ const SECTIONS = [
     title: 'Account & Profile',
     items: [
       {
-        q: 'How do I become a nail artist or salon on Laque?',
+        q: 'How do I become a nail artist or salon on laQue?',
         a: 'During sign-up, choose "Nail Artist" or "Salon" as your account type. If you already have an account, contact us at hello@laque.app to upgrade.',
       },
       {
@@ -98,7 +98,7 @@ const SECTIONS = [
       },
       {
         q: 'How do I publish a design as a creator?',
-        a: 'Go to Upload in the bottom nav. Fill in the design specs (colours, technique, occasion, tags) and tap Publish. It will appear on your profile and in the Laque library.',
+        a: 'Go to Upload in the bottom nav. Fill in the design specs (colours, technique, occasion, tags) and tap Publish. It will appear on your profile and in the laQue library.',
       },
     ],
   },
@@ -115,7 +115,7 @@ const SECTIONS = [
       },
       {
         q: 'Who can message me?',
-        a: 'By default, anyone on Laque can message you. You can change this in Privacy settings → Messages to "Followers only" or "No one."',
+        a: 'By default, anyone on laQue can message you. You can change this in Privacy settings → Messages to "Followers only" or "No one."',
       },
     ],
   },

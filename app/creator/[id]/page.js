@@ -459,7 +459,7 @@ export default function CreatorPage() {
                     <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>
                   </svg>
                   <span style={ui(400, 12, MUTED)}>
-                    {replyTime && replyTime.samples >= 3 ? `Usually replies in ~${fmtReply(replyTime.medianMinutes)}` : 'New on Laque'}
+                    {replyTime && replyTime.samples >= 3 ? `Usually replies in ~${fmtReply(replyTime.medianMinutes)}` : 'New on laQue'}
                   </span>
                 </span>
               </>

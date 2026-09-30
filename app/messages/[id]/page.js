@@ -55,6 +55,7 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [notFound, setNotFound] = useState(false)
   const [keyboardOffset, setKeyboardOffset] = useState(0)
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
@@ -96,7 +97,7 @@ export default function ChatPage() {
         .single()
       if (convError) console.error('conversation fetch failed:', convError)
 
-      if (!convRow) { router.push('/messages'); return }
+      if (!convRow) { setNotFound(true); setLoading(false); return }
       setConv(convRow)
       // muted_by ships before its column may exist — feature-detect from the
       // row shape so the Mute row never renders as a control that errors.
@@ -339,6 +340,13 @@ export default function ChatPage() {
     </div>
   )
 
+  if (notFound) return (
+    <div style={{ minHeight: '100dvh', background: '#260D14', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '20px', textAlign: 'center' }}>
+      <p style={ui(600, 15)}>Conversation not found</p>
+      <p style={ui(300, 13, WHITE60)}>This chat doesn&apos;t exist or isn&apos;t yours.</p>
+    </div>
+  )
+
   const otherIsCreator = other?.account_type === 'creator' || other?.account_type === 'salon'
   const iAmClient = conv?.client_id === currentUser?.id
   const daysUntil = upcomingBooking ? Math.round((new Date(upcomingBooking.booking_date + 'T00:00:00') - new Date(new Date().toDateString())) / 86400000) : null
@@ -573,7 +581,7 @@ export default function ChatPage() {
                         {(payload.shape || payload.length_ || payload.meta) && (
                           <p style={{ ...ui(300, 11, WHITE40), margin: 0, textTransform: 'uppercase' }}>{payload.meta || [payload.shape, payload.length_].filter(Boolean).join(' · ')}</p>
                         )}
-                        <p style={{ ...ui(500, 10, ACCENT), margin: '2px 0 0' }}>✦ Laque Design</p>
+                        <p style={{ ...ui(500, 10, ACCENT), margin: '2px 0 0' }}>✦ laQue Design</p>
                       </div>
                     </a>
                   ) : payload?.__type === 'photo' ? (

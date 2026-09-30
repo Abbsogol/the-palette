@@ -95,6 +95,7 @@ function BookPageInner() {
   const [services, setServices] = useState([])
   const [availability, setAvailability] = useState([]) // active days
   const [loading, setLoading] = useState(true)
+  const [notFoundMsg, setNotFoundMsg] = useState(null)
   const [loadError, setLoadError] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
@@ -123,6 +124,9 @@ function BookPageInner() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/profile'); return }
       setCurrentUser(user)
+
+      // Can't book yourself.
+      if (creatorId === user.id) { setNotFoundMsg("You can't book yourself."); setLoading(false); return }
 
       // Fetch inspiration design if provided
       if (designId) {
@@ -154,6 +158,10 @@ function BookPageInner() {
         setLoading(false)
         return
       }
+
+      // Creator doesn't exist or isn't readable (PGRST116 is the "no rows" case,
+      // which the loadError check above deliberately lets through).
+      if (!prof) { setNotFoundMsg("This artist isn't available."); setLoading(false); return }
 
       setCreator(prof)
       setIsPrivateAndBlocked(!!prof?.is_private && creatorId !== user.id && !followRow)
@@ -324,6 +332,15 @@ function BookPageInner() {
     </BookShell>
   )
 
+  if (notFoundMsg) return (
+    <BookShell>
+      <div style={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '20px', textAlign: 'center' }}>
+        <p style={ui(600, 15)}>{notFoundMsg}</p>
+        <Link href="/search" style={{ background: BTN_GRADIENT, borderRadius: '1000px', padding: '13px 28px', ...ui(500, 14), textDecoration: 'none' }}>Find an artist</Link>
+      </div>
+    </BookShell>
+  )
+
   // ── PRIVATE ACCOUNT GUARD ───────────────────────────────────────────────────
   if (isPrivateAndBlocked) return (
     <BookShell>
@@ -410,7 +427,7 @@ function BookPageInner() {
       {refPickerOpen && (
         <Sheet title="Attach a reference design" onClose={() => setRefPickerOpen(false)}>
           <h2 style={{ ...ui(600, 18), margin: '0 0 4px' }}>Attach a reference design</h2>
-          <p style={{ ...ui(300, 13, WHITE50), margin: '0 0 14px' }}>Pick one from the Laque library</p>
+          <p style={{ ...ui(300, 13, WHITE50), margin: '0 0 14px' }}>Pick one from the laQue library</p>
           {refLibrary.length === 0 ? (
             <p style={{ ...ui(300, 14, WHITE50), textAlign: 'center', padding: '24px 0' }}>Loading designs…</p>
           ) : (
@@ -503,6 +520,16 @@ function BookPageInner() {
           {/* ── STEP 2: Pick a date (250:2180) ── */}
           {step === 2 && (
             <div>
+              {availability.length === 0 ? (
+                <div style={{ background: PANEL, border: PANEL_BORDER, borderRadius: '16px', padding: '32px 20px', textAlign: 'center' }}>
+                  <p style={{ ...ui(500, 15), margin: '0 0 8px' }}>{creator?.display_name || 'This artist'} hasn't opened any booking dates yet</p>
+                  <p style={{ ...ui(300, 13, WHITE50), margin: '0 0 20px', lineHeight: 1.5 }}>Check back soon, or send a message to ask about their availability.</p>
+                  <Link href={`/messages?with=${creatorId}`} style={{ display: 'inline-block', background: BTN_GRADIENT, borderRadius: '1000px', padding: '13px 28px', ...ui(500, 14), textDecoration: 'none' }}>
+                    Message {creator?.display_name || 'artist'}
+                  </Link>
+                </div>
+              ) : (
+                <>
               {/* Calendar card. The frame draws month ‹ › paging; the
                   existing logic is a fixed 6-week window from today, so the
                   arrows are omitted rather than shipped dead (logged). */}
@@ -547,6 +574,8 @@ function BookPageInner() {
               )}
 
               {continueBtn(!!selectedDate, () => setStep(3))}
+                </>
+              )}
             </div>
           )}
 

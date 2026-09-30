@@ -617,7 +617,7 @@ export default function NailLabPage() {
                 <button onClick={() => publishDesign(false)} disabled={publishing}
                   style={{ width: '100%', background: PANEL, border: publishStatus === 'published' ? `1.5px solid ${LAB_ACCENT}` : PANEL_BORDER, borderRadius: '16px', padding: '16px 18px', textAlign: 'left', cursor: 'pointer' }}
                 >
-                  <p style={{ ...ui(600, 14), margin: '0 0 3px' }}>Publish to Laque {publishStatus === 'published' && '✓'}</p>
+                  <p style={{ ...ui(600, 14), margin: '0 0 3px' }}>Publish to laQue {publishStatus === 'published' && '✓'}</p>
                   <p style={{ ...ui(300, 12, MUTED50), margin: 0 }}>Goes live on the feed — everyone can see it</p>
                 </button>
               </div>
@@ -1015,7 +1015,7 @@ export default function NailLabPage() {
                 <span style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                   <span style={ui(500, 14)}>Reference designs</span>
                   <span style={ui(400, 12, MUTED50)}>
-                    {refDesigns.length > 0 ? `${refDesigns.length} design${refDesigns.length > 1 ? 's' : ''} selected` : 'Pick from the Laque library'}
+                    {refDesigns.length > 0 ? `${refDesigns.length} design${refDesigns.length > 1 ? 's' : ''} selected` : 'Pick from the laQue library'}
                   </span>
                 </span>
               </span>

@@ -164,7 +164,7 @@ export default function PrivacySettingsPage() {
   )
 
   const msgOptions = [
-    { value: 'everyone',  label: 'Everyone',       desc: 'Anyone on Laque can message you' },
+    { value: 'everyone',  label: 'Everyone',       desc: 'Anyone on laQue can message you' },
     { value: 'followers', label: 'Followers only',  desc: 'Only people you follow back' },
     { value: 'none',      label: 'No one',          desc: 'Turn off messages entirely' },
   ]

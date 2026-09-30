@@ -79,6 +79,7 @@ export default function AppointmentDetailPage() {
   const [booking, setBooking] = useState(null)
   const [currentUser, setCurrentUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [notFound, setNotFound] = useState(false)
   const [payLoading, setPayLoading] = useState(false)
   const [refDesign, setRefDesign] = useState(null)
   const [review, setReview] = useState(null)
@@ -101,7 +102,7 @@ export default function AppointmentDetailPage() {
         .eq('client_id', user.id)
         .single()
 
-      if (!data) { router.push('/appointments'); return }
+      if (!data) { setNotFound(true); setLoading(false); return }
 
       // Fetch creator profile + existing review in parallel
       const [{ data: creator }, { data: existingReview }] = await Promise.all([
@@ -196,6 +197,13 @@ export default function AppointmentDetailPage() {
 
   if (loading) return shell(
     <p style={{ ...ui(300, 14, WHITE50), textAlign: 'center', padding: '48px 0' }}>Loading…</p>
+  )
+
+  if (notFound) return shell(
+    <div style={{ textAlign: 'center', padding: '48px 20px' }}>
+      <p style={{ ...ui(600, 15), margin: '0 0 6px' }}>Appointment not found</p>
+      <p style={{ ...ui(300, 13, WHITE50), margin: 0 }}>This appointment doesn&apos;t exist or isn&apos;t yours.</p>
+    </div>
   )
 
   const { service, creator } = booking

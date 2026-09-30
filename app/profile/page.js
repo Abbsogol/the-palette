@@ -913,7 +913,7 @@ export default function ProfilePage() {
         <div style={{ padding: 'calc(env(safe-area-inset-top) + 32px) 24px 140px' }}>
           <div style={{ marginBottom: '28px', color: 'var(--lq-white)' }}><LaqueWordmark height={24} /></div>
           <h1 style={{ ...ui(600, 24), letterSpacing: '-0.02em', marginBottom: '4px' }}>I am a...</h1>
-          <p style={{ ...ui(300, 14, MUTED), marginBottom: '28px' }}>Choose how you'll use Laque</p>
+          <p style={{ ...ui(300, 14, MUTED), marginBottom: '28px' }}>Choose how you'll use laQue</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
             {accountTypes.map(({ type, label, desc }) => (
               <button key={type} onClick={() => setChosenType(type)} style={typeCard(chosenType === type)}>
@@ -941,7 +941,7 @@ export default function ProfilePage() {
         <div style={{ padding: 'calc(env(safe-area-inset-top) + 32px) 24px 140px' }}>
           <div style={{ marginBottom: '28px', color: 'var(--lq-white)' }}><LaqueWordmark height={24} /></div>
           <h1 style={{ ...ui(600, 24), letterSpacing: '-0.02em', marginBottom: '4px' }}>One more thing</h1>
-          <p style={{ ...ui(300, 14, MUTED), marginBottom: '28px' }}>How will you use Laque?</p>
+          <p style={{ ...ui(300, 14, MUTED), marginBottom: '28px' }}>How will you use laQue?</p>
           <input type="text" placeholder="Display name" aria-label="Display name" value={displayName || suggestedName} onChange={e => setDisplayName(e.target.value)}
             style={{ ...inp, width: '100%', marginBottom: '16px', boxSizing: 'border-box' }} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
@@ -1295,7 +1295,7 @@ export default function ProfilePage() {
               <span style={{ ...ui(400, 15, '#E07070'), flex: 1 }}>Delete account</span>
             </button>
           </div>
-          <p style={{ ...ui(300, 12, MUTED), textAlign: 'center', margin: '20px 0 0', paddingBottom: 'env(safe-area-inset-bottom)' }}>Laque · Version 0.2 · Beta</p>
+          <p style={{ ...ui(300, 12, MUTED), textAlign: 'center', margin: '20px 0 0', paddingBottom: 'env(safe-area-inset-bottom)' }}>laQue · Version 0.2 · Beta</p>
         </Sheet>
       )}
 
@@ -1894,7 +1894,7 @@ export default function ProfilePage() {
           <div style={{ background: 'linear-gradient(145deg, rgba(255,81,127,0.12), rgba(102,0,7,0.10))', border: '1px solid rgba(255,81,127,0.3)', borderRadius: '24px', padding: '18px 16px' }}>
             <p style={{ ...ui(600, 11, ACCENT), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '8px' }}>For Nail Artists & Salons</p>
             <p style={{ ...ui(600, 15), marginBottom: '6px' }}>Become a Creator</p>
-            <p style={{ ...ui(300, 13, MUTED), lineHeight: 1.6, marginBottom: '14px' }}>Publish your designs, get a public profile, and reach clients discovering nail art on Laque.</p>
+            <p style={{ ...ui(300, 13, MUTED), lineHeight: 1.6, marginBottom: '14px' }}>Publish your designs, get a public profile, and reach clients discovering nail art on laQue.</p>
             <button onClick={handleBecomeCreator} style={{ ...primaryBtn, width: '100%', padding: '12px' }}>
               Switch to Creator Account
             </button>

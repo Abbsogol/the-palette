@@ -32,7 +32,7 @@ export async function POST(request) {
     return Response.json({ ok: true, alreadyCompleted: true })
   }
 
-  const credits = (existing.account_type === 'creator' || existing.account_type === 'salon') ? 5 : 3
+  const credits = 3
 
   const { error } = await supabase.from('profiles_data').update({
     display_name: str(display_name, 100),
