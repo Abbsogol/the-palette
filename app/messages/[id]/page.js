@@ -573,7 +573,7 @@ export default function ChatPage() {
                         {(payload.shape || payload.length_ || payload.meta) && (
                           <p style={{ ...ui(300, 11, WHITE40), margin: 0, textTransform: 'uppercase' }}>{payload.meta || [payload.shape, payload.length_].filter(Boolean).join(' · ')}</p>
                         )}
-                        <p style={{ ...ui(500, 10, ACCENT), margin: '2px 0 0' }}>✦ Laque Design</p>
+                        <p style={{ ...ui(500, 10, ACCENT), margin: '2px 0 0' }}>✦ laQue Design</p>
                       </div>
                     </a>
                   ) : payload?.__type === 'photo' ? (

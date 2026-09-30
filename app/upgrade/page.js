@@ -129,7 +129,7 @@ export default function UpgradePage() {
       {/* Hero */}
       <div style={{ padding: '20px 20px 24px', textAlign: 'center' }}>
         <div style={{ fontSize: '28px', marginBottom: '12px', color: ACCENT }}>✦</div>
-        <h2 style={{ ...display(26), margin: '0 0 8px' }}>Unlock the full Laque experience</h2>
+        <h2 style={{ ...display(26), margin: '0 0 8px' }}>Unlock the full laQue experience</h2>
         <p style={{ ...ui(300, 14, WHITE60), margin: 0, lineHeight: 1.6 }}>Choose the plan that&apos;s right for you. Cancel anytime.</p>
       </div>
 
@@ -205,7 +205,7 @@ export default function UpgradePage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
               <div>
                 <p style={{ ...ui(500, 11, WHITE60), letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 4px' }}>For design lovers</p>
-                <h3 style={{ ...display(22), margin: 0 }}>Laque Premium</h3>
+                <h3 style={{ ...display(22), margin: 0 }}>laQue Premium</h3>
               </div>
               {currentTier === 'premium' && (
                 <span style={{ background: BTN_GRADIENT, color: 'var(--lq-white)', ...ui(700, 10), letterSpacing: '0.06em', padding: '4px 10px', borderRadius: '1000px' }}>ACTIVE</span>

@@ -88,7 +88,7 @@ export default function InvitePage() {
     if (navigator.share) {
       navigator.share({
         title: 'Join me on laQue',
-        text: `Discover the most beautiful nail designs on Laque. Use my code ${code} when you sign up and we both get rewards! 💅`,
+        text: `Discover the most beautiful nail designs on laQue. Use my code ${code} when you sign up and we both get rewards! 💅`,
         url: shareUrl,
       }).catch(() => {})
     } else {
@@ -129,7 +129,7 @@ export default function InvitePage() {
           textAlign: 'center',
         }}>
           <div style={{ fontSize: '44px', marginBottom: '14px', lineHeight: 1 }}>💅</div>
-          <h2 style={{ ...display(26), margin: '0 0 10px' }}>Share Laque, earn together</h2>
+          <h2 style={{ ...display(26), margin: '0 0 10px' }}>Share laQue, earn together</h2>
           <p style={{ ...ui(300, 14, WHITE80), lineHeight: 1.7, margin: '0 0 24px' }}>
             You get <strong style={{ color: ACCENT, fontWeight: 500 }}>+50 pts</strong> every time a friend joins with your code. They get <strong style={{ color: ACCENT, fontWeight: 500 }}>+25 pts</strong> too.
           </p>
@@ -186,7 +186,7 @@ export default function InvitePage() {
           <p style={{ ...ui(500, 11, ACCENT), letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 14px' }}>How it works</p>
           {[
             { icon: '📤', title: 'Share your code', desc: 'Send your unique code or link to friends, family, or followers.' },
-            { icon: '✍️', title: 'Friend signs up', desc: 'They enter your code during onboarding when they join Laque.' },
+            { icon: '✍️', title: 'Friend signs up', desc: 'They enter your code during onboarding when they join laQue.' },
             { icon: '🎁', title: 'You both earn', desc: 'You get +50 Beauty Rewards points. They get +25 to welcome them.' },
           ].map(({ icon, title, desc }) => (
             <div key={title} style={{ display: 'flex', gap: '14px', marginBottom: '14px' }}>

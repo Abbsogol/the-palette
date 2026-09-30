@@ -768,7 +768,7 @@ export default function FeedPage() {
               <div style={{ padding: '48px 24px', textAlign: 'center' }}>
                 <p style={{ ...ui(400, 15), marginBottom: '8px' }}>No community posts yet</p>
                 <p style={{ ...ui(300, 13, 'var(--lq-white-80)'), lineHeight: 1.6, marginBottom: '20px' }}>
-                  Be the first to share your nail work with the Laque community.
+                  Be the first to share your nail work with the laQue community.
                 </p>
                 {currentUser && (userProfile?.account_type === 'creator' || userProfile?.account_type === 'salon') ? (
                   <PillButton href="/upload" style={{ display: 'inline-flex' }}>Post a design</PillButton>

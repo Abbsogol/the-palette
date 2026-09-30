@@ -410,7 +410,7 @@ function BookPageInner() {
       {refPickerOpen && (
         <Sheet title="Attach a reference design" onClose={() => setRefPickerOpen(false)}>
           <h2 style={{ ...ui(600, 18), margin: '0 0 4px' }}>Attach a reference design</h2>
-          <p style={{ ...ui(300, 13, WHITE50), margin: '0 0 14px' }}>Pick one from the Laque library</p>
+          <p style={{ ...ui(300, 13, WHITE50), margin: '0 0 14px' }}>Pick one from the laQue library</p>
           {refLibrary.length === 0 ? (
             <p style={{ ...ui(300, 14, WHITE50), textAlign: 'center', padding: '24px 0' }}>Loading designs…</p>
           ) : (

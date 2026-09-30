@@ -290,7 +290,7 @@ export default function NailLabHistoryPage() {
               <button onClick={() => publishDesign(false)} disabled={publishing}
                 style={{ width: '100%', background: PANEL, border: publishStatus === 'published' ? `1.5px solid ${LAB_ACCENT}` : PANEL_BORDER, borderRadius: '16px', padding: '16px 18px', textAlign: 'left', cursor: 'pointer' }}
               >
-                <p style={{ ...ui(600, 14), margin: '0 0 3px' }}>Publish to Laque {publishStatus === 'published' && '✓'}</p>
+                <p style={{ ...ui(600, 14), margin: '0 0 3px' }}>Publish to laQue {publishStatus === 'published' && '✓'}</p>
                 <p style={{ ...ui(300, 12, MUTED50), margin: 0 }}>Goes live on the feed — everyone can see it</p>
               </button>
             </div>

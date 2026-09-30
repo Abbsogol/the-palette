@@ -2,7 +2,7 @@ import { Resend } from 'resend'
 import { serviceClient as supabase } from '@/lib/auth'
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
-const REMINDER_FROM = 'Laque <reminders@laque.app>'
+const REMINDER_FROM = 'laQue <reminders@laque.app>'
 
 const fmt12 = (t) => {
   if (!t) return ''
@@ -122,7 +122,7 @@ export async function GET(request) {
             from: REMINDER_FROM,
             to: email,
             subject,
-            text: `${body}\n\n— Laque`,
+            text: `${body}\n\n— laQue`,
           })
           if (sendError) {
             console.error('send-reminders email error:', sendError)

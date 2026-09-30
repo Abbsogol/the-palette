@@ -59,7 +59,7 @@ export default function ShopPage() {
         {/* Affiliate disclosure */}
         <div style={{ margin: '0 20px 16px', padding: '10px 14px', background: PANEL, borderRadius: '12px', border: PANEL_BORDER }}>
           <p style={{ ...ui(300, 11, WHITE60), lineHeight: 1.5 }}>
-            As an Amazon Associate, Laque earns from qualifying purchases. Links may earn us a small commission at no extra cost to you.
+            As an Amazon Associate, laQue earns from qualifying purchases. Links may earn us a small commission at no extra cost to you.
           </p>
         </div>
 

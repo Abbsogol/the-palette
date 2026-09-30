@@ -71,7 +71,7 @@ function SuccessContent() {
         </div>
 
         <h1 style={{ ...display(26), margin: '0 0 10px' }}>
-          Welcome to {isPro ? 'Pro Creator' : 'Laque Premium'} ✦
+          Welcome to {isPro ? 'Pro Creator' : 'laQue Premium'} ✦
         </h1>
         <p style={{ ...ui(300, 15, WHITE60), lineHeight: 1.6, margin: '0 0 12px', maxWidth: '300px' }}>
           {isPro
