@@ -152,8 +152,20 @@ export async function POST(request) {
       if (isModeration) {
         return Response.json({ error: 'Some wording in your description was blocked. Try describing the look differently.' }, { status: 400 })
       }
-      // Rate limit → the service is busy, retry shortly.
+      // Out-of-credit / billing (OpenAI quota exhausted) vs a genuine rate
+      // limit. OpenAI returns quota errors AS 429, so this must be checked
+      // BEFORE the rate-limit branch. The user sees the same "try again later"
+      // either way, but billing is logged distinctly — it's an operator problem
+      // (top up / raise the cap), not something a retry fixes.
+      const isBilling = oaCode === 'insufficient_quota' || oaType === 'insufficient_quota' ||
+        oaCode === 'billing_hard_limit_reached' || openaiRes.status === 402
+      if (isBilling) {
+        console.error('[nail-lab] OPENAI BILLING/QUOTA (not a rate limit — top up / raise cap):', openaiRes.status, oaCode || oaType, oaMsg)
+        return Response.json({ error: 'The image service is busy right now. Please try again in a moment.' }, { status: 429 })
+      }
+      // Genuine rate limit → the service is busy, retry shortly.
       if (openaiRes.status === 429 || oaCode === 'rate_limit_exceeded') {
+        console.warn('[nail-lab] OpenAI rate limited:', openaiRes.status, oaCode)
         return Response.json({ error: 'The image service is busy right now. Please try again in a moment.' }, { status: 429 })
       }
       // Anything else → surface the actual reason in the response, since the
