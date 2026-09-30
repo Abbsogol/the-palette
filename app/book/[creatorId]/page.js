@@ -95,6 +95,7 @@ function BookPageInner() {
   const [services, setServices] = useState([])
   const [availability, setAvailability] = useState([]) // active days
   const [loading, setLoading] = useState(true)
+  const [notFoundMsg, setNotFoundMsg] = useState(null)
   const [loadError, setLoadError] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
@@ -123,6 +124,9 @@ function BookPageInner() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/profile'); return }
       setCurrentUser(user)
+
+      // Can't book yourself.
+      if (creatorId === user.id) { setNotFoundMsg("You can't book yourself."); setLoading(false); return }
 
       // Fetch inspiration design if provided
       if (designId) {
@@ -154,6 +158,10 @@ function BookPageInner() {
         setLoading(false)
         return
       }
+
+      // Creator doesn't exist or isn't readable (PGRST116 is the "no rows" case,
+      // which the loadError check above deliberately lets through).
+      if (!prof) { setNotFoundMsg("This artist isn't available."); setLoading(false); return }
 
       setCreator(prof)
       setIsPrivateAndBlocked(!!prof?.is_private && creatorId !== user.id && !followRow)
@@ -320,6 +328,15 @@ function BookPageInner() {
         <button onClick={() => window.location.reload()} style={{ background: BTN_GRADIENT, border: 'none', borderRadius: '1000px', padding: '13px 28px', ...ui(500, 14), cursor: 'pointer' }}>
           Retry
         </button>
+      </div>
+    </BookShell>
+  )
+
+  if (notFoundMsg) return (
+    <BookShell>
+      <div style={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '20px', textAlign: 'center' }}>
+        <p style={ui(600, 15)}>{notFoundMsg}</p>
+        <Link href="/search" style={{ background: BTN_GRADIENT, borderRadius: '1000px', padding: '13px 28px', ...ui(500, 14), textDecoration: 'none' }}>Find an artist</Link>
       </div>
     </BookShell>
   )
