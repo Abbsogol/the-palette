@@ -660,7 +660,7 @@ export default function AdminPage() {
 
   const loadDesigns = async () => {
     setLoadingDesigns(true)
-    const { data, error } = await supabase.from('designs').select('id, title, image_url, created_at, is_drop').order('created_at', { ascending: false }).limit(500)
+    const { data, error } = await supabase.from('designs').select('id, title, image_url, created_at, is_drop, is_published').order('created_at', { ascending: false }).limit(500)
     if (error) console.error('admin designs fetch failed:', error)
     setAllDesigns(data || [])
     setLoadingDesigns(false)
@@ -906,7 +906,8 @@ export default function AdminPage() {
       {activeTab === 'manage' && (
         <>
           <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '16px' }}>
-            {allDesigns.length} design{allDesigns.length !== 1 ? 's' : ''} published
+            {allDesigns.length} design{allDesigns.length !== 1 ? 's' : ''}
+            {allDesigns.some(d => d.is_published !== true) && ` · ${allDesigns.filter(d => d.is_published === true).length} published`}
           </p>
           {loadingDesigns ? (
             <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Loading...</p>
@@ -918,7 +919,12 @@ export default function AdminPage() {
                     ? <img src={design.image_url} alt={design.title} style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '8px', flexShrink: 0 }} />
                     : <div style={{ width: '48px', height: '48px', background: 'var(--bg-chip)', borderRadius: '8px', flexShrink: 0 }} />}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{design.title}</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{design.title}</span>
+                      {design.is_published !== true && (
+                        <span style={{ flexShrink: 0, background: 'var(--bg-chip)', color: 'var(--text-secondary)', fontSize: '10px', fontWeight: '500', padding: '2px 7px', borderRadius: '1000px', letterSpacing: '0.04em' }}>Private</span>
+                      )}
+                    </div>
                     <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '2px' }}>
                       {new Date(design.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </p>
