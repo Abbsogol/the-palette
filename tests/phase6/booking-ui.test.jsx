@@ -14,7 +14,7 @@ const click=async name=>act(async()=>fireEvent.click(screen.getByRole('button',{
 beforeEach(()=>{
   vi.useFakeTimers();vi.setSystemTime(new Date('2026-09-27T23:30:00Z'));vi.clearAllMocks();mock.callbacks.clear();mock.session=session('client');mock.zone='Pacific/Kiritimati';mock.writes=[]
   Object.assign(mock.client,database(q=>{
-    if(q.table==='profiles')return ok({id:'creator',display_name:'Creator',account_type:'creator'})
+    if(q.table==='profiles')return ok({id:'creator',display_name:'Creator',account_type:'creator',...(q.columns?.includes('booking_area')?{booking_area:'Dubai studio',location:'Dubai'}:{})})
     if(q.table==='services')return ok([{id:'service',name:'Manicure',duration_minutes:30,price:100}])
     if(q.table==='availability')return ok(Array.from({length:7},(_,day_of_week)=>({day_of_week,start_time:'00:00',end_time:'24:00',is_active:true})))
     if(q.table==='follows')return ok(null)
@@ -26,7 +26,7 @@ beforeEach(()=>{
   mock.client.auth={getSession:vi.fn(async()=>({data:{session:mock.session}})),getUser:vi.fn(async()=>({data:{user:mock.session?.user}})),onAuthStateChange:cb=>{mock.callbacks.add(cb);return {data:{subscription:{unsubscribe:()=>mock.callbacks.delete(cb)}}}}}
   vi.stubGlobal('fetch',vi.fn(async()=>Response.json({ok:true})))
 })
-afterEach(()=>{cleanup();vi.useRealTimers()})
+afterEach(()=>{cleanup();vi.useRealTimers();vi.unstubAllEnvs()})
 const chooseTime=async()=>{await act(async()=>render(<Booking/>));await click('2026-09-28');await click('Continue');await click('2pm');await click('Continue')}
 it('calendar dates follow the creator, regardless of the visitor date',()=>{
   const available=zone=>bookingCalendar([{day_of_week:1}],zone,new Date('2026-09-28T00:30:00Z')).filter(d=>d.available).map(d=>calendarKey(d.date))
@@ -76,4 +76,21 @@ it('history and deposit eligibility use the saved instants, including same-day o
   expect(bookingCanTakeDeposit({status:'confirmed',booking_date:'2026-09-28',starts_at:'2026-09-28T00:00:00Z'},now)).toBe(false)
   expect(bookingCanTakeDeposit({status:'confirmed'},now)).toBe(false)
   expect(bookingHasEnded({},now)).toBe(false)
+})
+
+it('calendar-enabled web booking preserves reviewed location and requires explicit client conflict consent',async()=>{
+  vi.stubEnv('NEXT_PUBLIC_GOOGLE_CALENDAR_ENABLED','true')
+  let sent
+  vi.mocked(fetch).mockImplementation(async (url,options)=>{
+    if(url.startsWith('/api/mobile/calendar-slots'))return Response.json({slots:[{start_time:'14:00:00',available:true,client_calendar_conflict:true,client_calendar_state:'checked'}]})
+    if(url==='/api/mobile/request-booking'){sent=JSON.parse(options.body);return Response.json({booking:{id:'booking'}})}
+    return Response.json({ok:true})
+  })
+  await chooseTime()
+  expect(screen.getByRole('button',{name:/Send booking request/})).toBeDisabled()
+  await act(async()=>fireEvent.click(screen.getByRole('checkbox')))
+  await click(/Send booking request/)
+  expect(sent).toMatchObject({location:'Dubai studio',allowCalendarConflict:true,price:100,timeZone:'Pacific/Kiritimati'})
+  expect(mock.writes).toHaveLength(0)
+  expect(screen.getByText('Request sent!')).toBeVisible()
 })

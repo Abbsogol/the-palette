@@ -1,0 +1,29 @@
+name: Connected beta authentication
+on:
+  workflow_dispatch:
+    inputs:
+      android_build_id:
+        type: string
+        required: true
+      ios_build_id:
+        type: string
+        required: true
+jobs:
+  android_auth:
+    type: maestro
+    environment: preview
+    env:
+      MAESTRO_TEST_EMAIL: ${{ env.BETA_TEST_EMAIL }}
+      MAESTRO_TEST_PASSWORD: ${{ env.BETA_TEST_PASSWORD }}
+    params:
+      build_id: ${{ inputs.android_build_id }}
+      flow_path: ['.maestro/beta-auth.yml']
+  ios_auth:
+    type: maestro
+    environment: preview
+    env:
+      MAESTRO_TEST_EMAIL: ${{ env.BETA_TEST_EMAIL }}
+      MAESTRO_TEST_PASSWORD: ${{ env.BETA_TEST_PASSWORD }}
+    params:
+      build_id: ${{ inputs.ios_build_id }}
+      flow_path: ['.maestro/beta-auth.yml']

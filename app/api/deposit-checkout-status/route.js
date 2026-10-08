@@ -2,7 +2,7 @@ import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
 
 const json = (body, status = 200) => Response.json(body, { status, headers: { 'cache-control':'no-store' } })
 export async function GET(request) {
-  const user = await getSessionUser(request)
+  const user = await getSessionUser(request, { allowSuspended: true })
   if (!user) return json({ error:'Unauthorized' }, 401)
   const params = new URL(request.url).searchParams
   const bookingId = params.get('booking')

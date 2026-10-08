@@ -12,6 +12,7 @@ export async function POST(request) {
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    if (process.env.LAB_APP_ONLY_BILLING === '1') return Response.json({ error: 'Subscribe and purchase design tokens inside the LaQue app.' }, { status: 410 })
     const userId = user.id
 
     const { planId } = await request.json()
@@ -25,6 +26,9 @@ export async function POST(request) {
     // value and pass a plain `!plan` check.
     if (typeof planId !== 'string' || !Object.hasOwn(PLANS, planId)) {
       return Response.json({ error: 'Invalid plan' }, { status: 400 })
+    }
+    if (!PLANS[planId].priceId) {
+      return Response.json({ error: 'Subscriptions are not configured for this environment.' }, { status: 503 })
     }
 
     const { data: profile, error: profileError } = await supabase.from('profiles_data')

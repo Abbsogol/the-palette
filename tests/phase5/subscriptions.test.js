@@ -12,13 +12,16 @@ vi.mock('stripe', () => ({ default: class Stripe {
 import { POST as subscribe } from '@/app/api/create-subscription/route'
 import { GET as status } from '@/app/api/subscription-checkout-status/route'
 import { POST as webhook } from '@/app/api/stripe-webhook/route'
-import { POST as deleteAccount } from '@/app/api/delete-account/route'
+import { purgeAccountData } from '@/lib/account-purge'
+import Stripe from 'stripe'
 
 const user = '00000000-0000-4000-8000-000000000501'
 const other = '00000000-0000-4000-8000-000000000502'
 const price = 'price_1TnxOq14PyqGjXgedydlYqto'
 const proPrice = 'price_1TnxOG14PyqGjXgeKYmTKhQf'
 let db, sessions, currentSubscription
+// Closure is tested separately; these cases exercise the guarded physical cleanup.
+const deleteAccount = () => purgeAccountData(mock.client, new Stripe(), user)
 const scalar = async (sql, args = []) => Object.values((await db.query(sql, args)).rows[0])[0]
 const profile = async () => (await db.query('select * from profiles_data where id=$1', [user])).rows[0]
 const attempt = async () => (await db.query('select * from subscription_checkouts where user_id=$1', [user])).rows[0]

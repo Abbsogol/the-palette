@@ -22,11 +22,12 @@ it.each([['privacy', privacy], ['account type', accountType], ['publish', publis
 })
 
 it.each([adminGet, adminPost])('rejects a non-admin before querying administrative data', async handler => {
-  expect((await handler(jsonRequest({ userId: 'other-user', credits: 50 }))).status).toBe(401)
+  expect((await handler(jsonRequest({ userId: 'other-user', credits: 50 }))).status).toBe(403)
   expect(auth.client.from).not.toHaveBeenCalled()
 })
 
 it('only writes allowed privacy fields to the verified account', async () => {
+  Object.assign(auth.client, database(() => ok({is_private:true,message_permission:'everyone',show_saves:true})))
   const response = await privacy(jsonRequest({ id: 'other-user', is_private: true, is_admin: true, credit_balance: 999 }))
   expect(response.status).toBe(200)
   expect(auth.client.calls).toEqual([expect.objectContaining({

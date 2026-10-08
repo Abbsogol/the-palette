@@ -1,0 +1,116 @@
+{
+  "fileKey": "VEodtjFruvXPaIwWW2BjMC",
+  "nodeIds": [
+    "345:4846",
+    "345:4923",
+    "345:5033"
+  ],
+  "assets": [
+    {
+      "file": "aadb9.png",
+      "bytes": 1153544,
+      "sha256": "c8d3216f9354aebe07d764782e6d699828544c74dc65f7b49496e8ffa507e9ca"
+    },
+    {
+      "file": "19293.png",
+      "bytes": 1267136,
+      "sha256": "600db42f9152000898cbb6179fdd10ea96ca54629bf78dbc32ff707384eeee3c"
+    },
+    {
+      "file": "16999.png",
+      "bytes": 930863,
+      "sha256": "9f0a599b8769687b11eaacc5246acb4c2b5c49d807d2a47b9ec3911c05524992"
+    },
+    {
+      "file": "b9cb8.svg",
+      "bytes": 412,
+      "sha256": "530a40c77e10196001ffe907261cac35d54441d2485b855b154646592793c382",
+      "width": "16",
+      "height": "16"
+    },
+    {
+      "file": "8143a.svg",
+      "bytes": 932,
+      "sha256": "c5474b9479b34d9fc6b26793f0ddb097d90d36f6d846316dc71c511d2a590539",
+      "width": "16",
+      "height": "16"
+    },
+    {
+      "file": "c4579.svg",
+      "bytes": 260,
+      "sha256": "4e80b3670162fea4e65f9e388f593dd9cc08b2d00e2c19969269a0a8834e68c3",
+      "width": "393",
+      "height": "1"
+    },
+    {
+      "file": "40773.svg",
+      "bytes": 652,
+      "sha256": "f164177562f386b62b5a6b1603bb1d6b0ed3c6fa49e864e7b4cfaace107af273",
+      "width": "16",
+      "height": "16"
+    },
+    {
+      "file": "2ce8f.svg",
+      "bytes": 814,
+      "sha256": "70786f1a1990be52e3ec2c98203ec297d0771bc548ad85f7692c875956d04fba",
+      "width": "16",
+      "height": "16"
+    },
+    {
+      "file": "8a5b4.svg",
+      "bytes": 1165,
+      "sha256": "91dbf3b4608962cf56ba9a87a5a884034509e3063d45c618cdd0fab403fee9f3",
+      "width": "16",
+      "height": "16"
+    },
+    {
+      "file": "b7afc.svg",
+      "bytes": 746,
+      "sha256": "f0e8544adee046c45de246f0763cd89a38db4c78085849b27bfd52c64b67f3d8",
+      "width": "16",
+      "height": "16"
+    },
+    {
+      "file": "470f6.svg",
+      "bytes": 483,
+      "sha256": "c39632bce46190b1c9a73f2cb172b7f2ad5a175ae715eca964fb4ecbed10a22b",
+      "width": "16",
+      "height": "16"
+    },
+    {
+      "file": "d6409.svg",
+      "bytes": 1173,
+      "sha256": "dc65919ce03b1fe763f4fe0af160d64f90b82d864295d0c2ac1431d84feb8c0e",
+      "width": "16",
+      "height": "16"
+    },
+    {
+      "file": "34f7b.svg",
+      "bytes": 608,
+      "sha256": "3ca7496ce580877e968a81f842eaa754ee18bb0287e8a328b10743fd192f84c9",
+      "width": "16",
+      "height": "16"
+    },
+    {
+      "file": "5618a.svg",
+      "bytes": 654,
+      "sha256": "ed2432f31ee36518214584ad886fd774905f1e2857a8aae6eec2c32356087fdb",
+      "width": "16",
+      "height": "16"
+    },
+    {
+      "file": "8ab05.svg",
+      "bytes": 925,
+      "sha256": "637699b30df7bdc6d4b8f10121b483d014783ac5725c48d27931377ff0d82d38",
+      "width": "16",
+      "height": "16"
+    },
+    {
+      "file": "25878.svg",
+      "bytes": 260,
+      "sha256": "8182f44bf1175362e22ab19e4d119159e73d79f37bef3d36ed7509a4c6901ef0",
+      "width": "329",
+      "height": "1"
+    }
+  ]
+}

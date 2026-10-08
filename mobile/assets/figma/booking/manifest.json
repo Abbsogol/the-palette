@@ -1,0 +1,38 @@
+[
+  {
+    "file": "02531.png",
+    "node": "345-5236",
+    "bytes": 1557275,
+    "sha256": "4ea389a9545265b33804cc0c03e49631f2d016e5c0323265ef47eaa3568e12ae"
+  },
+  {
+    "file": "1efd6.svg",
+    "node": "345-5478",
+    "bytes": 260,
+    "sha256": "22eee2dc3078f7375e719acc97751da06159c69a995789f21272b24ee7afec01"
+  },
+  {
+    "file": "04805.svg",
+    "node": "345-5478",
+    "bytes": 1114,
+    "sha256": "30d12e10827fb5fe3a95b6a0d49cd63e71f782ffa6e5cc4291efbb1a81e3ab60"
+  },
+  {
+    "file": "a7474.svg",
+    "node": "345-5539",
+    "bytes": 1794,
+    "sha256": "7f5411afe551ad8b63051dadd85134753ab29b7cc73a6b860b60283c2f5fe7a8"
+  },
+  {
+    "file": "934da.svg",
+    "node": "345-5568",
+    "bytes": 313,
+    "sha256": "4fd6bfd69bd9fc4e4c543a7a4f22c3f9d7165897656fba10c4aa6731a948c895"
+  },
+  {
+    "file": "855a8.svg",
+    "node": "345-5568",
+    "bytes": 543,
+    "sha256": "cca6cbe2daddd014432bb06ee112a43fd62e7689c7edd33ad47930c5b1d267bb"
+  }
+]

@@ -1,0 +1,75 @@
+import type { ShareRecipient } from "../features/messages-ui/model";
+const now = new Date();
+const minutesAgo = (minutes: number) =>
+  new Date(now.getTime() - minutes * 60000).toISOString();
+export const demoContacts: ShareRecipient[] = [
+  {
+    id: "sample-kim",
+    userId: "kim",
+    conversationId: "sample-kim",
+    name: "Kim",
+    avatar: require("../../assets/figma/profiles/f31fd.png"),
+    username: "kim",
+    role: "creator",
+    location: "Dubai",
+    lastMessage: "Of course! Send me your inspiration ✨",
+    lastMessageAt: minutesAgo(8),
+    unread: true,
+  },
+  {
+    id: "sample-keyvan",
+    userId: "keyvan",
+    conversationId: "sample-keyvan",
+    name: "keyvan",
+    username: "keyvan",
+    role: "user",
+    lastMessage: "You: Shared a design",
+    lastMessageAt: minutesAgo(47),
+  },
+  {
+    id: "sample-nail-bar",
+    userId: "nailbar",
+    conversationId: "sample-nail-bar",
+    name: "Nail Bar Studio",
+    username: "nailbar",
+    role: "salon",
+    location: "Kyiv",
+    lastMessage: "Your appointment is confirmed.",
+    lastMessageAt: minutesAgo(90),
+    unread: true,
+  },
+  {
+    id: "sample-polished",
+    userId: "polished",
+    conversationId: "sample-polished",
+    name: "Polished",
+    username: "polished",
+    role: "salon",
+    location: "London",
+    lastMessage: "We would love to create this set for you.",
+    lastMessageAt: minutesAgo(1440),
+  },
+  {
+    id: "sample-glow",
+    userId: "glow",
+    conversationId: "sample-glow",
+    name: "Glow & Go",
+    avatar: require("../../assets/figma/profiles/185b1.png"),
+    username: "glowandgo",
+    role: "creator",
+    lastMessage: "You: Sent a photo",
+    lastMessageAt: minutesAgo(2880),
+  },
+];
+export const demoDiscover = [
+  ...demoContacts.filter((c) => c.role !== "user"),
+  {
+    id: "sample-mira",
+    userId: "mira",
+    name: "Mira Nails",
+    avatar: require("../../assets/figma/profiles/65da1.png"),
+    username: "miranails",
+    role: "creator" as const,
+    location: "Dubai",
+  },
+];

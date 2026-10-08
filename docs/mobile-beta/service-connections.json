@@ -1,0 +1,40 @@
+{
+  "checkedAt": "2026-09-28T07:18:05.488Z",
+  "environment": "beta",
+  "supabaseProjectRef": "atjwbdrvgljddedtwoqo",
+  "backend": "https://laque-beta.vercel.app",
+  "deployment": "https://laque-beta-n4uxkr4bo-sogol-s-projects1.vercel.app",
+  "resend": {
+    "keyName": "laque-beta-email",
+    "keyId": "175103f6-c7c0-4d14-8499-c53aa4617957",
+    "permission": "sending_access",
+    "domain": "laque.app",
+    "smtpAuthenticationStatus": 235
+  },
+  "supabaseAuth": {
+    "smtpEnabled": true,
+    "host": "smtp.resend.com",
+    "port": 465,
+    "sender": "auth-beta@laque.app",
+    "senderName": "LaQue Beta",
+    "verifiedAfterReload": true
+  },
+  "backendVerification": {
+    "configStatus": 200,
+    "unauthenticatedReminderStatus": 401,
+    "authenticatedReminderStatus": 200,
+    "sent": 0,
+    "bookings": 0,
+    "emailsSent": 0,
+    "emailsFailed": 0,
+    "emailDeliveryConfigured": true
+  },
+  "inboxDeliveryVerified": false,
+  "authSignupAndRecoveryEmailJourneyVerified": false,
+  "openai": {
+    "project": "LaQue Beta",
+    "projectId": "proj_OgUB64ui48oYU4tS4sVYeXx5",
+    "connected": false,
+    "reason": "Separate OpenAI credential is still pending."
+  }
+}

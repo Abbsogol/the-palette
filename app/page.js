@@ -892,6 +892,9 @@ export default function LandingPage() {
           </svg>
         </Link>
       </section>
+      <footer style={{ position: 'relative', zIndex: 3, padding: '18px 24px', textAlign: 'center', background: 'var(--bg-card)' }}>
+        <Link href="/privacy" style={{ color: 'var(--text-primary)', fontSize: '13px', textUnderlineOffset: '3px' }}>Privacy Policy</Link>
+      </footer>
     </>
   )
 }

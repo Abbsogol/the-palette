@@ -1,0 +1,97 @@
+# Synthetic accounts on a disposable simulator/emulator only.
+# Requires MAESTRO_TEST_* (customer) and MAESTRO_CREATOR_* variables.
+appId: app.laque.mobile
+---
+- runFlow: beta-auth.yml
+- tapOn: Go back
+- tapOn: Go back
+- scrollUntilVisible:
+    element:
+      text: Sign out
+    direction: DOWN
+- tapOn: Sign out
+- extendedWaitUntil:
+    visible: Stay
+    timeout: 10000
+- tapOn:
+    text: "^Sign out$"
+    rightOf: Stay
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    notVisible: Stay
+    timeout: 10000
+- tapOn: "Profile, tab,.*"
+- tapOn: Sign in
+- tapOn:
+    text: Email
+    index: 1
+- inputText: ${MAESTRO_CREATOR_EMAIL}
+- pressKey: Enter
+- tapOn:
+    text: Password
+    index: 1
+- inputText: ${MAESTRO_CREATOR_PASSWORD}
+- pressKey: Enter
+- tapOn:
+    text: Sign in
+    index: 1
+- tapOn:
+    text: Not Now
+    optional: true
+- extendedWaitUntil:
+    visible: Beta creator
+    timeout: 30000
+- assertNotVisible: Beta customer
+- tapOn: Saved designs
+- extendedWaitUntil:
+    visible: Nothing here yet.
+    timeout: 20000
+- assertNotVisible: View Beta rose sample
+- tapOn: Go back
+- scrollUntilVisible:
+    element:
+      text: My portfolio
+    direction: DOWN
+- assertVisible: My portfolio
+- scrollUntilVisible:
+    element:
+      text: Sign out
+    direction: DOWN
+- tapOn: Sign out
+- extendedWaitUntil:
+    visible: Stay
+    timeout: 10000
+- tapOn:
+    text: "^Sign out$"
+    rightOf: Stay
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    notVisible: Stay
+    timeout: 10000
+- tapOn: "Profile, tab,.*"
+- tapOn: Sign in
+- tapOn:
+    text: Email
+    index: 1
+- inputText: ${MAESTRO_TEST_EMAIL}
+- pressKey: Enter
+- tapOn:
+    text: Password
+    index: 1
+- inputText: ${MAESTRO_TEST_PASSWORD}
+- pressKey: Enter
+- tapOn:
+    text: Sign in
+    index: 1
+- tapOn:
+    text: Not Now
+    optional: true
+- extendedWaitUntil:
+    visible: Beta customer
+    timeout: 30000
+- assertNotVisible: Beta creator
+- tapOn: Saved designs
+- extendedWaitUntil:
+    visible: View Beta rose sample
+    timeout: 20000
+- takeScreenshot: beta-customer-restored

@@ -1,0 +1,8 @@
+// @vitest-environment jsdom
+import {afterEach,it,expect,vi} from 'vitest'
+import {render,screen,fireEvent,cleanup} from '@testing-library/react'
+import Overview,{Trend} from '@/app/admin/overview'
+afterEach(cleanup)
+const rows=[{date:'2026-10-07',users:1,bookings:3},{date:'2026-10-08',users:2,bookings:0}]
+it('switches plotted metric and exposes keyboard-readable exact daily values',()=>{render(<Trend title="Activity" rows={rows} series={[{key:'users',label:'New accounts'},{key:'bookings',label:'Bookings'}]}/>);expect(screen.getByRole('img').textContent).toContain('3 New accounts');fireEvent.click(screen.getByRole('button',{name:'Bookings'}));expect(screen.getByRole('button',{name:'Bookings'}).getAttribute('aria-pressed')).toBe('true');fireEvent.change(screen.getByRole('slider'),{target:{value:'0'}});expect(screen.getByRole('slider').value).toBe('0');fireEvent.click(screen.getByText('View daily data'));expect(screen.getByRole('table').textContent).toContain('New accounts')})
+it('provides real zero and behavioral coverage states, with period controls',()=>{const onRange=vi.fn();render(<Overview data={{environment:'beta',generatedAt:'2026-10-08T10:00:00Z',counts:{users:0},trend:rows.map(r=>({...r,users:0,bookings:0})),behavior:{views:0,trackedUsers:0,sessions:0,returningUsers:0,daily:rows.map(r=>({date:r.date,users:0,views:0})),actions:[],screens:[],platforms:[]}}} days={30} onRange={onRange}/>);expect(screen.getByText('Awaiting opted-in activity')).toBeDefined();expect(screen.getByText(/Historical screen visits are unavailable/)).toBeDefined();fireEvent.click(screen.getByRole('button',{name:'Last 7 days'}));expect(onRange).toHaveBeenCalledWith(7);expect(screen.getAllByText(/chart shows real zero values/)).toHaveLength(2)})
