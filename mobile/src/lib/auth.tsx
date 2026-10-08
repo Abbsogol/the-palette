@@ -20,6 +20,7 @@ import type { Profile } from "./types";
 import { clearPending } from "./pending";
 import { clearStoreIdentity } from "./purchases";
 import { secureStorage } from "./secure-storage";
+import { closedAccounts } from "./closed-accounts";
 
 const AuthContext = createContext<{
   session: Session | null;
@@ -66,11 +67,22 @@ export function AuthProvider({ children }: PropsWithChildren) {
         error: null,
       });
     };
+    const accept = (session: Session | null) => {
+      const current = ++revision;
+      if (!session) { update(null); return; }
+      void closedAccounts.has(session.user.id).then((closed) => {
+        if (active && revision === current) update(closed ? null : session);
+      }).catch(() => {
+        if (active && revision === current) update(null);
+      });
+    };
+    const stopClosure = closedAccounts.subscribe((id) => {
+      if (accountScope.capture().id === id) { revision++; update(null); }
+    });
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      revision++;
-      update(session);
+      accept(session);
     });
     const initial = revision;
     void supabase.auth
@@ -85,7 +97,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
             error:
               "Your secure session could not be loaded. Please sign in again.",
           });
-        else update(data.session);
+        else accept(data.session);
       })
       .catch(() => {
         if (active)
@@ -97,7 +109,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
           });
       });
     const refresh = (value: string) => {
-      if (value === "active") supabase.auth.startAutoRefresh();
+      if (value === "active") { supabase.auth.startAutoRefresh(); void queryClient.invalidateQueries(); }
       else supabase.auth.stopAutoRefresh();
     };
     refresh(AppState.currentState);
@@ -105,6 +117,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return () => {
       active = false;
       subscription.unsubscribe();
+      stopClosure();
       listener.remove();
       supabase.auth.stopAutoRefresh();
     };
@@ -140,6 +153,7 @@ export function useAccountQuery<T>(
   return useQuery({
     queryKey: [session?.user.id || "public", epoch, ...key],
     enabled,
+    refetchOnMount: "always",
     queryFn: async ({ signal }) => {
       const ticket = accountScope.capture();
       const result = await query(signal);

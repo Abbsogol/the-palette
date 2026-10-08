@@ -6,6 +6,8 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public status: number,
+    public code?: string,
+    public retryAt?: string,
   ) {
     super(message);
   }
@@ -54,6 +56,10 @@ export async function api<T>(
       throw new ApiError(
         data.error || "Unable to complete this request.",
         response.status,
+        typeof data.code === "string" ? data.code : undefined,
+        typeof data.retryAt === "string" && Number.isFinite(Date.parse(data.retryAt))
+          ? data.retryAt
+          : undefined,
       );
     return data as T;
   } finally {

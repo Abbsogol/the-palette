@@ -1,35 +1,87 @@
-import { useState } from "react";
-import { router } from "expo-router";
-import { Button, Notice, RequireAuth, Screen } from "../components/ui";
+import { useCallback } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { QueryState, RequireAuth } from "../components/ui";
+import { Screen } from "../features/secondary/primitives";
+import { BusinessView } from "../features/secondary/business-view";
+import { useSubmission } from "../features/secondary/use-submission";
+import { loadSetupRecords } from "../features/creator-setup/data";
+import { creatorSetup, isCreator } from "../features/creator-setup/model";
 import { api } from "../lib/api";
-import { queryClient } from "../lib/auth";
-export default function CreatorOnboarding() {
-  const [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+import { queryClient, useProfile, useAccountQuery } from "../lib/auth";
+import { accountScope } from "../lib/account-scope";
+function Business() {
+  const query = useProfile(),
+    submit = useSubmission();
+  const p = query.data,
+    creator = isCreator(p?.account_type);
+  const setup = useAccountQuery(
+    ["creator-setup", p?.id],
+    (signal) => loadSetupRecords(p!.id, signal),
+    !!p && creator,
+  );
+  const refreshProfile = query.refetch,
+    refreshSetup = setup.refetch,
+    profileId = p?.id;
+  useFocusEffect(
+    useCallback(() => {
+      if (profileId) {
+        void refreshProfile();
+        if (creator) void refreshSetup();
+      }
+    }, [profileId, creator, refreshProfile, refreshSetup]),
+  );
   return (
-    <Screen title="Create with LaQue" back>
-      <RequireAuth>
-        <Notice>
-          Publish your work and manage appointments here. Set your service
-          location, prices, deposits and working hours before inviting clients
-          to book.
-        </Notice>
-        <Button
-          title="Set up my creator account"
-          busy={busy}
-          onPress={() => {
-            setBusy(true);
-            void api("/set-account-type", { accountType: "creator" })
-              .then(async () => {
-                await queryClient.invalidateQueries();
-                router.replace("/services");
-              })
-              .catch((e) => setError(e.message))
-              .finally(() => setBusy(false));
+    <QueryState
+      loading={query.isPending}
+      error={query.error}
+      retry={() => void query.refetch()}
+    >
+      {p && (
+        <BusinessView
+          creator={creator}
+          busy={submit.busy}
+          error={submit.error}
+          checking={creator && (setup.isPending || setup.isFetching)}
+          checkError={
+            setup.error
+              ? "Your setup couldn’t be checked. Try again before relying on the ready status."
+              : undefined
+          }
+          setup={setup.data ? creatorSetup(p, setup.data) : undefined}
+          onRefresh={() => {
+            void query.refetch();
+            if (creator) void setup.refetch();
+          }}
+          onStart={() =>
+            void submit.run(async () => {
+              const ticket = accountScope.capture();
+              await api("/set-account-type", { accountType: "creator" });
+              accountScope.assert(ticket);
+              await queryClient.invalidateQueries();
+              accountScope.assert(ticket);
+            })
+          }
+          onOpen={(route) => {
+            if (
+              !creator &&
+              !["profile-edit", "calendar-connect", "appointments"].includes(
+                route,
+              )
+            )
+              return;
+            router.push(`/${route}`);
           }}
         />
-        {error && <Notice error>{error}</Notice>}
-      </RequireAuth>
-    </Screen>
+      )}
+    </QueryState>
+  );
+}
+export default function CreatorOnboarding() {
+  return (
+    <RequireAuth>
+      <Screen onBack={() => router.back()} title="Creator studio">
+        <Business />
+      </Screen>
+    </RequireAuth>
   );
 }

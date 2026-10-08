@@ -23,7 +23,7 @@ const emptyForm = () => ({
   display_name: '', phone_number: '', location: '', bio: '', nail_shape: null,
   nail_length: null, nail_colors: [], nail_finishes: [], nail_techniques: [],
   occasions: [], budget_range: null, allergies: '', product_sensitivities: [],
-  removal_needed: false, specialties: [],
+  removal_needed: false, specialties: [], age_confirmed:false, privacy_accepted:false,
 })
 
 // ── Shared styles ───────────────────────────────────────────────────────────
@@ -156,6 +156,7 @@ function OnboardingInner() {
 
   const complete = async (redirectTo = '/feed') => {
     if (saving || !profile) return
+    if (!d.age_confirmed || !d.privacy_accepted) { setErrorMsg("Confirm you are 18 or older and have read the Privacy Policy."); return }
     const version = loadVersion.current.version
     setSaving(true)
     setErrorMsg('')
@@ -535,6 +536,10 @@ function OnboardingInner() {
         flexShrink: 0,
         borderTop: showBorder ? '0.5px solid var(--border)' : 'none',
       }}>
+        {(current==='action'||current==='done')&&<div style={{display:'grid',gap:10,marginBottom:16,color:'var(--text-secondary)',fontSize:13}}>
+          <label style={{display:'flex',gap:10,alignItems:'center',minHeight:44}}><input type="checkbox" checked={d.age_confirmed} onChange={e=>setD(v=>({...v,age_confirmed:e.target.checked}))}/>I am 18 or older</label>
+          <label style={{display:'flex',gap:10,alignItems:'center',minHeight:44}}><input type="checkbox" checked={d.privacy_accepted} onChange={e=>setD(v=>({...v,privacy_accepted:e.target.checked}))}/>I have read the <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{color:'var(--accent)'}}>Privacy Policy</a></label>
+        </div>}
         {errorMsg && (
           <p style={{ color: '#E07070', fontSize: '13px', marginBottom: '12px', textAlign: 'center' }}>{errorMsg}</p>
         )}

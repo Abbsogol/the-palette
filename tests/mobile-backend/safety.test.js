@@ -35,6 +35,72 @@ const message = (user = a, extra = "") =>
     `insert into messages(conversation_id,sender_id,content${extra ? ",image_path" : ""}) values($1,$2,'Hello'${extra ? ",$3" : ""}) returning id`,
     extra ? [conversation, user, extra] : [conversation, user],
   );
+it("blocked identities stay readable to their blocker, while block rows and unblocking remain owner-only", async () => {
+  await db.query(
+    "update profiles_data set display_name='Elena',username='elena.nails',avatar_url='https://example.invalid/elena.webp' where id=$1",
+    [b],
+  );
+  const block = (
+    await db.as(
+      "authenticated",
+      a,
+      "insert into blocks(blocker_id,blocked_id) values($1,$2) returning id",
+      [a, b],
+    )
+  ).rows[0].id;
+  expect(
+    (await db.as("authenticated", a, "select id from blocks")).rows,
+  ).toEqual([{ id: block }]);
+  expect(
+    (
+      await db.as(
+        "authenticated",
+        a,
+        "select display_name,username,avatar_url from profiles where id=$1",
+        [b],
+      )
+    ).rows,
+  ).toEqual([
+    {
+      display_name: "Elena",
+      username: "elena.nails",
+      avatar_url: "https://example.invalid/elena.webp",
+    },
+  ]);
+  expect(
+    (await db.as("authenticated", c, "select id from blocks")).rows,
+  ).toHaveLength(0);
+  expect(
+    (
+      await db.as(
+        "authenticated",
+        c,
+        "delete from blocks where id=$1 returning id",
+        [block],
+      )
+    ).rows,
+  ).toHaveLength(0);
+  expect(
+    (
+      await db.as(
+        "authenticated",
+        b,
+        "delete from blocks where id=$1 returning id",
+        [block],
+      )
+    ).rows,
+  ).toHaveLength(0);
+  expect(
+    (
+      await db.as(
+        "authenticated",
+        a,
+        "delete from blocks where id=$1 and blocker_id=$2 returning id",
+        [block, a],
+      )
+    ).rows,
+  ).toEqual([{ id: block }]);
+});
 it("hiding a conversation affects only its participant and a new message unhides the recipient", async () => {
   await db.as(
     "authenticated",
@@ -211,4 +277,29 @@ it("a photo linked before cleanup is retained", async () => {
       )
     ).rows[0].jobs,
   ).toEqual([]);
+});
+it("chat mute changes are scoped to the current participant and preserve a concurrent preference", async () => {
+  const mute = (user, values, before) =>
+    db.as(
+      "authenticated",
+      user,
+      "update conversations set muted_by=$1::uuid[] where id=$2 and muted_by=$3::uuid[] returning muted_by",
+      [values, conversation, before],
+    );
+  expect((await mute(a, [a], [])).rows).toEqual([{ muted_by: [a] }]);
+  // The other participant read an old empty value: no lost update is allowed.
+  expect((await mute(b, [b], [])).rows).toEqual([]);
+  expect((await mute(b, [a, b], [a])).rows).toEqual([{ muted_by: [a, b] }]);
+  await expect(mute(a, [], [a, b])).rejects.toThrow(
+    /CANNOT_CHANGE_OTHER_USER_MUTE/,
+  );
+  expect((await mute(a, [b], [a, b])).rows).toEqual([{ muted_by: [b] }]);
+  expect((await mute(c, [c], [b])).rows).toEqual([]);
+  expect(
+    (
+      await db.query("select muted_by from conversations where id=$1", [
+        conversation,
+      ])
+    ).rows,
+  ).toEqual([{ muted_by: [b] }]);
 });

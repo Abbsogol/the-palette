@@ -1,0 +1,22 @@
+{
+  "fonts": [
+    {
+      "file": "Anola-Regular.otf",
+      "family": "Anola",
+      "style": "Regular",
+      "postScriptName": "Anola-Regular",
+      "sourceArchive": "anola-modern-luxury-fashion-sans-serif-font-2026-06-09-19-06-50-utc.zip",
+      "sourceEntry": "Anola.otf",
+      "suppliedBy": "project owner",
+      "sha256": "d6ef8b35a1b6f74e11c525eed533b0c9aa05b3d1a1dacef055eecb83d1c16877"
+    }
+  ],
+  "rejectedSubstitutions": [
+    {
+      "sourceArchive": "sofia-elegant-editorial-font-2026-04-07-06-22-16-utc.zip",
+      "family": "Sofia",
+      "style": "Regular",
+      "reason": "Home main requires Sofia Pro Regular, Light and ExtraLight; this is a different family."
+    }
+  ]
+}

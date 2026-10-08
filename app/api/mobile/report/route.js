@@ -10,6 +10,8 @@ export async function POST(request) {
     profile: "profiles",
     design: "designs",
     message: "messages",
+    post: "salon_posts",
+    story: "stories",
   };
   if (
     !Object.hasOwn(tables, targetType) ||

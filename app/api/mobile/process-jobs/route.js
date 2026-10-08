@@ -1,3 +1,4 @@
+import { processAccountCleanup } from "@/lib/account-cleanup";
 import Stripe from "stripe";
 import { serviceClient } from "@/lib/auth";
 import { processMobileJobs } from "@/lib/mobile-jobs";
@@ -16,7 +17,8 @@ export async function GET(request) {
       serviceClient,
       new Stripe(process.env.STRIPE_SECRET_KEY),
     );
-    return Response.json(result, { status: result.failed ? 503 : 200 });
+    const cleanup = await processAccountCleanup(serviceClient, new Stripe(process.env.STRIPE_SECRET_KEY));
+    return Response.json({ ...result, ...cleanup, failed: result.failed + cleanup.failed }, { status: result.failed + cleanup.failed ? 503 : 200 });
   } catch {
     return Response.json(
       { error: "Some jobs remain pending. Retry is safe." },

@@ -10,7 +10,7 @@ export async function POST(request) {
     display_name, phone_number, location, bio,
     nail_shape, nail_length, nail_colors, nail_finishes, nail_techniques,
     occasions, budget_range, allergies, product_sensitivities, removal_needed,
-    specialties,
+    specialties, age_confirmed, privacy_accepted,
   } = await request.json().catch(() => ({}))
 
   const str = (val, max) => (typeof val === 'string' && val.trim() ? val.trim().slice(0, max) : null)
@@ -19,6 +19,8 @@ export async function POST(request) {
   const { data: completed, error } = await supabase.rpc('complete_onboarding', {
     p_user_id: user.id,
     p_fields: {
+    age_confirmed: age_confirmed === true,
+    privacy_accepted: privacy_accepted === true,
     display_name: str(display_name, 100),
     phone_number: str(phone_number, 30),
     location: str(location, 100),
@@ -38,6 +40,7 @@ export async function POST(request) {
   })
 
   if (error) {
+    if (error.message?.includes('AGE_AND_PRIVACY_CONFIRMATION_REQUIRED')) return Response.json({error:'Confirm you are 18 or older and acknowledge the Privacy Policy.'},{status:400})
     console.error('complete-onboarding error:', error)
     return Response.json({ error: 'Failed to complete onboarding' }, { status: error.code === 'P0002' ? 404 : 500 })
   }

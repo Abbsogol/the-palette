@@ -1,211 +1,148 @@
 import { useState } from "react";
-import { Text } from "react-native";
-import { router } from "expo-router";
-import {
-  Button,
-  Card,
-  Field,
-  Notice,
-  QueryState,
-  RequireAuth,
-  Screen,
-  styles,
-  money,
-} from "../components/ui";
+import { router, useNavigation } from "expo-router";
+import { usePreventRemove } from "expo-router/react-navigation";
+import { QueryState, RequireAuth } from "../components/ui";
+import { Screen, Button, Notice } from "../features/secondary/primitives";
+import { ServiceManager } from "../features/secondary/service-manager";
+import { useDraftExit } from "../features/secondary/profile-exit";
 import { useAccountQuery, useAuth, useProfile, queryClient } from "../lib/auth";
 import { checked } from "../lib/api";
+import { accountScope } from "../lib/account-scope";
 import { supabase } from "../lib/supabase";
 import type { Service } from "../lib/types";
 function Services() {
-  const { session } = useAuth();
-  const profile = useProfile();
-  const [editing, setEditing] = useState<string | null>(null),
-    [name, setName] = useState(""),
-    [description, setDescription] = useState(""),
-    [price, setPrice] = useState(""),
-    [deposit, setDeposit] = useState("0"),
-    [duration, setDuration] = useState("60"),
-    [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
-  const query = useAccountQuery(["services", session!.user.id], () =>
-    checked<Service[]>(
-      supabase
-        .from("services")
-        .select("*")
-        .eq("creator_id", session!.user.id)
-        .order("created_at"),
-    ),
+  const [editingOpen, setEditingOpen] = useState(false);
+  const { session, epoch } = useAuth(),
+    profile = useProfile();
+  const exit = useDraftExit("Unsaved service changes"),
+    navigation = useNavigation();
+  usePreventRemove(
+    !!session && (exit.status.dirty || exit.status.busy),
+    ({ data }) => exit.requestExit(() => navigation.dispatch(data.action)),
   );
-  const save = async () => {
-    setBusy(true);
-    setError("");
-    try {
-      const p = Number(price),
-        d = Number(deposit),
-        minutes = Number(duration);
-      if (
-        !name.trim() ||
-        !price.trim() ||
-        !Number.isFinite(p) ||
-        !Number.isFinite(d) ||
-        p < 0 ||
-        d < 0 ||
-        d > p ||
-        !Number.isInteger(minutes) ||
-        minutes < 15 ||
-        minutes > 480
-      )
-        throw new Error(
-          "Enter a name, valid price and deposit, and a duration between 15 and 480 minutes.",
-        );
-      const fields = {
-        name: name.trim(),
-        description: description.trim(),
-        price: Math.round(p * 100) / 100,
-        deposit_amount: Math.round(d * 100) / 100,
-        duration_minutes: minutes,
-        is_active: true,
-      };
-      await checked(
-        editing
-          ? supabase
-              .from("services")
-              .update(fields)
-              .eq("id", editing)
-              .eq("creator_id", session!.user.id)
-              .select("id")
-          : supabase
-              .from("services")
-              .insert({ ...fields, creator_id: session!.user.id })
-              .select("id"),
-      );
-      setEditing(null);
-      setName("");
-      setDescription("");
-      setPrice("");
-      setDeposit("0");
-      await queryClient.invalidateQueries();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
+  const creator =
+    profile.data?.account_type === "creator" ||
+    profile.data?.account_type === "salon";
+  const query = useAccountQuery(
+    ["services", session!.user.id],
+    (signal) =>
+      checked<Service[]>(
+        supabase
+          .from("services")
+          .select("*")
+          .eq("creator_id", session!.user.id)
+          .order("created_at")
+          .abortSignal(signal),
+      ),
+    creator,
+  );
+  const refresh = async () => {
+    // Reconcile all dependent booking/profile views after an acknowledged mutation.
+    // A background read error must not turn a successful write into a failed save.
+    await queryClient.invalidateQueries();
   };
-  if (profile.data?.account_type === "user")
-    return (
-      <Button
-        title="Become a creator"
-        onPress={() => router.push("/creator-onboarding")}
-      />
-    );
   return (
-    <>
-      <Notice>
-        Fixed-price services in AED. Set your service location in Edit profile.
-      </Notice>
-      <Button
-        title="Set working hours & time zone"
-        secondary
-        onPress={() => router.push("/availability")}
-      />
-      <Card>
-        <Text style={styles.subtitle}>
-          {editing ? "Edit service" : "New service"}
-        </Text>
-        <Field
-          label="Service name"
-          value={name}
-          onChangeText={setName}
-          maxLength={100}
-        />
-        <Field
-          label="Description"
-          value={description}
-          onChangeText={setDescription}
-          multiline
-          maxLength={1000}
-        />
-        <Field
-          label="Total price (AED)"
-          value={price}
-          onChangeText={setPrice}
-          keyboardType="decimal-pad"
-        />
-        <Field
-          label="Deposit (AED)"
-          value={deposit}
-          onChangeText={setDeposit}
-          keyboardType="decimal-pad"
-        />
-        <Field
-          label="Duration (minutes)"
-          value={duration}
-          onChangeText={setDuration}
-          keyboardType="number-pad"
-        />
-        <Button title="Save service" busy={busy} onPress={() => void save()} />
-      </Card>
+    <Screen
+      onBack={() => router.back()}
+      title="My services"
+      resetScrollKey={String(editingOpen)}
+    >
       <QueryState
-        loading={query.isPending}
-        error={query.error}
-        empty={!query.data?.length}
-        retry={() => void query.refetch()}
+        loading={profile.isPending}
+        error={profile.data ? null : profile.error}
+        retry={() => void profile.refetch()}
       >
-        {query.data?.map((s) => (
-          <Card key={s.id}>
-            <Text style={styles.subtitle}>
-              {s.name}
-              {!s.is_active ? " · Hidden" : ""}
-            </Text>
-            <Text style={styles.text}>
-              {s.duration_minutes} min · {money(s.price)} ·{" "}
-              {money(s.deposit_amount)} deposit
-            </Text>
+        {!!profile.data && !!profile.error && (
+          <>
+            <Notice error>
+              Couldn’t refresh your creator profile. Your edits are still here.
+            </Notice>
             <Button
-              title="Edit"
+              title="Retry creator profile"
               secondary
-              disabled={busy}
-              onPress={() => {
-                setEditing(s.id);
-                setName(s.name);
-                setDescription(s.description || "");
-                setPrice(String(s.price));
-                setDeposit(String(s.deposit_amount));
-                setDuration(String(s.duration_minutes));
-              }}
+              onPress={() => void profile.refetch()}
             />
-            <Button
-              title={
-                s.is_active ? "Remove from booking menu" : "Restore service"
-              }
-              secondary
-              disabled={busy}
-              onPress={() => {
-                void checked(
-                  supabase
-                    .from("services")
-                    .update({ is_active: !s.is_active })
-                    .eq("id", s.id)
-                    .eq("creator_id", session!.user.id)
-                    .select("id"),
-                )
-                  .then(() => queryClient.invalidateQueries())
-                  .catch((e) => setError(e.message));
-              }}
-            />
-          </Card>
-        ))}
+          </>
+        )}
+        {!creator ? (
+          <Button
+            title="Become a creator"
+            onPress={() => router.push("/creator-onboarding")}
+          />
+        ) : (
+          <ServiceManager
+            key={`${session!.user.id}:${epoch}`}
+            onEditorChange={setEditingOpen}
+            services={query.data || []}
+            loading={query.isPending}
+            error={query.error}
+            onRetry={() => void query.refetch()}
+            onStatusChange={exit.onStatusChange}
+            requestExit={exit.requestExit}
+            onHours={() => router.push("/availability")}
+            onLocation={() => router.push("/profile-edit")}
+            onSave={async (fields, service, draftId) => {
+              const ticket = accountScope.capture();
+              const rows = await checked<{ id: string }[]>(
+                service
+                  ? supabase
+                      .from("services")
+                      .update(fields)
+                      .eq("id", service.id)
+                      .eq("creator_id", session!.user.id)
+                      .select("id")
+                  : // The draft ID survives retries, including a lost successful response.
+                    supabase
+                      .from("services")
+                      .upsert(
+                        {
+                          ...fields,
+                          id: draftId,
+                          creator_id: session!.user.id,
+                          is_active: true,
+                        },
+                        { onConflict: "id" },
+                      )
+                      .select("id"),
+              );
+              accountScope.assert(ticket);
+              if (!rows.length)
+                throw new Error(
+                  "This service is unavailable. Refresh and try again.",
+                );
+              await refresh();
+              accountScope.assert(ticket);
+            }}
+            onVisibility={async (service, active) => {
+              const ticket = accountScope.capture();
+              const rows = await checked<{ id: string }[]>(
+                supabase
+                  .from("services")
+                  .update({ is_active: active })
+                  .eq("id", service.id)
+                  .eq("creator_id", session!.user.id)
+                  .select("id"),
+              );
+              accountScope.assert(ticket);
+              if (!rows.length)
+                throw new Error(
+                  "This service is unavailable. Refresh and try again.",
+                );
+              await refresh();
+              accountScope.assert(ticket);
+            }}
+          />
+        )}
       </QueryState>
-      {error && <Notice error>{error}</Notice>}
-    </>
+      {exit.dialog}
+    </Screen>
   );
 }
 export default function ServiceScreen() {
+  const { session, epoch } = useAuth();
   return (
-    <Screen title="My services" back>
-      <RequireAuth>
-        <Services />
-      </RequireAuth>
-    </Screen>
+    <RequireAuth>
+      <Services key={`${session?.user.id}:${epoch}`} />
+    </RequireAuth>
   );
 }

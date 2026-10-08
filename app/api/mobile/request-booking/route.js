@@ -1,4 +1,5 @@
-import { getSessionUser } from "@/lib/auth";
+import { CalendarError, checkBooking, enabled } from "@/lib/calendar/google";
+import { getSessionUser, serviceClient } from "@/lib/auth";
 import { mobileJson, mobileUserClient, uuidPattern } from "@/lib/mobile-auth";
 export async function POST(request) {
   const user = await getSessionUser(request);
@@ -36,6 +37,77 @@ export async function POST(request) {
     reference_design_id: body.designId || null,
   };
   const client = mobileUserClient(request);
+  if (enabled()) {
+    // Resolve retries before availability: the original pending booking now occupies its slot.
+    const { data: existing, error: lookupError } = await client
+      .from("bookings")
+      .select("*")
+      .eq("id", body.id)
+      .eq("client_id", user.id)
+      .maybeSingle();
+    if (lookupError)
+      return mobileJson(
+        {
+          error: "Booking status could not be checked. Retry the same request.",
+        },
+        503,
+      );
+    if (existing) {
+      if (
+        existing.creator_id === body.creatorId &&
+        existing.service_id === body.serviceId &&
+        existing.booking_date === body.date &&
+        existing.start_time.slice(0, 5) === body.start.slice(0, 5) &&
+        existing.time_zone === body.timeZone
+      )
+        return mobileJson({ booking: existing });
+      return mobileJson(
+        { error: "This request ID belongs to another appointment." },
+        409,
+      );
+    }
+    const { data: slots, error: slotsError } = await client.rpc(
+      "booking_available_slots",
+      {
+        p_creator_id: body.creatorId,
+        p_service_id: body.serviceId,
+        p_date: body.date,
+      },
+    );
+    const slot = slots?.find(
+      (s) =>
+        s.available &&
+        s.start_time.slice(0, 5) === body.start.slice(0, 5) &&
+        s.end_time.slice(0, 5) === body.end.slice(0, 5),
+    );
+    if (slotsError || !slot)
+      return mobileJson(
+        {
+          error:
+            "This appointment time is no longer available. Choose another time.",
+        },
+        409,
+      );
+    try {
+      await checkBooking(
+        serviceClient,
+        { ...values, starts_at: slot.starts_at, ends_at: slot.ends_at },
+        "request",
+        body.allowCalendarConflict === true,
+      );
+    } catch (e) {
+      return mobileJson(
+        {
+          error:
+            e instanceof CalendarError
+              ? e.message
+              : "Calendars could not be checked. Please retry.",
+          code: e.code || "CALENDAR_UNAVAILABLE",
+        },
+        e.status || 503,
+      );
+    }
+  }
   const { data, error } = await client
     .from("bookings")
     .insert(values)

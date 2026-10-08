@@ -1,132 +1,164 @@
-import { useState } from "react";
-import { Linking, Text } from "react-native";
-import { router } from "expo-router";
-import {
-  Button,
-  Card,
-  Notice,
-  QueryState,
-  RequireAuth,
-  Screen,
-  styles,
-} from "../components/ui";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AppState } from "react-native";
+import * as Linking from "expo-linking";
+import { router, useFocusEffect, type Href } from "expo-router";
+import { RequireAuth } from "../components/ui";
 import { useAccountQuery, useAuth, queryClient } from "../lib/auth";
-import { checked } from "../lib/api";
-import { supabase } from "../lib/supabase";
-import { registerPush, unregisterPush } from "../lib/notifications";
+import { accountScope } from "../lib/account-scope";
+import {
+  registerPush,
+  unregisterPush,
+  getPushState,
+} from "../lib/notifications";
+import { NotificationsView } from "../features/notifications/notifications-view";
+import {
+  loadActivity,
+  markActivity,
+  activityDestination,
+} from "../features/notifications/data";
+import type { Activity } from "../features/notifications/model";
 function Notifications() {
-  const { session } = useAuth();
-  const [notice, setNotice] = useState(""),
+  const { session, epoch } = useAuth();
+  const owner = session!.user.id;
+  const [limit, setLimit] = useState(40),
+    [notice, setNotice] = useState(""),
     [error, setError] = useState(""),
-    [limit, setLimit] = useState(40);
-  const query = useAccountQuery(["notifications", limit], () =>
-    checked<
-      {
-        id: string;
-        type: string;
-        read: boolean;
-        design_id: string | null;
-        created_at: string;
-      }[]
-    >(
-      supabase
-        .from("notifications")
-        .select("id,type,read,design_id,created_at")
-        .eq("user_id", session!.user.id)
-        .order("created_at", { ascending: false })
-        .limit(limit),
-    ),
+    [busy, setBusy] = useState(false);
+  const pending = useRef(false),
+    mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  const query = useAccountQuery(["notifications", limit], (signal) =>
+    loadActivity(owner, limit, signal),
   );
-  const permission = async (enabled: boolean) => {
+  const device = useAccountQuery(["push-preferences"], () => getPushState());
+  const { refetch } = query,
+    { refetch: refreshDevice } = device;
+  const refresh = useCallback(() => {
+    void refetch();
+    void refreshDevice();
+  }, [refetch, refreshDevice]);
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+      const subscription = AppState.addEventListener("change", (state) => {
+        if (state === "active") refresh();
+      });
+      return () => {
+        subscription.remove();
+      };
+    }, [refresh]),
+  );
+  const run = async (action: () => Promise<void>) => {
+    if (pending.current) return;
+    pending.current = true;
+    setBusy(true);
     setError("");
+    setNotice("");
+    const ticket = accountScope.capture();
+    try {
+      await action();
+    } catch (e) {
+      if (mounted.current && accountScope.isCurrent(ticket))
+        setError(
+          e instanceof Error
+            ? e.message
+            : "This action couldn’t be completed. Try again.",
+        );
+    } finally {
+      pending.current = false;
+      if (mounted.current && accountScope.isCurrent(ticket)) setBusy(false);
+    }
+  };
+  const updateRead = async (ids: string[], read: boolean) => {
+    const ticket = accountScope.capture();
+    await markActivity(owner, ids, read);
+    accountScope.assert(ticket);
+    queryClient.setQueriesData<{ items: Activity[]; hasMore: boolean }>(
+      { queryKey: [owner, epoch, "notifications"] },
+      (old) =>
+        old
+          ? {
+              ...old,
+              items: old.items.map((n) =>
+                ids.includes(n.id) ? { ...n, read } : n,
+              ),
+            }
+          : old,
+    );
+    void queryClient.invalidateQueries({
+      queryKey: [owner, epoch, "notifications"],
+    });
+  };
+  const setPush = async (enabled: boolean) => {
+    const ticket = accountScope.capture();
     try {
       if (enabled) await registerPush();
       else await unregisterPush();
-      setNotice(
-        enabled
-          ? "Notifications enabled."
-          : "Notifications disabled on this device.",
-      );
-    } catch (e) {
-      setError((e as Error).message);
+      accountScope.assert(ticket);
+      if (mounted.current)
+        setNotice(
+          enabled
+            ? "Device registration saved. Your current alert setting is shown in Preferences."
+            : "Notifications disabled for this account on this device.",
+        );
+    } finally {
+      // Partial failures must also recheck the server/device state.
+      if (mounted.current && accountScope.isCurrent(ticket))
+        await refreshDevice();
     }
+    accountScope.assert(ticket);
   };
   return (
-    <>
-      <Button
-        title="Enable notifications"
-        onPress={() => void permission(true)}
-      />
-      <Button
-        title="Disable on this device"
-        secondary
-        onPress={() => void permission(false)}
-      />
-      <Button
-        title="Open device settings"
-        secondary
-        onPress={() => void Linking.openSettings()}
-      />
-      {notice && <Notice>{notice}</Notice>}
-      {error && <Notice error>{error}</Notice>}
-      <QueryState
-        loading={query.isPending}
-        error={query.error}
-        empty={!query.data?.length}
-        retry={() => void query.refetch()}
-      >
-        {query.data?.map((n) => (
-          <Card key={n.id}>
-            <Text style={styles.text}>{n.type.replace(/_/g, " ")}</Text>
-            <Text style={styles.muted}>
-              {new Date(n.created_at).toLocaleString()}
-              {!n.read ? " · Unread" : ""}
-            </Text>
-            <Button
-              title="View update"
-              secondary
-              onPress={() => {
-                void checked(
-                  supabase
-                    .from("notifications")
-                    .update({ read: true })
-                    .eq("id", n.id)
-                    .select("id"),
-                )
-                  .then(() => queryClient.invalidateQueries())
-                  .catch((e) => setError(e.message));
-                if (n.design_id)
-                  router.push({
-                    pathname: "/design/[id]",
-                    params: { id: n.design_id },
-                  });
-                else
-                  router.push(
-                    n.type.includes("booking") || n.type.includes("appointment")
-                      ? "/appointments"
-                      : "/messages",
-                  );
-              }}
-            />
-          </Card>
-        ))}
-        {query.data?.length === limit && (
-          <Button
-            title="Load older updates"
-            secondary
-            onPress={() => setLimit(limit + 40)}
-          />
-        )}
-      </QueryState>
-    </>
+    <NotificationsView
+      items={query.data?.items || []}
+      device={
+        device.isPending
+          ? { state: "checking" }
+          : device.error
+            ? { state: "unknown" }
+            : device.data || { state: "unknown" }
+      }
+      loading={query.isFetching}
+      error={!!query.error}
+      hasMore={query.data?.hasMore}
+      busy={busy}
+      notice={notice}
+      actionError={error}
+      onBack={() => router.back()}
+      onRefresh={() => void refetch()}
+      onOlder={() => setLimit((v) => v + 40)}
+      onRead={(ids, read) => void run(() => updateRead(ids, read))}
+      onOpen={(n) =>
+        void run(async () => {
+          const ticket = accountScope.capture();
+          const path = await activityDestination(owner, n);
+          accountScope.assert(ticket);
+          if (!n.read) await updateRead([n.id], true);
+          accountScope.assert(ticket);
+          if (mounted.current) router.push(path as Href);
+        })
+      }
+      onEnable={() => void run(() => setPush(true))}
+      onDisable={() => void run(() => setPush(false))}
+      onCheck={() => void refreshDevice()}
+      onSettings={() =>
+        void run(async () => {
+          await Linking.openSettings();
+        })
+      }
+    />
   );
 }
 export default function NotificationScreen() {
+  const { session, epoch } = useAuth();
   return (
-    <Screen title="Updates" back>
-      <RequireAuth>
-        <Notifications />
-      </RequireAuth>
-    </Screen>
+    <RequireAuth>
+      <Notifications key={`${session?.user.id}:${epoch}`} />
+    </RequireAuth>
   );
 }

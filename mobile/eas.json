@@ -19,6 +19,14 @@
         "simulator": true
       }
     },
+    "beta-development": {
+      "extends": "development",
+      "environment": "preview",
+      "env": {
+        "APP_VARIANT": "beta",
+        "EXPO_PUBLIC_APP_ENV": "beta"
+      }
+    },
     "beta": {
       "distribution": "store",
       "environment": "preview",

@@ -24,6 +24,7 @@ async function chooseAccount() {
     fireEvent.change(screen.getByPlaceholderText(placeholder), { target: { value } })
   }
   fireEvent.click(screen.getByRole('checkbox', { name: /I agree/ }))
+  fireEvent.click(screen.getByRole('checkbox', { name: /I am 18/ }))
   fireEvent.click(screen.getByRole('button', { name: 'Continue →' }))
   fireEvent.click(screen.getByRole('button', { name: /Nail Artist/ }))
 }
@@ -35,7 +36,7 @@ it('P4-01: signup awaiting confirmation shows the next step without an unauthent
   expect(fetch).not.toHaveBeenCalled()
   expect(screen.getByText(/check your email/i)).toBeVisible()
   expect(mock.auth.signUp).toHaveBeenCalledWith(expect.objectContaining({
-    options: expect.objectContaining({ data: { account_type: 'creator', display_name: 'New Artist' }, emailRedirectTo: `${window.location.origin}/profile` }),
+    options: expect.objectContaining({ data: { account_type: 'creator', display_name: 'New Artist', age_confirmed: true, privacy_accepted: true, privacy_policy_version: '2026-09-29' }, emailRedirectTo: `${window.location.origin}/profile` }),
   }))
   expect(mock.router.push).not.toHaveBeenCalled()
 })

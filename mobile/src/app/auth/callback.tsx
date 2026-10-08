@@ -1,101 +1,188 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { router, useLocalSearchParams, type Href } from "expo-router";
-import { Button, Field, Loading, Notice, Screen } from "../../components/ui";
 import { appScheme } from "../../lib/config";
 import { safeReturnPath } from "../../lib/links";
 import { secureStorage } from "../../lib/secure-storage";
-import { exchangeAuthUrl } from "../../features/auth-actions";
-import { supabase } from "../../lib/supabase";
+import {
+  completeAuthCallback,
+  consumeAuthCallback,
+  type AuthCallbackOutcome,
+} from "../../features/auth-actions";
+import {
+  CallbackView,
+  type CallbackState,
+} from "../../features/auth-callback/callback-view";
+import { authLinkProblem } from "../../features/auth-callback/model";
+import { saveRecoveryPassword } from "../../features/auth-callback/password";
+import { accountScope } from "../../lib/account-scope";
+import { useAuth } from "../../lib/auth";
 
-export default function Callback() {
-  const params = useLocalSearchParams<{
-    code?: string;
-    flow?: string;
-    error?: string;
-    error_description?: string;
-  }>();
-  const [ready, setReady] = useState(false),
+type Params = {
+  code?: string;
+  flow?: string;
+  error?: string;
+  error_code?: string;
+  error_description?: string;
+  sb_flow_id?: string;
+};
+function Callback({ query, recovery }: { query: string; recovery: boolean }) {
+  const { session, epoch } = useAuth();
+  const [state, setState] = useState<CallbackState>("checking"),
     [error, setError] = useState(""),
+    [busy, setBusy] = useState(false),
     [password, setPassword] = useState(""),
-    [busy, setBusy] = useState(false);
-  const {
-    code,
-    flow,
-    error: linkError,
-    error_description: description,
-  } = params;
+    [confirmation, setConfirmation] = useState(""),
+    [outcome, setOutcome] = useState<AuthCallbackOutcome | null>(null),
+    [retry, setRetry] = useState(0),
+    [isRecovery, setIsRecovery] = useState(recovery);
+  const pending = useRef(false),
+    mounted = useRef(true),
+    revision = useRef(0);
   useEffect(() => {
-    let active = true;
-    const query = new URLSearchParams();
-    for (const [key, value] of Object.entries({
-      code,
-      flow,
-      error: linkError,
-      error_description: description,
-    }))
-      if (typeof value === "string") query.set(key, value);
-    void exchangeAuthUrl(`${appScheme}://auth/callback?${query}`)
-      .then(async (recovery) => {
-        if (!active) return;
-        if (recovery) {
-          setReady(true);
-          return;
-        }
-        const next = safeReturnPath(
-          await secureStorage.getItem("laque.auth-intent"),
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    const current = ++revision.current;
+    void completeAuthCallback(`${appScheme}://auth/callback?${query}`)
+      .then((result) => {
+        if (!mounted.current || revision.current !== current) return;
+        setIsRecovery(result.recovery);
+        setOutcome(result);
+        setState(
+          result.recovery
+            ? "recovery"
+            : result.verified
+              ? "verified"
+              : "signed-in",
         );
-
-        if (active) router.replace(next as Href);
       })
       .catch((e) => {
-        if (active) setError(e.message || "This link has expired.");
+        if (mounted.current && revision.current === current)
+          setState(authLinkProblem(e));
       });
-    return () => {
-      active = false;
-    };
-  }, [code, flow, linkError, description]);
-  const reset = async () => {
+  }, [query, retry]);
+  useEffect(() => {
+    if (!outcome) return;
+    return accountScope.onChange(() => {
+      if (accountScope.capture().id === outcome.userId) return;
+      revision.current++;
+      setPassword("");
+      setConfirmation("");
+      setOutcome(null);
+      setError("");
+      setState("account-changed");
+    });
+  }, [outcome, epoch]);
+  const run = async (action: () => Promise<void>) => {
+    if (pending.current) return;
+    pending.current = true;
     setBusy(true);
     setError("");
+    const current = revision.current;
     try {
-      if (password.length < 8) throw new Error("Use at least 8 characters.");
-      const { error } = await supabase.auth.updateUser({ password });
-      if (error) throw error;
-      router.replace("/");
+      await action();
     } catch (e) {
-      setError((e as Error).message);
+      if (mounted.current && current === revision.current) {
+        const kind = authLinkProblem(e);
+        if (kind === "expired" || kind === "account-changed") {
+          setPassword("");
+          setConfirmation("");
+          setOutcome(null);
+          setState(kind);
+        } else setError(e instanceof Error ? e.message : "Please try again.");
+      }
     } finally {
-      setBusy(false);
+      pending.current = false;
+      if (mounted.current) setBusy(false);
     }
   };
+  const save = () =>
+    void run(async () => {
+      if (!outcome?.recovery || session?.user.id !== outcome.userId) return;
+      const current = revision.current;
+      await saveRecoveryPassword(outcome.userId, password, confirmation);
+      if (!mounted.current || current !== revision.current) return;
+      setPassword("");
+      setConfirmation("");
+      consumeAuthCallback(`${appScheme}://auth/callback?${query}`);
+      setState("password-saved");
+    });
+  const continueToApp = () =>
+    void run(async () => {
+      if (!outcome) return;
+      const ticket = accountScope.capture();
+      if (ticket.id !== outcome.userId) {
+        setState("account-changed");
+        return;
+      }
+      const next = safeReturnPath(
+        await secureStorage.getItem("laque.auth-intent"),
+      );
+      accountScope.assert(ticket);
+      await secureStorage.removeItem("laque.auth-intent");
+      accountScope.assert(ticket);
+      if (mounted.current) {
+        consumeAuthCallback(`${appScheme}://auth/callback?${query}`);
+        router.replace(next as Href);
+      }
+    });
+  const navigate = (mode: string) => {
+    if (!pending.current)
+      router.replace({ pathname: "/auth", params: { mode } });
+  };
   return (
-    <Screen title={ready ? "Set a new password" : "Confirming your account"}>
-      {!ready && !error && <Loading />}
-      {ready && (
-        <>
-          <Field
-            label="New password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            autoComplete="new-password"
-          />
-          <Button
-            title="Save password"
-            busy={busy}
-            onPress={() => void reset()}
-          />
-        </>
-      )}
-      {error && (
-        <>
-          <Notice error>{error}</Notice>
-          <Button
-            title="Request a new link"
-            onPress={() => router.replace("/auth")}
-          />
-        </>
-      )}
-    </Screen>
+    <CallbackView
+      state={state}
+      recovery={isRecovery}
+      password={password}
+      confirmation={confirmation}
+      onPassword={setPassword}
+      onConfirmation={setConfirmation}
+      canSave={!!outcome?.recovery && session?.user.id === outcome.userId}
+      busy={busy}
+      error={error}
+      onSave={save}
+      onContinue={continueToApp}
+      onRetry={() => {
+        if (!pending.current) {
+          setState("checking");
+          setError("");
+          setPassword("");
+          setConfirmation("");
+          setOutcome(null);
+          setRetry((v) => v + 1);
+        }
+      }}
+      onNewLink={() => navigate(isRecovery ? "recovery" : "verification")}
+      onSignIn={() => navigate("signin")}
+    />
+  );
+}
+export default function CallbackScreen() {
+  const params = useLocalSearchParams<Params>();
+  // Primitive query identity avoids restarting exchanges on ordinary rerenders.
+  const query = new URLSearchParams();
+  for (const key of [
+    "code",
+    "flow",
+    "error",
+    "error_code",
+    "error_description",
+    "sb_flow_id",
+  ] as const) {
+    const value = params[key];
+    if (typeof value === "string") query.set(key, value);
+  }
+  const encoded = query.toString();
+  // A second incoming link starts a new form and clears password drafts.
+  return (
+    <Callback
+      key={encoded}
+      query={encoded}
+      recovery={params.flow === "recovery"}
+    />
   );
 }

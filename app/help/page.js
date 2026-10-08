@@ -155,6 +155,7 @@ export default function HelpPage() {
           Find answers to common questions below. Still stuck? Reach us at{' '}
           <a href="mailto:hello@laque.app" style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: '500' }}>hello@laque.app</a>
         </p>
+        <p style={{ marginTop: '12px', fontSize: '14px' }}><Link href="/privacy" style={{ color: 'var(--accent)' }}>Read our Privacy Policy</Link></p>
       </div>
 
       {/* FAQ sections */}

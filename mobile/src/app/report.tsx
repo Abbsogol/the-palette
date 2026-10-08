@@ -1,47 +1,29 @@
-import { useState } from "react";
-import { useLocalSearchParams } from "expo-router";
-import { Button, Field, Notice, RequireAuth, Screen } from "../components/ui";
-import { api } from "../lib/api";
+import { router, useLocalSearchParams } from "expo-router";
+import { RequireAuth } from "../components/ui";
+import { useAuth } from "../lib/auth";
+import { ReportView } from "../features/safety/report-view";
+import { reportTarget, sendReport } from "../features/safety/data";
 export default function Report() {
   const { targetType, targetId } = useLocalSearchParams<{
     targetType: string;
     targetId: string;
   }>();
-  const [reason, setReason] = useState(""),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState(""),
-    [sent, setSent] = useState(false);
+  const { session, epoch } = useAuth();
+  const target = reportTarget(targetType, targetId);
   return (
-    <Screen title="Report content" back>
-      <RequireAuth>
-        {sent ? (
-          <Notice>Your report has been sent to the LaQue support team.</Notice>
-        ) : (
-          <>
-            <Field
-              label="What happened?"
-              multiline
-              value={reason}
-              onChangeText={setReason}
-              maxLength={2000}
-            />
-            <Button
-              title="Submit report"
-              busy={busy}
-              disabled={reason.trim().length < 3}
-              onPress={() => {
-                setBusy(true);
-                setError("");
-                void api("/mobile/report", { targetType, targetId, reason })
-                  .then(() => setSent(true))
-                  .catch((e) => setError(e.message))
-                  .finally(() => setBusy(false));
-              }}
-            />
-          </>
-        )}
-        {error && <Notice error>{error}</Notice>}
-      </RequireAuth>
-    </Screen>
+    <RequireAuth>
+      <ReportView
+        key={`${session?.user.id}:${epoch}:${targetType}:${targetId}`}
+        target={target}
+        onSubmit={async (reason) => {
+          if (!target) throw new Error("Choose a report target.");
+          await sendReport(target, reason);
+        }}
+        onClose={() =>
+          router.canGoBack() ? router.back() : router.replace("/")
+        }
+        onSafety={() => router.push("/privacy")}
+      />
+    </RequireAuth>
   );
 }

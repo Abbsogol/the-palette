@@ -1,46 +1,42 @@
-import { useState } from "react";
-import { Share, Text, View } from "react-native";
-import { Image } from "expo-image";
+import { useRef, useState } from "react";
+import { Platform, Share, View, useWindowDimensions } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import {
-  Button,
-  Notice,
-  QueryState,
-  Screen,
-  styles,
-} from "../../components/ui";
 import { checked } from "../../lib/api";
 import { supabase } from "../../lib/supabase";
 import { useAccountQuery, useAuth, queryClient } from "../../lib/auth";
-import { resolvePrivateImage, setSaved } from "../../lib/designs";
+import { setSaved } from "../../lib/designs";
 import { environment } from "../../lib/config";
-import type { Design } from "../../lib/types";
+import { accountScope } from "../../lib/account-scope";
+import { loadDetail } from "../../features/design-detail/data";
+import { DetailView } from "../../features/design-detail/detail-view";
 
 export default function Details() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
+  // Route reuse must reset gallery, clipboard feedback and pending mutations.
+  return <DesignDetails key={id} id={id} from={from} />;
+}
+
+function DesignDetails({ id, from }: { id: string; from?: string }) {
   const { session } = useAuth();
+  const window = useWindowDimensions();
+  const width =
+    Platform.OS === "web" ? Math.min(393, window.width) : window.width;
+  const pending = useRef(false);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
-  const design = useAccountQuery(["design", id], async (signal) => {
-    const d = await checked<Design | null>(
-      supabase
-        .from("designs")
-        .select("*")
-        .eq("id", id)
-        .abortSignal(signal)
-        .single(),
-    );
-    return { ...d, image_url: await resolvePrivateImage(d.image_url) };
-  });
+  const design = useAccountQuery(["design-detail", id], (signal) =>
+    loadDetail(id, signal),
+  );
   const saved = useAccountQuery(
     ["saved-status", id],
-    () =>
-      checked(
+    (signal) =>
+      checked<{ id: string }[]>(
         supabase
           .from("saved_designs")
           .select("id")
           .eq("design_id", id)
-          .eq("user_id", session!.user.id),
+          .eq("user_id", session!.user.id)
+          .abortSignal(signal),
       ),
     !!session,
   );
@@ -50,132 +46,139 @@ export default function Details() {
     return false;
   };
   const save = async () => {
-    if (!requireSignIn()) return;
+    if (!requireSignIn() || pending.current) return;
+    const ticket = accountScope.capture();
+    pending.current = true;
     setBusy(true);
     setError("");
     try {
-      await setSaved(session!.user.id, id, !saved.data?.length);
+      let rows = saved.data;
+      if (!rows || saved.error) {
+        const refreshed = await saved.refetch();
+        if (refreshed.error || !refreshed.data)
+          throw new Error(
+            "Saved status could not be checked. Please try again.",
+          );
+        rows = refreshed.data;
+      }
+      accountScope.assert(ticket);
+      await setSaved(session!.user.id, id, !rows.length);
+      accountScope.assert(ticket);
       await queryClient.invalidateQueries();
     } catch (e) {
-      setError((e as Error).message);
+      if (accountScope.isCurrent(ticket)) setError((e as Error).message);
     } finally {
-      setBusy(false);
+      pending.current = false;
+      if (accountScope.isCurrent(ticket)) setBusy(false);
     }
   };
-  const d = design.data;
+  const record = design.data?.record;
+  const share = async () => {
+    if (!record) return;
+    if (!record.is_published) {
+      setError("Publish this design before sharing it.");
+      return;
+    }
+    const ticket = accountScope.capture();
+    try {
+      await Share.share({
+        message: `${record.title} · ${environment.apiUrl}/design/${id}`,
+        url: `${environment.apiUrl}/design/${id}`,
+      });
+    } catch {
+      if (accountScope.isCurrent(ticket))
+        setError("Sharing is unavailable. Please try again.");
+    }
+  };
+  const showTech = () => {
+    if (requireSignIn())
+      router.push({ pathname: "/share-design", params: { designId: id } });
+  };
+  const actions = record
+    ? [
+        {
+          label: "Add to collection",
+          onPress: () => {
+            if (requireSignIn())
+              router.push({
+                pathname: "/collections",
+                params: { designId: id },
+              });
+          },
+        },
+        {
+          label: "View creator",
+          onPress: () =>
+            router.push({
+              pathname: "/creator/[id]",
+              params: { id: record.created_by },
+            }),
+        },
+        {
+          label: "Book this design",
+          onPress: () => {
+            if (requireSignIn())
+              router.push({
+                pathname: "/book/[id]",
+                params: { id: record.created_by, designId: id },
+              });
+          },
+        },
+        ...(record.created_by === session?.user.id
+          ? [
+              {
+                label: "Edit design",
+                onPress: () =>
+                  router.push({ pathname: "/portfolio-edit", params: { id } }),
+              },
+            ]
+          : []),
+        {
+          label: "Report design",
+          onPress: () => {
+            if (requireSignIn())
+              router.push({
+                pathname: "/report",
+                params: { targetType: "design", targetId: id },
+              });
+          },
+        },
+      ]
+    : [];
   return (
-    <Screen back>
-      <QueryState
-        loading={design.isPending}
-        error={design.error}
-        retry={() => void design.refetch()}
-      >
-        {d && (
-          <>
-            <Image
-              source={d.image_url}
-              style={{ width: "100%", aspectRatio: 0.85, borderRadius: 28 }}
-              contentFit="cover"
-              cachePolicy="none"
-              accessibilityLabel={d.title}
-            />
-            <Text accessibilityRole="header" style={styles.title}>
-              {d.title}
-            </Text>
-            <Text style={styles.text}>{d.description}</Text>
-            <Text style={styles.muted}>
-              {[d.shape, d.length, d.category, d.technique, d.occasion]
-                .filter(Boolean)
-                .join(" · ")}
-            </Text>
-            <Button
-              title={saved.data?.length ? "Remove from saved" : "Save design"}
-              busy={busy}
-              onPress={() => void save()}
-            />
-            <View style={styles.row}>
-              <Button
-                title="Add to collection"
-                secondary
-                onPress={() => {
-                  if (requireSignIn())
-                    router.push({
-                      pathname: "/collections",
-                      params: { designId: id },
-                    });
-                }}
-              />
-              <Button
-                title="Share"
-                secondary
-                onPress={() => {
-                  if (d.is_published)
-                    void Share.share({
-                      message: `${d.title} · ${environment.apiUrl}/design/${id}`,
-                      url: `${environment.apiUrl}/design/${id}`,
-                    }).catch(() => setError("Sharing is unavailable."));
-                  else setError("Publish this design before sharing it.");
-                }}
-              />
-              <Button
-                title="Send in message"
-                secondary
-                onPress={() => {
-                  if (requireSignIn())
-                    router.push({
-                      pathname: "/share-design",
-                      params: { designId: id },
-                    });
-                }}
-              />
-            </View>
-            <Button
-              title="View creator"
-              secondary
-              onPress={() =>
-                router.push({
-                  pathname: "/creator/[id]",
-                  params: { id: d.created_by },
-                })
-              }
-            />
-            <Button
-              title="Book this design"
-              onPress={() => {
-                if (requireSignIn())
-                  router.push({
-                    pathname: "/book/[id]",
-                    params: { id: d.created_by, designId: d.id },
-                  });
-              }}
-            />
-            {d.created_by === session?.user.id && (
-              <Button
-                title="Edit design"
-                secondary
-                onPress={() =>
-                  router.push({
-                    pathname: "/portfolio-edit",
-                    params: { id: d.id },
-                  })
-                }
-              />
-            )}
-            <Button
-              title="Report design"
-              secondary
-              onPress={() => {
-                if (requireSignIn())
-                  router.push({
-                    pathname: "/report",
-                    params: { targetType: "design", targetId: id },
-                  });
-              }}
-            />
-          </>
-        )}
-      </QueryState>
-      {error && <Notice error>{error}</Notice>}
-    </Screen>
+    <View style={{ flex: 1, backgroundColor: "#21090f", alignItems: "center" }}>
+      <View style={{ flex: 1, width }}>
+        <DetailView
+          key={design.data?.model.id || "loading"}
+          width={width}
+          design={design.data?.model}
+          saved={!!saved.data?.length}
+          saving={busy}
+          loading={design.isPending}
+          error={design.error?.message}
+          actionError={error}
+          selectedTab={typeof from === "string" ? from : "index"}
+          onRetry={() => void design.refetch()}
+          onBack={() =>
+            router.canGoBack() ? router.back() : router.replace("/")
+          }
+          onShare={() => void share()}
+          onSave={() => void save()}
+          onShowTech={showTech}
+          actions={actions}
+          onNavigate={(name) => {
+            const routes = {
+              index: "/",
+              search: "/search",
+              lab: "/lab",
+              messages: "/messages",
+              saved: "/saved",
+              profile: "/profile",
+            } as const;
+            router.replace(routes[name as keyof typeof routes] || "/");
+          }}
+        />
+      </View>
+    </View>
   );
 }

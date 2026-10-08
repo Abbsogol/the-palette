@@ -1,5 +1,25 @@
 import { getSessionUser, serviceClient } from "@/lib/auth";
 import { mobileJson, uuidPattern } from "@/lib/mobile-auth";
+import { readMobilePushStatus } from "@/lib/mobile-push-status";
+export async function GET(request) {
+  const user = await getSessionUser(request);
+  if (!user) return mobileJson({ error: "Unauthorized" }, 401);
+  const installationId = new URL(request.url).searchParams.get(
+    "installationId",
+  );
+  if (!uuidPattern.test(installationId || ""))
+    return mobileJson({ error: "Invalid device" }, 400);
+  try {
+    return mobileJson(
+      await readMobilePushStatus(serviceClient, user.id, installationId),
+    );
+  } catch {
+    return mobileJson(
+      { error: "Device notifications could not be checked. Please retry." },
+      503,
+    );
+  }
+}
 export async function POST(request) {
   const user = await getSessionUser(request);
   if (!user) return mobileJson({ error: "Unauthorized" }, 401);

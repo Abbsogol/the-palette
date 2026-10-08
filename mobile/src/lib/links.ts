@@ -9,12 +9,24 @@ export function safeReturnPath(value: unknown): string {
       "/profile",
       "/appointments",
       "/billing",
+      "/search",
+      "/notifications",
+      "/creator-onboarding",
+      "/story/new",
+      "/services",
+      "/availability",
+      "/calendar-connect",
+      "/portfolio",
+      "/profile-edit",
+      "/profile-settings",
+      "/profile-favorites",
+      "/generation-history",
     ].includes(value)
   )
     return value;
   if (
     typeof value !== "string" ||
-    !/^\/(?:design|creator|book|booking|conversation)\/[0-9a-f-]{36}(?:\?[a-zA-Z0-9=&%-]*)?$/.test(
+    !/^\/(?:design|creator|book|booking|conversation|story|collection)\/[0-9a-f-]{36}(?:\?[a-zA-Z0-9=&%-]*)?$/.test(
       value,
     )
   )
@@ -24,7 +36,7 @@ export function safeReturnPath(value: unknown): string {
 export function parseAuthLink(
   url: string,
   scheme: string,
-): { code: string; recovery: boolean } {
+): { code: string; recovery: boolean; flowId?: string } {
   const parsed = new URL(url);
   if (
     parsed.protocol !== `${scheme}:` ||
@@ -33,14 +45,24 @@ export function parseAuthLink(
   )
     throw new Error("This sign-in link is not valid for this app.");
   if (parsed.searchParams.has("error"))
-    throw new Error(
-      parsed.searchParams.get("error_description") ||
-        "The sign-in link has expired. Request another link.",
+    throw Object.assign(
+      new Error(
+        parsed.searchParams.get("error_description") ||
+          "The sign-in link has expired. Request another link.",
+      ),
+      { code: parsed.searchParams.get("error_code") },
     );
   const code = parsed.searchParams.get("code");
   if (!code || code.length > 2000)
     throw new Error("The sign-in link is incomplete. Request another link.");
-  return { code, recovery: parsed.searchParams.get("flow") === "recovery" };
+  const flowId = parsed.searchParams.get("sb_flow_id");
+  if (flowId !== null && !/^[a-zA-Z0-9_-]{8,64}$/.test(flowId))
+    throw new Error("This sign-in link is not valid for this app.");
+  return {
+    code,
+    recovery: parsed.searchParams.get("flow") === "recovery",
+    ...(flowId ? { flowId } : {}),
+  };
 }
 export function notificationPath(data: Record<string, unknown>): string | null {
   if (

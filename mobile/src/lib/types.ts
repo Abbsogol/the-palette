@@ -1,10 +1,16 @@
 export type Profile = {
   id: string;
   display_name: string | null;
+  nail_shape?: string | null;
+  occasions?: string[] | null;
+  nail_techniques?: string[] | null;
   username: string | null;
   avatar_url: string | null;
+  banner_url?: string | null;
   bio: string | null;
+  specialties?: string[] | null;
   location: string | null;
+  booking_area?: string | null;
   account_type: "user" | "creator" | "salon";
   is_private: boolean;
   onboarding_complete: boolean;
@@ -59,6 +65,8 @@ export type Booking = {
   location_snapshot?: string;
 };
 export type Slot = {
+  client_calendar_state?: "checked" | "disconnected" | "unavailable";
+  client_calendar_conflict?: boolean;
   start_time: string;
   end_time: string;
   starts_at: string;
@@ -70,6 +78,7 @@ export type Conversation = {
   client_id: string;
   creator_id: string;
   last_message_at: string;
+  muted_by?: string[];
 };
 export type Message = {
   id: string;

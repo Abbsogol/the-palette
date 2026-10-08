@@ -1,62 +1,52 @@
-import { useState } from "react";
-import { Alert } from "react-native";
-import { router } from "expo-router";
-import { Button, Field, Notice, RequireAuth, Screen } from "../components/ui";
+import { Linking } from "react-native";
+import { router, type Href } from "expo-router";
+import { useAuth } from "../lib/auth";
+import { RequireAuth } from "../components/ui";
+import { Screen } from "../features/secondary/primitives";
+import { DeleteView } from "../features/secondary/delete-view";
 import { api } from "../lib/api";
-import { signOut } from "../lib/auth";
+import { accountScope } from "../lib/account-scope";
+import { closedAccounts } from "../lib/closed-accounts";
+import { supabase } from "../lib/supabase";
 export default function DeleteAccount() {
-  const [confirm, setConfirm] = useState(""),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
-  const remove = async () => {
-    setBusy(true);
-    setError("");
-    try {
-      await api("/delete-account", {});
-      await signOut();
-      router.replace("/");
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
+  const { session, epoch } = useAuth();
   return (
-    <Screen title="Delete account" back>
-      <RequireAuth>
-        <Notice>
-          Your profile, private images and saved content will be permanently
-          removed. Cancel upcoming appointments and wait for pending refunds or
-          purchases to finish first. Active subscriptions must be cancelled with
-          their original provider.
-        </Notice>
-        <Field
-          label="Type DELETE to continue"
-          value={confirm}
-          onChangeText={setConfirm}
-          autoCapitalize="characters"
-        />
-        <Button
-          title="Permanently delete account"
-          busy={busy}
-          disabled={confirm !== "DELETE"}
-          onPress={() =>
-            Alert.alert(
-              "Permanently delete your account?",
-              "This cannot be undone.",
-              [
-                { text: "Keep account", style: "cancel" },
-                {
-                  text: "Delete",
-                  style: "destructive",
-                  onPress: () => void remove(),
-                },
-              ],
+    <RequireAuth>
+      <Screen onBack={() => router.back()} title="Delete account">
+        <DeleteView
+          key={`${session?.user.id}:${epoch}`}
+          onAppointments={() => router.push("/appointments")}
+          onCredits={() => router.push("/billing")}
+          onSupport={() =>
+            Linking.openURL(
+              "mailto:contact@laque.app?subject=Account%20closure",
             )
           }
+          onDelete={async () => {
+            const ticket = accountScope.capture();
+            const result = await api<{ closed: boolean }>(
+              "/delete-account",
+              {},
+            );
+            if (!result.closed)
+              throw new Error("Closure was not confirmed. Please retry.");
+            // The server has committed: a local/network cleanup failure must
+            // never tell the user their account is still open. Preserve a newer
+            // account if they switched while the request was in flight.
+            if (accountScope.isCurrent(ticket))
+              router.replace("/account-closed" as Href);
+            if (ticket.id)
+              void closedAccounts.add(ticket.id).catch(() => undefined);
+            // With no explicit token, Supabase reads the latest session under
+            // its lock. Refresh cannot globally sign out a different account.
+            void supabase.auth.refreshSession().catch(() => undefined);
+          }}
+          onPolicy={() =>
+            Linking.openURL("https://www.laque.app/privacy#retention")
+          }
+          onDone={() => router.back()}
         />
-        {error && <Notice error>{error}</Notice>}
-      </RequireAuth>
-    </Screen>
+      </Screen>
+    </RequireAuth>
   );
 }

@@ -1,19 +1,12 @@
-import { useState } from "react";
-import { Text } from "react-native";
-import { Image } from "expo-image";
-import { router } from "expo-router";
-import {
-  Button,
-  Card,
-  Notice,
-  QueryState,
-  RequireAuth,
-  Screen,
-  styles,
-} from "../components/ui";
+import { useRef, useState } from "react";
+import { router, type Href } from "expo-router";
+import { RequireAuth } from "../components/ui";
+import { HomeNavigation } from "../components/home-tab-bar";
+import { HistoryView } from "../features/lab-ui/history-view";
 import { useAccountQuery, useAuth, queryClient } from "../lib/auth";
 import { api, checked } from "../lib/api";
-import { resolvePrivateImage, setSaved } from "../lib/designs";
+import { accountScope } from "../lib/account-scope";
+import { resolvePrivateImage } from "../lib/designs";
 import { supabase } from "../lib/supabase";
 import type { Generation } from "../lib/types";
 function History() {
@@ -21,88 +14,91 @@ function History() {
   const [limit, setLimit] = useState(12),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
+  const mutation = useRef(false);
   const query = useAccountQuery(["generations", limit], async () => {
-    const rows = await checked<Generation[]>(
-      supabase
-        .from("nail_lab_generations")
-        .select("*")
-        .eq("user_id", session!.user.id)
-        .order("created_at", { ascending: false })
-        .limit(limit),
-    );
-    return Promise.all(
-      rows.map(async (r) => ({
-        ...r,
-        url: await resolvePrivateImage(r.image_url),
+    const ticket = accountScope.capture();
+    const response = await supabase
+      .from("nail_lab_generations")
+      .select("*", { count: "exact" })
+      .eq("user_id", session!.user.id)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    accountScope.assert(ticket);
+    const rows = await checked<Generation[]>(Promise.resolve(response));
+    const designs = await Promise.all(
+      rows.map(async (g) => ({
+        id: g.id,
+        title: g.vibe?.join(" + ") || "Your design",
+        shape: g.shape,
+        length: g.length,
+        date: new Date(g.created_at).toLocaleDateString("en", {
+          month: "short",
+          day: "numeric",
+        }),
+        image: await resolvePrivateImage(g.image_url),
       })),
     );
+    accountScope.assert(ticket);
+    return { designs, total: response.count ?? undefined };
   });
-  const save = async (id: string, asDraft: boolean) => {
+  const save = async (id: string) => {
+    if (mutation.current) return;
+    mutation.current = true;
+    const ticket = accountScope.capture();
     setBusy(true);
+    setError("");
     try {
       const { designId } = await api<{ designId: string }>(
         "/publish-nail-lab-generation",
-        { generationId: id, asDraft },
+        { generationId: id, asDraft: true },
       );
-      if (asDraft) await setSaved(session!.user.id, designId, true);
+      accountScope.assert(ticket);
       await queryClient.invalidateQueries();
-      router.push({ pathname: "/design/[id]", params: { id: designId } });
+      accountScope.assert(ticket);
+      router.push({ pathname: "/design/[id]", params: { id: designId, from: "lab" } });
     } catch (e) {
-      setError((e as Error).message);
+      if (accountScope.isCurrent(ticket)) setError((e as Error).message);
     } finally {
-      setBusy(false);
+      mutation.current = false;
+      if (accountScope.isCurrent(ticket)) setBusy(false);
     }
   };
+  const designs = query.data?.designs ?? [];
   return (
     <>
-      <QueryState
+      <HistoryView
+        designs={designs}
+        total={query.data?.total}
         loading={query.isPending}
-        error={query.error}
-        empty={!query.data?.length}
-        retry={() => void query.refetch()}
-      >
-        {query.data?.map((g) => (
-          <Card key={g.id}>
-            <Image
-              source={g.url}
-              style={{ width: "100%", aspectRatio: 1.5, borderRadius: 16 }}
-              contentFit="contain"
-              cachePolicy="none"
-            />
-            <Text style={styles.text}>
-              {g.vibe?.join(" + ")} · {g.shape} · {g.length}
-            </Text>
-            <Button
-              title="Save privately"
-              disabled={busy}
-              onPress={() => void save(g.id, true)}
-            />
-            <Button
-              title="Publish"
-              secondary
-              disabled={busy}
-              onPress={() => void save(g.id, false)}
-            />
-          </Card>
-        ))}
-        {query.data?.length === limit && (
-          <Button
-            title="Load older designs"
-            secondary
-            onPress={() => setLimit(limit + 12)}
-          />
-        )}
-      </QueryState>
-      {error && <Notice error>{error}</Notice>}
+        error={query.error?.message}
+        actionError={error}
+        busy={busy}
+        hasMore={
+          query.data?.total != null
+            ? designs.length < query.data.total
+            : designs.length === limit
+        }
+        loadingMore={query.isFetching}
+        onMore={() => setLimit((value) => value + 12)}
+        onRetry={() => void query.refetch()}
+        onOpen={(id) => void save(id)}
+        onBack={() =>
+          router.canGoBack() ? router.back() : router.replace("/lab")
+        }
+      />
+      <HomeNavigation
+        selected="lab"
+        onSelect={(name) =>
+          router.replace((name === "index" ? "/" : `/${name}`) as Href)
+        }
+      />
     </>
   );
 }
 export default function GenerationHistory() {
   return (
-    <Screen title="Generation history" back>
-      <RequireAuth>
-        <History />
-      </RequireAuth>
-    </Screen>
+    <RequireAuth>
+      <History />
+    </RequireAuth>
   );
 }

@@ -1,0 +1,16 @@
+export const chatAssets = {
+  design: require("../../../assets/figma/chat/aadb9.png"),
+  workspace: require("../../../assets/figma/chat/19293.png"),
+  map: require("../../../assets/figma/chat/16999.png"),
+  back: require("../../../assets/figma/chat/b9cb8.svg"),
+  send: require("../../../assets/figma/chat/8143a.svg"),
+  profile: require("../../../assets/figma/chat/40773.svg"),
+  portfolio: require("../../../assets/figma/chat/2ce8f.svg"),
+  favorite: require("../../../assets/figma/chat/8a5b4.svg"),
+  media: require("../../../assets/figma/chat/b7afc.svg"),
+  search: require("../../../assets/figma/chat/470f6.svg"),
+  mute: require("../../../assets/figma/chat/d6409.svg"),
+  report: require("../../../assets/figma/chat/34f7b.svg"),
+  block: require("../../../assets/figma/chat/5618a.svg"),
+  delete: require("../../../assets/figma/chat/8ab05.svg"),
+};

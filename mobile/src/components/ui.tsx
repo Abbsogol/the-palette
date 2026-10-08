@@ -22,6 +22,7 @@ import {
   type Href,
 } from "expo-router";
 import { useAuth } from "../lib/auth";
+import { appFonts, typography } from "../theme/typography";
 
 import { protectedReturnPath } from "../lib/links";
 export const palette = {
@@ -36,16 +37,14 @@ export const palette = {
 };
 export const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: palette.background },
-  content: { padding: 24, gap: 20, paddingBottom: 40 },
+  content: { padding: 24, gap: 20, paddingBottom: 140 },
   title: {
+    ...typography.heading,
     color: palette.text,
-    fontSize: 28,
-    fontWeight: "600",
-    letterSpacing: -0.6,
   },
-  subtitle: { color: palette.text, fontSize: 20, fontWeight: "600" },
-  text: { color: palette.text, fontSize: 16, lineHeight: 24 },
-  muted: { color: palette.muted, fontSize: 14, lineHeight: 21 },
+  subtitle: { ...typography.section, color: palette.text },
+  text: { ...typography.body, color: palette.text },
+  muted: { ...typography.caption, color: palette.muted },
   card: {
     padding: 18,
     borderRadius: 24,
@@ -61,6 +60,7 @@ export const styles = StyleSheet.create({
     flexWrap: "wrap",
   },
   field: {
+    fontFamily: appFonts.regular,
     color: palette.text,
     fontSize: 16,
     minHeight: 52,
@@ -80,9 +80,8 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
   },
   buttonText: {
+    ...typography.button,
     color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
     textAlign: "center",
   },
   chip: {
@@ -334,7 +333,4 @@ export function RequireAuth({ children }: PropsWithChildren) {
     );
   return <>{children}</>;
 }
-export const money = (value: number, currency = "AED") =>
-  new Intl.NumberFormat("en", { style: "currency", currency }).format(
-    Number(value),
-  );
+export { money } from "../lib/money";

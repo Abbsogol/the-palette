@@ -1,60 +1,34 @@
-import { Tabs } from "expo-router";
-import { Image } from "expo-image";
-import { palette } from "../../components/ui";
-const tabs = [
-  {
-    name: "index",
-    title: "Home",
-    icon: require("../../../assets/figma/home.svg"),
-  },
-  {
-    name: "search",
-    title: "Search",
-    icon: require("../../../assets/figma/search.svg"),
-  },
-  { name: "lab", title: "Lab", icon: require("../../../assets/figma/lab.svg") },
-  {
-    name: "messages",
-    title: "Messages",
-    icon: require("../../../assets/figma/messages.svg"),
-  },
-  {
-    name: "profile",
-    title: "Profile",
-    icon: require("../../../assets/figma/profile.svg"),
-  },
-];
+import { Tabs, router } from "expo-router";
+import { HomeTabBar, homeTabs } from "../../components/home-tab-bar";
+import { RouteAccess } from "../../features/welcome/access";
+import { useAuth } from "../../lib/auth";
+
 export default function TabLayout() {
+  const { session } = useAuth();
   return (
     <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: "#fff",
-        tabBarInactiveTintColor: palette.muted,
-        tabBarActiveBackgroundColor: palette.burgundy,
-        tabBarStyle: {
-          backgroundColor: palette.surface,
-          borderTopColor: palette.border,
-        },
-        tabBarItemStyle: { borderRadius: 24, margin: 4 },
-        tabBarLabelStyle: { fontSize: 12 },
-      }}
-    >
-      {tabs.map(({ name, title, icon }) => (
-        <Tabs.Screen
-          key={name}
-          name={name}
-          options={{
-            title,
-            tabBarIcon: () => (
-              <Image
-                source={icon}
-                style={{ width: 20, height: 20 }}
-                accessible={false}
-              />
-            ),
+      tabBar={(props) => (
+        <HomeTabBar
+          {...props}
+          onBeforeSelect={(name) => {
+            if (session) return true;
+            router.push({
+              pathname: "/auth",
+              params: { returnTo: `/${name}` },
+            });
+            return false;
           }}
         />
+      )}
+      screenLayout={({ children, route }) => (
+        <RouteAccess name={route.name} params={route.params}>
+          {children}
+        </RouteAccess>
+      )}
+      screenOptions={{ headerShown: false, tabBarHideOnKeyboard: true }}
+    >
+      {homeTabs.map(({ name, title }) => (
+        <Tabs.Screen key={name} name={name} options={{ title }} />
       ))}
     </Tabs>
   );

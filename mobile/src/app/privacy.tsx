@@ -1,115 +1,109 @@
-import { useState } from "react";
-import { Switch, Text, View } from "react-native";
+import { useCallback, useState } from "react";
+import { Linking } from "react-native";
+import { router, useFocusEffect } from "expo-router";
+import { QueryState, RequireAuth } from "../components/ui";
+import { Screen, Notice, Button } from "../features/secondary/primitives";
+import { PrivacyView } from "../features/secondary/privacy-view";
+import { useSubmission } from "../features/secondary/use-submission";
+import { useAccountQuery, useAuth, queryClient } from "../lib/auth";
+import { accountScope } from "../lib/account-scope";
 import {
-  Button,
-  Chips,
-  Notice,
-  QueryState,
-  RequireAuth,
-  Screen,
-  styles,
-} from "../components/ui";
-import { useAccountQuery, useAuth, useProfile, queryClient } from "../lib/auth";
-import { api, checked } from "../lib/api";
-import { supabase } from "../lib/supabase";
+  loadPrivacy,
+  savePrivacy,
+  unblockAccount,
+} from "../features/safety/data";
+import { UsagePreference } from "../features/analytics/usage";
 function Privacy() {
-  const { session } = useAuth();
-  const profile = useProfile();
-  const [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
-  const blocks = useAccountQuery(["blocks"], () =>
-    checked<{ id: string; blocked_id: string }[]>(
-      supabase
-        .from("blocks")
-        .select("id,blocked_id")
-        .eq("blocker_id", session!.user.id),
-    ),
+  const { session, epoch } = useAuth(),
+    owner = session!.user.id,
+    submit = useSubmission();
+  const [notice, setNotice] = useState("");
+  const query = useAccountQuery(["privacy-settings-and-blocks"], (signal) =>
+    loadPrivacy(owner, signal),
   );
-  const update = async (body: unknown) => {
-    setBusy(true);
-    try {
-      await api("/update-privacy-settings", body);
-      await queryClient.invalidateQueries();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-  const settings = useAccountQuery(["privacy-settings"], () =>
-    checked<{ message_permission: string; show_saves: boolean } | null>(
-      supabase
-        .from("profiles")
-        .select("message_permission,show_saves")
-        .eq("id", session!.user.id)
-        .single(),
-    ),
+  const { refetch } = query;
+  useFocusEffect(
+    useCallback(() => {
+      void refetch();
+    }, [refetch]),
   );
+  const key = [owner, epoch, "privacy-settings-and-blocks"];
   return (
     <>
-      <View style={styles.row}>
-        <Text style={styles.text}>Private profile</Text>
-        <Switch
-          accessibilityLabel="Private profile"
-          value={profile.data?.is_private || false}
-          disabled={busy || !profile.data}
-          onValueChange={(value) => void update({ is_private: value })}
-        />
-      </View>
-      <Chips
-        label="Who can send me messages?"
-        values={["everyone", "followers", "none"]}
-        value={settings.data?.message_permission || "everyone"}
-        onChange={(value) => {
-          if (!busy) void update({ message_permission: value });
-        }}
-      />
-      <View style={styles.row}>
-        <Text style={styles.text}>Show saved designs on profile</Text>
-        <Switch
-          accessibilityLabel="Show saves"
-          value={settings.data?.show_saves || false}
-          disabled={busy || !settings.data}
-          onValueChange={(value) => void update({ show_saves: value })}
-        />
-      </View>
-      <Text style={styles.subtitle}>Blocked accounts</Text>
+      {!!notice && <Notice>{notice}</Notice>}
+      {!!submit.error && <Notice error>{submit.error}</Notice>}
       <QueryState
-        loading={blocks.isPending}
-        error={blocks.error}
-        empty={!blocks.data?.length}
-        retry={() => void blocks.refetch()}
+        loading={query.isPending}
+        error={query.error}
+        retry={() => void refetch()}
       >
-        {blocks.data?.map((b) => (
-          <Button
-            key={b.id}
-            title={`Unblock account ${b.blocked_id.slice(0, 8)}`}
-            secondary
-            onPress={() => {
-              void checked(
-                supabase
-                  .from("blocks")
-                  .delete()
-                  .eq("id", b.id)
-                  .eq("blocker_id", session!.user.id)
-                  .select("id"),
-              )
-                .then(() => queryClient.invalidateQueries())
-                .catch((e) => setError(e.message));
-            }}
+        {query.data && (
+          <PrivacyView
+            settings={query.data.settings}
+            blocks={query.data.blocks}
+            busy={submit.busy}
+            onUpdate={(patch) =>
+              void submit.run(async () => {
+                setNotice("");
+                const ticket = accountScope.capture();
+                const settings = await savePrivacy(owner, patch);
+                accountScope.assert(ticket);
+                queryClient.setQueryData(key, (old: typeof query.data) =>
+                  old ? { ...old, settings } : old,
+                );
+                setNotice("Privacy setting saved.");
+                void queryClient.invalidateQueries({
+                  queryKey: [owner, epoch],
+                });
+              })
+            }
+            onUnblock={(id) =>
+              submit.run(async () => {
+                setNotice("");
+                const ticket = accountScope.capture();
+                await unblockAccount(owner, id);
+                accountScope.assert(ticket);
+                queryClient.setQueryData(key, (old: typeof query.data) =>
+                  old
+                    ? { ...old, blocks: old.blocks.filter((b) => b.id !== id) }
+                    : old,
+                );
+                setNotice(
+                  "Account unblocked. Your message and profile settings still apply.",
+                );
+                void queryClient.invalidateQueries({
+                  queryKey: [owner, epoch],
+                });
+              })
+            }
+            onDelete={() => router.push("/delete-account")}
+            onPolicy={() =>
+              void submit.run(async () => {
+                await Linking.openURL(
+                  "https://www.laque.app/privacy#retention",
+                );
+              })
+            }
           />
-        ))}
+        )}
       </QueryState>
-      {error && <Notice error>{error}</Notice>}
+      <UsagePreference />
+      <Button
+        title="Refresh privacy settings"
+        secondary
+        disabled={submit.busy || query.isFetching}
+        onPress={() => void refetch()}
+      />
     </>
   );
 }
 export default function PrivacyScreen() {
+  const { session, epoch } = useAuth();
   return (
-    <Screen title="Privacy & safety" back>
-      <RequireAuth>
-        <Privacy />
-      </RequireAuth>
-    </Screen>
+    <RequireAuth>
+      <Screen title="Privacy & safety" onBack={() => router.back()}>
+        <Privacy key={`${session?.user.id}:${epoch}`} />
+      </Screen>
+    </RequireAuth>
   );
 }

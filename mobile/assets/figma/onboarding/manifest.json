@@ -1,0 +1,46 @@
+{
+  "fileKey": "VEodtjFruvXPaIwWW2BjMC",
+  "exported": "2026-09-28",
+  "assets": [
+    {
+      "file": "intro-1.png",
+      "frame": "Onboarding 1",
+      "frameNodeId": "345:3103",
+      "photoNodeId": "345:3105",
+      "width": 393,
+      "height": 761,
+      "bytes": 388948,
+      "sha256": "c57db4ef3bcd0784ef98ae8ef5ad7680b50642b4954c44ca7d2712ab724f2aee"
+    },
+    {
+      "file": "intro-2.png",
+      "frame": "Onboarding 2",
+      "frameNodeId": "345:3115",
+      "photoNodeId": "345:3117",
+      "width": 393,
+      "height": 761,
+      "bytes": 428723,
+      "sha256": "8fb3695f6cab7a2ff55b88510c4fc73d3f6a2fd343b36aa6401eb456dd09565e"
+    },
+    {
+      "file": "intro-3.png",
+      "frame": "Onboarding 3",
+      "frameNodeId": "345:3130",
+      "photoNodeId": "345:3132",
+      "width": 393,
+      "height": 761,
+      "bytes": 542877,
+      "sha256": "6bc1c54491b6d7fc60d62c1cf333129a2b4afccde110d55393c3eb997cfc7f0e"
+    },
+    {
+      "file": "intro-4.png",
+      "frame": "Onboarding 4",
+      "frameNodeId": "345:3145",
+      "photoNodeId": "345:3147",
+      "width": 393,
+      "height": 761,
+      "bytes": 455991,
+      "sha256": "babb6e36709352928858cd54c35b6d1a68ffa303e37cf0f9e542699bf7c71a55"
+    }
+  ]
+}

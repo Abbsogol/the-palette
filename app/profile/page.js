@@ -226,6 +226,7 @@ export default function ProfilePage() {
   const [error, setError]                 = useState('')
   const [submitting, setSubmitting]       = useState(false)
   const [termsAccepted, setTermsAccepted] = useState(false)
+  const [ageConfirmed, setAgeConfirmed] = useState(false)
   const [marketingConsent, setMarketingConsent] = useState(false)
   const [resetMode, setResetMode]         = useState(false)
   const [newPassword, setNewPassword]     = useState('')
@@ -407,6 +408,7 @@ export default function ProfilePage() {
     e.preventDefault()
     if (password.length < 6) { setError('Password must be at least 6 characters'); return }
     if (!displayName.trim()) { setError('Please enter a display name'); return }
+    if (!ageConfirmed) { setError('You must be 18 or older to create a LaQue account'); return }
     if (!termsAccepted) { setError('Please accept the Terms & Privacy Policy to continue'); return }
     setError(''); setMode('choose-type')
   }
@@ -430,13 +432,14 @@ export default function ProfilePage() {
 
   const handleCreateAccount = async () => {
     if (!chosenType) return
+    if (!ageConfirmed || !termsAccepted) {setError('Confirm you are 18 or older and acknowledge the Privacy Policy');return}
     setSubmitting(true); setError('')
     try {
       const { data, error } = await supabase.auth.signUp({
         email, password,
         options: {
           emailRedirectTo: `${window.location.origin}/profile${refCode ? `?ref=${encodeURIComponent(refCode)}` : ''}`,
-          data: { account_type: chosenType, display_name: displayName.trim() },
+          data: { account_type: chosenType, display_name: displayName.trim(),age_confirmed:true,privacy_accepted:true,privacy_policy_version:"2026-09-29" },
         },
       })
       if (error) throw error
@@ -483,6 +486,7 @@ export default function ProfilePage() {
 
   const handleSetGoogleAccountType = async () => {
     if (!chosenType) return
+    if (!ageConfirmed || !termsAccepted) {setError('Confirm you are 18 or older and acknowledge the Privacy Policy');return}
     setSubmitting(true); setError('')
     const name = displayName.trim() || user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User'
     try {
@@ -718,11 +722,14 @@ export default function ProfilePage() {
           <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required style={inp} />
           {mode === 'signup' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: '4px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', minHeight:44, cursor: 'pointer',color:'var(--text-secondary)',fontSize:13 }}>
+                <input type="checkbox" checked={ageConfirmed} onChange={e=>setAgeConfirmed(e.target.checked)} style={{accentColor:'var(--accent)'}}/> I am 18 or older
+              </label>
               <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
                 <input type="checkbox" checked={termsAccepted} onChange={e => setTermsAccepted(e.target.checked)}
                   style={{ marginTop: '2px', accentColor: 'var(--accent)', flexShrink: 0 }} />
                 <span style={{ color: 'var(--text-secondary)', fontSize: '12px', lineHeight: '1.5' }}>
-                  I agree to the <span style={{ color: 'var(--accent)' }}>Terms of Service</span> and <span style={{ color: 'var(--accent)' }}>Privacy Policy</span>
+                  I agree to the <span style={{ color: 'var(--accent)' }}>Terms of Service</span> and <Link href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>Privacy Policy</Link>
                 </span>
               </label>
               <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
@@ -1491,8 +1498,12 @@ export default function ProfilePage() {
             <path d="M6 4L10 8L6 12" stroke="#888" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </Link>
+        <Link href="/privacy" style={{ textDecoration: 'none', display: 'block', padding: '14px 16px', borderTop: '0.5px solid var(--border)' }}>
+          <p style={{ color: 'var(--text-primary)', fontSize: '14px', marginBottom: '2px' }}>Privacy Policy</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>How LaQue uses your information and your privacy choices</p>
+        </Link>
         {[
-          { label: 'Terms & Privacy', desc: 'Terms of service and privacy policy' },
+          { label: 'Terms of Service', desc: 'Terms for using LaQue' },
         ].map((item) => (
           <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderTop: '0.5px solid var(--border)' }}>
             <div>

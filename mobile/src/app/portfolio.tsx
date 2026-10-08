@@ -1,83 +1,78 @@
 import { useState } from "react";
-import { router } from "expo-router";
+import { router, useNavigation } from "expo-router";
+import { usePreventRemove } from "expo-router/react-navigation";
+import { RequireAuth } from "../components/ui";
+import { Screen } from "../features/secondary/primitives";
+import { useDraftExit } from "../features/secondary/profile-exit";
 import {
-  Button,
-  Card,
-  Notice,
-  QueryState,
-  RequireAuth,
-  Screen,
-} from "../components/ui";
-import { DesignCard } from "../components/design-card";
-import { useAccountQuery, useAuth } from "../lib/auth";
-import { checked } from "../lib/api";
-import { resolvePrivateImage } from "../lib/designs";
-import { supabase } from "../lib/supabase";
-import type { Design } from "../lib/types";
+  PortfolioManager,
+  type PortfolioFilter,
+  type UploadAllowance,
+} from "../features/portfolio/manager";
+import { loadPortfolio } from "../features/portfolio/data";
+import { useAccountQuery, useAuth, queryClient } from "../lib/auth";
+import { api } from "../lib/api";
+import { accountScope } from "../lib/account-scope";
 function Portfolio() {
-  const { session } = useAuth();
-  const [limit, setLimit] = useState(20);
-  const query = useAccountQuery(["portfolio", limit], async () => {
-    const designs = await checked<Design[]>(
-      supabase
-        .from("designs")
-        .select("*")
-        .eq("created_by", session!.user.id)
-        .order("created_at", { ascending: false })
-        .limit(limit),
-    );
-    return Promise.all(
-      designs.map(async (d) => ({
-        ...d,
-        image_url: await resolvePrivateImage(d.image_url),
-      })),
-    );
-  });
+  const { session } = useAuth(),
+    [limit, setLimit] = useState(20),
+    [filter, setFilter] = useState<PortfolioFilter>("All");
+  const exit = useDraftExit("My designs"),
+    navigation = useNavigation();
+  usePreventRemove(exit.status.busy, ({ data }) =>
+    exit.requestExit(() => navigation.dispatch(data.action)),
+  );
+  const query = useAccountQuery(["portfolio", filter, limit], (signal) =>
+    loadPortfolio(session!.user.id, filter, limit, signal),
+  );
+  const allowance = useAccountQuery(["portfolio-allowance"], () =>
+    api<UploadAllowance>("/mobile/portfolio"),
+  );
   return (
-    <>
-      <Button
-        title="Publish a new design"
-        onPress={() => router.push("/portfolio-edit")}
-      />
-      <QueryState
+    <Screen title="My designs" onBack={() => router.back()}>
+      <PortfolioManager
+        items={query.data?.items || []}
+        filter={filter}
+        onFilter={(v) => {
+          setFilter(v);
+          setLimit(20);
+        }}
         loading={query.isPending}
         error={query.error}
-        empty={!query.data?.length}
-        retry={() => void query.refetch()}
-      >
-        {query.data?.map((d) => (
-          <Card key={d.id}>
-            <DesignCard design={d} />
-            <Notice>{d.is_published ? "Published" : "Private draft"}</Notice>
-            <Button
-              title="Edit design"
-              secondary
-              onPress={() =>
-                router.push({
-                  pathname: "/portfolio-edit",
-                  params: { id: d.id },
-                })
-              }
-            />
-          </Card>
-        ))}
-        {query.data?.length === limit && (
-          <Button
-            title="Load more"
-            secondary
-            onPress={() => setLimit(limit + 20)}
-          />
-        )}
-      </QueryState>
-    </>
+        onRetry={() => void query.refetch()}
+        hasMore={query.data?.hasMore}
+        onMore={() => setLimit((v) => v + 20)}
+        allowance={allowance.data}
+        allowanceError={allowance.error}
+        onRetryAllowance={() => void allowance.refetch()}
+        onStatusChange={exit.onStatusChange}
+        onUpload={() => router.push("/portfolio-edit")}
+        onEdit={(id) =>
+          router.push({ pathname: "/portfolio-edit", params: { id } })
+        }
+        onView={(id) =>
+          router.push({
+            pathname: "/design/[id]",
+            params: { id, from: "profile" },
+          })
+        }
+        onDelete={async (item) => {
+          const ticket = accountScope.capture();
+          await api("/mobile/portfolio", { id: item.id }, "DELETE");
+          accountScope.assert(ticket);
+          await queryClient.invalidateQueries();
+          accountScope.assert(ticket);
+        }}
+      />
+      {exit.dialog}
+    </Screen>
   );
 }
 export default function PortfolioScreen() {
+  const { session, epoch } = useAuth();
   return (
-    <Screen title="My portfolio" back>
-      <RequireAuth>
-        <Portfolio />
-      </RequireAuth>
-    </Screen>
+    <RequireAuth>
+      <Portfolio key={session?.user.id + ":" + epoch} />
+    </RequireAuth>
   );
 }

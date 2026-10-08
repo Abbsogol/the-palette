@@ -1,269 +1,233 @@
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import * as Crypto from "expo-crypto";
-import { Linking, Platform, Text } from "react-native";
-import type { PurchasesPackage } from "react-native-purchases";
+import { AppState, Linking, Platform } from "react-native";
+import { router, useFocusEffect } from "expo-router";
+import { RequireAuth } from "../components/ui";
+import { CreditsView } from "../features/credits/credits-view";
 import {
-  Button,
-  Card,
-  Notice,
-  QueryState,
-  RequireAuth,
-  Screen,
-  styles,
-} from "../components/ui";
+  creditPackages,
+  type CreditBillingState,
+  type CreditOperation,
+} from "../features/credits/model";
+import { environment } from "../lib/config";
 import { api } from "../lib/api";
-import { useAccountQuery, queryClient } from "../lib/auth";
+import { useAccountQuery, useAuth, queryClient } from "../lib/auth";
+import { accountScope, type AccountTicket } from "../lib/account-scope";
 import {
   buyPackage,
   restoreStorePurchases,
   storePackages,
 } from "../lib/purchases";
-type Catalog = {
-  store: string;
-  product_id: string;
-  kind: "credits" | "subscription";
-  plan_id: string | null;
-  credits: number;
-};
-type BillingState = {
-  credits: number;
-  tier: string | null;
-  catalog: Catalog[];
-  sources: { store: string; plan_id: string; expires_at?: string }[];
-  canSubscribe: boolean;
-  needsReview: boolean;
-  verifiedAt: string | null;
-  configured: boolean;
-  pendingPurchases: { id: string }[];
-};
+
 function Billing() {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
+  const [unconfirmed, setUnconfirmed] = useState(false);
+  const [workingOn, setWorkingOn] = useState<CreditOperation | null>(null);
+  const operation = useRef(false);
   const query = useAccountQuery(["billing"], () =>
-    api<BillingState>("/mobile/billing"),
+    api<CreditBillingState>("/mobile/billing"),
   );
+  const native = Platform.OS === "ios" || Platform.OS === "android";
+  const enabled = !!query.data?.configured && native;
   const packages = useAccountQuery(
     ["store-packages"],
     () => storePackages(),
-    !!query.data?.configured,
+    enabled,
   );
-  const platform = Platform.OS === "ios" ? "APP_STORE" : "PLAY_STORE";
-  const items =
-    packages.data
-      ?.map((p) => ({
-        package: p,
-        product: query.data?.catalog.find(
-          (c) => c.store === platform && c.product_id === p.product.identifier,
-        ),
-      }))
-      .filter((item) => item.product) || [];
-  const verify = async () => {
+  const store = Platform.OS === "ios" ? "APP_STORE" : "PLAY_STORE";
+  const items = creditPackages(
+    query.data?.catalog || [],
+    packages.data || [],
+    store,
+  );
+  const { refetch } = query;
+  useFocusEffect(
+    useCallback(() => {
+      // Returning from a store sheet/background re-reads the server. Never repeat a charge.
+      const subscription = AppState.addEventListener("change", (state) => {
+        if (state === "active" && !operation.current) void refetch();
+      });
+      void refetch();
+      return () => subscription.remove();
+    }, [refetch]),
+  );
+  const refresh = async (ticket: AccountTicket) => {
+    const result = await query.refetch();
+    accountScope.assert(ticket);
+    if (result.error || !result.data)
+      throw (
+        result.error ||
+        new Error("Your balance could not be checked. Try again.")
+      );
+    setUnconfirmed(
+      !!result.data.pendingPurchases.length || result.data.needsReview,
+    );
+    await queryClient.invalidateQueries({ queryKey: ["profile"] });
+    accountScope.assert(ticket);
+    return result.data;
+  };
+  const verify = async (ticket: AccountTicket, restoring = false) => {
     await api("/mobile/billing", {});
-    await queryClient.invalidateQueries();
+    accountScope.assert(ticket);
+    const status = await refresh(ticket);
     setNotice(
-      "Store status verified. Your balance above comes from the server. Purchases awaiting a store event will appear after verification finishes.",
+      status.needsReview || status.pendingPurchases.length
+        ? "Your purchase is still being verified. Please check again shortly; you don’t need to buy again."
+        : restoring
+          ? `Purchase history checked. Your available balance is ${status.credits} design tokens. Previously used designs are not restored.`
+          : "Your subscription and design-token balance are up to date.",
     );
   };
-  const purchase = async (item: PurchasesPackage, product: Catalog) => {
-    const purchaseId = Crypto.randomUUID();
+  const run = async (
+    kind: CreditOperation,
+    action: (ticket: AccountTicket) => Promise<void>,
+  ) => {
+    if (operation.current) return;
+    const ticket = accountScope.capture();
+    operation.current = true;
     setBusy(true);
+    setWorkingOn(kind);
     setError("");
     setNotice("");
     try {
-      const status = await api<BillingState>("/mobile/billing");
-      if (status.needsReview || status.pendingPurchases.length)
-        throw new Error("A previous purchase needs verification first.");
-      if (product.kind === "subscription" && !status.canSubscribe)
-        throw new Error(
-          "You already have an active or pending subscription. Manage it with its original provider.",
-        );
-      await api("/mobile/billing", {
-        action: "purchase",
-        id: purchaseId,
-        store: platform,
-        productId: product.product_id,
-      });
-      await buyPackage(item);
-      setNotice(
-        "Purchase received. Waiting for server verification. Do not purchase again.",
-      );
-      await verify();
+      await action(ticket);
     } catch (e) {
-      const failure = e as Error & { userCancelled?: boolean; code?: string };
-      if (failure.userCancelled) {
-        await api("/mobile/billing", {
-          action: "cancel",
-          id: purchaseId,
-        }).catch(() => undefined);
-        setNotice("Purchase cancelled.");
-      } else
+      if (accountScope.isCurrent(ticket))
         setError(
-          failure.message ||
-            "Purchase is pending or could not be verified. Use Check purchases before buying again.",
+          (e as Error).message ||
+            "We couldn’t verify your purchase. Check purchases before trying again.",
         );
     } finally {
-      setBusy(false);
+      operation.current = false;
+      if (accountScope.isCurrent(ticket)) {
+        setBusy(false);
+        setWorkingOn(null);
+      }
     }
   };
-  const restore = async () => {
-    setBusy(true);
-    setError("");
-    try {
-      await restoreStorePurchases();
-      await verify();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-  const manage = async (store: string) => {
-    try {
-      if (store === "STRIPE") {
-        const { url } = await api<{ url: string }>(
-          "/create-billing-portal-session",
-          {},
+  const purchase = (id: string) =>
+    run("purchase", async (ticket) => {
+      const item = items.find((item) => item.id === id);
+      if (!enabled || !item)
+        throw new Error(
+          "This store product is unavailable. Reload the store and try again.",
         );
-        if (new URL(url).hostname !== "billing.stripe.com")
-          throw new Error("Invalid billing management address.");
-        await Linking.openURL(url);
-      } else
-        await Linking.openURL(
-          store === "APP_STORE"
-            ? "https://apps.apple.com/account/subscriptions"
-            : "https://play.google.com/store/account/subscriptions",
+      const status = await api<CreditBillingState>("/mobile/billing");
+      accountScope.assert(ticket);
+      if (status.needsReview || status.pendingPurchases.length) {
+        setUnconfirmed(true);
+        throw new Error("A previous purchase needs verification first.");
+      }
+      if (
+        !status.catalog.some(
+          (product) =>
+            product.store === store &&
+            product.product_id === id &&
+            product.kind === item.kind &&
+            product.credits === item.credits,
+        )
+      )
+        throw new Error(
+          "This store product has changed. Reload the store before purchasing.",
         );
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  };
+      if (item.kind === "subscription" ? status.subscription?.active || status.canSubscribe === false : !status.subscription?.active || status.subscription.monthlyRemaining > 0)
+        throw new Error("Your membership or allowance changed. Reload before purchasing.");
+      const purchaseId = Crypto.randomUUID();
+      // Keep the UI blocked after any uncertain reserve/payment response until a server read reconciles it.
+      setUnconfirmed(true);
+      try {
+        await api("/mobile/billing", {
+          action: "purchase",
+          id: purchaseId,
+          store,
+          productId: id,
+        });
+        accountScope.assert(ticket);
+        await buyPackage(item.package);
+        accountScope.assert(ticket);
+        setNotice("Confirming your subscription and design tokens…");
+        await verify(ticket);
+      } catch (e) {
+        accountScope.assert(ticket);
+        const failure = e as Error & { userCancelled?: boolean; code?: string };
+        if (failure.userCancelled) {
+          await api("/mobile/billing", { action: "cancel", id: purchaseId });
+          accountScope.assert(ticket);
+          await refresh(ticket);
+          setNotice(
+            "Purchase cancelled. You can try again whenever you’re ready.",
+          );
+          return;
+        }
+        if (failure.code === "20") {
+          setNotice(
+            "Your store payment is pending approval. Access and tokens will appear after payment and server verification. Don’t buy again while it’s pending.",
+          );
+          return;
+        }
+        await refresh(ticket).catch(() => undefined);
+        throw e;
+      }
+    });
   return (
-    <>
-      <QueryState
-        loading={query.isPending}
-        error={query.error}
-        retry={() => void query.refetch()}
-      >
-        {query.data && (
-          <>
-            <Card>
-              <Text style={styles.title}>{query.data.credits} credits</Text>
-              <Text style={styles.text}>
-                {query.data.tier?.replace("_", " ") || "Free account"}
-              </Text>
-              {(query.data.needsReview ||
-                !!query.data.pendingPurchases.length) && (
-                <Notice>
-                  Store verification is pending. Please check purchases before
-                  trying again.
-                </Notice>
-              )}
-            </Card>
-            {query.data.sources.map((source) => (
-              <Card key={`${source.store}:${source.plan_id}`}>
-                <Text style={styles.subtitle}>
-                  {source.plan_id?.replace("_", " ") || "Subscription"}
-                </Text>
-                <Notice>
-                  Managed through{" "}
-                  {source.store === "STRIPE"
-                    ? "the web"
-                    : source.store === "APP_STORE"
-                      ? "Apple"
-                      : "Google Play"}
-                  .
-                </Notice>
-                {source.expires_at && (
-                  <Notice>
-                    Current access through{" "}
-                    {new Date(source.expires_at).toLocaleDateString()}
-                  </Notice>
-                )}
-                <Button
-                  title="Manage original subscription"
-                  secondary
-                  onPress={() => void manage(source.store)}
-                />
-              </Card>
-            ))}
-            {!query.data.configured ? (
-              <Notice>
-                Native purchases are not enabled for this beta build yet. Your
-                existing verified benefits remain available.
-              </Notice>
-            ) : (
-              <QueryState
-                loading={packages.isPending}
-                error={packages.error}
-                empty={!items.length}
-                retry={() => void packages.refetch()}
-              >
-                {items
-                  .filter(
-                    (i) =>
-                      i.product!.kind !== "subscription" ||
-                      query.data!.canSubscribe,
-                  )
-                  .map((item) => (
-                    <Card key={item.package.identifier}>
-                      <Text style={styles.subtitle}>
-                        {item.product!.kind === "credits"
-                          ? `${item.product!.credits} credits`
-                          : item.product!.plan_id?.replace("_", " ")}
-                      </Text>
-                      <Notice>
-                        {item.product!.kind === "subscription"
-                          ? `${item.product!.credits} credits per paid monthly period. Subscription benefits follow your verified account.`
-                          : "Credits for LaQue Lab. Restoring a purchase never grants consumed credits again."}
-                      </Notice>
-                      <Button
-                        title={`${item.package.product.priceString} · ${item.product!.kind === "subscription" ? "Subscribe" : "Buy credits"}`}
-                        disabled={
-                          busy ||
-                          query.data!.needsReview ||
-                          !!query.data!.pendingPurchases.length
-                        }
-                        onPress={() =>
-                          void purchase(item.package, item.product!)
-                        }
-                      />
-                    </Card>
-                  ))}
-              </QueryState>
-            )}
-          </>
-        )}
-      </QueryState>
-      <Button
-        title="Restore purchases"
-        busy={busy}
-        disabled={!query.data?.configured}
-        onPress={() => void restore()}
-      />
-      <Button
-        title="Check purchases"
-        secondary
-        disabled={busy || !query.data?.configured}
-        onPress={() => {
-          setBusy(true);
-          setError("");
-          void verify()
-            .catch((e) => setError(e.message))
-            .finally(() => setBusy(false));
-        }}
-      />
-      {notice && <Notice>{notice}</Notice>}
-      {error && <Notice error>{error}</Notice>}
-    </>
+    <CreditsView
+      subscription={query.data?.subscription}
+      canSubscribe={query.data?.canSubscribe}
+      onManage={() => void Linking.openURL((query.data?.subscription?.store || store) === "APP_STORE" ? "https://apps.apple.com/account/subscriptions" : "https://play.google.com/store/account/subscriptions")}
+      onPolicy={(page) => void Linking.openURL(`${environment.apiUrl}/${page}`)}
+      balance={query.error ? null : (query.data?.credits ?? null)}
+      store={store}
+      history={query.error ? null : query.data?.history}
+      historyLoading={query.isFetching}
+      packs={items}
+      loading={query.isPending || (enabled && packages.isPending)}
+      busy={busy}
+      workingOn={workingOn}
+      pending={
+        unconfirmed ||
+        !!query.data?.needsReview ||
+        !!query.data?.pendingPurchases.length
+      }
+      unavailable={!!query.data && !enabled}
+      error={error || query.error?.message || packages.error?.message}
+      notice={notice}
+      onBack={() =>
+        router.canGoBack() ? router.back() : router.replace("/lab")
+      }
+      onBuy={(id) => void purchase(id)}
+      onRetry={() =>
+        void run("reload", async (ticket) => {
+          await refresh(ticket);
+          if (enabled) {
+            const result = await packages.refetch();
+            accountScope.assert(ticket);
+            if (result.error) throw result.error;
+          }
+        })
+      }
+      onCheck={() => void run("check", (ticket) => verify(ticket))}
+      onHistoryRetry={() =>
+        void run("reload", async (ticket) => {
+          await refresh(ticket);
+        })
+      }
+      onRestore={() =>
+        void run("restore", async (ticket) => {
+          await restoreStorePurchases();
+          accountScope.assert(ticket);
+          await verify(ticket, true);
+        })
+      }
+    />
   );
 }
 export default function BillingScreen() {
+  const { session, epoch } = useAuth();
   return (
-    <Screen title="Credits & subscriptions" back>
-      <RequireAuth>
-        <Billing />
-      </RequireAuth>
-    </Screen>
+    <RequireAuth>
+      <Billing key={(session?.user.id || "") + ":" + epoch} />
+    </RequireAuth>
   );
 }

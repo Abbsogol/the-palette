@@ -1,1196 +1,632 @@
-'use client'
+'use client';
 
-import Link from 'next/link'
-import { useState, useEffect, useCallback } from 'react'
-import { useCurrentTime } from '@/lib/use-current-time'
-import { supabase } from '@/lib/supabase'
-
-async function authHeaders() {
-  const { data: { session } } = await supabase.auth.getSession()
-  return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
-}
-
-const SHAPES = ['Round', 'Square', 'Oval', 'Coffin', 'Almond', 'Stiletto', 'Ballerina', 'Squoval']
-const LENGTHS = ['Short', 'Medium', 'Long', 'Extra Long']
-const OCCASIONS = [
-  'Everyday', 'Night Out', 'Wedding', 'Bridal', 'Party', 'Birthday',
-  'Office', 'Date Night', 'Editorial', 'Statement', 'Festival',
-  'Holiday', 'Vacation', "New Year's", 'Christmas', 'Halloween',
-  "Valentine's", 'Summer', 'Autumn', 'Winter', 'Spring',
-]
-const TECHNIQUES = [
-  'Gel', 'Acrylic', 'Dip Powder', 'Polygel', 'Hard Gel', 'BIAB',
-  'Nail Polish', 'Press-on', 'Chrome Powder', 'Cat Eye', '3D Gel',
-  'Nail Art', 'Stamping', 'Water Marble', 'Ombre', 'Glitter',
-  'Foil', 'Encapsulated', 'Builder Gel', 'Airbrush',
-]
-const PRODUCT_CATEGORIES = ['Polishes & Gels', 'Tools & Kits', 'Beauty']
-
-// ─── Design Form ─────────────────────────────────────────────────
-function DesignForm({ initial, onSave, onCancel, saveLabel }) {
-  const [title, setTitle] = useState(initial?.title || '')
-  const [description, setDescription] = useState(initial?.description || '')
-  const [shape, setShape] = useState(initial?.shape || '')
-  const [length, setLength] = useState(initial?.length || '')
-  const [selectedOccasions, setSelectedOccasions] = useState(
-    initial?.occasion ? initial.occasion.split(',').map(s => s.trim()).filter(o => OCCASIONS.includes(o)) : []
-  )
-  const [customOccasion, setCustomOccasion] = useState(
-    initial?.occasion
-      ? initial.occasion.split(',').map(s => s.trim()).filter(o => !OCCASIONS.includes(o)).join(', ')
-      : ''
-  )
-  const [selectedTechniques, setSelectedTechniques] = useState(
-    initial?.technique ? initial.technique.split(',').map(s => s.trim()).filter(t => TECHNIQUES.includes(t)) : []
-  )
-  const [customTechnique, setCustomTechnique] = useState(
-    initial?.technique
-      ? initial.technique.split(',').map(s => s.trim()).filter(t => !TECHNIQUES.includes(t)).join(', ')
-      : ''
-  )
-  const [mainImageFile, setMainImageFile] = useState(null)
-  const [mainImagePreview, setMainImagePreview] = useState(initial?.image_url || null)
-  const [existingExtraImages, setExistingExtraImages] = useState(initial?.extraImages || [])
-  const [newExtraFiles, setNewExtraFiles] = useState([])
-  const [removedExtraIds, setRemovedExtraIds] = useState([])
-  const [colours, setColours] = useState(
-    initial?.colours?.length
-      ? initial.colours.map(c => ({ id: c.id, colour_name: c.colour_name || '', hex_code: c.hex_code || '', brand_name: c.brand_name || '', brand_code: c.brand_code || '' }))
-      : [{ colour_name: '', hex_code: '', brand_name: '', brand_code: '' }]
-  )
-  const [tagsInput, setTagsInput] = useState(initial?.tags?.join(', ') || '')
-  const [submitting, setSubmitting] = useState(false)
-  const [errorMsg, setErrorMsg] = useState('')
-
-  const toggleOccasion = o => setSelectedOccasions(prev => prev.includes(o) ? prev.filter(x => x !== o) : [...prev, o])
-  const toggleTechnique = t => setSelectedTechniques(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t])
-  const updateColour = (i, field, value) => setColours(prev => prev.map((c, idx) => idx === i ? { ...c, [field]: value } : c))
-  const addColour = () => setColours(prev => [...prev, { colour_name: '', hex_code: '', brand_name: '', brand_code: '' }])
-  const removeColour = i => setColours(prev => prev.filter((_, idx) => idx !== i))
-
-  const uploadImage = async (file, slug) => {
-    const ext = file.name.split('.').pop()
-    const fileName = `${Date.now()}-${slug}.${ext}`
-    const { error } = await supabase.storage.from('designs').upload(fileName, file, { cacheControl: '3600', upsert: false })
-    if (error) throw new Error('Image upload failed: ' + error.message)
-    const { data: { publicUrl } } = supabase.storage.from('designs').getPublicUrl(fileName)
-    return publicUrl
-  }
-
-  const removeExistingExtra = (id) => {
-    setRemovedExtraIds(prev => [...prev, id])
-    setExistingExtraImages(prev => prev.filter(img => img.id !== id))
-  }
-
-  const handleExtraFilesChange = (e) => {
-    const files = Array.from(e.target.files)
-    setNewExtraFiles(prev => [...prev, ...files.map(f => ({ file: f, preview: URL.createObjectURL(f) }))])
-  }
-
-  const handleSubmit = async () => {
-    setErrorMsg('')
-    if (!title.trim()) { setErrorMsg('Title is required'); return }
-    setSubmitting(true)
-    try {
-      const slug = title.toLowerCase().replace(/\s+/g, '-')
-      const allOccasions = [...selectedOccasions]
-      if (customOccasion.trim()) allOccasions.push(customOccasion.trim())
-      const allTechniques = [...selectedTechniques]
-      if (customTechnique.trim()) allTechniques.push(customTechnique.trim())
-      let mainUrl = mainImagePreview
-      if (mainImageFile) mainUrl = await uploadImage(mainImageFile, slug)
-      await onSave({
-        title: title.trim(),
-        description: description.trim() || null,
-        image_url: mainUrl,
-        shape: shape || null,
-        length: length || null,
-        occasion: allOccasions.join(', ') || null,
-        technique: allTechniques.join(', ') || null,
-        colours: colours.filter(c => c.hex_code.trim() || c.colour_name.trim()),
-        tagNames: tagsInput.split(',').map(t => t.trim().toLowerCase()).filter(Boolean),
-        newExtraFiles,
-        removedExtraIds,
-        slug,
-      })
-    } catch (err) {
-      setErrorMsg(err.message)
-      setSubmitting(false)
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { supabase } from '@/lib/supabase';
+import styles from './admin.module.css';
+import Overview from './overview';
+import UserDetails from './user-details';
+const labels = {
+  overview: 'Overview',
+  users: 'Users & Creators',
+  content: 'Content',
+  home: 'Home Editor',
+  bookings: 'Bookings',
+  lab: 'Lab Diagnostics',
+  credits: 'Subscriptions & Tokens',
+  reports: 'Safety Reports',
+  pinterest: 'Pinterest',
+  integrations: 'Integrations',
+  team: 'Team',
+  activity: 'Activity'
+};
+async function request(path, body) {
+  const {
+    data: {
+      session
     }
-  }
-
-  return (
-    <div>
-      <Section label="Main Photo *">
-        <label style={{ display: 'block', cursor: 'pointer' }}>
-          {mainImagePreview
-            ? <img src={mainImagePreview} alt="Preview" style={{ width: '100%', borderRadius: '12px', display: 'block', marginBottom: '8px' }} />
-            : <Placeholder text="Tap to select main image" />}
-          <input type="file" accept="image/*" onChange={e => { const f = e.target.files[0]; if (f) { setMainImageFile(f); setMainImagePreview(URL.createObjectURL(f)) } }} style={{ display: 'none' }} />
-        </label>
-        {mainImagePreview && <button onClick={() => { setMainImageFile(null); setMainImagePreview(null) }} style={ghostBtn}>Remove</button>}
-      </Section>
-
-      <Section label="Additional Photos">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '8px' }}>
-          {existingExtraImages.map(img => (
-            <div key={img.id} style={{ position: 'relative' }}>
-              <img src={img.image_url} alt="" style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', borderRadius: '10px', display: 'block' }} />
-              <button onClick={() => removeExistingExtra(img.id)} style={removeBtn}>×</button>
-            </div>
-          ))}
-          {newExtraFiles.map((img, i) => (
-            <div key={`new-${i}`} style={{ position: 'relative' }}>
-              <img src={img.preview} alt="" style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', borderRadius: '10px', display: 'block' }} />
-              <button onClick={() => setNewExtraFiles(prev => prev.filter((_, idx) => idx !== i))} style={removeBtn}>×</button>
-            </div>
-          ))}
-          <label style={{ cursor: 'pointer' }}>
-            <div style={{ width: '100%', aspectRatio: '1/1', background: 'var(--bg-card)', border: '0.5px dashed var(--border)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ color: 'var(--text-secondary)', fontSize: '24px', fontWeight: '300' }}>+</span>
-            </div>
-            <input type="file" accept="image/*" multiple onChange={handleExtraFilesChange} style={{ display: 'none' }} />
-          </label>
-        </div>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Tap × to remove · + to add new ones</p>
-      </Section>
-
-      <Section label="Title *">
-        <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Blood Cathedral" style={inputStyle} />
-      </Section>
-
-      <Section label="Description">
-        <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Describe the vibe, technique, or inspiration" rows={3} style={{ ...inputStyle, resize: 'vertical', lineHeight: '1.6' }} />
-      </Section>
-
-      <Section label="Shape & Length">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-          <SelectDropdown label="Shape" value={shape} onChange={setShape} options={SHAPES} />
-          <SelectDropdown label="Length" value={length} onChange={setLength} options={LENGTHS} />
-        </div>
-      </Section>
-
-      <Section label="Occasion (select all that apply)">
-        <ChipGroup items={OCCASIONS} selected={selectedOccasions} onToggle={toggleOccasion} />
-        <input value={customOccasion} onChange={e => setCustomOccasion(e.target.value)} placeholder="Or add a custom occasion..." style={{ ...inputStyle, marginTop: '8px' }} />
-      </Section>
-
-      <Section label="Technique (select all that apply)">
-        <ChipGroup items={TECHNIQUES} selected={selectedTechniques} onToggle={toggleTechnique} />
-        <input value={customTechnique} onChange={e => setCustomTechnique(e.target.value)} placeholder="Or add a custom technique..." style={{ ...inputStyle, marginTop: '8px' }} />
-      </Section>
-
-      <Section label="Colour Specs">
-        {colours.map((colour, i) => (
-          <div key={i} style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px', marginBottom: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: colour.hex_code || 'var(--bg-chip)', border: '0.5px solid rgba(255,255,255,0.1)', flexShrink: 0 }} />
-              <input value={colour.hex_code} onChange={e => updateColour(i, 'hex_code', e.target.value)} placeholder="#hex code" style={{ ...inputStyle, flex: 1 }} />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-              <input value={colour.colour_name} onChange={e => updateColour(i, 'colour_name', e.target.value)} placeholder="Colour name (optional)" style={inputStyle} />
-              <input value={colour.brand_name} onChange={e => updateColour(i, 'brand_name', e.target.value)} placeholder="Brand (optional)" style={inputStyle} />
-              <input value={colour.brand_code} onChange={e => updateColour(i, 'brand_code', e.target.value)} placeholder="Brand code (optional)" style={{ ...inputStyle, gridColumn: '1 / -1' }} />
-            </div>
-            {colours.length > 1 && <button onClick={() => removeColour(i)} style={{ ...ghostBtn, marginTop: '8px', color: '#e57373' }}>Remove colour</button>}
-          </div>
-        ))}
-        <button onClick={addColour} style={ghostBtn}>+ Add another colour</button>
-      </Section>
-
-      <Section label="Tags">
-        <input value={tagsInput} onChange={e => setTagsInput(e.target.value)} placeholder="e.g. dark, gothic, gel, autumn (comma separated)" style={inputStyle} />
-      </Section>
-
-      {errorMsg && (
-        <div style={{ background: 'rgba(229,115,115,0.1)', border: '0.5px solid #e57373', borderRadius: '10px', padding: '12px 14px', marginBottom: '16px' }}>
-          <p style={{ color: '#e57373', fontSize: '13px' }}>{errorMsg}</p>
-        </div>
-      )}
-
-      <div style={{ display: 'flex', gap: '10px' }}>
-        {onCancel && (
-          <button onClick={onCancel} style={{ flex: 1, background: 'var(--bg-chip)', color: 'var(--text-secondary)', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }}>
-            Cancel
-          </button>
-        )}
-        <button onClick={handleSubmit} disabled={submitting} style={{ flex: 2, background: submitting ? 'var(--bg-chip)' : 'var(--accent)', color: submitting ? 'var(--text-secondary)' : '#2C0A1E', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '15px', fontWeight: '500', cursor: submitting ? 'not-allowed' : 'pointer' }}>
-          {submitting ? 'Saving...' : saveLabel}
-        </button>
-      </div>
-    </div>
-  )
+  } = await supabase.auth.getSession();
+  if (!session) throw Object.assign(new Error('Sign in to continue.'), {
+    code: 'SIGN_IN_REQUIRED'
+  });
+  const r = await fetch('/api/admin/' + path, {
+    method: body ? 'POST' : 'GET',
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+      'Content-Type': 'application/json'
+    },
+    body: body ? JSON.stringify(body) : undefined,
+    cache: 'no-store'
+  });
+  const data = await r.json();
+  if (!r.ok) throw Object.assign(new Error(data.error), {
+    code: data.code
+  });
+  return data;
 }
-
-// ─── Product Form ─────────────────────────────────────────────────
-function ProductForm({ initial, onSave, onCancel, saveLabel }) {
-  const [name, setName] = useState(initial?.name || '')
-  const [brand, setBrand] = useState(initial?.brand || '')
-  const [category, setCategory] = useState(initial?.category || '')
-  const [description, setDescription] = useState(initial?.description || '')
-  const [affiliateUrl, setAffiliateUrl] = useState(initial?.affiliate_url || '')
-  const [priceLabel, setPriceLabel] = useState(initial?.price_label || '')
-  const [isFeatured, setIsFeatured] = useState(initial?.is_featured || false)
-  const [imageFile, setImageFile] = useState(null)
-  const [imagePreview, setImagePreview] = useState(initial?.image_url || null)
-  const [submitting, setSubmitting] = useState(false)
-  const [errorMsg, setErrorMsg] = useState('')
-
-  const handleSubmit = async () => {
-    setErrorMsg('')
-    if (!name.trim()) { setErrorMsg('Product name is required'); return }
-    if (!affiliateUrl.trim()) { setErrorMsg('Affiliate URL is required'); return }
-    setSubmitting(true)
-    try {
-      let imageUrl = imagePreview
-      if (imageFile) {
-        const ext = imageFile.name.split('.').pop()
-        const fileName = `product-${Date.now()}.${ext}`
-        const { error } = await supabase.storage.from('designs').upload(fileName, imageFile, { cacheControl: '3600', upsert: false })
-        if (error) throw new Error('Image upload failed: ' + error.message)
-        imageUrl = supabase.storage.from('designs').getPublicUrl(fileName).data.publicUrl
-      }
-      await onSave({
-        name: name.trim(),
-        brand: brand.trim() || null,
-        category: category || null,
-        description: description.trim() || null,
-        affiliate_url: affiliateUrl.trim(),
-        price_label: priceLabel.trim() || null,
-        is_featured: isFeatured,
-        image_url: imageUrl,
-      })
-    } catch (err) {
-      setErrorMsg(err.message)
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <div>
-      <Section label="Product Photo">
-        <label style={{ display: 'block', cursor: 'pointer' }}>
-          {imagePreview
-            ? <img src={imagePreview} alt="Preview" style={{ width: '100%', maxHeight: '200px', objectFit: 'contain', borderRadius: '12px', display: 'block', marginBottom: '8px', background: 'var(--bg-chip)' }} />
-            : <Placeholder text="Tap to select product image" />}
-          <input type="file" accept="image/*" onChange={e => { const f = e.target.files[0]; if (f) { setImageFile(f); setImagePreview(URL.createObjectURL(f)) } }} style={{ display: 'none' }} />
-        </label>
-        {imagePreview && <button onClick={() => { setImageFile(null); setImagePreview(null) }} style={ghostBtn}>Remove</button>}
-      </Section>
-
-      <Section label="Product Name *">
-        <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. OPI Nail Lacquer" style={inputStyle} />
-      </Section>
-
-      <Section label="Brand">
-        <input value={brand} onChange={e => setBrand(e.target.value)} placeholder="e.g. OPI, Gelish, ORLY" style={inputStyle} />
-      </Section>
-
-      <Section label="Category">
-        <select value={category} onChange={e => setCategory(e.target.value)} style={{ ...inputStyle, color: category ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
-          <option value="">Select category</option>
-          {PRODUCT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-      </Section>
-
-      <Section label="Description">
-        <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Brief product description" rows={2} style={{ ...inputStyle, resize: 'vertical', lineHeight: '1.6' }} />
-      </Section>
-
-      <Section label="Affiliate URL *">
-        <input value={affiliateUrl} onChange={e => setAffiliateUrl(e.target.value)} placeholder="https://www.amazon.com/dp/...?tag=laque-20" style={inputStyle} />
-        <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '6px' }}>Make sure to include ?tag=laque-20 in the URL</p>
-      </Section>
-
-      <Section label="Price">
-        <input value={priceLabel} onChange={e => setPriceLabel(e.target.value)} placeholder="e.g. $14.99" style={inputStyle} />
-      </Section>
-
-      <Section label="Featured">
-        <button
-          onClick={() => setIsFeatured(!isFeatured)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '10px',
-            background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-          }}
-        >
-          <div style={{
-            width: '44px', height: '24px', borderRadius: '12px',
-            background: isFeatured ? 'var(--accent)' : 'var(--bg-chip)',
-            position: 'relative', transition: 'background 0.2s',
-          }}>
-            <div style={{
-              position: 'absolute', top: '3px',
-              left: isFeatured ? '23px' : '3px',
-              width: '18px', height: '18px', borderRadius: '50%',
-              background: isFeatured ? '#2C0A1E' : 'var(--text-secondary)',
-              transition: 'left 0.2s',
-            }} />
-          </div>
-          <span style={{ color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'inherit' }}>
-            {isFeatured ? 'Featured (shown first)' : 'Not featured'}
-          </span>
-        </button>
-      </Section>
-
-      {errorMsg && (
-        <div style={{ background: 'rgba(229,115,115,0.1)', border: '0.5px solid #e57373', borderRadius: '10px', padding: '12px 14px', marginBottom: '16px' }}>
-          <p style={{ color: '#e57373', fontSize: '13px' }}>{errorMsg}</p>
-        </div>
-      )}
-
-      <div style={{ display: 'flex', gap: '10px' }}>
-        {onCancel && (
-          <button onClick={onCancel} style={{ flex: 1, background: 'var(--bg-chip)', color: 'var(--text-secondary)', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }}>
-            Cancel
-          </button>
-        )}
-        <button onClick={handleSubmit} disabled={submitting} style={{ flex: 2, background: submitting ? 'var(--bg-chip)' : 'var(--accent)', color: submitting ? 'var(--text-secondary)' : '#2C0A1E', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '15px', fontWeight: '500', cursor: submitting ? 'not-allowed' : 'pointer' }}>
-          {submitting ? 'Saving...' : saveLabel}
-        </button>
-      </div>
-    </div>
-  )
+const date = v => v && Number.isFinite(new Date(v).getTime()) ? new Date(v).toLocaleString() : '—';
+const friendly = v => String(v || '—').replaceAll('_', ' ');
+function Field({
+  label,
+  children
+}) {
+  return <label className={styles.field}><span>{label}</span>{children}</label>;
 }
-
-
-// ─── Dashboard Tab ────────────────────────────────────────────────
-function Dashboard() {
-  const now = useCurrentTime()
-  const [stats, setStats] = useState(null)
-
-  useEffect(() => {
-    const load = async () => {
-      const [
-        { count: users },
-        { count: designs },
-        { count: bookings },
-        subscriptionsRes,
-      ] = await Promise.all([
-        supabase.from('profiles').select('*', { count: 'exact', head: true }),
-        supabase.from('designs').select('*', { count: 'exact', head: true }).eq('is_published', true),
-        supabase.from('bookings').select('*', { count: 'exact', head: true }),
-        // subscription_tier is masked in the profiles view for other users'
-        // rows, so this count needs the service-role route, not a direct query.
-        fetch('/api/admin-subscription-count', { headers: await authHeaders() }).then(r => r.json()),
-      ])
-      const subscriptions = subscriptionsRes?.count ?? null
-      const { data: recentUsers } = await supabase
-        .from('profiles')
-        .select('id, display_name, username, account_type, created_at')
-        .order('created_at', { ascending: false })
-        .limit(10)
-      setStats({ users, designs, bookings, subscriptions, recentUsers })
-    }
-    load()
-  }, [])
-
-  const timeAgo = (iso) => {
-    const diff = now - new Date(iso).getTime()
-    const d = Math.floor(diff / 86400000)
-    const h = Math.floor(diff / 3600000)
-    const m = Math.floor(diff / 60000)
-    if (d >= 1) return d + 'd ago'
-    if (h >= 1) return h + 'h ago'
-    if (m >= 1) return m + 'm ago'
-    return 'just now'
-  }
-
-  if (!stats) return <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Loading…</p>
-
-  const cards = [
-    { label: 'Total Users',   value: stats.users,         color: '#D4A0C0' },
-    { label: 'Live Designs',  value: stats.designs,       color: '#A0C4D4' },
-    { label: 'Bookings',      value: stats.bookings,      color: '#C4D4A0' },
-    { label: 'Subscriptions', value: stats.subscriptions, color: '#D4C4A0' },
-  ]
-
-  return (
-    <div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '24px' }}>
-        {cards.map(c => (
-          <div key={c.label} style={{ background: 'var(--bg-card)', borderRadius: '14px', padding: '16px', border: '0.5px solid var(--border)' }}>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.06em', textTransform: 'uppercase', margin: '0 0 6px' }}>{c.label}</p>
-            <p style={{ color: c.color, fontSize: '28px', fontWeight: '700', margin: 0 }}>{c.value ?? '—'}</p>
-          </div>
-        ))}
-      </div>
-      <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '12px' }}>Recent signups</p>
-      {(stats.recentUsers || []).map(u => (
-        <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '0.5px solid var(--border)' }}>
-          <div>
-            <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', margin: 0 }}>{u.display_name || u.username || 'User'}</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: '2px 0 0' }}>{u.account_type}</p>
-          </div>
-          <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>{timeAgo(u.created_at)}</span>
-        </div>
-      ))}
-    </div>
-  )
+function TextField({
+  label,
+  name,
+  value = '',
+  onChange,
+  ...rest
+}) {
+  return <Field label={label}><input name={name} value={value} onChange={e => onChange(e.target.value)} {...rest} /></Field>;
 }
-
-// ─── Tags Tab ─────────────────────────────────────────────────────
-function TagsManager() {
-  const [tags, setTags] = useState([])
-  const [newTag, setNewTag] = useState('')
-  const [adding, setAdding] = useState(false)
-  const [deleting, setDeleting] = useState(null)
-  const [errorMsg, setErrorMsg] = useState('')
-
-  useEffect(() => {
-    supabase.from('tags').select('id, name').order('name').then(({ data }) => setTags(data || []))
-  }, [])
-
-  const addTag = async () => {
-    if (!newTag.trim() || adding) return
-    setAdding(true)
-    setErrorMsg('')
-    const { data, error } = await supabase.from('tags').insert({ name: newTag.trim().toLowerCase() }).select().single()
-    if (error) {
-      setErrorMsg(error.message)
-    } else if (data) {
-      setTags(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)))
-      setNewTag('')
-    }
-    setAdding(false)
-  }
-
-  const deleteTag = async (tag) => {
-    if (deleting) return
-    setDeleting(tag.id)
-    setErrorMsg('')
-    const { error } = await supabase.from('tags').delete().eq('id', tag.id)
-    if (error) {
-      setErrorMsg(error.message)
-    } else {
-      setTags(prev => prev.filter(t => t.id !== tag.id))
-    }
-    setDeleting(null)
-  }
-
-  return (
-    <div>
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
-        <input value={newTag} onChange={e => setNewTag(e.target.value)} onKeyDown={e => e.key === 'Enter' && addTag()} placeholder="New tag name…" style={inputStyle} />
-        <button onClick={addTag} disabled={!newTag.trim() || adding} style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '10px', padding: '11px 16px', fontSize: '13px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit', opacity: (!newTag.trim() || adding) ? 0.5 : 1, flexShrink: 0 }}>
-          {adding ? '…' : 'Add'}
-        </button>
-      </div>
-      {errorMsg && <p style={{ color: '#e57373', fontSize: '12px', marginBottom: '10px' }}>{errorMsg}</p>}
-      <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginBottom: '10px' }}>{tags.length} tags</p>
-      {tags.map(tag => (
-        <div key={tag.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '0.5px solid var(--border)' }}>
-          <span style={{ color: 'var(--text-primary)', fontSize: '13px' }}>#{tag.name}</span>
-          <button onClick={() => deleteTag(tag)} disabled={!!deleting} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e57373', fontSize: '12px', fontFamily: 'inherit', opacity: deleting === tag.id ? 0.4 : 1 }}>Delete</button>
-        </div>
-      ))}
-    </div>
-  )
+function NoteList({
+  notes = []
+}) {
+  return <div className={styles.notes}>{notes.map(n => <article key={n.id}><p>{n.body}</p><small>{date(n.created_at)}</small></article>)}</div>;
 }
-
-// ─── Credits Tab ─────────────────────────────────────────────────
-function CreditsManager() {
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState([])
-  const [selected, setSelected] = useState(null)
-  const [amount, setAmount] = useState('')
-  const [updating, setUpdating] = useState(false)
-  const [message, setMessage] = useState('')
-  const [errorMsg, setErrorMsg] = useState('')
-  const [loading, setLoading] = useState(true)
-
-  const fetchUsers = useCallback(async (q = '') => {
-    const res = await fetch(`/api/admin-profiles?q=${encodeURIComponent(q)}`, { headers: await authHeaders() })
-    if (!res.ok) throw new Error('Unable to load users')
-    return (await res.json()).users || []
-  }, [])
-
-  useEffect(() => {
-    let cancelled = false
-    fetchUsers().then(users => { if (!cancelled) { setResults(users); setLoading(false) } })
-      .catch(() => { if (!cancelled) { setErrorMsg('Unable to load users'); setLoading(false) } })
-    return () => { cancelled = true }
-  }, [fetchUsers])
-
-  const search = async () => {
-    setLoading(true)
-    try { setResults(await fetchUsers(query)); setSelected(null) }
-    catch { setErrorMsg('Unable to load users') }
-    finally { setLoading(false) }
-  }
-
-  const updateCredits = async (delta) => {
-    if (!selected || !amount || updating) return
-    setUpdating(true)
-    setErrorMsg('')
-    const newBalance = Math.max(0, (selected.credit_balance ?? 0) + delta * parseInt(amount))
-    const res = await fetch('/api/admin-profiles', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
-      body: JSON.stringify({ userId: selected.id, credits: newBalance }),
-    })
-    if (res.ok) {
-      setSelected(prev => ({ ...prev, credit_balance: newBalance }))
-      setResults(prev => prev.map(u => u.id === selected.id ? { ...u, credit_balance: newBalance } : u))
-      setMessage('Done — new balance: ' + newBalance + ' credits')
-      setAmount('')
-    } else {
-      const json = await res.json().catch(() => ({}))
-      setErrorMsg(json.error || 'Failed to update credits. Please try again.')
-    }
-    setUpdating(false)
-    setTimeout(() => { setMessage(''); setErrorMsg('') }, 4000)
-  }
-
-  return (
-    <div>
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-        <input value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && search()} placeholder="Search by name or username…" style={inputStyle} />
-        <button onClick={search} style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '10px', padding: '11px 16px', fontSize: '13px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Search</button>
-      </div>
-      {loading && <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Loading…</p>}
-      {!loading && results.map(u => (
-        <div key={u.id} onClick={() => setSelected(u)} style={{ padding: '12px 14px', marginBottom: '8px', background: selected?.id === u.id ? 'rgba(212,160,192,0.1)' : 'var(--bg-card)', border: '0.5px solid ' + (selected?.id === u.id ? 'var(--accent)' : 'var(--border)'), borderRadius: '12px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', margin: 0 }}>{u.display_name}</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: '2px 0 0' }}>@{u.username} · {u.account_type}</p>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <p style={{ color: 'var(--accent)', fontSize: '16px', fontWeight: '700', margin: 0 }}>{u.credit_balance ?? 0}</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '10px', margin: 0 }}>credits</p>
-          </div>
-        </div>
-      ))}
-      {selected && (
-        <div style={{ marginTop: '20px', background: 'var(--bg-card)', borderRadius: '14px', padding: '16px', border: '0.5px solid var(--border)' }}>
-          <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 8px' }}>Adjust credits — {selected.display_name}</p>
-          <p style={{ color: 'var(--accent)', fontSize: '22px', fontWeight: '700', margin: '0 0 12px' }}>{selected.credit_balance ?? 0} credits</p>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <input type="number" min="1" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Amount" style={{ ...inputStyle, flex: 1 }} />
-            <button onClick={() => updateCredits(1)} disabled={!amount || updating} style={{ background: 'rgba(100,200,130,0.12)', color: '#6CC882', border: '0.5px solid rgba(100,200,130,0.3)', borderRadius: '10px', padding: '11px 14px', fontSize: '13px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit' }}>+ Add</button>
-            <button onClick={() => updateCredits(-1)} disabled={!amount || updating} style={{ background: 'rgba(229,115,115,0.1)', color: '#e57373', border: '0.5px solid rgba(229,115,115,0.3)', borderRadius: '10px', padding: '11px 14px', fontSize: '13px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit' }}>− Remove</button>
-          </div>
-          {message && <p style={{ color: '#81c784', fontSize: '12px', marginTop: '10px' }}>{message}</p>}
-          {errorMsg && <p style={{ color: '#e57373', fontSize: '12px', marginTop: '10px' }}>{errorMsg}</p>}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ─── Main Admin Page ──────────────────────────────────────────────
 export default function AdminPage() {
-  const [authed, setAuthed] = useState(false)
-  const [checkingAuth, setCheckingAuth] = useState(true)
-  const [activeTab, setActiveTab] = useState('upload')
-  const [successMsg, setSuccessMsg] = useState('')
-
-  // Design state
-  const [allDesigns, setAllDesigns] = useState([])
-  const [loadingDesigns, setLoadingDesigns] = useState(false)
-  const [deletingId, setDeletingId] = useState(null)
-  const [editingDesign, setEditingDesign] = useState(null)
-
-  // Shop state
-  const [allProducts, setAllProducts] = useState([])
-  const [loadingProducts, setLoadingProducts] = useState(false)
-  const [deletingProductId, setDeletingProductId] = useState(null)
-  const [editingProduct, setEditingProduct] = useState(null)
-  const [addingProduct, setAddingProduct] = useState(false)
-
+  const [identity, setIdentity] = useState(null),
+    [authReady, setAuthReady] = useState(false),
+    [section, setSection] = useState('overview'),
+    [overviewDays, setOverviewDays] = useState(30),
+    [data, setData] = useState(null),
+    [error, setError] = useState(''),
+    [notice, setNotice] = useState(''),
+    [busy, setBusy] = useState(false),
+    [q, setQ] = useState(''),
+    [search, setSearch] = useState(''),
+    [filter, setFilter] = useState(''),
+    [page, setPage] = useState(0),
+    [detail, setDetail] = useState(null),
+    [detailId, setDetailId] = useState(null),
+    [contentType, setContentType] = useState('design'),
+    [operation, setOperation] = useState(null),
+    [reason, setReason] = useState('');
+  const version = useRef(0),
+    dialogRef = useRef(null),
+    dialogTriggerRef = useRef(null),
+    [reload, setReload] = useState(0);
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session?.user) { setCheckingAuth(false); return }
-      const { data: prof } = await supabase.from('profiles').select('is_admin').eq('id', session.user.id).single()
-      setAuthed(!!prof?.is_admin)
-      setCheckingAuth(false)
-    })
-  }, [])
-
-  const loadProducts = async () => {
-    setLoadingProducts(true)
-    const { data, error } = await supabase.from('products').select('*').order('created_at', { ascending: false }).limit(500)
-    if (error) console.error('admin products fetch failed:', error)
-    setAllProducts(data || [])
-    setLoadingProducts(false)
-  }
-
+    if (!operation) return;
+    const before = dialogTriggerRef.current;
+    const dialog = dialogRef.current;
+    const trap = e => {
+      if (e.key === 'Escape' && !busy) {
+        setOperation(null);
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const controls = [...dialog.querySelectorAll('input,textarea,select,button')].filter(x => !x.disabled);
+      const first = controls[0],
+        last = controls.at(-1);
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last?.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first?.focus();
+      }
+    };
+    dialog.addEventListener('keydown', trap);
+    return () => {
+      dialog.removeEventListener('keydown', trap);
+      if (!dialog.isConnected) before?.focus?.();
+    };
+  }, [operation, busy]);
+  const authenticate = useCallback(async () => {
+    try {
+      const i = await request('identity');
+      setIdentity(i);
+      setError('');
+      const desired = new URL(window.location.href).searchParams.get('section');
+      if (i.permissions.includes(desired)) setSection(desired);
+    } catch (e) {
+      setIdentity(null);
+      setData(null);
+      setDetail(null);
+      setDetailId(null);
+      setError(e.message);
+    } finally {
+      setAuthReady(true);
+    }
+  }, []);
   useEffect(() => {
-    let cancelled = false
-    if (authed && activeTab === 'manage' && !editingDesign) {
-      supabase.from('designs').select('id, title, image_url, created_at, is_drop')
-        .order('created_at', { ascending: false }).limit(500).then(({ data, error }) => {
-          if (cancelled) return
-          if (error) console.error('admin designs fetch failed:', error)
-          setAllDesigns(data || [])
-          setLoadingDesigns(false)
-        })
-    }
-    if (authed && activeTab === 'shop') {
-      supabase.from('products').select('*').order('created_at', { ascending: false }).limit(500)
-        .then(({ data, error }) => {
-          if (cancelled) return
-          if (error) console.error('admin products fetch failed:', error)
-          setAllProducts(data || [])
-          setLoadingProducts(false)
-        })
-    }
-    return () => { cancelled = true }
-  }, [authed, activeTab, editingDesign])
-
-  const deleteDesign = async (id, title) => {
-    if (!confirm(`Delete "${title}"? This cannot be undone.`)) return
-    setDeletingId(id)
-    const steps = [
-      () => supabase.from('design_tags').delete().eq('design_id', id),
-      () => supabase.from('design_colours').delete().eq('design_id', id),
-      () => supabase.from('design_images').delete().eq('design_id', id),
-      () => supabase.from('saved_designs').delete().eq('design_id', id),
-      () => supabase.from('designs').delete().eq('id', id),
-    ]
-    for (const step of steps) {
-      const { error } = await step()
-      if (error) {
-        alert('Failed to delete: ' + error.message)
-        setDeletingId(null)
-        return
+    const timer = setTimeout(() => void authenticate(), 0);
+    const {
+      data: {
+        subscription
       }
-    }
-    setAllDesigns(prev => prev.filter(d => d.id !== id))
-    setDeletingId(null)
-  }
-
-  const toggleDrop = async (id, current) => {
-    const { error } = await supabase.from('designs').update({ is_drop: !current }).eq('id', id)
-    if (error) { alert('Failed to update: ' + error.message); return }
-    setAllDesigns(prev => prev.map(d => d.id === id ? { ...d, is_drop: !current } : d))
-  }
-
-  const deleteProduct = async (id, name) => {
-    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return
-    setDeletingProductId(id)
-    const { error } = await supabase.from('products').delete().eq('id', id)
-    if (error) { alert('Failed to delete: ' + error.message); setDeletingProductId(null); return }
-    setAllProducts(prev => prev.filter(p => p.id !== id))
-    setDeletingProductId(null)
-  }
-
-  const startEdit = async (design) => {
-    const [{ data: colours }, { data: extraImages }, { data: designTags }] = await Promise.all([
-      supabase.from('design_colours').select('*').eq('design_id', design.id).order('colour_order'),
-      supabase.from('design_images').select('*').eq('design_id', design.id).order('image_order'),
-      supabase.from('design_tags').select('tags(name)').eq('design_id', design.id),
-    ])
-    const { data: full } = await supabase.from('designs').select('*').eq('id', design.id).single()
-    setEditingDesign({
-      ...full,
-      colours: colours || [],
-      extraImages: extraImages || [],
-      tags: designTags?.map(dt => dt.tags?.name).filter(Boolean) || [],
-    })
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-
-  const saveNew = async ({ title, description, image_url, shape, length, occasion, technique, colours, tagNames, newExtraFiles, slug }) => {
-    if (!image_url) throw new Error('Please select a main photo')
-
-    const uploadImage = async (file, name) => {
-      const ext = file.name.split('.').pop()
-      const fileName = `${Date.now()}-${name}.${ext}`
-      const { error } = await supabase.storage.from('designs').upload(fileName, file, { cacheControl: '3600', upsert: false })
-      if (error) throw new Error('Image upload failed: ' + error.message)
-      return supabase.storage.from('designs').getPublicUrl(fileName).data.publicUrl
-    }
-
-    const { data: { session } } = await supabase.auth.getSession()
-    const { data: design, error } = await supabase.from('designs').insert({ title, description, image_url, shape, length, occasion, technique, is_published: true, is_curated: true, created_by: session?.user?.id || null }).select().single()
-    if (error) throw new Error(error.message)
-
-    for (let i = 0; i < newExtraFiles.length; i++) {
-      const url = await uploadImage(newExtraFiles[i].file, `${slug}-extra-${i + 1}`)
-      const { error: imgErr } = await supabase.from('design_images').insert({ design_id: design.id, image_url: url, image_order: i + 1 })
-      if (imgErr) throw new Error('Failed to save extra image: ' + imgErr.message)
-    }
-    if (colours.length > 0) {
-      const { error: colourErr } = await supabase.from('design_colours').insert(colours.map((c, i) => ({ design_id: design.id, colour_name: c.colour_name || null, hex_code: c.hex_code || null, brand_name: c.brand_name || null, brand_code: c.brand_code || null, colour_order: i + 1 })))
-      if (colourErr) throw new Error('Failed to save colours: ' + colourErr.message)
-    }
-    for (const tagName of tagNames) {
-      const { data: tag, error: tagErr } = await supabase.from('tags').upsert({ name: tagName }, { onConflict: 'name' }).select().single()
-      if (tagErr) throw new Error(`Failed to save tag "${tagName}": ` + tagErr.message)
-      if (tag) {
-        const { error: linkErr } = await supabase.from('design_tags').upsert({ design_id: design.id, tag_id: tag.id }, { onConflict: 'design_id,tag_id' })
-        if (linkErr) throw new Error(`Failed to link tag "${tagName}": ` + linkErr.message)
-      }
-    }
-    setSuccessMsg(`✓ "${design.title}" published!`)
-    setActiveTab('upload')
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-
-  const saveEdit = async ({ title, description, image_url, shape, length, occasion, technique, colours, tagNames, newExtraFiles, removedExtraIds, slug }) => {
-    const id = editingDesign.id
-
-    const uploadImage = async (file, name) => {
-      const ext = file.name.split('.').pop()
-      const fileName = `${Date.now()}-${name}.${ext}`
-      const { error } = await supabase.storage.from('designs').upload(fileName, file, { cacheControl: '3600', upsert: false })
-      if (error) throw new Error('Image upload failed: ' + error.message)
-      return supabase.storage.from('designs').getPublicUrl(fileName).data.publicUrl
-    }
-
-    const { error } = await supabase.from('designs').update({ title, description, image_url, shape, length, occasion, technique }).eq('id', id)
-    if (error) throw new Error(error.message)
-
-    for (const imgId of removedExtraIds) {
-      const { error: delImgErr } = await supabase.from('design_images').delete().eq('id', imgId)
-      if (delImgErr) throw new Error('Failed to remove image: ' + delImgErr.message)
-    }
-    const existingCount = editingDesign.extraImages.filter(img => !removedExtraIds.includes(img.id)).length
-    for (let i = 0; i < newExtraFiles.length; i++) {
-      const url = await uploadImage(newExtraFiles[i].file, `${slug}-extra-${existingCount + i + 1}`)
-      const { error: imgErr } = await supabase.from('design_images').insert({ design_id: id, image_url: url, image_order: existingCount + i + 1 })
-      if (imgErr) throw new Error('Failed to save extra image: ' + imgErr.message)
-    }
-    const { error: delColourErr } = await supabase.from('design_colours').delete().eq('design_id', id)
-    if (delColourErr) throw new Error('Failed to update colours: ' + delColourErr.message)
-    if (colours.length > 0) {
-      const { error: colourErr } = await supabase.from('design_colours').insert(colours.map((c, i) => ({ design_id: id, colour_name: c.colour_name || null, hex_code: c.hex_code || null, brand_name: c.brand_name || null, brand_code: c.brand_code || null, colour_order: i + 1 })))
-      if (colourErr) throw new Error('Failed to save colours: ' + colourErr.message)
-    }
-    const { error: delTagErr } = await supabase.from('design_tags').delete().eq('design_id', id)
-    if (delTagErr) throw new Error('Failed to update tags: ' + delTagErr.message)
-    for (const tagName of tagNames) {
-      const { data: tag, error: tagErr } = await supabase.from('tags').upsert({ name: tagName }, { onConflict: 'name' }).select().single()
-      if (tagErr) throw new Error(`Failed to save tag "${tagName}": ` + tagErr.message)
-      if (tag) {
-        const { error: linkErr } = await supabase.from('design_tags').insert({ design_id: id, tag_id: tag.id })
-        if (linkErr) throw new Error(`Failed to link tag "${tagName}": ` + linkErr.message)
-      }
-    }
-    setEditingDesign(null)
-    setSuccessMsg(`✓ "${title}" updated!`)
-    setActiveTab('manage')
-  }
-
-  const saveNewProduct = async (data) => {
-    const { data: product, error } = await supabase.from('products').insert({ ...data, is_published: true }).select().single()
-    if (error) throw new Error(error.message)
-    setSuccessMsg(`✓ "${product.name}" added to shop!`)
-    setAddingProduct(false)
-    loadProducts()
-  }
-
-  const saveEditProduct = async (data) => {
-    const { error } = await supabase.from('products').update(data).eq('id', editingProduct.id)
-    if (error) throw new Error(error.message)
-    setSuccessMsg(`✓ "${data.name}" updated!`)
-    setEditingProduct(null)
-    loadProducts()
-  }
-
-  // ── Auth gate ─────────────────────────────────────────────────────
-  if (checkingAuth) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Loading…</p>
-      </div>
-    )
-  }
-  if (!authed) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-        <div style={{ width: '100%', maxWidth: '360px', textAlign: 'center' }}>
-          <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Admin</p>
-          <h1 style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: '500', marginBottom: '10px' }}>You don&apos;t have access</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Sign in with an admin account to view this page.</p>
-        </div>
-      </div>
-    )
-  }
-
-  // ── Edit design view ─────────────────────────────────────────────
-  if (editingDesign) {
-    return (
-      <div style={{ padding: '24px 20px 60px', maxWidth: '600px', margin: '0 auto' }}>
-        <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Admin · Edit Design</p>
-        <h1 style={{ color: 'var(--text-primary)', fontSize: '20px', fontWeight: '500', marginBottom: '24px' }}>{editingDesign.title}</h1>
-        <DesignForm initial={editingDesign} onSave={saveEdit} onCancel={() => setEditingDesign(null)} saveLabel="Save Changes" />
-        <div style={{ marginTop: '32px', borderTop: '0.5px solid var(--border)', paddingTop: '24px' }}>
-          <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>Shop This Look</p>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginBottom: '16px' }}>Tap a product to link or unlink it from this design.</p>
-          <LinkedProducts designId={editingDesign.id} />
-        </div>
-      </div>
-    )
-  }
-
-  // ── Edit product view ────────────────────────────────────────────
-  if (editingProduct) {
-    return (
-      <div style={{ padding: '24px 20px 60px', maxWidth: '600px', margin: '0 auto' }}>
-        <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Admin · Edit Product</p>
-        <h1 style={{ color: 'var(--text-primary)', fontSize: '20px', fontWeight: '500', marginBottom: '24px' }}>{editingProduct.name}</h1>
-        <ProductForm initial={editingProduct} onSave={saveEditProduct} onCancel={() => setEditingProduct(null)} saveLabel="Save Changes" />
-      </div>
-    )
-  }
-
-  // ── Main tabs ────────────────────────────────────────────────────
-  return (
-    <div style={{ padding: '24px 20px 60px', maxWidth: '600px', margin: '0 auto' }}>
-      <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Admin</p>
-      <h1 style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: '500', marginBottom: '20px' }}>Laque</h1>
-
-      <Link href="/admin/reports">Safety reports</Link>
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '28px', flexWrap: 'wrap' }}>
-        {[['upload', 'Upload Design'], ['manage', 'Manage Designs'], ['shop', 'Shop Products'], ['dashboard', 'Dashboard'], ['tags', 'Tags'], ['credits', 'Credits'], ['challenges', 'Challenges']].map(([tab, label]) => (
-          <button key={tab} onClick={() => { setActiveTab(tab); setSuccessMsg(''); setAddingProduct(false) }} style={{
-            background: activeTab === tab ? 'var(--accent)' : 'var(--bg-chip)',
-            color: activeTab === tab ? '#2C0A1E' : 'var(--text-secondary)',
-            border: 'none', borderRadius: '20px', padding: '7px 18px',
-            fontSize: '13px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit',
-          }}>
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {successMsg && (
-        <div style={{ background: 'rgba(129,199,132,0.1)', border: '0.5px solid #81c784', borderRadius: '10px', padding: '12px 14px', marginBottom: '20px' }}>
-          <p style={{ color: '#81c784', fontSize: '13px' }}>{successMsg}</p>
-        </div>
-      )}
-
-      {/* ── UPLOAD TAB ── */}
-      {activeTab === 'upload' && (
-        <DesignForm initial={null} onSave={saveNew} onCancel={null} saveLabel="Publish Design" />
-      )}
-
-      {/* ── MANAGE TAB ── */}
-      {activeTab === 'manage' && (
-        <>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '16px' }}>
-            {allDesigns.length} design{allDesigns.length !== 1 ? 's' : ''} published
-          </p>
-          {loadingDesigns ? (
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Loading...</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {allDesigns.map(design => (
-                <div key={design.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', padding: '10px 12px' }}>
-                  {design.image_url
-                    ? <img src={design.image_url} alt={design.title} style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '8px', flexShrink: 0 }} />
-                    : <div style={{ width: '48px', height: '48px', background: 'var(--bg-chip)', borderRadius: '8px', flexShrink: 0 }} />}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{design.title}</p>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '2px' }}>
-                      {new Date(design.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </p>
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-                    <button onClick={() => toggleDrop(design.id, design.is_drop)} style={{ background: design.is_drop ? 'rgba(212,160,192,0.15)' : 'var(--bg-chip)', border: design.is_drop ? '0.5px solid rgba(212,160,192,0.4)' : 'none', borderRadius: '8px', padding: '6px 12px', color: design.is_drop ? 'var(--accent)' : 'var(--text-secondary)', fontSize: '12px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit' }}>
-                      {design.is_drop ? '✦ Drop' : 'Drop'}
-                    </button>
-                    <button onClick={() => startEdit(design)} style={{ background: 'var(--bg-chip)', border: 'none', borderRadius: '8px', padding: '6px 12px', color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit' }}>Edit</button>
-                    <button onClick={() => deleteDesign(design.id, design.title)} disabled={deletingId === design.id} style={{ background: 'rgba(229,115,115,0.1)', border: '0.5px solid rgba(229,115,115,0.3)', borderRadius: '8px', padding: '6px 12px', color: '#e57373', fontSize: '12px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit' }}>
-                      {deletingId === design.id ? '...' : 'Delete'}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-
-      {/* ── SHOP TAB ── */}
-      {activeTab === 'shop' && (
-        <>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-              {allProducts.length} product{allProducts.length !== 1 ? 's' : ''} in shop
-            </p>
-            {!addingProduct && (
-              <button onClick={() => setAddingProduct(true)} style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '20px', padding: '7px 16px', fontSize: '13px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit' }}>
-                + Add Product
-              </button>
-            )}
-          </div>
-
-          {addingProduct && (
-            <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '14px', padding: '20px', marginBottom: '20px' }}>
-              <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '16px' }}>New Product</p>
-              <ProductForm initial={null} onSave={saveNewProduct} onCancel={() => setAddingProduct(false)} saveLabel="Add to Shop" />
-            </div>
-          )}
-
-          {loadingProducts ? (
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Loading...</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {allProducts.map(product => (
-                <div key={product.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--bg-card)', borderRadius: '12px', border: '0.5px solid var(--border)', padding: '10px 12px' }}>
-                  {product.image_url
-                    ? <img src={product.image_url} alt={product.name} style={{ width: '48px', height: '48px', objectFit: 'contain', borderRadius: '8px', flexShrink: 0, background: 'var(--bg-chip)' }} />
-                    : <div style={{ width: '48px', height: '48px', background: 'var(--bg-chip)', borderRadius: '8px', flexShrink: 0 }} />}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.name}</p>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '2px' }}>
-                      {product.category || 'No category'}{product.price_label ? ` · ${product.price_label}` : ''}{product.is_featured ? ' · ★ Featured' : ''}
-                    </p>
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-                    <button onClick={() => setEditingProduct(product)} style={{ background: 'var(--bg-chip)', border: 'none', borderRadius: '8px', padding: '6px 12px', color: 'var(--text-primary)', fontSize: '12px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit' }}>Edit</button>
-                    <button onClick={() => deleteProduct(product.id, product.name)} disabled={deletingProductId === product.id} style={{ background: 'rgba(229,115,115,0.1)', border: '0.5px solid rgba(229,115,115,0.3)', borderRadius: '8px', padding: '6px 12px', color: '#e57373', fontSize: '12px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit' }}>
-                      {deletingProductId === product.id ? '...' : 'Delete'}
-                    </button>
-                  </div>
-                </div>
-              ))}
-              {allProducts.length === 0 && !loadingProducts && (
-                <p style={{ color: 'var(--text-secondary)', fontSize: '13px', textAlign: 'center', padding: '32px 0' }}>No products yet. Add your first one above.</p>
-              )}
-            </div>
-          )}
-        </>
-      )}
-
-      {/* ── DASHBOARD TAB ── */}
-      {activeTab === 'dashboard' && <Dashboard />}
-
-      {/* ── TAGS TAB ── */}
-      {activeTab === 'tags' && <TagsManager />}
-
-      {/* ── CREDITS TAB ── */}
-      {activeTab === 'credits' && <CreditsManager />}
-
-      {/* ── CHALLENGES TAB ── */}
-      {activeTab === 'challenges' && <ChallengesManager />}
-
-    </div>
-  )
-}
-
-// ─── Linked Products ─────────────────────────────────────────────
-function LinkedProducts({ designId }) {
-  const [allProducts, setAllProducts] = useState([])
-  const [linkedIds, setLinkedIds] = useState(new Set())
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(null)
-
+    } = supabase.auth.onAuthStateChange(() => {
+      setTimeout(() => void authenticate(), 0);
+    });
+    return () => {
+      clearTimeout(timer);
+      subscription.unsubscribe();
+    };
+  }, [authenticate]);
   useEffect(() => {
-    const load = async () => {
-      const [{ data: products }, { data: links }] = await Promise.all([
-        supabase.from('products').select('id, name, brand, image_url, price_label').eq('is_published', true).order('created_at', { ascending: false }),
-        supabase.from('design_products').select('product_id').eq('design_id', designId),
-      ])
-      setAllProducts(products || [])
-      setLinkedIds(new Set(links?.map(l => l.product_id) || []))
-      setLoading(false)
+    if (!identity?.mfa) return;
+    let active = true;
+    const ticket = ++version.current;
+    request(`${section}?q=${encodeURIComponent(search)}&page=${page}&filter=${filter}&type=${contentType}&days=${overviewDays}`).then(d => {
+      if (active && ticket === version.current) {
+        setData(d);
+        setError('');
+      }
+    }).catch(e => {
+      if (active) {
+        setData(null);
+        setDetail(null);
+        setDetailId(null);
+        setError(e.message);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [identity, section, search, page, filter, contentType, overviewDays, reload]);
+  const select = s => {
+    setSection(s);
+    setData(null);
+    setDetail(null);
+    setDetailId(null);
+    setQ('');
+    setSearch('');
+    setFilter('');
+    setPage(0);
+    setError('');
+    setNotice('');
+  };
+  const open = async id => {
+    setBusy(true);
+    setDetail(null);
+    setDetailId(null);
+    setError('');
+    try {
+      const d = await request(`${section}/${id}?type=${contentType}`);
+      setDetail(d);
+      setDetailId(id);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
     }
-    load()
-  }, [designId])
-
-  const toggle = async (productId) => {
-    setSaving(productId)
-    if (linkedIds.has(productId)) {
-      const { error } = await supabase.from('design_products').delete().eq('design_id', designId).eq('product_id', productId)
-      if (error) { alert('Failed to unlink product: ' + error.message); setSaving(null); return }
-      setLinkedIds(prev => { const next = new Set(prev); next.delete(productId); return next })
-    } else {
-      const { error } = await supabase.from('design_products').insert({ design_id: designId, product_id: productId })
-      if (error) { alert('Failed to link product: ' + error.message); setSaving(null); return }
-      setLinkedIds(prev => new Set([...prev, productId]))
+  };
+  const perform = async () => {
+    if (!operation || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      if(operation.body.action==='export'){
+        const {data:{session}}=await supabase.auth.getSession();
+        if(!session)throw new Error('Sign in to continue.');
+        const response=await fetch('/api/admin/export',{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json'},body:JSON.stringify({...operation.body,action:undefined,reason}),cache:'no-store'});
+        if(!response.ok){const result=await response.json();throw new Error(result.error)}
+        const url=URL.createObjectURL(await response.blob());
+        const link=document.createElement('a');link.href=url;link.download=response.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/)?.[1]||'laque-export.csv';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+        setOperation(null);setReason('');setNotice('Export downloaded and recorded in Activity.');return;
+      }
+      const result = await request(operation.path, {
+        ...operation.body,
+        reason
+      });
+      setOperation(null);
+      setReason('');
+      setNotice('Change saved and recorded in activity history.');
+      setDetail(null);
+      setDetailId(null);
+      setData(null);
+      setReload(v => v + 1);
+      if (result.authorizationUrl) window.location.assign(result.authorizationUrl);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
     }
-    setSaving(null)
-  }
-
-  if (loading) return <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Loading products...</p>
-  if (allProducts.length === 0) return <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>No products in shop yet. Add some in the Shop tab first.</p>
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      {allProducts.map(product => {
-        const isLinked = linkedIds.has(product.id)
-        return (
-          <button
-            key={product.id}
-            onClick={() => toggle(product.id)}
-            disabled={saving === product.id}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '12px',
-              background: isLinked ? 'rgba(212,160,192,0.1)' : 'var(--bg-card)',
-              border: isLinked ? '0.5px solid var(--accent)' : '0.5px solid var(--border)',
-              borderRadius: '12px', padding: '10px 12px',
-              cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: 'inherit',
-            }}
-          >
-            {product.image_url
-              ? <img src={product.image_url} alt={product.name} style={{ width: '40px', height: '40px', objectFit: 'contain', borderRadius: '8px', flexShrink: 0, background: 'var(--bg-chip)' }} />
-              : <div style={{ width: '40px', height: '40px', background: 'var(--bg-chip)', borderRadius: '8px', flexShrink: 0 }} />
+  };
+  const action = (title, path, body) => {
+    dialogTriggerRef.current = document.activeElement;
+    setOperation({
+      title,
+      path,
+      body
+    });
+    setReason('');
+    setError('');
+  };
+  const notes = (type, id) => action('Add internal case note', `${type}/${id}`, {
+    action: 'note',
+    body: ''
+  });
+  if (!authReady) return <main className={styles.gate}><h1>LaQue Admin</h1><p role="status">Checking access…</p></main>;
+  if (!identity) return <main className={styles.gate}><h1>LaQue Admin</h1><p>Manage the connected app with your staff account.</p>{error && <p role="alert">{error}</p>}<Login onDone={authenticate} /><a href="/profile">Create or verify a LaQue account</a></main>;
+  if (!identity.mfa) return <main className={styles.gate}><h1>Secure your dashboard</h1><p>Use an authenticator app to protect administrative access.</p><Mfa onDone={authenticate} /></main>;
+  const name = id => {
+    const p = (data?.profiles || detail?.profiles || []).find(p => p.id === id);
+    return p ? `${p.display_name || p.username || 'LaQue user'}${p.username ? ' · @' + p.username : ''}` : id;
+  };
+  const rows = data?.items || [];
+  return <div className={`${styles.shell} laque-admin-root`}>
+  <aside inert={!!operation} className={styles.sidebar}><a href="/admin" className={styles.brand}>LaQue<span>Admin studio</span></a><nav aria-label="Dashboard">{identity.permissions.map(s => <button key={s} aria-current={section === s ? 'page' : undefined} className={section === s ? styles.selected : ''} onClick={() => select(s)}>{labels[s]}</button>)}</nav><div className={styles.staff}><span className={styles.badge}>{identity.role}</span><small>Authenticator verified</small><button onClick={() => void supabase.auth.signOut()}>Sign out</button></div></aside>
+  <main inert={!!operation} className={styles.main}><header className={styles.header}><div><span className={styles.eyebrow}>LaQue operations</span><h1>{labels[section]}</h1></div><button onClick={() => {
+          setData(null);
+          setReload(v => v + 1);
+        }}>Refresh</button></header>
+   {data&&['overview','users','content','bookings','lab','credits','reports','activity'].includes(section)&&(section!=='users'||identity.role==='owner')&&<button disabled={busy} onClick={()=>action(`Export ${labels[section]}`,'export',{action:'export',section,q:search,filter,type:contentType,days:overviewDays})}>Export {section==='overview'?'analytics JSON':'filtered CSV'}</button>}
+   {section==='users'&&<p className={styles.context}>Inspect a profile to see account details, setup, services and activity.{identity.role==='owner'?' User exports are available only to the Owner.':' User exports and private preference fields are restricted to the Owner.'}</p>}
+   {error && <p className={styles.error} role="alert">{error}</p>}{notice && <p className={styles.notice} role="status">{notice}</p>}
+   {['users', 'content', 'bookings', 'lab', 'credits', 'reports', 'activity'].includes(section) && <form className={styles.toolbar} onSubmit={e => {
+        e.preventDefault();
+        setSearch(q);
+        setPage(0);
+        setData(null);
+      }}><input aria-label={`Search ${labels[section]}`} placeholder={section === 'lab' ? 'Filter by account UUID' : section==='users'?'Search name, username or email':`Search ${labels[section].toLowerCase()}`} value={q} onChange={e => setQ(e.target.value)} /><button>Search</button>{section === 'content' && <select aria-label="Content type" value={contentType} onChange={e => {
+          setContentType(e.target.value);
+          setData(null);
+          setPage(0);
+        }}><option value="design">Designs</option><option value="post">Posts</option><option value="story">Stories</option><option value="tag">Tags</option></select>}{['users', 'bookings', 'lab', 'reports'].includes(section) && <select aria-label="Status filter" value={filter} onChange={e => {
+          setFilter(e.target.value);
+          setPage(0);
+          setData(null);
+        }}><option value="">All</option>{(section === 'users' ? ['creator', 'salon', 'user'] : section === 'bookings' ? ['pending', 'confirmed', 'completed', 'cancelled', 'declined'] : section === 'lab' ? ['reserved', 'completed', 'released'] : ['open', 'reviewed', 'resolved']).map(f => <option key={f}>{f}</option>)}</select>}</form>}
+   {!data && !error && <p role="status">Loading {labels[section].toLowerCase()}…</p>}
+   {data && section === 'overview' && <Overview data={data} days={overviewDays} onRange={days=>{setOverviewDays(days);setData(null)}} />}
+   {data && section === 'integrations' && <><p>{data.note}</p><div className={styles.grid}>{rows.map(r => <article key={r.name}><h2>{r.name}</h2><span className={styles.badge}>{r.ready ? 'Configured' : 'Needs configuration'}</span></article>)}</div></>}
+   {data && section === 'home' && <HomeEditor key={data.version} data={data} action={action} />}
+   {data && section === 'pinterest' && <PinterestPanel data={data} action={action} />}
+   {data && section === 'team' && <TeamPanel data={data} action={action} />}
+   {data && section === 'content' && contentType === 'design' && <DesignForm title="New LaQue design" action={action} tags={data.tags} create={identity.role === 'owner'} />}
+   {data && section === 'content' && contentType === 'tag' && <form className={styles.inline} onSubmit={e => {
+        e.preventDefault();
+        action('Create tag', 'content', {
+          action: 'tag',
+          name: new FormData(e.currentTarget).get('name')
+        });
+      }}><input name="name" aria-label="New tag name" placeholder="New tag" required maxLength={60} /><button>Add tag</button></form>}
+   {data && ['users', 'content', 'bookings', 'lab', 'credits', 'reports', 'activity'].includes(section) && <div className={styles.tableWrap}><table><caption className={styles.srOnly}>{labels[section]}</caption><thead><tr><th>{section === 'activity' ? 'Action' : 'Record'}</th><th>Status / details</th><th>Date</th><th><span className={styles.srOnly}>Actions</span></th></tr></thead><tbody>{rows.map(r => <tr key={r.id || r.user_id}><td>{r.avatar_url && <img className={styles.avatar} src={r.avatar_url} alt="" />}<strong>{r.display_name || r.title || r.name || r.target_type || r.action || name(r.user_id) || r.id}</strong>{r.username && <small>@{r.username}</small>}{section==='users'&&<small>{r.email||'No sign-in email'} · {r.email_confirmed_at?'Email verified':'Email unverified'}</small>}{section === 'bookings' && <small>{name(r.client_id)} → {name(r.creator_id)}</small>}{r.body && <small>{r.body.slice(0, 100)}</small>}{r.caption && <small>{r.caption.slice(0, 100)}</small>}</td><td>{section === 'users' ? `${friendly(r.account_type)} · ${r.onboarding_complete ? 'Setup complete' : 'Setup incomplete'}${r.deletion_started_at ? ' · Closed' : r.suspended?' · Suspended':''}` : section === 'credits' ? <>{data.subscriptions?.[r.id]?.active?'Subscribed':'No active subscription'}<small>{data.subscriptions?.[r.id]?.monthlyRemaining??0} monthly designs · {r.credit_balance} purchased tokens</small></> : section === 'content' ? contentType === 'design' ? `${r.is_published ? 'Public' : 'Draft'}${data.ownedIds?.includes(r.id) ? ' · LaQue owned' : ''}${data.hidden?.some(x => x.target_id === r.id && x.hidden) ? ' · Hidden' : ''}` : contentType : section === 'activity' ? <>{r.reason}<small>{r.actor_role} · {r.actor_id}</small></> : <>{friendly(r.status)}{r.time_zone && <small>{date(r.starts_at)} · {r.time_zone}</small>}{r.deposit_paid && <small>Deposit paid</small>}{r.reason && <small>{r.reason.slice(0, 100)}</small>}</>}</td><td>{date(r.created_at)}</td><td>{['users', 'credits', 'bookings', 'reports'].includes(section) && <button disabled={busy} onClick={() => void open(r.id)}>Inspect</button>}{section === 'content' && contentType === 'design' && data.ownedIds?.includes(r.id) && <button onClick={() => {
+                  setDetail({
+                    design: {
+                      ...r,
+                      tagIds: (data.designTags || []).filter(t => t.design_id === r.id).map(t => t.tag_id)
+                    },
+                    tags: data.tags
+                  });
+                  setDetailId(r.id);
+                }}>Edit</button>}{section === 'content' && contentType === 'tag' && <button onClick={() => action('Rename tag', `content/${r.id}`, {
+                  action: 'tag',
+                  name: r.name
+                })}>Rename</button>}</td></tr>)}</tbody></table>{!rows.length && <p className={styles.empty}>No records match this view.</p>}</div>}
+   {data && data.page !== undefined && <div className={styles.pagination}><button disabled={!page} onClick={() => {
+          setPage(v => v - 1);
+          setData(null);
+        }}>Previous</button><span>Page {page + 1}</span><button disabled={!data.hasMore} onClick={() => {
+          setPage(v => v + 1);
+          setData(null);
+        }}>Next</button></div>}
+   {detail && <section className={styles.detail} aria-label="Record details"><header><h2>{detail.profile?.display_name || detail.design?.title || 'Record details'}</h2><button onClick={() => {
+            setDetail(null);
+            setDetailId(null);
+          }}>Close details</button></header>
+    {section === 'users' && <><UserDetails detail={detail} owner={identity.role==='owner'} /><button onClick={() => notes('users', detailId)}>Add case note</button>{identity.role==='owner'&&<button disabled={busy} onClick={()=>action('Export account details','export',{action:'export',section:'users',id:detailId})}>Export account JSON</button>}{identity.role === 'owner' && !detail.profile.deletion_started_at && <button className={styles.danger} onClick={() => action(detail.suspension?.suspended ? 'Restore suspended account' : 'Suspend account', `users/${detailId}`, {
+            action: 'suspend',suspended: !detail.suspension?.suspended
+          })}>{detail.suspension?.suspended ? 'Restore access' : 'Suspend account'}</button>}</>}
+    {section === 'bookings' && <><p>Appointment terms and payment outcomes are provider-controlled.</p>{detail.items?.map(b => <div key={b.id}><h3>{friendly(b.status)}</h3><p>{date(b.starts_at)} · {b.time_zone}</p><p>{name(b.client_id)} → {name(b.creator_id)}</p>{detail.services?.map(s => <p key={s.id}>{s.name} · AED {s.price} · deposit AED {s.deposit_amount} · {s.duration_minutes} minutes</p>)}{detail.payments?.map((p, i) => <p key={i}>Payment {p.fulfilled ? 'received' : 'pending'} · refund {p.refunded ? 'completed' : p.refund_status || 'not requested'}{p.needs_review ? ' · review required' : ''}</p>)}</div>)}<button onClick={() => notes('bookings', detailId)}>Add case note</button></>}
+    {section === 'reports' && <><h3>{friendly(detail.report.target_type)} report</h3><p>{detail.report.reason}</p>{detail.item ? <article className={styles.reportItem}><p>{detail.item.content || detail.item.body || detail.item.caption || detail.item.title || detail.item.display_name}</p>{detail.item.image_url && <img src={detail.item.image_url} alt="Reported design" />}{detail.attachment && <img src={detail.attachment} alt="Reported attachment" />}{detail.participants.map(p => <small key={p.id}>{p.display_name} · @{p.username}</small>)}</article> : <p>Reported item has been deleted or is unavailable.</p>}<button onClick={() => notes('reports', detailId)}>Add note</button>{detail.report.target_type !== 'profile' && detail.item && <button onClick={() => action(detail.moderation?.hidden ? 'Restore reported content' : 'Hide reported content', `reports/${detailId}`, {
+            action: 'moderate',
+            hidden: !detail.moderation?.hidden
+          })}>{detail.moderation?.hidden ? 'Restore content' : 'Hide content'}</button>}<button onClick={() => action('Resolve report', `reports/${detailId}`, {
+            action: 'report',
+            status: 'resolved',
+            assignedTo: detail.report.assigned_to
+          })}>Resolve</button><button onClick={() => action('Assign or review report', `reports/${detailId}`, {
+            action: 'report',
+            status: 'reviewed',
+            assignedTo: identity.id
+          })}>Assign to me / reviewed</button></>}
+    {section === 'credits' && <><h3>{detail.subscription?.active?'Active Nail Lab subscription':'No active Nail Lab subscription'}</h3><p>{detail.subscription?.monthlyRemaining??0} monthly designs remaining · {detail.profile.credit_balance} purchased tokens</p><p>Period ends: {date(detail.subscription?.renewsAt)}</p><p>Purchased tokens are usable only with an active subscription. Corrections do not grant a subscription.</p><CreditForm id={detailId} action={action} /><h3>Subscriptions & store purchases</h3>{!detail.purchases.length && <p>No store purchases.</p>}{detail.purchases.map((p, i) => <p key={i}>{['laque_lab_monthly_5','laque_lab_monthly_5:monthly'].includes(p.product_id)?'Nail Lab monthly subscription':`${p.credits} design tokens`} · {p.store} · {p.refunded ? 'Refunded' : p.granted ? 'Credited' : 'Verifying'} · {date(p.purchased_at)}</p>)}<h3>Corrections</h3>{detail.corrections.map(c => <p key={c.id}>{c.delta > 0 ? '+' : ''}{c.delta} → {c.balance_after} · {c.reason} · {date(c.created_at)}</p>)}</>}
+    {section === 'content' && detail.design && <DesignForm key={detailId} title="Edit LaQue design" design={detail.design} tags={detail.tags} action={action} />}
+    <NoteList notes={detail.notes} />
+   </section>}
+  </main>
+  {operation && <div className={styles.scrim}><section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="change-title" className={styles.dialog}><h2 id="change-title">{operation.title}</h2>{operation.body.action==='export'&&<p>The download includes {operation.body.id?'this account’s details':operation.body.section==='overview'?'the selected analytics range':'all records matching the current search and filters, across pages (up to 5,000)'}. It is recorded in Activity.</p>}{operation.body.action === 'suspend' && operation.body.suspended && <p>This hides the profile and blocks new activity. Existing appointment cancellation, recovery and account deletion remain available.</p>}{operation.body.action === 'note' && <Field label="Internal note"><textarea value={operation.body.body} onChange={e => setOperation({
+            ...operation,
+            body: {
+              ...operation.body,
+              body: e.target.value
             }
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.name}</p>
-              {product.brand && <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '2px' }}>{product.brand}{product.price_label ? ` · ${product.price_label}` : ''}</p>}
-            </div>
-            <div style={{
-              width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0,
-              background: isLinked ? 'var(--accent)' : 'var(--bg-chip)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: isLinked ? '#2C0A1E' : 'var(--text-secondary)',
-              fontSize: '14px', fontWeight: '700',
-            }}>
-              {saving === product.id ? '…' : isLinked ? '✓' : '+'}
-            </div>
-          </button>
-        )
-      })}
-    </div>
-  )
+          })} maxLength={4000} /></Field>}{operation.body.action === 'tag' && <TextField label="Tag name" value={operation.body.name} onChange={name => setOperation({
+          ...operation,
+          body: {
+            ...operation.body,
+            name
+          }
+        })} />}<Field label="Reason (required)"><textarea autoFocus value={reason} onChange={e => setReason(e.target.value)} minLength={5} maxLength={1000} /></Field>{error && <p role="alert">{error}</p>}<div className={styles.inline}><button disabled={busy || reason.trim().length < 5} onClick={() => void perform()}>{busy ? 'Working…' : operation.body.action==='export'?'Download export':'Confirm change'}</button><button disabled={busy} onClick={() => setOperation(null)}>Cancel</button></div></section></div>}
+ </div>;
 }
-
-// ─── Helpers ─────────────────────────────────────────────────────
-function Section({ label, children }) {
-  return (
-    <div style={{ marginBottom: '24px' }}>
-      <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>{label}</p>
-      {children}
-    </div>
-  )
+function Login({
+  onDone
+}) {
+  const [email, setEmail] = useState(''),
+    [password, setPassword] = useState(''),
+    [error, setError] = useState(''),
+    [busy, setBusy] = useState(false);
+  return <form onSubmit={async e => {
+    e.preventDefault();
+    setBusy(true);
+    const {
+      error
+    } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+    setBusy(false);
+    if (error) setError('Sign-in failed. Check your email and password.');else await onDone();
+  }}><TextField label="Email" value={email} onChange={setEmail} type="email" autoComplete="username" required /><TextField label="Password" value={password} onChange={setPassword} type="password" autoComplete="current-password" required />{error && <p role="alert">{error}</p>}<button disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button></form>;
 }
-
-function ChipGroup({ items, selected, onToggle }) {
-  return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-      {items.map(item => {
-        const isActive = selected.includes(item)
-        return (
-          <button key={item} onClick={() => onToggle(item)} style={{
-            background: isActive ? 'var(--accent)' : 'var(--bg-chip)',
-            color: isActive ? '#2C0A1E' : 'var(--text-secondary)',
-            border: 'none', borderRadius: '20px', padding: '6px 14px',
-            fontSize: '12px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit',
-          }}>{item}</button>
-        )
-      })}
-    </div>
-  )
-}
-
-function SelectDropdown({ label, value, onChange, options }) {
-  return (
-    <select value={value} onChange={e => onChange(e.target.value)} style={{ ...inputStyle, color: value ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
-      <option value="">{label}</option>
-      {options.map(o => <option key={o} value={o.toLowerCase()}>{o}</option>)}
-    </select>
-  )
-}
-
-function Placeholder({ text }) {
-  return (
-    <div style={{ width: '100%', aspectRatio: '4/3', background: 'var(--bg-card)', border: '0.5px dashed var(--border)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px' }}>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>{text}</p>
-    </div>
-  )
-}
-
-const inputStyle = {
-  width: '100%', background: 'var(--bg-card)', border: '0.5px solid var(--border)',
-  borderRadius: '10px', padding: '11px 13px', color: 'var(--text-primary)',
-  fontSize: '13px', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
-}
-
-const ghostBtn = {
-  background: 'none', border: 'none', color: 'var(--text-secondary)',
-  fontSize: '12px', cursor: 'pointer', padding: '4px 0', display: 'block', fontFamily: 'inherit',
-}
-
-const removeBtn = {
-  position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.6)',
-  border: 'none', borderRadius: '50%', width: '22px', height: '22px',
-  color: '#fff', fontSize: '14px', cursor: 'pointer',
-  display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
-}
-
-// ─── Challenges Manager ───────────────────────────────────────────
-function ChallengesManager() {
-  const [challenges, setChallenges] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [endsAt, setEndsAt] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [msg, setMsg] = useState('')
-  const [errMsg, setErrMsg] = useState('')
-
-  useEffect(() => {
-    supabase.from('challenges').select('*').order('created_at', { ascending: false }).then(({ data }) => {
-      setChallenges(data || [])
-      setLoading(false)
-    })
-  }, [])
-
-  const handleCreate = async () => {
-    if (!title.trim() || !endsAt) return
-    setSaving(true)
-    setErrMsg('')
-    const { data, error } = await supabase.from('challenges').insert({
-      title: title.trim(),
-      description: description.trim() || null,
-      ends_at: new Date(endsAt).toISOString(),
-    }).select().single()
-    if (error) {
-      setErrMsg(error.message)
-    } else if (data) {
-      setChallenges(prev => [data, ...prev])
-      setTitle(''); setDescription(''); setEndsAt('')
-      setMsg('Challenge created!')
-      setTimeout(() => setMsg(''), 3000)
+function Mfa({
+  onDone
+}) {
+  const [factor, setFactor] = useState(null),
+    [code, setCode] = useState(''),
+    [error, setError] = useState(''),
+    [busy, setBusy] = useState(false);
+  const prepare = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const {
+        data,
+        error
+      } = await supabase.auth.mfa.listFactors();
+      if (error) throw error;
+      const verified = data.totp.find(f => f.status === 'verified');
+      if (verified) setFactor({
+        id: verified.id
+      });else {
+        for (const f of data.totp.filter(f => f.status !== 'verified')) await supabase.auth.mfa.unenroll({
+          factorId: f.id
+        });
+        const {
+          data: enrolled,
+          error
+        } = await supabase.auth.mfa.enroll({
+          factorType: 'totp',
+          friendlyName: 'LaQue Admin'
+        });
+        if (error) throw error;
+        setFactor(enrolled);
+      }
+    } catch {
+      setError('Authenticator setup failed. Try again.');
+    } finally {
+      setBusy(false);
     }
-    setSaving(false)
-  }
-
-  const handleDelete = async (id) => {
-    if (!confirm('Delete this challenge and all submissions?')) return
-    setErrMsg('')
-    const { error } = await supabase.from('challenges').delete().eq('id', id)
-    if (error) { setErrMsg(error.message); return }
-    setChallenges(prev => prev.filter(c => c.id !== id))
-  }
-
-  const inputStyle = { width: '100%', background: 'var(--bg-chip)', border: '0.5px solid var(--border)', borderRadius: '10px', padding: '10px 12px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', marginBottom: '10px' }
-
-  return (
-    <div>
-      <h2 style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '600', marginBottom: '20px' }}>Create Challenge</h2>
-      <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Challenge title e.g. Spring Florals" style={inputStyle} />
-      <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Description (optional)" rows={3} style={{ ...inputStyle, resize: 'none' }} />
-      <input type="datetime-local" value={endsAt} onChange={e => setEndsAt(e.target.value)} style={inputStyle} />
-      <button onClick={handleCreate} disabled={saving || !title.trim() || !endsAt} style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '10px', padding: '11px 24px', fontSize: '14px', fontWeight: '600', fontFamily: 'inherit', cursor: 'pointer', marginBottom: '24px' }}>
-        {saving ? 'Creating…' : 'Create Challenge'}
-      </button>
-      {msg && <p style={{ color: '#6CC882', fontSize: '13px', marginBottom: '16px' }}>{msg}</p>}
-      {errMsg && <p style={{ color: '#E07070', fontSize: '13px', marginBottom: '16px' }}>{errMsg}</p>}
-
-      <h2 style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '600', marginBottom: '12px' }}>All Challenges</h2>
-      {loading ? <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Loading…</p> : challenges.length === 0 ? (
-        <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>No challenges yet.</p>
-      ) : challenges.map(c => {
-        const ended = new Date(c.ends_at) < new Date()
-        return (
-          <div key={c.id} style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px 16px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '600', margin: '0 0 4px' }}>{c.title}</p>
-              {c.description && <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '0 0 4px' }}>{c.description}</p>}
-              <p style={{ color: ended ? '#E07070' : 'var(--accent)', fontSize: '11px', margin: 0 }}>
-                {ended ? 'Ended' : 'Ends'}: {new Date(c.ends_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-              </p>
-            </div>
-            <button onClick={() => handleDelete(c.id)} style={{ background: 'none', border: 'none', color: '#E07070', fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0, marginLeft: '12px' }}>Delete</button>
-          </div>
-        )
-      })}
-    </div>
-  )
+  };
+  return <div>{!factor ? <button disabled={busy} onClick={() => void prepare()}>Set up / verify authenticator</button> : <form onSubmit={async e => {
+      e.preventDefault();
+      setBusy(true);
+      const {
+        error
+      } = await supabase.auth.mfa.challengeAndVerify({
+        factorId: factor.id,
+        code
+      });
+      setBusy(false);
+      if (error) setError('The code could not be verified. Try a fresh code.');else await onDone();
+    }}>{factor.totp && <><img src={factor.totp.qr_code} alt="Scan this QR code in your authenticator app" /><p>Manual key: <code>{factor.totp.secret}</code></p></>}<TextField label="Six-digit code" value={code} onChange={setCode} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" required /><button disabled={busy}>Verify</button></form>}{error && <p role="alert">{error}</p>}<button onClick={() => void supabase.auth.signOut()}>Sign out</button></div>;
+}
+function CreditForm({
+  id,
+  action
+}) {
+  const [delta, setDelta] = useState('');
+  return <form className={styles.inline} onSubmit={e => {
+    e.preventDefault();
+    action('Correct purchased design tokens', `credits/${id}`, {
+      delta: Number(delta),
+      key: crypto.randomUUID()
+    });
+  }}><TextField label="Purchased token change (+ / −)" value={delta} onChange={setDelta} type="number" min={-10000} max={10000} step={1} required /><button disabled={!Number.isInteger(Number(delta)) || Number(delta) === 0}>Review correction</button><p>Use a delta. Purchases and refunds remain provider-controlled.</p></form>;
+}
+function TeamPanel({
+  data,
+  action
+}) {
+  return <><form className={styles.inline} onSubmit={e => {
+      e.preventDefault();
+      const f = new FormData(e.currentTarget);
+      action('Assign verified staff account', `team/${f.get('id')}`, {
+        role: f.get('role'),
+        active: true
+      });
+    }}><input aria-label="Verified account UUID" name="id" placeholder="Verified account UUID" required /><select name="role" aria-label="Staff role"><option value="support">Support</option><option value="moderator">Moderator</option></select><button>Assign role</button></form><div className={styles.grid}>{data.items.map(r => <article key={r.user_id}><h3>{data.profiles.find(p => p.id === r.user_id)?.display_name || r.user_id}</h3><p>{r.role} · {r.active ? 'Active' : 'Revoked'}</p>{r.role !== 'owner' && <button onClick={() => action(r.active ? 'Revoke staff access' : 'Restore staff access', `team/${r.user_id}`, {
+          role: r.role,
+          active: !r.active
+        })}>{r.active ? 'Revoke' : 'Restore'}</button>}</article>)}</div></>;
+}
+function DesignForm({
+  title,
+  design,
+  tags = [],
+  action,
+  create
+}) {
+  const [draft, setDraft] = useState({
+    title: design?.title || '',
+    description: design?.description || '',
+    category: design?.category || '',
+    shape: design?.shape || '',
+    length: design?.length || '',
+    imageUrl: design?.image_url || '',
+    published: !!design?.is_published,
+    tags: design?.tagIds || []
+  });
+  if (!design && !create) return null;
+  return <details className={styles.editor} open={!!design}><summary>{title}</summary><form onSubmit={e => {
+      e.preventDefault();
+      action(title, design ? `content/${design.id}` : 'content', {
+        ...draft,
+        action: design ? 'edit' : 'create'
+      });
+    }}><div className={styles.formGrid}>{['title', 'description', 'category', 'shape', 'length', ...(!design ? ['imageUrl'] : [])].map(k => <TextField key={k} label={k === 'imageUrl' ? 'Uploaded LaQue image URL' : friendly(k)} value={draft[k]} onChange={v => setDraft({
+          ...draft,
+          [k]: v
+        })} required={['title', 'imageUrl'].includes(k)} />)}</div>{!!tags.length && <Field label="Tags"><select multiple value={draft.tags} onChange={e => setDraft({
+          ...draft,
+          tags: [...e.target.selectedOptions].map(x => x.value)
+        })}>{tags.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></Field>}{!design && <ImageUpload onUploaded={url => setDraft({
+        ...draft,
+        imageUrl: url
+      })} />} {design && <Field label="Published"><input type="checkbox" checked={draft.published} onChange={e => setDraft({
+          ...draft,
+          published: e.target.checked
+        })} /></Field>}<button>Review {design ? 'changes' : 'draft'}</button></form></details>;
+}
+function HomeEditor({
+  data,
+  action
+}) {
+  const [draft, setDraft] = useState(data.draft),
+    [featured, setFeatured] = useState(data.draft.featuredDesignIds.join('\n')), [previews,setPreviews]=useState(data.heroPreviews||{});
+  return <section className={styles.editor}><p>Published revision {data.revision} · {date(data.published_at)}. Drafts are private; publish explicitly after previewing.</p><h2>Hero slides</h2><ImageUpload onUploaded={(url,previewUrl) => {setPreviews(p=>({...p,[url]:previewUrl}));setDraft({
+      ...draft,
+      heroes: [...draft.heroes, {
+        id: crypto.randomUUID(),
+        imageUrl: url,
+        alt: "",
+        title: "Nail & beauty\ndesign library",
+        rotate: 0
+      }].slice(0, 6)
+    })}} />{draft.heroes.map((h, i) => <article key={h.id}><div className={styles.formGrid}>{['imageUrl', 'alt'].map(k => <TextField key={k} label={k === 'imageUrl' ? 'Image URL' : 'Photo description'} value={h[k]} onChange={v => setDraft({...draft,heroes:draft.heroes.map((x,j)=>j===i?{...x,[k]:v}:x)})} />)}<Field label="Hero title"><textarea value={h.title} maxLength={120} onChange={e=>setDraft({...draft,heroes:draft.heroes.map((x,j)=>j===i?{...x,title:e.target.value}:x)})}/></Field></div><Field label="Photo rotation"><select value={h.rotate} onChange={e => setDraft({
+          ...draft,
+          heroes: draft.heroes.map((x, j) => j === i ? {
+            ...x,
+            rotate: Number(e.target.value)
+          } : x)
+        })}><option value={0}>Normal</option><option value={180}>180° (original hero)</option></select></Field><div className={styles.inline}><button disabled={!i} onClick={() => {
+          const heroes = [...draft.heroes];
+          [heroes[i - 1], heroes[i]] = [heroes[i], heroes[i - 1]];
+          setDraft({
+            ...draft,
+            heroes
+          });
+        }}>Move up</button><button disabled={draft.heroes.length === 1} onClick={() => setDraft({
+          ...draft,
+          heroes: draft.heroes.filter((_, j) => j !== i)
+        })}>Remove</button></div></article>)}<button disabled={draft.heroes.length >= 6} onClick={() => setDraft({
+      ...draft,
+      heroes: [...draft.heroes, {
+        id: crypto.randomUUID(),
+        imageUrl: '',
+        alt: '',
+        title: 'Nail & beauty\ndesign library',
+        rotate: 0
+      }]
+    })}>Add hero</button><h2>Featured LaQue designs</h2><Field label="Select designs for Explore"><select multiple value={featured.split(/\s+/).filter(Boolean)} onChange={e => setFeatured([...e.target.selectedOptions].map(x => x.value).join('\n'))}>{data.owned.map(d => <option key={d.id} value={d.id}>{d.title}{d.is_published ? '' : ' (draft)'}</option>)}</select></Field><Field label="Featured LaQue design IDs (one per line)"><textarea value={featured} onChange={e => setFeatured(e.target.value)} /></Field><h2>Updates announcements</h2>{draft.announcements.map((a, i) => <article key={a.id}><TextField label="Title" value={a.title} onChange={title => setDraft({
+        ...draft,
+        announcements: draft.announcements.map((a, j) => j === i ? {
+          ...a,
+          title
+        } : a)
+      })} /><Field label="Announcement"><textarea value={a.body} onChange={e => setDraft({
+          ...draft,
+          announcements: draft.announcements.map((a, j) => j === i ? {
+            ...a,
+            body: e.target.value
+          } : a)
+        })} /></Field><button onClick={() => setDraft({
+        ...draft,
+        announcements: draft.announcements.filter((_, j) => j !== i)
+      })}>Remove announcement</button></article>)}<button disabled={draft.announcements.length >= 10} onClick={() => setDraft({
+      ...draft,
+      announcements: [...draft.announcements, {
+        id: crypto.randomUUID(),
+        title: '',
+        body: ''
+      }]
+    })}>Add announcement</button><h2>Draft preview</h2><div className={styles.preview}>{draft.heroes.map(h => <article key={h.id}><img src={previews[h.imageUrl] || h.imageUrl || '/admin-assets/home-hero.png'} alt={h.alt} style={{
+          transform: `rotate(${h.rotate}deg)`
+        }} /><h3>{h.title}</h3></article>)}</div>{draft.announcements.map(a => <article key={a.id}><small>LaQue announcement</small><h3>{a.title}</h3><p>{a.body}</p></article>)}<div className={styles.inline}><button onClick={() => action('Save Home draft', 'home', {
+        action: 'draft',
+        version: data.version,
+        content: {
+          ...draft,
+          featuredDesignIds: featured.split(/\s+/).filter(Boolean)
+        }
+      })}>Save draft</button><button onClick={() => action('Publish saved Home draft', 'home', {
+        action: 'publish',
+        version: data.version
+      })}>Publish saved draft</button></div><p>Publish uses the saved draft. Unsaved changes shown above are not published.</p></section>;
+}
+function PinterestPanel({
+  data,
+  action
+}) {
+  return <><div className={styles.grid}><article><h2>{data.connection.account_name || 'Connect LaQue’s account'}</h2><p>{friendly(data.connection.status)} · display {data.connection.paused ? 'paused' : 'enabled'}</p><p>Access expires {date(data.connection.expires_at)}</p><p>{data.ready ? 'OAuth configured' : 'OAuth requires server setup'}</p><div className={styles.inline}><button disabled={!data.ready} onClick={() => action(data.connection.status === 'connected' ? 'Reconnect Pinterest' : 'Connect Pinterest', 'pinterest', {
+            action: 'connect'
+          })}>Connect / Reconnect</button><button disabled={data.connection.status !== 'connected'} onClick={() => action(data.connection.paused ? 'Enable Pinterest display' : 'Pause Pinterest display', 'pinterest', {
+            action: 'pause',
+            paused: !data.connection.paused
+          })}>{data.connection.paused ? 'Enable display' : 'Pause display'}</button><button className={styles.danger} onClick={() => action('Disconnect Pinterest', 'pinterest', {
+            action: 'disconnect'
+          })}>Disconnect</button></div></article><article><h2>Request allowance</h2><p>{data.usage.day} / {data.usage.dayLimit} in 24 hours</p><p>{data.usage.minute} / {data.usage.minuteLimit} this minute</p><p>Oldest daily request resets {date(data.usage.dayReset)}</p><p>Provider pause until {date(data.usage.blockedUntil)}</p><small>Dashboard verification uses the same beta allowance. Counters cannot be reset here.</small></article></div><h2>Shared public boards</h2>{data.boards.map(b => <BoardForm key={b.topic + data.connection.version} board={b} action={action} />)}<p>Users browse LaQue’s shared collection without connecting a personal Pinterest account. Shared-board display requires Pinterest approval; this does not enable partner search.</p>{!data.oauthMode && <p className={styles.notice}>OAuth display has not been activated in the beta backend. The existing test-token adapter is still in use.</p>}</>;
+}
+function BoardForm({
+  board,
+  action
+}) {
+  const [id, setId] = useState(board.board_id),
+    [label, setLabel] = useState(board.label);
+  return <article className={styles.editor}><h3>{friendly(board.topic)}</h3><TextField label="Public board ID" value={id} onChange={setId} /><TextField label="LaQue topic label" value={label} onChange={setLabel} /><p>{board.active ? 'Active' : 'Inactive'} · last verified {date(board.verified_at)}</p><div className={styles.inline}><button onClick={() => action('Verify public visibility and activate board', 'pinterest', {
+        action: 'board',
+        topic: board.topic,
+        boardId: id,
+        label,
+        active: true
+      })}>Verify & activate</button><button onClick={() => action('Deactivate board', 'pinterest', {
+        action: 'board',
+        topic: board.topic,
+        boardId: id,
+        label,
+        active: false
+      })}>Deactivate</button></div></article>;
+}
+function ImageUpload({
+  onUploaded
+}) {
+  const [file, setFile] = useState(null),
+    [reason, setReason] = useState(''),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState('');
+  return <div className={styles.editor}><Field label="Upload photo (JPEG, PNG, WebP · 8 MB)"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => setFile(e.target.files[0])} /></Field><TextField label="Upload reason" value={reason} onChange={setReason} /><button type="button" disabled={busy || !file || reason.trim().length < 5} onClick={async () => {
+      setBusy(true);
+      setError('');
+      try {
+        const {
+          data: {
+            session
+          }
+        } = await supabase.auth.getSession();
+        const body = new FormData();
+        body.set('file', file);
+        body.set('reason', reason);
+        const r = await fetch('/api/admin/media', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`
+          },
+          body
+        });
+        const result = await r.json();
+        if (!r.ok) throw Error(result.error);
+        onUploaded(result.url,result.previewUrl);
+        setFile(null);
+        setReason('');
+      } catch (e) {
+        setError(e.message);
+      } finally {
+        setBusy(false);
+      }
+    }}>{busy ? 'Uploading…' : 'Upload image'}</button>{error && <p role="alert">{error}</p>}</div>;
 }

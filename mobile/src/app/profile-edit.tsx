@@ -1,92 +1,86 @@
-import { useState } from "react";
-import { router } from "expo-router";
-import {
-  Button,
-  Field,
-  Notice,
-  QueryState,
-  RequireAuth,
-  Screen,
-} from "../components/ui";
-import { useProfile, queryClient } from "../lib/auth";
+import { router, useNavigation } from "expo-router";
+import { usePreventRemove } from "expo-router/react-navigation";
+import { QueryState, RequireAuth } from "../components/ui";
+import { useProfile, useAuth, queryClient } from "../lib/auth";
+import { chooseAndUpload } from "../lib/upload";
 import { api } from "../lib/api";
-import type { Profile } from "../lib/types";
-function Form({ profile }: { profile: Profile }) {
-  const [name, setName] = useState(profile.display_name || ""),
-    [username, setUsername] = useState(profile.username || ""),
-    [location, setLocation] = useState(profile.location || ""),
-    [bio, setBio] = useState(profile.bio || ""),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
-  const save = async () => {
-    setBusy(true);
-    try {
-      if (!name.trim()) throw new Error("Enter your display name.");
-      await api("/update-profile", {
-        display_name: name.trim(),
-        username: username.trim() || null,
-        location: location.trim(),
-        bio: bio.trim(),
-      });
-      await queryClient.invalidateQueries();
-      router.back();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <>
-      <Field
-        label="Display name"
-        value={name}
-        onChangeText={setName}
-        maxLength={80}
-      />
-      <Field
-        label="Username"
-        value={username}
-        onChangeText={setUsername}
-        autoCapitalize="none"
-        maxLength={40}
-      />
-      <Field
-        label="Location / service area"
-        value={location}
-        onChangeText={setLocation}
-        maxLength={160}
-      />
-      <Field
-        label="Bio"
-        value={bio}
-        onChangeText={setBio}
-        multiline
-        maxLength={1000}
-      />
-      <Button title="Save changes" busy={busy} onPress={() => void save()} />
-      {error && <Notice error>{error}</Notice>}
-    </>
-  );
-}
+import { accountScope } from "../lib/account-scope";
+import { Button, Notice, Screen } from "../features/secondary/primitives";
+import { ProfileForm } from "../features/secondary/profile-form";
+import { useProfileExit } from "../features/secondary/profile-exit";
 function Edit() {
-  const query = useProfile();
+  const query = useProfile(),
+    p = query.data;
+  const { session } = useAuth();
+  const navigation = useNavigation();
+  const exit = useProfileExit();
+  usePreventRemove(
+    !!session && (exit.status.dirty || exit.status.busy),
+    ({ data }) => exit.requestExit(() => navigation.dispatch(data.action)),
+  );
   return (
-    <QueryState
-      loading={query.isPending}
-      error={query.error}
-      retry={() => void query.refetch()}
-    >
-      {query.data && <Form profile={query.data} />}
-    </QueryState>
+    <Screen onBack={() => router.back()} title="Edit profile">
+      <QueryState
+        loading={query.isPending}
+        error={p ? null : query.error}
+        retry={() => void query.refetch()}
+      >
+        {!!p && !!query.error && (
+          <>
+            <Notice error>
+              Couldn’t refresh your saved profile. Your edits are still here.
+            </Notice>
+            <Button
+              title="Retry profile refresh"
+              secondary
+              onPress={() => void query.refetch()}
+            />
+          </>
+        )}
+        {p && (
+          <ProfileForm
+            key={p.id}
+            onStatusChange={exit.onStatusChange}
+            avatar={p.avatar_url}
+            banner={p.banner_url}
+            onPick={async (kind) => {
+              const image = await chooseAndUpload(
+                kind === "avatar" ? "profile-avatar" : "profile-banner",
+              );
+              return image
+                ? { url: image.privateUrl, preview: image.previewUrl }
+                : null;
+            }}
+            initial={{
+              display_name: p.display_name || "",
+              username: p.username || "",
+              location: p.location || "",
+              bio: p.bio || "",
+              booking_area: p.booking_area || "",
+              specialties: p.specialties || [],
+              role: p.account_type === "user" ? "Customer" : "Creator",
+            }}
+            onSave={async ({ role: _role, ...fields }) => {
+              const ticket = accountScope.capture();
+              await api("/update-profile", {
+                ...fields,
+                username: fields.username || null,
+              });
+              accountScope.assert(ticket);
+              await queryClient.invalidateQueries();
+              accountScope.assert(ticket);
+            }}
+          />
+        )}
+      </QueryState>
+      {exit.dialog}
+    </Screen>
   );
 }
 export default function EditProfile() {
   return (
-    <Screen title="Edit profile" back>
-      <RequireAuth>
-        <Edit />
-      </RequireAuth>
-    </Screen>
+    <RequireAuth>
+      <Edit />
+    </RequireAuth>
   );
 }

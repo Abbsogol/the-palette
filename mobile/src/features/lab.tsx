@@ -1,31 +1,19 @@
-import { useEffect, useState } from "react";
-import { AppState, Text } from "react-native";
-import { Image } from "expo-image";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AppState } from "react-native";
 import * as Crypto from "expo-crypto";
-import { router } from "expo-router";
-import {
-  Button,
-  Card,
-  Chips,
-  Field,
-  Notice,
-  RequireAuth,
-  Screen,
-  styles,
-} from "../components/ui";
-import { api, ApiError, checked } from "../lib/api";
-import { useProfile, queryClient } from "../lib/auth";
+import { router, useFocusEffect } from "expo-router";
+import { RequireAuth } from "../components/ui";
+import { LabView, GeneratedResult } from "./lab-ui/lab-view";
+import { defaultLabSettings, type LabSettings } from "./lab-ui/model";
+import type { AccountTicket } from "../lib/account-scope";
+import { api, ApiError } from "../lib/api";
+import { useProfile, useAccountQuery, queryClient } from "../lib/auth";
 import { accountScope } from "../lib/account-scope";
 import { readPending, writePending } from "../lib/pending";
 import { setSaved } from "../lib/designs";
-import { supabase } from "../lib/supabase";
-type Request = {
+
+type Request = LabSettings & {
   requestId: string;
-  shape: string;
-  length: string;
-  vibe: string[];
-  colors: string[];
-  customText: string;
   freeRegen?: boolean;
   parentGenerationId?: string;
 };
@@ -39,37 +27,50 @@ type Result = {
 };
 function Lab() {
   const profile = useProfile();
-  const [shape, setShape] = useState("Almond"),
-    [length, setLength] = useState("Medium"),
-    [vibe, setVibe] = useState("Minimal"),
-    [colors, setColors] = useState(""),
-    [prompt, setPrompt] = useState(""),
-    [pending, setPending] = useState<Request | null>(null),
-    [result, setResult] = useState<Result | null>(null),
-    [error, setError] = useState(""),
-    [notice, setNotice] = useState(""),
-    [busy, setBusy] = useState(false);
+  const billing = useAccountQuery(["billing"], () => api<import("./credits/model").CreditBillingState>("/mobile/billing"));
+  const { refetch: refreshBilling } = billing;
+  useFocusEffect(useCallback(() => {
+    void refreshBilling();
+    const listener = AppState.addEventListener("change", state => { if(state === "active") void refreshBilling(); });
+    return () => listener.remove();
+  }, [refreshBilling]));
+  const [settings, setSettings] = useState(defaultLabSettings);
+  const [pending, setPending] = useState<Request | null>(null);
+  const [result, setResult] = useState<Result | null>(null);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [recovering, setRecovering] = useState(true);
+  const mutation = useRef(false);
+  const [recoveryAttempt, setRecoveryAttempt] = useState(0);
   useEffect(() => {
-    void readPending<Request>("generation")
-      .then(setPending)
-      .catch((e) => setError(e.message));
-  }, []);
-  const accept = async (data: Result) => {
+    let active = true;
+    const ticket = accountScope.capture();
+    void readPending<Request>("generation", ticket)
+      .then((request) => {
+        if (!active || !accountScope.isCurrent(ticket)) return;
+        accountScope.assert(ticket);
+        setPending(request);
+        setRecovering(false);
+      })
+      .catch((e) => {
+        if (active && accountScope.isCurrent(ticket)) setError(e.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, [recoveryAttempt]);
+  const accept = async (data: Result, ticket: AccountTicket) => {
+    accountScope.assert(ticket);
     if (data.generationId && data.imageUrl) {
-      await writePending("generation", null, accountScope.capture());
-      const saved = await checked<{ free_regen_used: boolean }>(
-        supabase
-          .from("nail_lab_generations")
-          .select("free_regen_used")
-          .eq("id", data.generationId)
-          .single(),
-      );
-      setResult({ ...data, freeRegenUsed: saved.free_regen_used });
+      await writePending("generation", null, ticket);
+      accountScope.assert(ticket);
+      setResult(data);
       setPending(null);
       setNotice("Your design is ready.");
       await queryClient.invalidateQueries();
     } else if (data.status === "released") {
-      await writePending("generation", null, accountScope.capture());
+      await writePending("generation", null, ticket);
       setPending(null);
       setNotice(
         "This attempt ended. Your current balance is shown above. You can start a new generation.",
@@ -88,7 +89,8 @@ function Lab() {
       if (AppState.currentState !== "active") return;
       void api<Result>(`/generation-status?requestId=${pending.requestId}`)
         .then(async (data) => {
-          if (active && accountScope.isCurrent(ticket)) await accept(data);
+          if (active && accountScope.isCurrent(ticket))
+            await accept(data, ticket);
         })
         .catch((e) => {
           if (active && accountScope.isCurrent(ticket))
@@ -112,7 +114,9 @@ function Lab() {
     // This effect follows only the durable request identity; UI settings may change independently.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pending?.requestId]);
-  const generate = async (free = false) => {
+  const generate = async () => {
+    if (mutation.current || recovering) return;
+    mutation.current = true;
     setBusy(true);
     setError("");
     setNotice("");
@@ -120,23 +124,15 @@ function Lab() {
     try {
       const request = pending || {
         requestId: Crypto.randomUUID(),
-        shape,
-        length,
-        vibe: [vibe],
-        colors: colors
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean),
-        customText: prompt,
-        ...(free && result?.generationId
-          ? { freeRegen: true, parentGenerationId: result.generationId }
-          : {}),
+        ...settings,
+
       };
       await writePending("generation", request, ticket);
+      accountScope.assert(ticket);
       setPending(request);
       const data = await api<Result>("/generate-nail-design", request);
       accountScope.assert(ticket);
-      await accept(data);
+      await accept(data, ticket);
     } catch (e) {
       if (
         e instanceof ApiError &&
@@ -146,140 +142,74 @@ function Lab() {
         await writePending("generation", null, ticket);
         setPending(null);
       }
-      setError((e as Error).message);
+      if (accountScope.isCurrent(ticket)) setError((e as Error).message);
     } finally {
-      setBusy(false);
+      mutation.current = false;
+      if (accountScope.isCurrent(ticket)) setBusy(false);
     }
   };
   const publish = async (asDraft: boolean) => {
+    if (mutation.current) return;
+    mutation.current = true;
+    const ticket = accountScope.capture();
     setBusy(true);
     setError("");
     try {
       const { designId } = await api<{ designId: string }>(
         "/publish-nail-lab-generation",
-        { generationId: result!.generationId, asDraft },
+        { generationId: result!.generationId, asDraft: true },
       );
-      if (asDraft) await setSaved(accountScope.capture().id!, designId, true);
+      accountScope.assert(ticket);
+      if (asDraft) await setSaved(ticket.id!, designId, true);
       await queryClient.invalidateQueries();
-      router.push({ pathname: "/design/[id]", params: { id: designId } });
+      accountScope.assert(ticket);
+      router.push(asDraft ? { pathname: "/design/[id]", params: { id: designId, from: "lab" } } : { pathname: "/portfolio-edit", params: { id: designId } });
     } catch (e) {
-      setError((e as Error).message);
+      if (accountScope.isCurrent(ticket)) setError((e as Error).message);
     } finally {
-      setBusy(false);
+      mutation.current = false;
+      if (accountScope.isCurrent(ticket)) setBusy(false);
     }
   };
   return (
-    <>
-      <Text style={styles.text}>Your next set starts with an idea.</Text>
-      <Card>
-        <Text style={styles.subtitle}>
-          {profile.data?.credit_balance ?? "…"} credits
-        </Text>
-        <Button
-          title="Credits & subscriptions"
-          secondary
-          onPress={() => router.push("/billing")}
-        />
-        <Button
-          title="Generation history"
-          secondary
-          onPress={() => router.push("/generation-history")}
-        />
-      </Card>
-      <Chips
-        label="Shape"
-        values={["Almond", "Oval", "Square", "Coffin", "Stiletto", "Round"]}
-        value={shape}
-        onChange={setShape}
-      />
-      <Chips
-        label="Length"
-        values={["Short", "Medium", "Long", "Extra Long"]}
-        value={length}
-        onChange={setLength}
-      />
-      <Chips
-        label="Vibe"
-        values={[
-          "Minimal",
-          "Dark",
-          "Glam",
-          "Y2K",
-          "Bridal",
-          "Floral",
-          "Abstract",
-          "Coastal",
-        ]}
-        value={vibe}
-        onChange={setVibe}
-      />
-      <Field
-        label="Colours, separated by commas"
-        value={colors}
-        onChangeText={setColors}
-        maxLength={300}
-      />
-      <Field
-        label="Describe your idea"
-        value={prompt}
-        onChangeText={setPrompt}
-        multiline
-        maxLength={500}
-      />
-      <Button
-        title={
-          pending ? "Retry / recover this generation" : "Generate · 1 credit"
-        }
-        busy={busy}
-        onPress={() => void generate()}
-      />
-      {pending && (
-        <Notice>
-          The same request is kept through interruptions. Retrying it does not
-          create a second charge.
-        </Notice>
-      )}
-      {notice && <Notice>{notice}</Notice>}
-      {error && <Notice error>{error}</Notice>}
+    <LabView
+      settings={settings}
+      onSettings={setSettings}
+      credits={billing.error ? null : (billing.data?.credits ?? null)}
+      subscribed={billing.data?.subscription?.active ?? false}
+      subscriptionLoading={billing.isPending}
+      recovering={recovering}
+      pending={!!pending}
+      busy={busy}
+      error={error || billing.error?.message || profile.error?.message}
+      notice={notice}
+      onRetry={() => {
+        setError("");
+        setRecovering(true);
+        setRecoveryAttempt((value) => value + 1);
+        void profile.refetch();
+      }}
+      onGenerate={() => void generate()}
+      onHistory={() => router.push("/generation-history")}
+      onCredits={() => router.push("/billing")}
+    >
       {result?.imageUrl && (
-        <>
-          <Image
-            source={result.imageUrl}
-            contentFit="contain"
-            style={{ width: "100%", aspectRatio: 1.5, borderRadius: 24 }}
-            cachePolicy="none"
-            accessibilityLabel="Generated nail design"
-          />
-          <Button
-            title="Save privately"
-            disabled={busy}
-            onPress={() => void publish(true)}
-          />
-          <Button
-            title="Publish to community"
-            secondary
-            disabled={busy}
-            onPress={() => void publish(false)}
-          />
-          {!result.freeRegenUsed && (
-            <Button
-              title="Try one free variation"
-              secondary
-              disabled={busy || !!pending}
-              onPress={() => void generate(true)}
-            />
-          )}
-        </>
+        <GeneratedResult
+          imageUrl={result.imageUrl}
+          busy={busy}
+          freeAvailable={false}
+          onSave={() => void publish(true)}
+          onPublish={() => void publish(false)}
+          onVariation={() => void generate()}
+        />
       )}
-    </>
+    </LabView>
   );
 }
 export default function LabScreen() {
   return (
-    <Screen title="LaQue Lab">
-      <RequireAuth>
-        <Lab />
-      </RequireAuth>
-    </Screen>
+    <RequireAuth>
+      <Lab />
+    </RequireAuth>
   );
 }

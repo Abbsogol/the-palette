@@ -1,6 +1,6 @@
 # Isolated environment and account setup
 
-Expo is linked to `@kiimiia/laque-mobile`. The owner still needs Apple Developer, Google Play Console and RevenueCat accounts and their platform agreements. Keep passwords, keys and recovery codes out of chat and Git. Account/project names or IDs are enough for coordination; use each provider's normal secret settings for keys.
+Expo is linked to `@kiimiia/laque-mobile`. As of 28 September, the owner reports Apple Developer and Google Play accounts are under review and will create RevenueCat after approval. Store signing and distribution remain unverified. The isolated OpenAI **LaQue Beta** project exists; its credential and generation verification are pending. Resend is configured in the beta backend and Supabase Auth with a sending-only key restricted to **laque.app**; SMTP authentication passed, while inbox delivery and signup/recovery journeys remain unverified. See `account-setup.md` and `service-connections.json` for current evidence. Keep passwords, keys and recovery codes out of chat and Git. Account/project names or IDs are enough for coordination; use each provider's normal secret settings for keys.
 
 1. Create a separate Supabase project and a separate backend deployment for development/beta, with synthetic data only. Record their IDs/origins. Obtain/review a schema-only baseline and rehearse migrations 001–022 in a disposable staging database. The regression fixture is not a deployable Supabase baseline.
 2. Configure separate Storage, email delivery, Google/Apple OAuth clients, Stripe **test** keys/webhook endpoint and AI credentials/budget. Verify an incoming JWT is from this project. Do not copy production environment files. The recorded production ref `faunikvhoommbebsmevg` is rejected by the mobile handshake.
@@ -40,6 +40,8 @@ After isolation is verified, create `beta-customer-1`, `beta-customer-2` (strang
 Official setup references: [Expo push](https://docs.expo.dev/push-notifications/push-notifications-setup/), [Expo native billing](https://docs.expo.dev/guides/in-app-purchases/), [Expo EAS/Maestro builds](https://docs.expo.dev/eas/workflows/examples/e2e-tests/).
 
 ## Expo preview before store enrollment
+
+For a physical iPhone development client connected to the existing beta services, use `beta-development` (`npm --prefix mobile run build:connected:ios`). It selects EAS Preview, whose four public backend settings were compared successfully with local beta settings on 2026-09-28. The original Development EAS environment is empty and must not be treated as connected. The beta app config allows initial EAS project discovery before variables are loaded, but requires the service configuration on the build worker; the app also checks configuration and backend identity before authentication. iPhone signing remains blocked pending Apple enrollment and suitable credentials. See `google-sign-in.md`.
 
 The `preview` EAS profile builds a standalone Android APK for direct installation and an iOS Simulator app for a Mac. These do not require Google Play Console or paid Apple Developer enrollment. An Expo account/project and verified isolated service configuration are still needed for a useful connected preview. Without service configuration the app shows its setup screen.
 

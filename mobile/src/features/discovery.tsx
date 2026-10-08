@@ -18,11 +18,11 @@ import { checked } from "../lib/api";
 import { supabase } from "../lib/supabase";
 import type { Profile } from "../lib/types";
 
-export default function Discovery({ search = false }: { search?: boolean }) {
+export default function Discovery({ search = false, initialQuery = "", initialMode = "Designs" }: { search?: boolean; initialQuery?: string; initialMode?: string }) {
   const { session, epoch } = useAuth();
-  const [input, setInput] = useState(""),
-    [query, setQuery] = useState(""),
-    [mode, setMode] = useState("Designs");
+  const [input, setInput] = useState(initialQuery),
+    [query, setQuery] = useState(initialQuery.trim()),
+    [mode, setMode] = useState(initialMode === "Artists" ? "Artists" : "Designs");
   const [vibe, setVibe] = useState("All"),
     [length, setLength] = useState("All"),
     [shape, setShape] = useState("All"),

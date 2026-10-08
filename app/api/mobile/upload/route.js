@@ -10,7 +10,7 @@ export async function POST(request) {
   if (!form) return mobileJson({ error: "Invalid upload" }, 400);
   const kind = form.get("kind"),
     conversationId = form.get("conversationId");
-  if (!["design", "message"].includes(kind))
+  if (!["design", "message", "profile-avatar", "profile-banner"].includes(kind))
     return mobileJson({ error: "Invalid upload type" }, 400);
   if (kind === "message") {
     if (!uuidPattern.test(conversationId || ""))
@@ -22,40 +22,32 @@ export async function POST(request) {
       .single();
     if (error || !data)
       return mobileJson({ error: "Conversation unavailable" }, 403);
-  } else {
-    const { data, error } = await serviceClient
-      .from("profiles_data")
-      .select("account_type")
-      .eq("id", user.id)
-      .single();
-    if (
-      error ||
-      !["creator", "salon", "nail_artist"].includes(data?.account_type)
-    )
-      return mobileJson({ error: "Creator account required" }, 403);
   }
+
   let bytes;
   try {
     bytes = await validatedImage(form.get("file"));
   } catch (error) {
     return mobileJson({ error: error.message }, 400);
   }
-  const path =
+  const profileMedia = kind === "profile-avatar" || kind === "profile-banner";
+  const bucket = profileMedia ? "designs" : "mobile-uploads";
+  const path = profileMedia ? `${kind === "profile-avatar" ? "avatars" : "banners"}/${user.id}/${randomUUID()}.webp` :
     kind === "message"
       ? `${user.id}/messages/${conversationId}/${randomUUID()}.webp`
       : `${user.id}/designs/${randomUUID()}.webp`;
   const { error: queueError } = await serviceClient
     .from("mobile_media_cleanup")
-    .insert({ bucket: "mobile-uploads", path, user_id: user.id });
+    .insert({ bucket, path, user_id: user.id });
   if (queueError)
     return mobileJson({ error: "Upload could not be prepared" }, 503);
   const { error } = await serviceClient.storage
-    .from("mobile-uploads")
+    .from(bucket)
     .upload(path, bytes, { contentType: "image/webp", upsert: false });
   if (error)
     return mobileJson({ error: "Image upload failed. Please retry." }, 503);
   const { data: signed, error: signError } = await serviceClient.storage
-    .from("mobile-uploads")
+    .from(bucket)
     .createSignedUrl(path, 900);
   if (signError)
     return mobileJson(
@@ -65,6 +57,6 @@ export async function POST(request) {
   return mobileJson({
     path,
     previewUrl: signed.signedUrl,
-    privateUrl: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/mobile-uploads/${path}`,
+    privateUrl: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`,
   });
 }

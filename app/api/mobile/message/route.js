@@ -30,6 +30,10 @@ export async function POST(request) {
       design_id: designId,
       image_path: imagePath,
     };
+  if (designId && !imagePath) {
+    const result = await client.rpc("send_design_message", { p_id:id, p_conversation:conversationId, p_design:designId, p_content:content.trim() });
+    return result.error ? mobileJson({error:"Design could not be shared. Check the recipient’s access and retry."},403) : mobileJson({message:result.data});
+  }
   const { data, error } = await client
     .from("messages")
     .insert(message)

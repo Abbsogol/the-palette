@@ -26,11 +26,12 @@ it('REG-02: reserves the last credit before incurring a second generation cost',
   expect(env.state.charged).toBe(1)
 })
 
-it('REG-06: restores the free regeneration after an upstream network exception', async () => {
+it('REG-06: retired free regeneration is rejected before any provider call', async () => {
   const env = setup({ failFetch: true })
-  expect((await POST(jsonRequest({ ...body, requestId: randomUUID(), freeRegen: true, parentGenerationId: 'parent-a' }))).status).toBe(500)
+  expect((await POST(jsonRequest({ ...body, requestId: randomUUID(), freeRegen: true, parentGenerationId: 'parent-a' }))).status).toBe(410)
   expect(env.state.inserts).toBe(0)
   expect(env.state.freeRegenUsed).toBe(false)
+  expect(env.fetch).not.toHaveBeenCalled()
 })
 
 it('REG-05: rejects unsupported reference-image mode without charging for a misleading result', async () => {

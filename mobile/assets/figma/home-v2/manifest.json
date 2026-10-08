@@ -1,0 +1,47 @@
+{
+  "fileKey": "VEodtjFruvXPaIwWW2BjMC",
+  "node": "345:3470",
+  "retrieved": "2026-09-28",
+  "assets": [
+    {
+      "file": "38c1e.svg",
+      "bytes": 1169,
+      "sha256": "86bb881b09cb639f74a94209f2e066ba129c00091fa8d92b93beece2114d72b5"
+    },
+    {
+      "file": "79f04.png",
+      "bytes": 1222079,
+      "sha256": "58e7a5103201de222204b9f4059a438ffb270f3445a573ffd93623bb48622bb8"
+    },
+    {
+      "file": "8062b.png",
+      "bytes": 191614,
+      "sha256": "06aac0996b27793a6d7981963dcc0195e4211639caf59fba0180b627e2c005eb"
+    },
+    {
+      "file": "b6228.png",
+      "bytes": 117939,
+      "sha256": "a914f1245ccb600788905e28ddd36ad3ce630034511317173e52b0e9241722fc"
+    },
+    {
+      "file": "cbb9b.svg",
+      "bytes": 1989,
+      "sha256": "67cf7e4f928cfc28e474876fd92e07793e2278528adc82b9cde77ae134ecf8e3"
+    },
+    {
+      "file": "fadbd.svg",
+      "bytes": 306,
+      "sha256": "97fe58db801ef186ec2455e0ee52618b53d9f225ffd3ea244c04c770099dac40"
+    },
+    {
+      "file": "hero.png",
+      "bytes": 376679,
+      "sha256": "d927b8c557ceb91a54df3c67b6bf34883cec5171ac7ab424257dd153de91e0a9"
+    },
+    {
+      "file": "102c4.png",
+      "bytes": 1164272,
+      "sha256": "b141a5d53dca6000d4f245f8250b380c837ed3f31c221abcc1f3402f31e3ec19"
+    }
+  ]
+}
