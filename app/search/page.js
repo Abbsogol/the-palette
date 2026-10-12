@@ -107,7 +107,37 @@ async function buildDesignQuery({ filters, text, tagFilter, sort, forCount = fal
       : q.order('created_at', { ascending: false })
   }
 
-  if (text?.trim()) q = q.ilike('title', `%${text.trim()}%`)
+  if (text?.trim()) {
+    // Strip characters that would break the PostgREST or() syntax (commas,
+    // brackets, quotes, backslash); the rest is matched case-insensitively.
+    const safe = text.trim().replace(/[,()\[\]{}"'\\]/g, ' ').replace(/\s+/g, ' ').trim()
+    if (safe) {
+      const like = `%${safe}%`
+      // Tags and colours live in other tables — resolve matching rows to design
+      // ids first (deterministically ordered + capped so the request URL can't
+      // blow up), then fold those ids into the same OR as the text columns. The
+      // ordering + fixed cap make the id set identical for the list and the
+      // forCount query, so the "Show N results" number can't disagree.
+      const [{ data: tagNameRows }, { data: colourRows }] = await Promise.all([
+        supabase.from('tags').select('id').ilike('name', like).order('id', { ascending: true }).limit(500),
+        supabase.from('design_colours').select('design_id').ilike('colour_name', like).order('design_id', { ascending: true }).limit(1000),
+      ])
+      let tagDesignIds = []
+      const tagIds = tagNameRows?.map(r => r.id) || []
+      if (tagIds.length) {
+        const { data: dtRows } = await supabase
+          .from('design_tags').select('design_id').in('tag_id', tagIds)
+          .order('design_id', { ascending: true }).limit(1000)
+        tagDesignIds = dtRows?.map(r => r.design_id) || []
+      }
+      const colourDesignIds = colourRows?.map(r => r.design_id) || []
+      const textIds = [...new Set([...tagDesignIds, ...colourDesignIds])].sort().slice(0, 200)
+      const orParts = ['title', 'description', 'occasion', 'technique', 'category', 'shape', 'length']
+        .map(col => `${col}.ilike.${like}`)
+      if (textIds.length) orParts.push(`id.in.(${textIds.join(',')})`)
+      q = q.or(orParts.join(','))
+    }
+  }
 
   if (filters.vibe.length) {
     const keywords = [...new Set(filters.vibe.flatMap(v => VIBE_MAP[v] || []))]
