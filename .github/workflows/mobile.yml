@@ -54,7 +54,9 @@ jobs:
           packages: platform-tools
       - run: npm ci
       - run: npx expo prebuild --platform android --no-install
-      - run: ./android/gradlew -p android assembleRelease --no-daemon
+      # Universal APK packaging exhausted the generated 2 GiB heap on CI.
+      # Keep all ABIs; bound worker concurrency and budget memory explicitly.
+      - run: ./android/gradlew -p android assembleRelease --no-daemon --max-workers=2 '-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g' -Dorg.gradle.parallel=false
       - uses: actions/upload-artifact@v4
         with:
           name: android-local-smoke-apk

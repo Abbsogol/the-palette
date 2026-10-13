@@ -10,6 +10,8 @@ Android's previous resource compilation failure was caused by JPEG bytes named `
 
 The shared PostgreSQL CI runner also repeatedly hit the five-second unit-test deadline in the multi-query private-media RLS integration. That single test now has a bounded 30-second integration deadline. Its public, draft, private, hidden, restored and malformed-path assertions, migrations and database policies are unchanged. Other tests retain their existing deadlines.
 
+The universal Android APK passed in the branch workflow but exhausted the generated two-GiB Java heap while packaging in the duplicate pull-request workflow. CI now explicitly budgets a four-GiB heap and one-GiB metaspace, with two workers and cross-project parallelism disabled. All four Android ABIs and Release build checks remain enabled.
+
 ## Verification
 
 - Full backend suite: 109 files, 1,004 passed, two skipped with PGlite.
