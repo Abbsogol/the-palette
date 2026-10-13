@@ -1,6 +1,6 @@
 export const profileAssets = {
-  publicCover: require("../../../assets/figma/profiles/65ac4.png"),
-  ownerCover: require("../../../assets/figma/profiles/ce0f1.png"),
+  publicCover: require("../../../assets/figma/profiles/65ac4.jpg"),
+  ownerCover: require("../../../assets/figma/profiles/ce0f1.jpg"),
   back: require("../../../assets/figma/profiles/b9cb8.svg"),
   share: require("../../../assets/figma/profiles/165ca.svg"),
   more: require("../../../assets/figma/profiles/d501b.svg"),

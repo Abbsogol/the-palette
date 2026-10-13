@@ -4,6 +4,21 @@
     "appVersionSource": "remote"
   },
   "build": {
+    "production": {
+      "distribution": "store",
+      "developmentClient": false,
+      "environment": "production",
+      "autoIncrement": true,
+      "env": {
+        "APP_VARIANT": "production",
+        "EXPO_PUBLIC_APP_ENV": "production",
+        "EXPO_PUBLIC_API_URL": "https://www.laque.app",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://faunikvhoommbebsmevg.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_PROJECT_REF": "faunikvhoommbebsmevg",
+        "EXPO_PUBLIC_DESIGN_PREVIEW": "0"
+      }
+    },
+    "production-release-candidate": { "extends": "production" },
     "development": {
       "developmentClient": true,
       "distribution": "internal",
@@ -81,6 +96,8 @@
     }
   },
   "submit": {
+    "production-release-candidate": { "android": { "track": "internal" } },
+    "production": { "android": { "track": "production" } },
     "beta": {
       "android": {
         "track": "internal"

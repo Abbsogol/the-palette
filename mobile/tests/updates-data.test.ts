@@ -86,50 +86,10 @@ test("late Updates reads cannot return after the account changes", async () => {
     listHomeUpdates("owner", 24, new AbortController().signal),
   ).rejects.toThrow(/account changed/);
 });
-test("confirmed existing note reconciles a lost response without inserting again", async () => {
-  const existing = query([{ ...row, media: [] }]);
-  jest.mocked(supabase.from).mockReturnValue(existing as never);
-  await publishUpdate("note", "  Studio note  ");
-  expect(existing.insert).not.toHaveBeenCalled();
-  expect(existing.eq).toHaveBeenCalledWith("creator_id", "owner");
-});
-test.each([
-  { ...row, body: "Another note", media: [] },
-  { ...row, media: [{ path: "photo" }] },
-  { ...row, creator_id: "stranger", media: [] },
-])(
-  "a mismatched existing note cannot become publish success: %j",
-  async (existing) => {
-    const q = query([existing]);
-    jest.mocked(supabase.from).mockReturnValue(q as never);
-    await expect(publishUpdate("note", "Studio note")).rejects.toThrow(
-      /does not match/,
-    );
-    expect(q.insert).not.toHaveBeenCalled();
-  },
-);
-test("a new note requires a matching server acknowledgement", async () => {
-  const read = query([]),
-    write = query({});
-  jest
-    .mocked(supabase.from)
-    .mockReturnValueOnce(read as never)
-    .mockReturnValueOnce(write as never);
-  await expect(publishUpdate("note", "Studio note")).rejects.toThrow(
-    /could not be confirmed/,
-  );
-  expect(write.insert).toHaveBeenCalledWith({
-    id: "note",
-    creator_id: "owner",
-    body: "Studio note",
-    media: [],
-    tags: [],
-    mentioned_user_ids: [],
-  });
-});
-test("signed-out and blank updates stop before database calls", async () => {
-  await expect(publishUpdate("note", " ")).rejects.toThrow(/Write an update/);
-  accountScope.change(null);
-  await expect(publishUpdate("note", "Studio note")).rejects.toThrow(/Sign in/);
-  expect(supabase.from).not.toHaveBeenCalled();
+test("legacy update publishing is retired and never writes to Community tables", async () => {
+ await expect(publishUpdate("note", "Studio note")).rejects.toThrow(/Admin Studio/);
+ expect(supabase.from).not.toHaveBeenCalled();
+ accountScope.change(null);
+ await expect(publishUpdate("note", "Studio note")).rejects.toThrow(/Admin Studio/);
+ expect(supabase.from).not.toHaveBeenCalled();
 });

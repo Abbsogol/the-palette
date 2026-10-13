@@ -2,6 +2,7 @@ import { getSessionUser, serviceClient as db } from "@/lib/auth";
 import { mobileJson, uuidPattern } from "@/lib/mobile-auth";
 import { reconcileMobileBilling } from "@/lib/mobile-billing";
 import { readMobileCreditHistory } from "@/lib/mobile-credit-history";
+import { labStripeStatus } from "@/lib/lab-stripe";
 export async function GET(request) {
   const user = await getSessionUser(request, { allowSuspended: true });
   if (!user) return mobileJson({ error: "Unauthorized" }, 401);
@@ -58,7 +59,9 @@ export async function GET(request) {
         !["canceled", "incomplete_expired"].includes(
           profile.data.subscription_status,
         ));
+    const stripeLab = await labStripeStatus(db, user);
     return mobileJson({
+      stripeLab,
       credits: lab.data.active ? lab.data.monthlyRemaining + lab.data.purchasedTokens : 0,
       purchasedTokens: lab.data.purchasedTokens,
       subscription: lab.data,
@@ -76,11 +79,11 @@ export async function GET(request) {
           : []),
         ...active,
       ],
-      canSubscribe: !lab.data.active && !webActive && !active.length && !checkout.data,
-      needsReview: review.data?.needs_review || false,
+      canSubscribe: !lab.data.active && !webActive && !active.length && !checkout.data && !stripeLab?.subscription && !stripeLab?.pending.length,
+      needsReview: review.data?.needs_review || lab.data.needsReview || stripeLab?.needsReview || false,
       pendingPurchases: purchases.data,
       verifiedAt: review.data?.verified_at || null,
-      history,
+      history: stripeLab ? { items: [...stripeLab.history, ...(history?.items || [])].sort((a,b) => new Date(b.purchasedAt || 0)-new Date(a.purchasedAt || 0)).slice(0,20), hasMore: !!history?.hasMore || stripeLab.history.length === 20 } : history,
       configured:
         !!process.env.REVENUECAT_SECRET_KEY &&
         !!process.env.REVENUECAT_WEBHOOK_SECRET &&

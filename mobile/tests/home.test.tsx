@@ -4,6 +4,9 @@ import {
   HomeMainView,
   type HomeMainProps,
 } from "../src/features/home/home-main-view";
+import { UpdatesHubView } from "../src/features/rewards/updates-hub";
+jest.mock("../src/lib/auth", () => ({ useAccountQuery: jest.fn() }));
+jest.mock("../src/lib/api", () => ({ api: jest.fn() }));
 import { HomeNavigation } from "../src/components/home-tab-bar";
 jest.mock(
   "react-native-safe-area-context",
@@ -180,7 +183,9 @@ test("the covered hero leaves the accessibility tree, then returns when the pane
   await fireEvent.scroll(scroll, {
     nativeEvent: { contentOffset: { x: 0, y: 0 } },
   });
-  expect(screen.getByRole("header", { name: "Nail & beauty design library" })).toBeTruthy();
+  expect(
+    screen.getByRole("header", { name: "Nail & beauty design library" }),
+  ).toBeTruthy();
 });
 
 test("a short viewport keeps the hero and content in ordinary scrolling", async () => {
@@ -248,10 +253,49 @@ test("empty and failed feeds retain all controls inside one sticky header", asyn
   ).toBeTruthy();
 });
 
-test('featured designs have their own Explore section and announcements are labelled in Updates',async()=>{
- const p=props();const view=await render(<HomeMainView {...p} featured={{title:'Featured by LaQue',retry:jest.fn(),designs:[{id:'featured',title:'LaQue pick',image:null,saves:0}]}}/>);
- expect(screen.getByText('Featured by LaQue')).toBeTruthy();
- await fireEvent.press(screen.getByRole('button',{name:'View LaQue pick'}));expect(p.onDesign).toHaveBeenCalledWith('featured');
- await view.rerender(<HomeMainView {...p} tab='Updates' announcements={[{id:'news',title:'From the studio',body:'Welcome to the new collection.'}]}/>);
- expect(screen.getByText('LaQue announcement')).toBeTruthy();expect(screen.getByText('From the studio')).toBeTruthy();expect(screen.queryByText('Featured by LaQue')).toBeNull();
+test("featured designs have their own Explore section and announcements are labelled in Updates", async () => {
+  const p = props();
+  const view = await render(
+    <HomeMainView
+      {...p}
+      featured={{
+        title: "Featured by LaQue",
+        retry: jest.fn(),
+        designs: [
+          { id: "featured", title: "LaQue pick", image: null, saves: 0 },
+        ],
+      }}
+    />,
+  );
+  expect(screen.getByText("Featured by LaQue")).toBeTruthy();
+  await fireEvent.press(
+    screen.getByRole("button", { name: "View LaQue pick" }),
+  );
+  expect(p.onDesign).toHaveBeenCalledWith("featured");
+  await view.rerender(
+    <HomeMainView
+      {...p}
+      tab="Updates"
+      updates={
+        <UpdatesHubView
+          news={[
+            {
+              id: "news",
+              title: "From the studio",
+              body: "Welcome to the new collection.",
+            },
+          ]}
+          rewards={{ items: [], winners: [], country: "AE", enabled: false }}
+          onRetry={jest.fn()}
+          onCampaign={jest.fn()}
+          onProfile={jest.fn()}
+          onCountry={jest.fn()}
+          onNotifications={jest.fn()}
+        />
+      }
+    />,
+  );
+  expect(screen.getByText("LAQUE · OFFICIAL UPDATE")).toBeTruthy();
+  expect(screen.getByText("From the studio")).toBeTruthy();
+  expect(screen.queryByText("Featured by LaQue")).toBeNull();
 });

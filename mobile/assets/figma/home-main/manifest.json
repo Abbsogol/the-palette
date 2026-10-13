@@ -3,7 +3,7 @@
   "node": "345:3621",
   "assets": [
     {
-      "file": "008f8.png",
+      "file": "008f8.jpg",
       "bytes": 48597,
       "sha256": "4fd4496658c8571dec63a5c4bab38e7a04ec865017199fd773b8b30a2559263e"
     },
@@ -63,22 +63,22 @@
       "sha256": "b933999391e7a21d573470382522394e78c41585e76ff709a9dd5300082bd6be"
     },
     {
-      "file": "58482.png",
+      "file": "58482.jpg",
       "bytes": 76928,
       "sha256": "9431d9b43b6272f56a1878e12c57a88caff44febda5f5baa7e3e61588cfd5ccf"
     },
     {
-      "file": "60600.png",
+      "file": "60600.jpg",
       "bytes": 72546,
       "sha256": "f8c8e1cd5b7b307d29d4801c9087e5473f2a542c82947074ae7bd2972b45f1f2"
     },
     {
-      "file": "6ca80.png",
+      "file": "6ca80.jpg",
       "bytes": 89559,
       "sha256": "ceaa93fb7bf7e3a97255d8d428610cc140088ae6863c2fd746695f29e9bf0950"
     },
     {
-      "file": "6cdce.png",
+      "file": "6cdce.jpg",
       "bytes": 53149,
       "sha256": "0bce3fd907eda55e82f4967310456541d484bbf900d53eda992ceafed2dae5a0"
     },
@@ -88,7 +88,7 @@
       "sha256": "a288007e7fe341d9b3c7aea1244ed61e7609d9062d2f46ea4aa6ea637a6f392c"
     },
     {
-      "file": "91e79.png",
+      "file": "91e79.jpg",
       "bytes": 78524,
       "sha256": "a84394a01ca6da394eacb1f2a3b528a0339d39183a86cb9beee5c3f5ee65c057"
     },
@@ -123,7 +123,7 @@
       "sha256": "0f24ba4e0673acbcd1ae34d7b41e698402f2ccab968029efd0b04d77856606b8"
     },
     {
-      "file": "d20fb.png",
+      "file": "d20fb.jpg",
       "bytes": 59350,
       "sha256": "311fe1e7448c8f631f53be9d3584336dc52050315af9b3a863f0132dfbf96a59"
     },
@@ -133,7 +133,7 @@
       "sha256": "66550639e2ff227236b85cd45252a4910dbda9a59c2f9fcb9045022ae977c16a"
     },
     {
-      "file": "e8424.png",
+      "file": "e8424.jpg",
       "bytes": 224739,
       "sha256": "f1f959a0b11dfee95db802f244c5ae993e0c79e3fbc8e464bc380ecf934d4d22"
     },
@@ -143,12 +143,12 @@
       "sha256": "70aa08a015462523c4d509097e93ba44e24b4d7f5be2c400a054c5cfd1b5ef11"
     },
     {
-      "file": "eabb1.png",
+      "file": "eabb1.jpg",
       "bytes": 189438,
       "sha256": "6df3adb23080cd137029ba2aab5f1907292358ebe7372bb30b145db4a174baea"
     },
     {
-      "file": "f24ce.png",
+      "file": "f24ce.jpg",
       "bytes": 217645,
       "sha256": "6ab290725b132391aaf851938f46381f0188d6392c11aaa0c5743221b6e0eee3"
     },

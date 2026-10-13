@@ -1,5 +1,5 @@
 import { useEffect, useState, type PropsWithChildren } from "react";
-import { environment } from "../lib/config";
+import { environment, validateServiceIdentity } from "../lib/config";
 import { Button, Loading, Notice, Screen } from "./ui";
 export function ServiceGate({ children }: PropsWithChildren) {
   const [attempt, setAttempt] = useState(0),
@@ -17,9 +17,7 @@ export function ServiceGate({ children }: PropsWithChildren) {
         if (!response.ok)
           throw new Error(config.error || "Services unavailable.");
         if (
-          config.environment !== environment.appEnv ||
-          config.projectRef !== environment.projectRef ||
-          config.contractVersion !== 1
+          !validateServiceIdentity(config, environment)
         )
           throw new Error(
             "This app and backend belong to different environments.",

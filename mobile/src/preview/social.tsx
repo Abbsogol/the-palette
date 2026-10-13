@@ -23,9 +23,9 @@ export const previewPeople = async (q: string) =>
       .includes(q.replace(/^@/, "").toLowerCase()),
   );
 const samples = [
-  require("../../assets/figma/home-main/f24ce.png"),
-  require("../../assets/figma/home-main/6cdce.png"),
-  require("../../assets/figma/home-main/e8424.png"),
+  require("../../assets/figma/home-main/f24ce.jpg"),
+  require("../../assets/figma/home-main/6cdce.jpg"),
+  require("../../assets/figma/home-main/e8424.jpg"),
 ];
 export function SocialComposerPreview({
   kind,

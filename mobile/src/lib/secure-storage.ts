@@ -1,5 +1,6 @@
 import * as SecureStore from "expo-secure-store";
 import * as Crypto from "expo-crypto";
+import { Platform } from "react-native";
 
 type Vault = Pick<
   typeof SecureStore,
@@ -84,7 +85,21 @@ export function createSecureStorage(vault: Vault, uuid: () => string) {
       }),
   };
 }
-export const secureStorage = createSecureStorage(
-  SecureStore,
-  Crypto.randomUUID,
+// SecureStore has no browser implementation. Browser sessions and pending work
+// live only in this page's memory; native sessions retain encrypted storage.
+export function createPlatformSecureStorage(
+  platform: string,
+  nativeVault: Vault,
+  uuid: () => string,
+) {
+  const memory = new Map<string, string>();
+  const vault: Vault = platform === "web" ? {
+    getItemAsync: async (key) => memory.get(key) ?? null,
+    setItemAsync: async (key, value) => { memory.set(key, value); },
+    deleteItemAsync: async (key) => { memory.delete(key); },
+  } : nativeVault;
+  return createSecureStorage(vault, uuid);
+}
+export const secureStorage = createPlatformSecureStorage(
+  Platform.OS, SecureStore, Crypto.randomUUID,
 );

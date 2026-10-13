@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { AppState } from "react-native";
+import { AppState, Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import { router, usePathname, type Href } from "expo-router";
 import { useAuth, useProfile } from "../lib/auth";
@@ -23,7 +23,7 @@ export function AccountNavigation() {
       router.replace("/onboarding");
   }, [session, profile.data, pathname]);
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || Platform.OS === "web") return;
     const ticket = accountScope.capture();
     const handle = (response: Notifications.NotificationResponse | null) => {
       if (!response || !accountScope.isCurrent(ticket)) return;

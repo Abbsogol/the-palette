@@ -22,9 +22,7 @@ import {
 } from "react-native";
 import { StoryViewer, type StoryItem } from "../features/stories/story-ui";
 import { StoryComposerPreview } from "./stories";
-import { UpdateComposer } from "../features/home/update-composer";
-import { UpdatesFeed } from "../features/home/updates-view";
-import type { HomeUpdate } from "../features/home/data";
+import { RewardsPreview, PreviewRewardsProvider, CompetitionGalleryPreview } from "./rewards";
 import LabPreview from "./lab";
 import ProfilePreview from "./profile-booking";
 import MessagesPreview from "./messages";
@@ -38,6 +36,7 @@ import {
   type HomeTab,
   type HomeCategory,
   type HomeSort,
+  type HomeSource,
 } from "../features/home/home-main-view";
 
 export const homeFixtureTrending: HomeDesign[] = [
@@ -45,14 +44,14 @@ export const homeFixtureTrending: HomeDesign[] = [
     id: "rosewood",
     title: "Rosewood Bride",
     saves: 2000,
-    image: require("../../assets/figma/home-main/f24ce.png"),
+    image: require("../../assets/figma/home-main/f24ce.jpg"),
     category: "Minimal",
   },
   {
     id: "cathedral",
     title: "Cathedral",
     saves: 1800,
-    image: require("../../assets/figma/home-main/6cdce.png"),
+    image: require("../../assets/figma/home-main/6cdce.jpg"),
     category: "Glam",
   },
   {
@@ -67,7 +66,7 @@ export const homeFixtureLibrary: HomeDesign[] = [
   {
     id: "matte",
     title: "Matte Black",
-    image: require("../../assets/figma/home-main/e8424.png"),
+    image: require("../../assets/figma/home-main/e8424.jpg"),
     saves: 1400,
     shape: "Coffin",
     category: "Edgy",
@@ -75,7 +74,7 @@ export const homeFixtureLibrary: HomeDesign[] = [
   {
     id: "mossy",
     title: "Mossy Oak",
-    image: require("../../assets/figma/home-main/008f8.png"),
+    image: require("../../assets/figma/home-main/008f8.jpg"),
     saves: 1200,
     shape: "Oval",
     category: "Nature",
@@ -83,7 +82,7 @@ export const homeFixtureLibrary: HomeDesign[] = [
   {
     id: "milk",
     title: "Milk Glass",
-    image: require("../../assets/figma/home-main/f24ce.png"),
+    image: require("../../assets/figma/home-main/f24ce.jpg"),
     saves: 900,
     shape: "Square",
     category: "Everyday",
@@ -93,7 +92,7 @@ export const homeFixtureLibrary: HomeDesign[] = [
   {
     id: "retro",
     title: "Retro Checker",
-    image: require("../../assets/figma/home-v2/b6228.png"),
+    image: require("../../assets/figma/home-v2/b6228.jpg"),
     saves: 700,
     shape: "Almond",
     category: "Funky",
@@ -105,7 +104,7 @@ export const homeFixtureWeek: HomeDesign[] = [
     title: "Rosewood Bride",
     saves: 2000,
     category: "Dark",
-    image: require("../../assets/figma/home-main/e8424.png"),
+    image: require("../../assets/figma/home-main/e8424.jpg"),
     crop: { left: -41.083, top: -52.2032, width: 220.1925, height: 339.6512 },
     cropFit: "fill",
   },
@@ -114,7 +113,7 @@ export const homeFixtureWeek: HomeDesign[] = [
     title: "Cathedral",
     saves: 1800,
     category: "Colourful",
-    image: require("../../assets/figma/home-main/008f8.png"),
+    image: require("../../assets/figma/home-main/008f8.jpg"),
     crop: { left: -12.668, top: 0, width: 199.2, height: 236 },
     cropFit: "fill",
   },
@@ -123,7 +122,7 @@ export const homeFixtureWeek: HomeDesign[] = [
     title: "Velvet Noir",
     saves: 1500,
     category: "Glam",
-    image: require("../../assets/figma/home-main/58482.png"),
+    image: require("../../assets/figma/home-main/58482.jpg"),
     crop: { left: 0, top: 0, width: 165, height: 236 },
     cropFit: "cover",
   },
@@ -132,22 +131,22 @@ const stories: HomeStory[] = [
   {
     id: "anelia",
     name: "Anelia Cafe",
-    image: require("../../assets/figma/home-v2/8062b.png"),
+    image: require("../../assets/figma/home-v2/8062b.jpg"),
   },
   {
     id: "sarah",
     name: "Sarah M.",
-    image: require("../../assets/figma/home-main/6ca80.png"),
+    image: require("../../assets/figma/home-main/6ca80.jpg"),
   },
   {
     id: "elena-1",
     name: "Elena R.",
-    image: require("../../assets/figma/home-main/d20fb.png"),
+    image: require("../../assets/figma/home-main/d20fb.jpg"),
   },
   {
     id: "elena-2",
     name: "Elena R.",
-    image: require("../../assets/figma/home-main/e8424.png"),
+    image: require("../../assets/figma/home-main/e8424.jpg"),
   },
   {
     id: "elena-3",
@@ -165,7 +164,7 @@ export default function HomeDesignPreview(props: PreviewProps) {
     <PreviewFavoritesProvider>
       <PreviewCalendarProvider>
         <PreviewMessagesProvider>
-          <HomePreview {...props} />
+          <PreviewRewardsProvider><HomePreview {...props} /></PreviewRewardsProvider>
         </PreviewMessagesProvider>
       </PreviewCalendarProvider>
     </PreviewFavoritesProvider>
@@ -226,36 +225,6 @@ function HomePreview({
       },
     ]),
   );
-  const [updateComposer, setUpdateComposer] = useState(false);
-  const [updates, setUpdates] = useState<HomeUpdate[]>(() =>
-    [
-      {
-        id: "update-1",
-        creator_id: "anelia",
-        name: "Anelia Cafe",
-        body: "A little studio note 🌷\n\nSoft rose, sheer layers and the tiniest gold details. This week I’m taking inspiration from slow mornings and fresh flowers. What colour are you wearing right now?",
-        created_at: new Date(Date.now() - 1800000).toISOString(),
-      },
-      {
-        id: "update-2",
-        creator_id: "sarah",
-        name: "Sarah M.",
-        body: "The details behind the design.\n\nFor this set, I wanted to combine a soft nude base with sculptural chrome. Each accent is placed by hand, so every nail feels a little different while still belonging to the same story.\n\nSave your favourites and bring them along to your next appointment. I love seeing the little things that inspire you.",
-        created_at: new Date(Date.now() - 7200000).toISOString(),
-      },
-      {
-        id: "update-3",
-        creator_id: "elena-1",
-        name: "Elena R.",
-        body: "New in my portfolio: deep burgundy, glossy finishes and a few unexpected details. Come take a look ♡",
-        created_at: new Date(Date.now() - 18000000).toISOString(),
-      },
-    ].map((post, index) => ({
-      ...post,
-      username: ["anelia.cafe", "sarah.nails", "elena.r"][index],
-      avatar: stories[index].image,
-    })),
-  );
   const [publicProfile, setPublicProfile] = useState<{
     id: string;
     name: string;
@@ -293,6 +262,7 @@ function HomePreview({
   const [tab, setTab] = useState<HomeTab>("Explore"),
     [category, setCategory] = useState<HomeCategory>("All"),
     [sort, setSort] = useState<HomeSort>("For you");
+  const [source,setSource]=useState<HomeSource>("LaQue"),[updatesTab,setUpdatesTab]=useState<"News"|"Rewards">("News");
   const explain = (action: string) =>
     Alert.alert(
       "Figma visual preview",
@@ -366,14 +336,12 @@ function HomePreview({
         <View
           style={{ flex: 1 }}
           accessibilityElementsHidden={
-            updateComposer ||
             postComposer ||
             !!storyMode ||
             !!publicProfile ||
             notificationsOpen
           }
           importantForAccessibility={
-            updateComposer ||
             postComposer ||
             storyMode ||
             publicProfile ||
@@ -382,7 +350,6 @@ function HomePreview({
               : "auto"
           }
           aria-hidden={
-            updateComposer ||
             postComposer ||
             !!storyMode ||
             !!publicProfile ||
@@ -418,6 +385,11 @@ function HomePreview({
               pinterest={<PinterestInspiration feed={pinterest} preview />}
               viewportWidth={width}
               tab={tab}
+              source={source}
+              onSource={value=>{if(allowed())setSource(value);}}
+              competition={<CompetitionGalleryPreview compact={source!=="Competition"} onDesign={id=>{if(allowed())setDetailId(id);}}
+                onCompetition={()=>{setUpdatesTab("Rewards");setTab("Updates");}}
+                onAll={()=>{if(!allowed())return;if(source!=="Competition")setSource("Competition");else {setUpdatesTab("Rewards");setTab("Updates");}}}/>}
               category={category}
               sort={sort}
               onTab={(value) => {
@@ -497,27 +469,7 @@ function HomePreview({
                   }
                 />
               }
-              updates={
-                <UpdatesFeed
-                  currentUserId="preview-self"
-                  onCompose={() => {
-                    if (allowed()) setUpdateComposer(true);
-                  }}
-                  posts={updates}
-                  preview
-                  onRetry={() => undefined}
-                  onProfile={(id) =>
-                    setPublicProfile({
-                      id,
-                      name:
-                        updates.find((post) => post.creator_id === id)?.name ||
-                        "Creator",
-                    })
-                  }
-                  onDiscover={() => selectTab("search-artists")}
-                  onNotifications={() => setNotificationsOpen(true)}
-                />
-              }
+              updates={<RewardsPreview key={updatesTab} initialTab={updatesTab} onProfile={id => setPublicProfile({id,name:id==='anelia'?'Anelia Cafe':id==='sarah'?'Sarah M.':'LaQue member'})} onDesign={id=>setDetailId(id)} onNotifications={()=>setNotificationsOpen(true)} onBilling={()=>setSelected('lab')} onLab={()=>setSelected('lab')} />}
               onSave={(id) => {
                 if (!allowed()) return;
                 toggleSaved(id);
@@ -544,26 +496,6 @@ function HomePreview({
               <HomeNavigation selected={selected} onSelect={selectTab} />
             )}
         </View>
-        {updateComposer && (
-          <View style={[StyleSheet.absoluteFill, { zIndex: 26 }]}>
-            <UpdateComposer
-              preview
-              onClose={() => setUpdateComposer(false)}
-              onPublish={async (body) => {
-                setUpdates((p) => [
-                  {
-                    id: `demo-update-${Date.now()}`,
-                    creator_id: "preview-self",
-                    name: "You",
-                    body,
-                    created_at: new Date().toISOString(),
-                  },
-                  ...p,
-                ]);
-              }}
-            />
-          </View>
-        )}
         {postComposer && (
           <View style={[StyleSheet.absoluteFill, { zIndex: 25 }]}>
             <SocialComposerPreview

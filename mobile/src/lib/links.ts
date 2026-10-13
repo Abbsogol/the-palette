@@ -21,12 +21,13 @@ export function safeReturnPath(value: unknown): string {
       "/profile-settings",
       "/profile-favorites",
       "/generation-history",
+      "/profile-country",
     ].includes(value)
   )
     return value;
   if (
     typeof value !== "string" ||
-    !/^\/(?:design|creator|book|booking|conversation|story|collection)\/[0-9a-f-]{36}(?:\?[a-zA-Z0-9=&%-]*)?$/.test(
+    !/^\/(?:design|creator|book|booking|conversation|story|collection|rewards)\/[0-9a-f-]{36}(?:\?[a-zA-Z0-9=&%-]*)?$/.test(
       value,
     )
   )
@@ -80,6 +81,10 @@ export function protectedReturnPath(
   params: Record<string, unknown>,
 ) {
   const safe = safeReturnPath(path);
+  if (safe.startsWith("/rewards/")) {
+    const entry=params.entry;
+    return typeof entry === "string" && /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(entry) ? `${safe}?entry=${entry}` : safe;
+  }
   if (!safe.startsWith("/book/")) return safe;
   const query = new URLSearchParams();
   for (const key of ["designId", "rescheduledFrom"]) {

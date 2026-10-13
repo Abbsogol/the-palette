@@ -41,7 +41,7 @@ export async function api<T>(
       signal: controller.signal,
       headers: {
         Authorization: `Bearer ${session.access_token}`,
-        ...(multipart ? {} : { "Content-Type": "application/json" }),
+        ...(multipart || body === undefined ? {} : { "Content-Type": "application/json" }),
       },
       body:
         body === undefined

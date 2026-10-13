@@ -1,0 +1,569 @@
+{
+  "date": "2026-10-12",
+  "scope": "Launch checklist audit, current local working tree and isolated beta; no production database mutations",
+  "repository": "https://github.com/Abbsogol/the-palette",
+  "branch": "codex/native-mobile-beta",
+  "baseCommit": "d03e0ce381ca5f0c991330d58e29830371cddf6d",
+  "uncommittedOverlay": true,
+  "taskCount": 117,
+  "decision": "Not ready for public launch",
+  "freshChecks": {
+    "rootTests": {
+      "command": "npm test",
+      "passed": 991,
+      "failed": 1,
+      "skipped": [
+        "tests/mobile-backend/account-closure.test.js: racing closure with booking requires DATABASE_TEST_URL",
+        "tests/phase6/subscription-contracts.test.js: concurrent deletion/subscription claim requires DATABASE_TEST_URL"
+      ],
+      "files": 108,
+      "exitCode": 1,
+      "failures": [
+        {
+          "file": "tests/security/api-authentication.test.js",
+          "message": "New stripe-lab-webhook has signed-provider authentication and returns 400 for absent signature; generic session-auth inventory expects 401. Update inventory and preserve independent forged-signature/no-privileged-operation coverage."
+        }
+      ],
+      "databaseMode": "PGlite fallback; this run does not prove independent PostgreSQL connection races",
+      "log": "/tmp/laque-launch-root-tests.log"
+    },
+    "mobileVerify": {
+      "command": "npm run verify",
+      "typecheck": "pass",
+      "lint": "pass",
+      "tests": {
+        "passed": 711,
+        "failed": 1,
+        "suites": 90,
+        "suitesFailed": 2,
+        "suitesPassed": 88
+      },
+      "failures": [
+        {
+          "file": "mobile/tests/credit-purchases.test.tsx",
+          "message": "Suite cannot initialize native StripeSdk in Jest; add appropriate native boundary while retaining genuine device tests."
+        },
+        {
+          "file": "mobile/tests/appointments-route.test.tsx",
+          "message": "Expected View request absent. Fixture 2026-10-10 is now past; production classification uses actual time. Use controlled clock and both past/future coverage."
+        }
+      ],
+      "focusedReproduction": "Both mobile failures reproduced in isolation; 4 tests passed, 1 failed and another suite unable to start.",
+      "log": "/tmp/laque-launch-mobile-verify.log"
+    },
+    "rootLint": {
+      "command": "npm run lint",
+      "result": "pass",
+      "log": "/tmp/laque-launch-root-lint.log"
+    },
+    "nextBuild": {
+      "command": "npm run build:smoke",
+      "result": "pass",
+      "qualification": "synthetic build environment; not production configuration or signed mobile build",
+      "log": "/tmp/laque-launch-build.log"
+    },
+    "dependencies": {
+      "root": {
+        "counts": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 8,
+          "critical": 0,
+          "total": 8
+        },
+        "interpretation": "Package findings overlap via inherited advisories; counts are not independent confirmed exploitable flaws. Applicability and SDK-compatible remediation remain open.",
+        "directOrCritical": [
+          {
+            "name": "eslint-config-next",
+            "severity": "high",
+            "advisories": []
+          },
+          {
+            "name": "next",
+            "severity": "high",
+            "advisories": [
+              {
+                "title": "Next.js: Pending `use cache` fill can leak Draft Mode content into regular responses and persisted pages",
+                "url": "https://github.com/advisories/GHSA-3w37-wq28-93x7",
+                "range": ">=16.3.0 <16.3.8"
+              },
+              {
+                "title": "Next.js has cache poisoning of SSG and ISR pages in self-hosted applications",
+                "url": "https://github.com/advisories/GHSA-4jqv-mc3x-m676",
+                "range": ">=16.0.0 <16.3.8"
+              },
+              {
+                "title": "Next.js has information disclosure in development server's Model Context Protocol endpoint",
+                "url": "https://github.com/advisories/GHSA-39w2-rjm5-chcv",
+                "range": ">=16.0.0 <16.3.8"
+              },
+              {
+                "title": "Next.js has information disclosure in App Router metadata image routes via dynamicParams bypass",
+                "url": "https://github.com/advisories/GHSA-f87g-xv8r-7p7x",
+                "range": ">=16.0.0 <16.3.8"
+              },
+              {
+                "title": "Next.js has cache poisoning in SSG/ISR rendering that leads to cross-user content substitution and persistent denial of service",
+                "url": "https://github.com/advisories/GHSA-mcj8-r9mp-w47p",
+                "range": ">=16.0.0 <16.3.8"
+              },
+              {
+                "title": "Next.js has Server-Side Request Forgery in Image Optimization",
+                "url": "https://github.com/advisories/GHSA-cjq9-62q9-8jv4",
+                "range": ">=16.0.0 <16.3.8"
+              }
+            ]
+          },
+          {
+            "name": "sharp",
+            "severity": "high",
+            "advisories": [
+              {
+                "title": "sharp : Vulnerability in librsvg dependency CVE-2026-96889",
+                "url": "https://github.com/advisories/GHSA-wq5f-xc86-pv6w",
+                "range": "<0.35.5"
+              }
+            ]
+          }
+        ]
+      },
+      "mobile": {
+        "counts": {
+          "info": 0,
+          "low": 0,
+          "moderate": 5,
+          "high": 55,
+          "critical": 1,
+          "total": 61
+        },
+        "interpretation": "Package findings overlap via inherited advisories; counts are not independent confirmed exploitable flaws. Applicability and SDK-compatible remediation remain open.",
+        "directOrCritical": [
+          {
+            "name": "@stripe/stripe-react-native",
+            "severity": "high",
+            "advisories": []
+          },
+          {
+            "name": "@testing-library/react-native",
+            "severity": "high",
+            "advisories": []
+          },
+          {
+            "name": "@types/jest",
+            "severity": "high",
+            "advisories": []
+          },
+          {
+            "name": "expo",
+            "severity": "high",
+            "advisories": []
+          },
+          {
+            "name": "jest",
+            "severity": "high",
+            "advisories": []
+          },
+          {
+            "name": "jest-expo",
+            "severity": "high",
+            "advisories": []
+          },
+          {
+            "name": "react-native",
+            "severity": "high",
+            "advisories": []
+          },
+          {
+            "name": "react-native-purchases",
+            "severity": "high",
+            "advisories": []
+          },
+          {
+            "name": "react-native-purchases-ui",
+            "severity": "high",
+            "advisories": []
+          },
+          {
+            "name": "react-native-reanimated",
+            "severity": "high",
+            "advisories": []
+          },
+          {
+            "name": "react-native-worklets",
+            "severity": "high",
+            "advisories": []
+          },
+          {
+            "name": "shell-quote",
+            "severity": "critical",
+            "advisories": [
+              {
+                "title": "shell-quote: `quote()` command injection via a line terminator in a token after a `{ comment }` token",
+                "url": "https://github.com/advisories/GHSA-pqg4-j6r4-53mv",
+                "range": ">=1.8.4 <1.11.0"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "connectedBeta": {
+    "checkedAt": "2026-10-12T12:28:35.482Z",
+    "environment": "isolated beta",
+    "schema": {
+      "profiles": {
+        "ok": true,
+        "rows": 9
+      },
+      "stories": {
+        "ok": true,
+        "rows": 0
+      },
+      "salon_posts": {
+        "ok": true,
+        "rows": 0
+      },
+      "design_chat_shares": {
+        "ok": true,
+        "rows": 0
+      },
+      "mobile_store_products": {
+        "ok": true
+      },
+      "pinterest_connection": {
+        "ok": true
+      },
+      "pinterest_boards": {
+        "ok": true
+      },
+      "reward_settings": {
+        "ok": true
+      },
+      "official_updates": {
+        "ok": true,
+        "rows": 1
+      },
+      "lab_stripe_checkouts": {
+        "ok": true,
+        "rows": 5
+      },
+      "google_calendar_connections": {
+        "ok": true,
+        "rows": 0
+      }
+    },
+    "settings": {
+      "mobile_store_products": [
+        {
+          "store": "APP_STORE",
+          "product_id": "laque_lab_monthly_5",
+          "active": false,
+          "kind": "subscription"
+        },
+        {
+          "store": "APP_STORE",
+          "product_id": "laque_lab_tokens_30",
+          "active": false,
+          "kind": "credits"
+        },
+        {
+          "store": "APP_STORE",
+          "product_id": "laque_lab_tokens_100",
+          "active": false,
+          "kind": "credits"
+        },
+        {
+          "store": "PLAY_STORE",
+          "product_id": "laque_lab_tokens_30",
+          "active": false,
+          "kind": "credits"
+        },
+        {
+          "store": "PLAY_STORE",
+          "product_id": "laque_lab_tokens_100",
+          "active": false,
+          "kind": "credits"
+        },
+        {
+          "store": "PLAY_STORE",
+          "product_id": "laque_lab_monthly_5",
+          "active": false,
+          "kind": "subscription"
+        },
+        {
+          "store": "PLAY_STORE",
+          "product_id": "laque_lab_monthly_5:monthly",
+          "active": false,
+          "kind": "subscription"
+        }
+      ],
+      "pinterest_connection": [
+        {
+          "status": "disconnected",
+          "paused": true,
+          "expires_at": null
+        }
+      ],
+      "pinterest_boards": [
+        {
+          "topic": "minimal",
+          "active": false,
+          "verified_at": null
+        },
+        {
+          "topic": "halloween",
+          "active": false,
+          "verified_at": null
+        }
+      ],
+      "reward_settings": [
+        {
+          "activation_enabled": false
+        }
+      ]
+    },
+    "anonymous": {
+      "profiles.id": {
+        "status": 401,
+        "denied": true,
+        "returned": 0,
+        "code": "42501"
+      },
+      "profiles_data.email": {
+        "status": 401,
+        "denied": true,
+        "returned": 0,
+        "code": "42501"
+      },
+      "profiles_data.credit_balance": {
+        "status": 401,
+        "denied": true,
+        "returned": 0,
+        "code": "42501"
+      },
+      "stories.id": {
+        "status": 401,
+        "denied": true,
+        "returned": 0,
+        "code": "42501"
+      },
+      "designs.id": {
+        "status": 401,
+        "denied": true,
+        "returned": 0,
+        "code": "42501"
+      }
+    },
+    "http": {
+      "/api/mobile/config": 200,
+      "/api/mobile/home-content": 401,
+      "/api/mobile/billing": 401,
+      "/api/mobile/rewards/home": 401,
+      "/api/admin/overview": 401,
+      "/api/mobile/billing/stripe/native": 401,
+      "/privacy": 200,
+      "/terms": 200,
+      "/help": 200,
+      "public-site/privacy": 404,
+      "public-site/terms": 404,
+      "public-site/help": 200
+    },
+    "media": {
+      "buckets": [
+        {
+          "name": "designs",
+          "public": true
+        },
+        {
+          "name": "nail-lab",
+          "public": false
+        },
+        {
+          "name": "mobile-uploads",
+          "public": false
+        },
+        {
+          "name": "social-media",
+          "public": false
+        }
+      ],
+      "profilesWithBanner": 0
+    }
+  },
+  "readOnlyDashboardObservation": {
+    "url": "https://laque-beta.vercel.app/admin?section=integrations",
+    "ownerAuthenticator": "verified",
+    "nativeStripeSandbox": "configured",
+    "regionalRelease": "needs configuration",
+    "storeBilling": "needs configuration",
+    "calendar": "needs configuration",
+    "pinterest": "OAuth configured but disconnected, paused, both boards inactive; legacy test-token adapter selected",
+    "worker": "configuration marked ready, not a fresh scheduler delivery proof"
+  },
+  "priorNativeStripeProof": {
+    "verifiedAt": "2026-10-12T12:13:46.518Z",
+    "syntheticAccount": true,
+    "nativePurchases": [
+      {
+        "package": "tokens30",
+        "status": "paid",
+        "surface": "native"
+      },
+      {
+        "package": "tokens100",
+        "status": "paid",
+        "surface": "native"
+      },
+      {
+        "package": "monthly",
+        "status": "paid",
+        "surface": "native"
+      }
+    ],
+    "syntheticBalance": 133,
+    "baselineTokens": 3,
+    "addedTokens": 130,
+    "duplicateGrants": false,
+    "syntheticRenewalCancelled": true,
+    "ownerMonthlyRemaining": 15,
+    "livePayments": false
+  },
+  "unverifiedThisAudit": [
+    "Final signed iOS/Android installed journeys",
+    "Full Figma visual comparison",
+    "Fresh SMTP/Google/Apple callback success",
+    "Store/RevenueCat purchase transactions",
+    "Production credentials/migrations and store console readiness",
+    "Scheduled worker delivery",
+    "Pinterest approval and OAuth",
+    "Active prize competition journey",
+    "Real AI generation",
+    "Native Android Stripe PaymentSheet",
+    "Physical accessibility/performance"
+  ],
+  "policySourcesChecked": [
+    "https://developer.apple.com/app-store/review/guidelines/",
+    "https://developer.apple.com/support/payment-options-on-the-app-store-in-the-eu/",
+    "https://support.google.com/googleplay/android-developer/answer/13821247",
+    "https://support.google.com/googleplay/android-developer/answer/9877032?hl=en",
+    "https://support.google.com/googleplay/android-developer/answer/13327111?hl=en",
+    "https://developer.apple.com/help/app-review/guideline-reference/5-1-1-account-deletion",
+    "https://support.google.com/googleplay/android-developer/answer/13985936?hl=en",
+    "https://developers.pinterest.com/docs/key-concepts/access-tiers/",
+    "https://policy.pinterest.com/en/developer-guidelines",
+    "https://support.google.com/googleplay/android-developer/answer/14151465?hl=en-NG",
+    "https://tax.gov.ae/en/faq.aspx?keyword=How+long+must+I+keep+my+records+for+UAE+CT+purposes%3F"
+  ],
+  "routeInventory": {
+    "mobile": [
+      "mobile/src/app/(tabs)/_layout.tsx",
+      "mobile/src/app/(tabs)/index.tsx",
+      "mobile/src/app/(tabs)/lab.tsx",
+      "mobile/src/app/(tabs)/messages.tsx",
+      "mobile/src/app/(tabs)/profile.tsx",
+      "mobile/src/app/(tabs)/saved.tsx",
+      "mobile/src/app/(tabs)/search.tsx",
+      "mobile/src/app/_layout.tsx",
+      "mobile/src/app/account-closed.tsx",
+      "mobile/src/app/appointments.tsx",
+      "mobile/src/app/auth/callback.tsx",
+      "mobile/src/app/auth/index.tsx",
+      "mobile/src/app/availability.tsx",
+      "mobile/src/app/billing.tsx",
+      "mobile/src/app/book/[id].tsx",
+      "mobile/src/app/booking/[id].tsx",
+      "mobile/src/app/calendar-connect.tsx",
+      "mobile/src/app/checkout-return.tsx",
+      "mobile/src/app/collection/[id].tsx",
+      "mobile/src/app/collections.tsx",
+      "mobile/src/app/community/[id].tsx",
+      "mobile/src/app/community/new.tsx",
+      "mobile/src/app/conversation/[id].tsx",
+      "mobile/src/app/creator/[id].tsx",
+      "mobile/src/app/creator-onboarding.tsx",
+      "mobile/src/app/delete-account.tsx",
+      "mobile/src/app/design/[id].tsx",
+      "mobile/src/app/design-preview.tsx",
+      "mobile/src/app/generation-history.tsx",
+      "mobile/src/app/notifications.tsx",
+      "mobile/src/app/onboarding.tsx",
+      "mobile/src/app/portfolio-edit.tsx",
+      "mobile/src/app/portfolio.tsx",
+      "mobile/src/app/privacy.tsx",
+      "mobile/src/app/profile-country.tsx",
+      "mobile/src/app/profile-edit.tsx",
+      "mobile/src/app/profile-favorites.tsx",
+      "mobile/src/app/profile-settings.tsx",
+      "mobile/src/app/report.tsx",
+      "mobile/src/app/rewards/[id].tsx",
+      "mobile/src/app/services.tsx",
+      "mobile/src/app/share-design.tsx",
+      "mobile/src/app/story/[id].tsx",
+      "mobile/src/app/story/new.tsx",
+      "mobile/src/app/updates/new.tsx"
+    ],
+    "backend": [
+      "app/api/add-reward/route.js",
+      "app/api/admin/[...path]/route.js",
+      "app/api/admin/export/route.js",
+      "app/api/admin/media/route.js",
+      "app/api/admin-profiles/route.js",
+      "app/api/admin-subscription-count/route.js",
+      "app/api/apply-referral/route.js",
+      "app/api/boost-checkout-status/route.js",
+      "app/api/calendar/google/callback/route.js",
+      "app/api/complete-onboarding/route.js",
+      "app/api/create-billing-portal-session/route.js",
+      "app/api/create-boost-payment/route.js",
+      "app/api/create-checkout-session/route.js",
+      "app/api/create-deposit-payment/route.js",
+      "app/api/create-subscription/route.js",
+      "app/api/credit-checkout-status/route.js",
+      "app/api/delete-account/route.js",
+      "app/api/deposit-checkout-status/route.js",
+      "app/api/finalize-design-upload/route.js",
+      "app/api/generate-nail-design/route.js",
+      "app/api/generate-referral/route.js",
+      "app/api/generation-status/route.js",
+      "app/api/mobile/admin-reports/route.js",
+      "app/api/mobile/analytics/route.js",
+      "app/api/mobile/billing/route.js",
+      "app/api/mobile/billing/stripe/native/route.js",
+      "app/api/mobile/billing/stripe/route.js",
+      "app/api/mobile/booking-action/route.js",
+      "app/api/mobile/calendar/route.js",
+      "app/api/mobile/calendar-slots/route.js",
+      "app/api/mobile/config/route.js",
+      "app/api/mobile/conversation/route.js",
+      "app/api/mobile/deposit-status/route.js",
+      "app/api/mobile/home-content/route.js",
+      "app/api/mobile/message/route.js",
+      "app/api/mobile/portfolio/route.js",
+      "app/api/mobile/process-jobs/route.js",
+      "app/api/mobile/push/route.js",
+      "app/api/mobile/report/route.js",
+      "app/api/mobile/request-booking/route.js",
+      "app/api/mobile/rewards/[...path]/route.js",
+      "app/api/mobile/social-media/route.js",
+      "app/api/mobile/upload/route.js",
+      "app/api/pick-my-set/route.js",
+      "app/api/pinterest/inspiration/route.js",
+      "app/api/pinterest/oauth/callback/route.js",
+      "app/api/publish-nail-lab-generation/route.js",
+      "app/api/revenuecat-webhook/route.js",
+      "app/api/send-reminders/route.js",
+      "app/api/set-account-type/route.js",
+      "app/api/stripe-lab-webhook/route.js",
+      "app/api/stripe-webhook/route.js",
+      "app/api/subscription-checkout-status/route.js",
+      "app/api/update-availability/route.js",
+      "app/api/update-privacy-settings/route.js",
+      "app/api/update-profile/route.js",
+      "app/api/upload-challenge-photo/route.js",
+      "app/api/upload-design-photo/route.js"
+    ]
+  },
+  "changesMade": "Only launch checklist, CSV work list, evidence JSON; no product or external configuration changes"
+}

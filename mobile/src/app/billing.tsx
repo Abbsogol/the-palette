@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import * as WebBrowser from "expo-web-browser";
 import * as Crypto from "expo-crypto";
 import { AppState, Linking, Platform } from "react-native";
 import { router, useFocusEffect } from "expo-router";
@@ -11,6 +12,8 @@ import {
 } from "../features/credits/model";
 import { environment } from "../lib/config";
 import { api } from "../lib/api";
+import { labBillingRoute } from "../lib/lab-billing-route";
+import { presentNativeLabPayment, type NativeLabPayment } from "../lib/native-lab-payment";
 import { useAccountQuery, useAuth, queryClient } from "../lib/auth";
 import { accountScope, type AccountTicket } from "../lib/account-scope";
 import {
@@ -30,18 +33,26 @@ function Billing() {
     api<CreditBillingState>("/mobile/billing"),
   );
   const native = Platform.OS === "ios" || Platform.OS === "android";
-  const enabled = !!query.data?.configured && native;
+  // No release enrollments/adapters are connected yet. Fail closed to store
+  // billing; profile country and client flags cannot activate regional Stripe.
+  const route = labBillingRoute(Platform.OS, __DEV__ && ["beta", "development"].includes(environment.appEnv || ""), { sandboxPilot: !!query.data?.stripeLab?.enabled, enabledPrograms: [] }, null);
+  const sandbox = route === 'stripe_sandbox' || (__DEV__ && native && !!query.data?.stripeLab && query.data.subscription?.store === 'STRIPE_LAB');
+  const stripeOwned = query.data?.subscription?.store === "STRIPE_LAB";
+  const verifyStripe = sandbox || stripeOwned || !!query.data?.stripeLab?.pending.length;
+  const storeEnabled = !sandbox && !!query.data?.configured && native;
+  const enabled = sandbox ? !!query.data?.stripeLab?.enabled : storeEnabled;
   const packages = useAccountQuery(
     ["store-packages"],
     () => storePackages(),
-    enabled,
+    storeEnabled,
   );
   const store = Platform.OS === "ios" ? "APP_STORE" : "PLAY_STORE";
-  const items = creditPackages(
+  const storeItems = creditPackages(
     query.data?.catalog || [],
     packages.data || [],
     store,
   );
+  const items = sandbox ? query.data?.stripeLab?.packages || [] : storeItems;
   const { refetch } = query;
   useFocusEffect(
     useCallback(() => {
@@ -62,18 +73,18 @@ function Billing() {
         new Error("Your balance could not be checked. Try again.")
       );
     setUnconfirmed(
-      !!result.data.pendingPurchases.length || result.data.needsReview,
+      !!result.data.pendingPurchases.length || !!result.data.stripeLab?.pending.length || result.data.needsReview,
     );
     await queryClient.invalidateQueries({ queryKey: ["profile"] });
     accountScope.assert(ticket);
     return result.data;
   };
   const verify = async (ticket: AccountTicket, restoring = false) => {
-    await api("/mobile/billing", {});
+    await api(verifyStripe ? "/mobile/billing/stripe" : "/mobile/billing", verifyStripe ? { action: "check" } : {});
     accountScope.assert(ticket);
     const status = await refresh(ticket);
     setNotice(
-      status.needsReview || status.pendingPurchases.length
+      status.needsReview || status.pendingPurchases.length || status.stripeLab?.pending.length
         ? "Your purchase is still being verified. Please check again shortly; you don’t need to buy again."
         : restoring
           ? `Purchase history checked. Your available balance is ${status.credits} design tokens. Previously used designs are not restored.`
@@ -109,7 +120,36 @@ function Billing() {
   };
   const purchase = (id: string) =>
     run("purchase", async (ticket) => {
-      const item = items.find((item) => item.id === id);
+      if (sandbox) {
+        const status = await api<CreditBillingState>("/mobile/billing");
+        accountScope.assert(ticket);
+        if (!status.stripeLab?.enabled || status.needsReview) throw new Error("Sandbox purchasing is unavailable. Check purchases first.");
+        const pending = status.stripeLab.pending;
+        if (pending.some(item => item.package !== id)) throw new Error("A previous checkout needs verification first.");
+        setUnconfirmed(true);
+        const purchaseId = pending[0]?.id || Crypto.randomUUID();
+        if (status.stripeLab.native && (!pending[0] || pending[0].surface === 'native')) {
+          if (!native) throw new Error('Open the connected iPhone or Android app for in-app sandbox payments.');
+          const payment = await api<NativeLabPayment>('/mobile/billing/stripe/native', { action: 'payment', id: purchaseId, package: id });
+          accountScope.assert(ticket);
+          const outcome = await presentNativeLabPayment(payment, ticket);
+          accountScope.assert(ticket);
+          await verify(ticket);
+          if (outcome.cancelled) setNotice('Payment sheet closed. You can resume the same payment or check its status. No new payment is created on retry.');
+          return;
+        }
+        const response = await api<{ url: string | null; pending: boolean }>("/mobile/billing/stripe", { action: "checkout", id: purchaseId, package: id });
+        accountScope.assert(ticket);
+        if (response.url) {
+          const url = new URL(response.url);
+          if (url.protocol !== "https:" || url.hostname !== "checkout.stripe.com") throw new Error("Unexpected checkout address.");
+          await WebBrowser.openBrowserAsync(response.url);
+          accountScope.assert(ticket);
+        }
+        await verify(ticket);
+        return;
+      }
+      const item = storeItems.find((item) => item.id === id);
       if (!enabled || !item)
         throw new Error(
           "This store product is unavailable. Reload the store and try again.",
@@ -173,24 +213,33 @@ function Billing() {
     });
   return (
     <CreditsView
+      onResumeCheckout={sandbox && query.data?.stripeLab?.pending[0] ? () => void purchase(query.data!.stripeLab!.pending[0].package) : undefined}
+      purchaseAvailable={sandbox ? query.data?.stripeLab?.enabled : undefined}
+      sandbox={sandbox}
+      cancelViaStripe={stripeOwned}
+      cancelScheduled={query.data?.stripeLab?.subscription?.cancel_at_period_end}
       subscription={query.data?.subscription}
       canSubscribe={query.data?.canSubscribe}
-      onManage={() => void Linking.openURL((query.data?.subscription?.store || store) === "APP_STORE" ? "https://apps.apple.com/account/subscriptions" : "https://play.google.com/store/account/subscriptions")}
+      onManage={() => (sandbox || stripeOwned) ? void run("check", async ticket => {
+        await api("/mobile/billing/stripe", { action: "cancelSubscription" });
+        accountScope.assert(ticket); await refresh(ticket);
+        setNotice("Renewal cancelled. Your verified allowance remains available until the paid period ends.");
+      }) : void Linking.openURL((query.data?.subscription?.store || store) === "APP_STORE" ? "https://apps.apple.com/account/subscriptions" : "https://play.google.com/store/account/subscriptions")}
       onPolicy={(page) => void Linking.openURL(`${environment.apiUrl}/${page}`)}
       balance={query.error ? null : (query.data?.credits ?? null)}
-      store={store}
+      store={sandbox ? "STRIPE_LAB" : store}
       history={query.error ? null : query.data?.history}
       historyLoading={query.isFetching}
       packs={items}
-      loading={query.isPending || (enabled && packages.isPending)}
+      loading={query.isPending || (storeEnabled && packages.isPending)}
       busy={busy}
       workingOn={workingOn}
       pending={
         unconfirmed ||
         !!query.data?.needsReview ||
-        !!query.data?.pendingPurchases.length
+        !!query.data?.pendingPurchases.length || !!query.data?.stripeLab?.pending.length
       }
-      unavailable={!!query.data && !enabled}
+      unavailable={!!query.data && !enabled && !sandbox}
       error={error || query.error?.message || packages.error?.message}
       notice={notice}
       onBack={() =>
@@ -200,7 +249,7 @@ function Billing() {
       onRetry={() =>
         void run("reload", async (ticket) => {
           await refresh(ticket);
-          if (enabled) {
+          if (storeEnabled) {
             const result = await packages.refetch();
             accountScope.assert(ticket);
             if (result.error) throw result.error;
@@ -213,7 +262,7 @@ function Billing() {
           await refresh(ticket);
         })
       }
-      onRestore={() =>
+      onRestore={sandbox ? undefined : () =>
         void run("restore", async (ticket) => {
           await restoreStorePurchases();
           accountScope.assert(ticket);

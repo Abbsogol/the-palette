@@ -15,3 +15,15 @@ test('Google subscription packages match the configured base plan and reject the
  const packages=catalog.map(p=>({product:{identifier:p.product_id,priceString:'$5',subscriptionPeriod:'P1M',productCategory:'SUBSCRIPTION',productType:'AUTO_RENEWABLE_SUBSCRIPTION'}})) as unknown as PurchasesPackage[];
  expect(creditPackages(catalog,packages,'PLAY_STORE').map(x=>x.id)).toEqual(['laque_lab_monthly_5:monthly']);
 });
+
+test('sandbox cancellation needs an explicit second action and has a test label',async()=>{
+ const manage=jest.fn();await render(<CreditsView {...props()} sandbox store="STRIPE_LAB" onManage={manage}/>);
+ expect(screen.getByText(/Stripe sandbox · test payments only/)).toBeTruthy();
+ await fireEvent.press(screen.getByRole('button',{name:'Cancel renewal'}));expect(manage).not.toHaveBeenCalled();
+ await fireEvent.press(screen.getByRole('button',{name:'Confirm cancellation'}));expect(manage).toHaveBeenCalledTimes(1);
+});
+test('an uncertain sandbox checkout can be resumed without enabling a second purchase',async()=>{
+ const resume=jest.fn();await render(<CreditsView {...props()} sandbox pending onResumeCheckout={resume}/>);
+ expect(screen.getByRole('button',{name:'Awaiting verification'})).toBeDisabled();
+ await fireEvent.press(screen.getByRole('button',{name:'Resume sandbox checkout'}));expect(resume).toHaveBeenCalledTimes(1);
+});

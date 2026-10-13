@@ -61,7 +61,7 @@ export default function BottomNav() {
   const [unreadMessages, setUnreadMessages] = useState(0)
 
   useEffect(() => {
-    if (pathname === '/privacy') return
+    if (pathname === '/privacy' || pathname === '/lab-payment') return
     const fetchUnread = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
@@ -94,7 +94,7 @@ export default function BottomNav() {
   }, [pathname])
 
   // Hide on full-screen flows
-  if (pathname === '/privacy' || pathname === '/story/new' || pathname === '/onboarding' || pathname?.startsWith('/messages/') || pathname?.startsWith('/admin') || pathname === '/planner' || pathname?.startsWith('/settings/') || pathname?.startsWith('/nail-card/') || pathname === '/help') return null
+  if (pathname === '/lab-payment' || pathname === '/privacy' || pathname === '/story/new' || pathname === '/onboarding' || pathname?.startsWith('/messages/') || pathname?.startsWith('/admin') || pathname === '/planner' || pathname?.startsWith('/settings/') || pathname?.startsWith('/nail-card/') || pathname === '/help') return null
 
   return (
     <nav style={{

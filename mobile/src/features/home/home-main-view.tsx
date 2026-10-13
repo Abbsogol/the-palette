@@ -35,6 +35,8 @@ export const HOME_CATEGORIES = [
   "Colourful",
 ] as const;
 export const HOME_SORTS = ["For you", "Newest", "Most saved"] as const;
+export const HOME_SOURCES = ["LaQue", "Pinterest", "Competition"] as const;
+export type HomeSource = (typeof HOME_SOURCES)[number];
 export type HomeTab = (typeof HOME_TABS)[number];
 export type HomeCategory = (typeof HOME_CATEGORIES)[number];
 export type HomeSort = (typeof HOME_SORTS)[number];
@@ -102,6 +104,9 @@ export type HomeMainProps = {
   updates?: ReactNode;
   communityFeed?: ReactNode;
   pinterest?: ReactNode;
+  source?: HomeSource;
+  onSource?: (source: HomeSource) => void;
+  competition?: ReactNode;
 };
 
 function DesignCard({
@@ -339,6 +344,7 @@ function DesignSection({
 }
 
 export function HomeMainView(props: HomeMainProps) {
+  const source = props.source || "LaQue";
   const { width: windowWidth } = useWindowDimensions();
   const width = props.viewportWidth ?? windowWidth;
   const insets = useSafeAreaInsets();
@@ -471,7 +477,18 @@ export function HomeMainView(props: HomeMainProps) {
           />
         )}
       </View>
-      {props.tab !== "Updates" && props.tab !== "Community" && (
+      {props.tab === "Explore" && (
+        <View style={s.sources} accessibilityLabel="Explore sources">
+          {HOME_SOURCES.map(value => (
+            <Pressable key={value} accessibilityRole="tab"
+              accessibilityLabel={`Home ${value}`} accessibilityState={{selected:source===value}}
+              onPress={()=>props.onSource?.(value)} style={[s.source,source===value&&s.activeChip]}>
+              <Text style={[s.chipText,source===value&&s.selectedText]}>{value}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+      {props.tab !== "Updates" && props.tab !== "Community" && (props.tab !== "Explore" || source === "LaQue") && (
         <>
           <ScrollView
             horizontal
@@ -554,17 +571,19 @@ export function HomeMainView(props: HomeMainProps) {
       }
     >
       <View style={[s.feed, { paddingBottom: 120 + insets.bottom }]}>
-        {props.saveError && (
+        {!!props.saveError && (
           <Text accessibilityRole="alert" style={s.saveError}>
             {props.saveError}
           </Text>
         )}
         {props.tab === "Updates" ? (
           <>
-            {props.announcements?.map(a=><View key={a.id} style={{margin:24,padding:24,borderRadius:24,backgroundColor:"rgba(255,255,255,.08)"}}><Text style={{fontFamily:f.regular,color:"#ffafc7",fontSize:13}}>LaQue announcement</Text><Text accessibilityRole="header" style={{fontFamily:f.display,color:"white",fontSize:24,marginTop:8}}>{a.title}</Text><Text style={{fontFamily:f.regular,color:"white",fontSize:16,marginTop:8}}>{a.body}</Text></View>)}
             {props.updates}
           </>
-        ) : props.tab === "Community" ? (props.communityFeed) : (
+        ) : props.tab === "Community" ? (props.communityFeed)
+          : props.tab === "Explore" && source === "Pinterest" ? (
+            <View style={{paddingHorizontal:24}}>{props.pinterest}</View>
+          ) : props.tab === "Explore" && source === "Competition" ? props.competition : (
           <>
             {props.tab === "Explore" && (
               <>
@@ -575,6 +594,7 @@ export function HomeMainView(props: HomeMainProps) {
                   onDesign={props.onDesign}
                   onSave={props.onSave}
                 />
+                {props.competition}
                 <View style={{ gap: 32, marginTop: 8 }}>
                   <DesignSection
                     section={props.week}
@@ -610,6 +630,8 @@ export function HomeMainView(props: HomeMainProps) {
 }
 
 const s = StyleSheet.create({
+  sources: {flexDirection:"row",gap:6,marginHorizontal:24,padding:4,borderRadius:30,backgroundColor:"rgba(255,255,255,.07)"},
+  source: {flex:1,minHeight:44,paddingHorizontal:4,alignItems:"center",justifyContent:"center",borderRadius:26},
   controls: { paddingVertical: 24, gap: 24, overflow: "hidden" },
   tabs: {
     paddingHorizontal: 24,

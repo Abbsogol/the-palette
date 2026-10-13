@@ -2,14 +2,20 @@ import { beforeEach, expect, it, vi } from 'vitest'
 const auth = vi.hoisted(() => ({ getSessionUser: vi.fn(), isAdmin: vi.fn(), client: { from: vi.fn(), rpc: vi.fn() } }))
 vi.mock('@/lib/auth', () => ({ ...auth, serviceClient: auth.client }))
 const routes = import.meta.glob('../../app/api/**/route.js')
-const publicEndpoints = new Set(['stripe-webhook','send-reminders'])
+// These routes authenticate provider/job requests rather than app sessions.
+// Exact paths prevent similarly named future app endpoints escaping this inventory.
+const nonSessionEndpoints = new Set([
+  '../../app/api/stripe-webhook/route.js',
+  '../../app/api/stripe-lab-webhook/route.js',
+  '../../app/api/send-reminders/route.js',
+])
 // The mobile config handshake is intentionally public, returns only environment
 // identity, and performs no privileged read or mutation. It has its own tests.
 const configRoute='../../app/api/mobile/config/route.js'
 // OAuth callback is authenticated by a one-use state issued to an authenticated
 // account. Binding still requires that account's bearer token at /mobile/calendar.
 const calendarCallback='../../app/api/calendar/google/callback/route.js'
-const privateRoutes = Object.entries(routes).filter(([path])=>path!==calendarCallback&&path!==configRoute&&path!=='../../app/api/mobile/home-content/route.js'&&path!=='../../app/api/pinterest/oauth/callback/route.js'&&!publicEndpoints.has(path.split('/').at(-2)))
+const privateRoutes = Object.entries(routes).filter(([path])=>path!==calendarCallback&&path!==configRoute&&path!=='../../app/api/mobile/home-content/route.js'&&path!=='../../app/api/pinterest/oauth/callback/route.js'&&!nonSessionEndpoints.has(path))
 beforeEach(()=> { vi.clearAllMocks(); auth.getSessionUser.mockResolvedValue(null) })
 it.each(privateRoutes)('rejects anonymous access to %s before privileged operations', async (_path, load) => {
   const handlers=await load()

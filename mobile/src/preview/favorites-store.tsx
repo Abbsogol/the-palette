@@ -25,7 +25,7 @@ export const favoriteSamples: FavoritesLibrary = {
     {
       id: "rosewood",
       title: "Rosewood Bride",
-      image: require("../../assets/figma/home-main/f24ce.png"),
+      image: require("../../assets/figma/home-main/f24ce.jpg"),
       attributes: ["French", "Minimal"],
     },
     {
@@ -37,7 +37,7 @@ export const favoriteSamples: FavoritesLibrary = {
     {
       id: "mossy",
       title: "Mossy Oak",
-      image: require("../../assets/figma/home-main/008f8.png"),
+      image: require("../../assets/figma/home-main/008f8.jpg"),
       attributes: ["Oval", "Nature"],
     },
   ],

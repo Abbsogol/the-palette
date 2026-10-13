@@ -67,7 +67,7 @@ export const demoDiscover = [
     id: "sample-mira",
     userId: "mira",
     name: "Mira Nails",
-    avatar: require("../../assets/figma/profiles/65da1.png"),
+    avatar: require("../../assets/figma/profiles/65da1.jpg"),
     username: "miranails",
     role: "creator" as const,
     location: "Dubai",

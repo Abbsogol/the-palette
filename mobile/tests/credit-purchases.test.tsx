@@ -12,6 +12,13 @@ import { accountScope } from "../src/lib/account-scope";
 import { queryClient } from "../src/lib/auth";
 import { useFocusEffect } from "expo-router";
 import { AppState, type AppStateStatus } from "react-native";
+import { presentNativeLabPayment } from '../src/lib/native-lab-payment';
+// Store-route tests stop at the alternative native payment boundary. Genuine
+// PaymentSheet verification lives in its separate sandbox/device checks.
+jest.mock('../src/lib/native-lab-payment',()=>({
+  presentNativeLabPayment:jest.fn().mockRejectedValue(new Error('Store billing must not open Stripe')),
+}));
+afterEach(()=>expect(presentNativeLabPayment).not.toHaveBeenCalled());
 jest.mock(
   "react-native-safe-area-context",
   () => require("react-native-safe-area-context/jest/mock").default,

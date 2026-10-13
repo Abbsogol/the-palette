@@ -1,5 +1,7 @@
 # Home — Updates, 7 October 2026
 
+> Superseded on 9 October 2026: official News and Rewards now use assigned Admin Studio publishers. The member Create update action is retired. See [rewards-updates.md](./rewards-updates.md) for the current flow and rollout status. The notes below describe the earlier implementation.
+
 ## Delivered locally
 
 Updates has a dedicated **Create update** action and branded text-note cards, with author photo (initial fallback), name, searchable handle, time, own-note badge, expandable text, profile navigation and reporting for other accounts. Cards use the existing burgundy/rose surfaces and shared typography. Latest-first ordering, loading/empty/error/retry, refresh and pagination remain. Notifications opens its linked screen; the six bottom tabs and Community/Following remain in place.

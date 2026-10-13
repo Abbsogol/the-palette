@@ -5,9 +5,9 @@ export const homeAssets = {
   hero: require("../../../assets/figma/home-v2/102c4.png"),
   star: require("../../../assets/figma/home-v2/cbb9b.svg"),
   plus: require("../../../assets/figma/home-v2/fadbd.svg"),
-  community: require("../../../assets/figma/home-main/91e79.png"),
-  artists: require("../../../assets/figma/home-main/eabb1.png"),
-  posts: require("../../../assets/figma/home-main/60600.png"),
+  community: require("../../../assets/figma/home-main/91e79.jpg"),
+  artists: require("../../../assets/figma/home-main/eabb1.jpg"),
+  posts: require("../../../assets/figma/home-main/60600.jpg"),
   avatars: [
     require("../../../assets/figma/home-main/069e4.png"),
     require("../../../assets/figma/home-main/11452.png"),

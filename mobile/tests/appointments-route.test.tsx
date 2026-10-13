@@ -83,6 +83,8 @@ jest.mock("../src/lib/auth", () => ({
 const press = (name: string) =>
   fireEvent.press(screen.getByRole("button", { name }));
 beforeEach(() => {
+  // Control the calendar without stalling React/native async callbacks.
+  jest.useFakeTimers({now:new Date('2026-10-09T06:00:00Z'),doNotFake:['setTimeout','clearTimeout','setInterval','clearInterval','setImmediate','clearImmediate','nextTick','queueMicrotask','performance']});
   mockId = "owner";
   mockEpoch = 1;
   mockRole = "creator";
@@ -90,6 +92,15 @@ beforeEach(() => {
   mockProfileError = null;
   mockPaymentError = false;
   mockPending = false;
+});
+afterEach(()=>jest.useRealTimers());
+test('an elapsed request opens historical details rather than a request action',async()=>{
+  jest.setSystemTime(new Date('2026-10-10T07:00:01Z'));
+  await render(<Appointments />);
+  await press('Past');
+  expect(screen.queryByRole('button',{name:'View request'})).toBeNull();
+  await press('View appointment');
+  expect(router.push).toHaveBeenCalledWith({pathname:'/booking/[id]',params:{id:'exact-booking'}});
 });
 test("owned role/filter adapter reads reset pagination and open the existing exact booking route", async () => {
   await render(<Appointments />);

@@ -44,14 +44,14 @@ const customer: ProfileIdentity = {
   location: "Dubai, UAE",
   bio: "Nail art enthusiast & collector.\nAlways looking for the next stunning set ✨",
   specialties: tags,
-  avatar: require("../../assets/figma/profiles/65da1.png"),
+  avatar: require("../../assets/figma/profiles/65da1.jpg"),
   cover: a.ownerCover,
 };
 const samples: ProfileDesign[] = Array.from({ length: 6 }, (_, i) => ({
   id: `profile-sample-${i}`,
   title: "Cathedral",
   category: "Glamour",
-  image: require("../../assets/figma/profiles/6cdce.png"),
+  image: require("../../assets/figma/profiles/6cdce.jpg"),
   published: i % 2 === 0,
 }));
 export default function ProfilePreview({

@@ -73,6 +73,7 @@ function Edit() {
           />
         )}
       </QueryState>
+      <Button title="Profile country" secondary onPress={() => router.push("/profile-country")} />
       {exit.dialog}
     </Screen>
   );

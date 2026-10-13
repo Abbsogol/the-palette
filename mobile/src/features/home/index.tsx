@@ -8,15 +8,16 @@ import {
   type HomeTab,
   type HomeCategory,
   type HomeSort,
+  type HomeSource,
 } from "./home-main-view";
 import { CommunityFeed } from "../social/feed";
 import { listCommunity } from "../social/data";
-import { UpdatesFeed } from "./updates-view";
+import { UpdatesHub } from "../rewards/updates-hub";
+import { CompetitionGallery } from "../rewards/home-gallery";
 import {
   homeCommunityCounts,
   listHomeDesigns,
   listHomeStories,
-  listHomeUpdates,
 } from "./data";
 import {
   queryClient,
@@ -41,7 +42,9 @@ export default function HomeScreen() {
   );
   const profile = useProfile();
   const [tab, setTab] = useState<HomeTab>("Explore");
-  const pinterest = usePinterestFeed(active && tab === "Explore", !!session);
+  const [source,setSource]=useState<HomeSource>("LaQue");
+  const [updatesTab,setUpdatesTab]=useState<"News"|"Rewards">("News");
+  const pinterest = usePinterestFeed(active && tab === "Explore" && source!=="Competition", !!session);
   const [category, setCategory] = useState<HomeCategory>("All");
   const [sort, setSort] = useState<HomeSort>("For you");
   const [limit, setLimit] = useState(24);
@@ -66,7 +69,7 @@ export default function HomeScreen() {
         tab: "Explore",
         limit: 24,
       }),
-    tab === "Explore",
+    tab === "Explore" && source === "LaQue",
   );
   const library = useAccountQuery(
     [
@@ -81,7 +84,7 @@ export default function HomeScreen() {
       profile.data?.nail_techniques,
     ],
     (signal) => listHomeDesigns("library", signal, options),
-    tab !== "Updates" &&
+    (tab !== "Explore" || source === "LaQue") && tab !== "Updates" &&
       tab !== "Community" &&
       (tab !== "Following" || !!session),
   );
@@ -93,12 +96,12 @@ export default function HomeScreen() {
         tab: "Explore",
         limit: 24,
       }),
-    tab === "Explore",
+    tab === "Explore" && source === "LaQue",
   );
   const community = useAccountQuery(
     ["home", "community-counts"],
     homeCommunityCounts,
-    tab === "Explore",
+    tab === "Explore" && source === "LaQue",
   );
   const stories = useAccountQuery(["home", "stories"], (signal) =>
     listHomeStories(signal),
@@ -107,11 +110,6 @@ export default function HomeScreen() {
     ["community-posts", limit],
     (signal) => listCommunity(signal, limit),
     tab === "Community" && !!session,
-  );
-  const updates = useAccountQuery(
-    ["home", "updates", limit],
-    (signal) => listHomeUpdates(session!.user.id, limit, signal),
-    tab === "Updates" && !!session,
   );
   const ids = [
     ...new Set(
@@ -242,6 +240,10 @@ export default function HomeScreen() {
       refreshing={published.isFetching && !published.isLoading}
       active={active}
       tab={tab}
+      source={source}
+      onSource={value=>{if(allow())setSource(value);}}
+      competition={<CompetitionGallery active={active&&tab==="Explore"&&source!=="Pinterest"} compact={source!=="Competition"} onDesign={openDesign}
+        onAll={()=>{if(!allow())return; if(source!=="Competition")setSource("Competition");else {setUpdatesTab("Rewards");setTab("Updates");}}}/>}
       category={category}
       sort={sort}
       onTab={(value) => {
@@ -338,42 +340,7 @@ export default function HomeScreen() {
         void save(id);
       }}
       saveError={saveError}
-      updates={
-        <UpdatesFeed
-          currentUserId={session?.user.id}
-          onCompose={() => {
-            if (allow("/updates/new")) router.push("/updates/new");
-          }}
-          posts={updates.data || []}
-          loading={updates.isLoading}
-          refreshing={updates.isFetching && !updates.isLoading}
-          error={
-            updates.error
-              ? "Updates couldn’t load. Check your connection and try again."
-              : undefined
-          }
-          onRetry={() => {
-            void updates.refetch();
-          }}
-          hasMore={updates.data?.length === limit}
-          onMore={() => setLimit((value) => value + 24)}
-          onProfile={(id) =>
-            router.push({ pathname: "/creator/[id]", params: { id } })
-          }
-          onDiscover={() =>
-            router.push({ pathname: "/search", params: { mode: "Artists" } })
-          }
-          onNotifications={() => {
-            if (allow("/notifications")) router.push("/notifications");
-          }}
-          onReport={(id) =>
-            router.push({
-              pathname: "/report",
-              params: { targetType: "profile", targetId: id },
-            })
-          }
-        />
-      }
+      updates={<UpdatesHub key={updatesTab} initialTab={updatesTab} announcements={published.data?.announcements} />}
     />
   );
 }

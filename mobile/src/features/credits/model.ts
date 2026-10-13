@@ -7,6 +7,7 @@ export type CreditCatalogItem = {
   credits: number;
 };
 export type CreditBillingState = {
+  stripeLab?: { sandbox: true; enabled: boolean; native?: boolean; packages: CreditPack[]; pending: { id: string; package: string; status: string; surface?: "native" | "hosted" }[]; subscription: { id: string; status: string; cancel_at_period_end: boolean } | null; needsReview: boolean; verifiedAt: string | null } | null;
   credits: number;
   purchasedTokens?: number;
   canSubscribe?: boolean;
@@ -29,7 +30,7 @@ export type CreditReceipt = {
 export type CreditHistory = { items: CreditReceipt[]; hasMore: boolean };
 export type CreditOperation = "purchase" | "check" | "restore" | "reload";
 export function creditStoreName(store?: string) {
-  return store === "APP_STORE"
+  return store === "STRIPE_LAB" ? "Stripe sandbox" : store === "APP_STORE"
     ? "Apple App Store"
     : store === "PLAY_STORE"
       ? "Google Play"

@@ -1,5 +1,5 @@
 import { AccountScope, AccountChangedError } from "../src/lib/account-scope";
-import { createSecureStorage } from "../src/lib/secure-storage";
+import { createSecureStorage, createPlatformSecureStorage } from "../src/lib/secure-storage";
 import {
   parseAuthLink,
   notificationPath,
@@ -68,6 +68,28 @@ test("a missing encrypted chunk cannot yield a partial auth token", async () => 
   await storage.setItem("session", "secret".repeat(100));
   data.delete("session.version-1.1");
   await expect(storage.getItem("session")).rejects.toThrow("incomplete");
+});
+test("browser sessions use page memory, never the unsupported native vault, and disappear with a new page", async () => {
+  const { adapter } = vault();
+  const web = createPlatformSecureStorage("web", adapter, () => "web-session");
+  await web.setItem("session", "synthetic-token".repeat(200));
+  expect(await web.getItem("session")).toBe("synthetic-token".repeat(200));
+  expect(adapter.getItemAsync).not.toHaveBeenCalled();
+  expect(adapter.setItemAsync).not.toHaveBeenCalled();
+  const newPage = createPlatformSecureStorage("web", adapter, () => "new-page");
+  expect(await newPage.getItem("session")).toBeNull();
+  await web.removeItem("session");
+  expect(await web.getItem("session")).toBeNull();
+});
+test.each(["ios", "android"])("%s keeps encrypted native persistence and does not fall back after a vault failure", async (platform) => {
+  const { adapter, data } = vault();
+  const native = createPlatformSecureStorage(platform, adapter, () => "native-session");
+  await native.setItem("session", "native-token");
+  expect(data.size).toBeGreaterThan(0);
+  const restart = createPlatformSecureStorage(platform, adapter, () => "restart");
+  expect(await restart.getItem("session")).toBe("native-token");
+  adapter.getItemAsync.mockRejectedValueOnce(new Error("Vault unavailable"));
+  await expect(native.getItem("session")).rejects.toThrow("Vault unavailable");
 });
 test.each([
   "https://evil.invalid/auth/callback?code=x",

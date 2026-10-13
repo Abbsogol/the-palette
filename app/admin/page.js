@@ -5,11 +5,14 @@ import { supabase } from '@/lib/supabase';
 import styles from './admin.module.css';
 import Overview from './overview';
 import UserDetails from './user-details';
+import RewardsPanel from './rewards';
 const labels = {
   overview: 'Overview',
   users: 'Users & Creators',
   content: 'Content',
   home: 'Home Editor',
+  updates: 'Official Updates',
+  rewards: 'Rewards',
   bookings: 'Bookings',
   lab: 'Lab Diagnostics',
   credits: 'Subscriptions & Tokens',
@@ -167,6 +170,9 @@ export default function AdminPage() {
     };
   }, [identity, section, search, page, filter, contentType, overviewDays, reload]);
   const select = s => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('section', s);
+    window.history.replaceState(null, '', url);
     setSection(s);
     setData(null);
     setDetail(null);
@@ -273,6 +279,7 @@ export default function AdminPage() {
    {!data && !error && <p role="status">Loading {labels[section].toLowerCase()}…</p>}
    {data && section === 'overview' && <Overview data={data} days={overviewDays} onRange={days=>{setOverviewDays(days);setData(null)}} />}
    {data && section === 'integrations' && <><p>{data.note}</p><div className={styles.grid}>{rows.map(r => <article key={r.name}><h2>{r.name}</h2><span className={styles.badge}>{r.ready ? 'Configured' : 'Needs configuration'}</span></article>)}</div></>}
+   {data && ['updates','rewards'].includes(section) && <RewardsPanel key={`${section}:${reload}`} section={section} data={data} request={request} action={action} owner={identity.role==='owner'} />}
    {data && section === 'home' && <HomeEditor key={data.version} data={data} action={action} />}
    {data && section === 'pinterest' && <PinterestPanel data={data} action={action} />}
    {data && section === 'team' && <TeamPanel data={data} action={action} />}
@@ -297,7 +304,7 @@ export default function AdminPage() {
                   action: 'tag',
                   name: r.name
                 })}>Rename</button>}</td></tr>)}</tbody></table>{!rows.length && <p className={styles.empty}>No records match this view.</p>}</div>}
-   {data && data.page !== undefined && <div className={styles.pagination}><button disabled={!page} onClick={() => {
+   {data && data.page !== undefined && !['updates', 'rewards'].includes(section) && <div className={styles.pagination}><button disabled={!page} onClick={() => {
           setPage(v => v - 1);
           setData(null);
         }}>Previous</button><span>Page {page + 1}</span><button disabled={!data.hasMore} onClick={() => {
@@ -324,7 +331,7 @@ export default function AdminPage() {
             status: 'reviewed',
             assignedTo: identity.id
           })}>Assign to me / reviewed</button></>}
-    {section === 'credits' && <><h3>{detail.subscription?.active?'Active Nail Lab subscription':'No active Nail Lab subscription'}</h3><p>{detail.subscription?.monthlyRemaining??0} monthly designs remaining · {detail.profile.credit_balance} purchased tokens</p><p>Period ends: {date(detail.subscription?.renewsAt)}</p><p>Purchased tokens are usable only with an active subscription. Corrections do not grant a subscription.</p><CreditForm id={detailId} action={action} /><h3>Subscriptions & store purchases</h3>{!detail.purchases.length && <p>No store purchases.</p>}{detail.purchases.map((p, i) => <p key={i}>{['laque_lab_monthly_5','laque_lab_monthly_5:monthly'].includes(p.product_id)?'Nail Lab monthly subscription':`${p.credits} design tokens`} · {p.store} · {p.refunded ? 'Refunded' : p.granted ? 'Credited' : 'Verifying'} · {date(p.purchased_at)}</p>)}<h3>Corrections</h3>{detail.corrections.map(c => <p key={c.id}>{c.delta > 0 ? '+' : ''}{c.delta} → {c.balance_after} · {c.reason} · {date(c.created_at)}</p>)}</>}
+    {section === 'credits' && <><h3>{detail.subscription?.active?'Active Nail Lab subscription':'No active Nail Lab subscription'}</h3><p>{detail.subscription?.monthlyRemaining??0} monthly designs remaining · {detail.profile.credit_balance} purchased tokens</p><p>Period ends: {date(detail.subscription?.renewsAt)}</p><p>Purchased tokens are usable only with an active subscription. Corrections do not grant a subscription.</p><CreditForm id={detailId} action={action} /><h3>Subscriptions & store purchases</h3>{!detail.purchases.length && <p>No store purchases.</p>}{detail.purchases.map((p, i) => <p key={i}>{['laque_lab_monthly_5','laque_lab_monthly_5:monthly'].includes(p.product_id)?'Nail Lab monthly subscription':`${p.credits} design tokens`} · {p.store} · {p.refunded ? 'Refunded' : p.granted ? 'Credited' : 'Verifying'} · {date(p.purchased_at)}</p>)}<h3>Stripe Lab sandbox</h3>{!detail.stripeLab ? <p>Not configured.</p> : <><p>{detail.stripeLab.verification?.needs_review ? "Verification needs review" : "Provider verification"} · {date(detail.stripeLab.verification?.verified_at)}</p>{!detail.stripeLab.purchases.length && <p>No sandbox purchases.</p>}{detail.stripeLab.purchases.map(p => <p key={p.id}>{p.package === "monthly" ? "$5 monthly · 15 designs" : p.package === "tokens30" ? "30 tokens · $10" : "100 tokens · $25"} · {p.status} · {p.surface === "native" ? "In-app payment" : "Hosted checkout"} · {p.refunded_units ? `${p.refunded_units} tokens revoked` : ""} · {date(p.created_at)}</p>)}</>}<h3>Corrections</h3>{detail.corrections.map(c => <p key={c.id}>{c.delta > 0 ? '+' : ''}{c.delta} → {c.balance_after} · {c.reason} · {date(c.created_at)}</p>)}</>}
     {section === 'content' && detail.design && <DesignForm key={detailId} title="Edit LaQue design" design={detail.design} tags={detail.tags} action={action} />}
     <NoteList notes={detail.notes} />
    </section>}
