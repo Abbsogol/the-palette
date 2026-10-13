@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import BackButton from '@/components/ui/BackButton'
 
 const ACCENT = '#FF517F'
@@ -165,6 +166,7 @@ export default function HelpPage() {
             Find answers to common questions below. Still stuck? Reach us at{' '}
             <a href="mailto:hello@laque.app" style={{ ...ui(500, 14, ACCENT), textDecoration: 'none' }}>hello@laque.app</a>
           </p>
+          <p style={{ marginTop: '12px', ...ui(400, 14, ACCENT) }}><Link href="/privacy" style={{ color: 'inherit' }}>Read our Privacy Policy</Link></p>
         </div>
 
         {/* FAQ sections */}

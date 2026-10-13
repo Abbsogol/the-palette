@@ -985,7 +985,7 @@ export default function ProfilePage() {
                   <input type="checkbox" checked={termsAccepted} onChange={e => setTermsAccepted(e.target.checked)}
                     style={{ marginTop: '2px', accentColor: ACCENT, flexShrink: 0 }} />
                   <span style={{ ...ui(300, 12, MUTED), lineHeight: 1.5 }}>
-                    I agree to the <span style={{ color: ACCENT }}>Terms of Service</span> and <span style={{ color: ACCENT }}>Privacy Policy</span>
+                    I agree to the <span style={{ color: ACCENT }}>Terms of Service</span> and <Link href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: ACCENT }}>Privacy Policy</Link>
                   </span>
                 </label>
                 <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
@@ -1841,6 +1841,7 @@ export default function ProfilePage() {
             { label: 'Nail Lab History', href: '/nail-lab/history',  icon: <MagicStarIcon size={16} /> },
             { label: 'Notifications',    href: '/notifications',     icon: <BellIcon size={16} /> },
             { label: 'Privacy & Safety', href: '/settings/privacy',  icon: <LockIcon size={16} /> },
+            { label: 'Privacy Policy', href: '/privacy', icon: <LockIcon size={16} /> },
           ].map(({ label, href, icon }) => (
             <Link key={label} href={href} style={menuRow}>
               <span style={{ color: 'var(--lq-white)', display: 'flex' }}>{icon}</span>
