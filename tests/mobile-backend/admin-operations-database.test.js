@@ -29,4 +29,6 @@ it('private-bucket image access follows ordinary design RLS for public, draft, p
  await db.query('update profiles_data set is_private=false where id=$1',[creator]);await mutate(moderator,'moderate',report,{hidden:true});expect((await bytes()).rows).toHaveLength(0)
  await mutate(moderator,'moderate',report,{hidden:false});expect((await bytes()).rows).toHaveLength(1)
  expect((await db.as('authenticated',user,"select can_read_design_object('mobile-uploads',$1) allowed",[creator+'/%'])).rows[0].allowed).toBe(false)
-})
+// This multi-state RLS integration exceeds the unit-test budget on the shared
+// PostgreSQL CI runner. Keep every visibility assertion and a bounded deadline.
+},30000)

@@ -8,6 +8,8 @@ Appointment route tests control `Date` while leaving asynchronous timers real. T
 
 Android's previous resource compilation failure was caused by JPEG bytes named `.png`. All 21 affected assets now use `.jpg`, with byte-identical images and updated references/manifests. A format-signature test checks native raster assets to prevent recurrence.
 
+The shared PostgreSQL CI runner also repeatedly hit the five-second unit-test deadline in the multi-query private-media RLS integration. That single test now has a bounded 30-second integration deadline. Its public, draft, private, hidden, restored and malformed-path assertions, migrations and database policies are unchanged. Other tests retain their existing deadlines.
+
 ## Verification
 
 - Full backend suite: 109 files, 1,004 passed, two skipped with PGlite.
@@ -15,6 +17,6 @@ Android's previous resource compilation failure was caused by JPEG bytes named `
 - Full mobile verify: lint, typecheck, 92 suites and 743 tests passed.
 - Smoke web build and all 20 Chromium/WebKit browser checks passed.
 - iOS and Android JavaScript bundle exports passed.
-- Native PostgreSQL 17 sequence: regressions, security, phases 3–6 and mobile backend all passed, with no skipped tests.
+- Native PostgreSQL 17 sequence: regressions, security, phases 3–6 and mobile backend all passed (912 tests), with no skipped tests.
 
 GitHub's Verify and Mobile verification workflows must pass for the pushed source before F02 is marked complete in the launch tracker. Production activation and signed release-candidate acceptance remain separate tasks.
