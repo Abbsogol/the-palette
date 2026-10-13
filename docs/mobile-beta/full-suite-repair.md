@@ -21,4 +21,6 @@ The universal Android APK passed in the branch workflow but exhausted the genera
 - iOS and Android JavaScript bundle exports passed.
 - Native PostgreSQL 17 sequence: regressions, security, phases 3–6 and mobile backend all passed (912 tests), with no skipped tests.
 
-GitHub's Verify and Mobile verification workflows must pass for the pushed source before F02 is marked complete in the launch tracker. Production activation and signed release-candidate acceptance remain separate tasks.
+Final CI is green at `3ca36d77e3f4fc88b469ff736a247d4bb3164ceb`: [Verify](https://github.com/Abbsogol/the-palette/actions/runs/38367110139) and [Mobile verification](https://github.com/Abbsogol/the-palette/actions/runs/38367110075). All jobs passed, including Android universal Release APK packaging and iOS Release simulator compilation. The duplicate branch workflows also passed. Backend CI executes 1,006 tests without skips (94 unit plus 912 in the native PostgreSQL sequence).
+
+F02 is marked complete in the Excel/CSV tracker. Production activation and signed release-candidate acceptance remain separate tasks.
