@@ -26,17 +26,18 @@ test('anonymous profile provides login and recovery navigation', async ({ page }
 })
 
 test('bottom navigation reaches the profile without authentication', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/help')
   await page.getByRole('navigation').getByRole('link', { name: 'Profile', exact: true }).click()
   await expect(page).toHaveURL(/\/profile$/)
   await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible()
 })
 
-test('search initializes a deep-linked query without a hydration error', async ({ page }) => {
+test('signed-out search preserves its deep link and requires sign-in', async ({ page }) => {
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
   await page.goto('/search?q=bridal')
-  await expect(page.getByRole('textbox').first()).toHaveValue('bridal')
+  await expect(page.getByRole('heading', { name: 'Sign in to search LaQue' })).toBeVisible()
+  await expect(page).toHaveURL(/q=bridal/)
   expect(errors).toEqual([])
 })
 

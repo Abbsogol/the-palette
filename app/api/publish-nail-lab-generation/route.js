@@ -1,3 +1,4 @@
+import { transformDesignImageMeta, toUploadBody } from '@/lib/imageTransform'
 import { randomUUID } from 'node:crypto'
 import { ownedNailLabPath } from '@/lib/storage-path'
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
@@ -34,24 +35,27 @@ export async function POST(request) {
     // Drafts retain an owner-only reference. Only explicit publication copies
     // the image into a public bucket; hiding a DB row alone cannot hide a file.
     let imageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/nail-lab/${sourcePath}`
+    let dimensions = {}
     let copiedPath
     if (!asDraft) {
       const { data: fileData, error } = await supabase.storage.from('nail-lab').download(sourcePath)
       if (error || !fileData) return Response.json({ error: 'Failed to load generated image' }, { status: 500 })
-      copiedPath = `published/${user.id}/${randomUUID()}.png`
-      const buffer = new Uint8Array(await fileData.arrayBuffer())
-      const { error: uploadError } = await supabase.storage.from('designs').upload(copiedPath, buffer, { contentType: 'image/png', upsert: false })
+      copiedPath = `published/${user.id}/${randomUUID()}.webp`
+      const image = await transformDesignImageMeta(Buffer.from(await fileData.arrayBuffer()))
+      dimensions = { image_width: image.width, image_height: image.height }
+      const buffer = toUploadBody(image.buffer)
+      const { error: uploadError } = await supabase.storage.from('designs').upload(copiedPath, buffer, { contentType: 'image/webp', upsert: false })
       if (uploadError) return Response.json({ error: 'Failed to publish image' }, { status: 500 })
       imageUrl = supabase.storage.from('designs').getPublicUrl(copiedPath).data.publicUrl
     }
     if (existing) {
-      const { error } = await supabase.from('designs').update({ is_published: true, image_url: imageUrl }).eq('id', existing.id).eq('created_by', user.id)
+      const { error } = await supabase.from('designs').update({ is_published: true, image_url: imageUrl, ...dimensions }).eq('id', existing.id).eq('created_by', user.id)
       if (error) return Response.json({ error: 'Failed to publish design' }, { status: 500 })
       return Response.json({ designId: existing.id, publicUrl: imageUrl, isPublished: true })
     }
     const vibes = Array.isArray(generation.vibe) ? generation.vibe : [generation.vibe].filter(Boolean)
     const { data: design, error } = await supabase.from('designs').insert({
-      title: vibes.join(' + '), image_url: imageUrl, shape: generation.shape, length: generation.length,
+      ...dimensions, title: vibes.join(' + '), image_url: imageUrl, shape: generation.shape, length: generation.length,
       is_published: !asDraft, is_curated: false, created_by: user.id, source_generation_id: generationId,
     }).select('id').single()
     if (error?.code === '23505') {
@@ -59,7 +63,7 @@ export async function POST(request) {
         .eq('created_by', user.id).eq('source_generation_id', generationId).single()
       if (winner) {
         if (!asDraft && !winner.is_published) {
-          const { error: promoteError } = await supabase.from('designs').update({ is_published: true, image_url: imageUrl })
+          const { error: promoteError } = await supabase.from('designs').update({ is_published: true, image_url: imageUrl, ...dimensions })
             .eq('id', winner.id).eq('created_by', user.id)
           if (promoteError) return Response.json({ error: 'Failed to publish design' }, { status: 500 })
           return Response.json({ designId: winner.id, publicUrl: imageUrl, isPublished: true })

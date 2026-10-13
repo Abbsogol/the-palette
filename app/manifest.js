@@ -1,7 +1,7 @@
 export default function manifest() {
   return {
-    name: 'Laque',
-    short_name: 'Laque',
+    name: 'laQue',
+    short_name: 'laQue',
     description: 'A curated library of nail & beauty designs — browse, save, and discover with full specs.',
     start_url: '/',
     display: 'standalone',
@@ -19,7 +19,9 @@ export default function manifest() {
         type: 'image/png',
       },
       {
-        src: '/icon-512.png',
+        // Dedicated full-bleed variant: the sphere sits in the 80% safe
+        // zone on a wine field, so circular/squircle masks never clip it.
+        src: '/icon-maskable-512.png',
         sizes: '512x512',
         type: 'image/png',
         purpose: 'maskable',

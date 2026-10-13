@@ -1,22 +1,46 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useRouter, useParams, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
-import CheckoutSession from '@/components/CheckoutSession'
-import { useAccountAction } from '@/lib/use-account-action'
-import { bookingCalendar, calendarKey, dateInZone } from '@/lib/booking-time'
+import { useState, useEffect, Suspense, useRef } from 'react';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
+import Sheet from '@/components/ui/Sheet';
+
+// ── Booking palette from frames 250:2116…2483 ──────────────────────────────
+import CheckoutSession from '@/components/CheckoutSession';
+import { useAccountAction } from '@/lib/use-account-action';
+import { bookingCalendar, calendarKey, dateInZone } from '@/lib/booking-time';
+import { canGoBack } from '@/lib/navHistory';
+
+
+
+
+
+
+// ── Booking palette from frames 250:2116…2483 ──────────────────────────────
+const PANEL = 'rgba(255, 255, 255, 0.06)'
+const PANEL_BORDER = '1px solid rgba(255, 255, 255, 0.08)'
+const WHITE80 = 'rgba(255, 255, 255, 0.8)'
+const WHITE50 = 'rgba(255, 255, 255, 0.5)'
+const WHITE40 = 'rgba(255, 255, 255, 0.4)'
+const WHITE30 = 'rgba(255, 255, 255, 0.3)'
+const ACCENT = '#FF517F'
+const BTN_GRADIENT = 'linear-gradient(90deg, #660007 47.832%, #FF517F 100%)'
+
+const ui = (weight, size, color = 'var(--lq-white)') => ({
+  fontFamily: 'var(--lq-font-ui)', fontWeight: weight, fontSize: `${size}px`, color, lineHeight: 1.35,
+})
+const display = (size) => ({ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: `${size}px`, color: 'var(--lq-white)', lineHeight: 1.25 })
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+const MONTH_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
 function fmt12(t) {
   if (!t) return ''
-  const [rawHour, m] = t.slice(0, 5).split(':').map(Number)
-  const h = rawHour % 24
-  const ampm = h < 12 ? 'am' : 'pm'
+  const [h, m] = t.slice(0, 5).split(':').map(Number)
+  const ampm = h % 24 < 12 ? 'am' : 'pm'
   const h12 = h % 12 === 0 ? 12 : h % 12
   return `${h12}${m > 0 ? `:${String(m).padStart(2,'0')}` : ''}${ampm}`
 }
@@ -33,54 +57,130 @@ function addMinutes(timeStr, mins) {
   return `${String(Math.floor(total / 60)).padStart(2,'0')}:${String(total % 60).padStart(2,'0')}`
 }
 
-export default function BookPage() {
-  const { creatorId } = useParams()
-  return <CheckoutSession title="Sign in to book an appointment" description="Your appointment and notes belong to your signed-in account.">{userId => <BookingForm key={`${userId}:${creatorId}`} userId={userId} />}</CheckoutSession>
+function timeToMins(timeStr) {
+  const [h, m] = timeStr.slice(0, 5).split(':').map(Number)
+  return h * 60 + m
 }
 
-function BookingForm({ userId }) {
-  const { creatorId } = useParams()
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const designId = searchParams.get('designId')
-  const prefillServiceId = searchParams.get('serviceId')
-  const prefillNote = searchParams.get('note')
+// Local calendar date as YYYY-MM-DD — Date#toISOString() converts to UTC
+// first, which shifts the date back a day for any positive UTC offset
+// (e.g. Asia/Dubai, UTC+4) once local midnight crosses into the prior UTC day.
+function toLocalDateStr(d) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
 
-  const [step, setStep] = useState(1) // 1=service, 2=date, 3=time, 4=confirm
-  const [currentUser, setCurrentUser] = useState(null)
-  const [creator, setCreator] = useState(null)
-  const [isPrivateAndBlocked, setIsPrivateAndBlocked] = useState(false)
-  const [services, setServices] = useState([])
-  const [availability, setAvailability] = useState([]) // active days
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState(false)
-  const { run, busy: submitting } = useAccountAction(userId)
-  const [timeZone, setTimeZone] = useState(null)
-  const [submitError, setSubmitError] = useState('')
-  const [done, setDone] = useState(false)
-  const calendarEnabled = process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_ENABLED === 'true'
-  const [calendarWarningKey, setCalendarWarningKey] = useState('')
-  const [calendarAcknowledgement, setCalendarAcknowledgement] = useState('')
-  const requestIdentity = useRef(null)
+// Fixed wine backdrop per the booking frames: base + wine image + 0.6 scrim.
+function BookShell({ children }) {
+  return (
+    <div style={{ position: 'relative', minHeight: '100dvh' }}>
+      <div aria-hidden className="lq-bg-wine" style={{ position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '480px', zIndex: 0, backgroundColor: '#260D14' }}>
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(26, 5, 13, 0.6)' }} />
+        <div className="lq-grain" />
+      </div>
+      <div style={{ position: 'relative', zIndex: 1 }}>
+        {children}
+      </div>
+    </div>
+  )
+}
 
-  // Inspiration design (from ?designId=)
-  const [inspDesign, setInspDesign] = useState(null)
+function BookingForm({userId}) {
+const { run, busy: submitting } = useAccountAction(userId)
 
-  // Selections
-  const [selectedService, setSelectedService] = useState(null)
-  const [selectedDate, setSelectedDate] = useState(null)   // Date object
-  const [slotSelection, setSlotSelection] = useState(null)
-  const [note, setNote] = useState('')
-  const [slotResult, setSlotResult] = useState(null)
-  const slotKey = selectedDate && selectedService && timeZone
+const [timeZone, setTimeZone] = useState(null)
+
+const calendarEnabled = process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_ENABLED === 'true'
+
+const [calendarWarningKey, setCalendarWarningKey] = useState('')
+
+const [calendarAcknowledgement, setCalendarAcknowledgement] = useState('')
+
+const requestIdentity = useRef(null)
+
+const [slotSelection, setSlotSelection] = useState(null)
+
+const [slotResult, setSlotResult] = useState(null)
+
+const [selectedDate, setSelectedDate] = useState(null)
+
+const [selectedService, setSelectedService] = useState(null)
+
+const { creatorId } = useParams()
+
+const slotKey = selectedDate && selectedService && timeZone
     ? `${creatorId}:${calendarKey(selectedDate)}:${selectedService.id}:${timeZone}` : null
-  const slots = slotResult?.key === slotKey ? slotResult.rows : []
-  const slotsError = slotResult?.key === slotKey ? slotResult.error : ''
-  const slotsLoading = !!slotKey && slotResult?.key !== slotKey
-  const selectedSlot = slotSelection?.key === slotKey && slots.some(slot => slot.time === slotSelection.time && slot.available)
+
+const slots = slotResult?.key === slotKey ? slotResult.rows : []
+
+const slotsError = slotResult?.key === slotKey ? slotResult.error : ''
+
+const slotsLoading = !!slotKey && slotResult?.key !== slotKey
+
+const selectedSlot = slotSelection?.key === slotKey && slots.some(slot => slot.time === slotSelection.time && slot.available)
     ? slotSelection.time : null
 
-  useEffect(() => {
+const calendarSelectionKey = `${slotKey}:${selectedSlot}`
+
+const calendarConflict = slots.find(slot => slot.time === selectedSlot && (slot.calendarConflict || slot.calendarUnchecked)) || calendarWarningKey === calendarSelectionKey
+
+const chevronLeft = (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 12H5M12 5l-7 7 7 7"/>
+    </svg>
+  )
+
+const router = useRouter()
+
+const searchParams = useSearchParams()
+
+const designId = searchParams.get('designId')
+
+const prefillServiceId = searchParams.get('serviceId')
+
+const prefillNote = searchParams.get('note')
+
+const fromParam = searchParams.get('from') || ''
+
+const fromChatConvId = fromParam.startsWith('chat:') ? fromParam.slice(5) : null
+
+const [step, setStep] = useState(1)
+
+const [currentUser, setCurrentUser] = useState(null)
+
+const [creator, setCreator] = useState(null)
+
+const [isPrivateAndBlocked, setIsPrivateAndBlocked] = useState(false)
+
+const [services, setServices] = useState([])
+
+const [availability, setAvailability] = useState([])
+
+const [loading, setLoading] = useState(true)
+
+const [notFoundMsg, setNotFoundMsg] = useState(null)
+
+const [loadError, setLoadError] = useState(false)
+
+const [submitError, setSubmitError] = useState('')
+
+const [done, setDone] = useState(false)
+
+const [inspDesign, setInspDesign] = useState(null)
+
+const [note, setNote] = useState('')
+
+const [refAvailable, setRefAvailable] = useState(false)
+
+const [refDesign, setRefDesign] = useState(null)
+
+const [refPickerOpen, setRefPickerOpen] = useState(false)
+
+const [refLibrary, setRefLibrary] = useState([])
+
+useEffect(() => {
     let active = true
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -143,9 +243,7 @@ function BookingForm({ userId }) {
     return () => { active = false }
   }, [creatorId, designId, prefillNote, prefillServiceId, router, userId])
 
-  // The database resolves creator-local times and excludes elapsed/DST-invalid
-  // slots. A stale response for another date/service must never enable submit.
-  useEffect(() => {
+useEffect(() => {
     let active = true
     if (!slotKey) return
     const loadSlots = async () => {
@@ -169,9 +267,21 @@ function BookingForm({ userId }) {
     return () => { active = false }
   }, [creatorId, selectedDate, selectedService, slotKey, calendarEnabled, userId])
 
-  const calendarSelectionKey = `${slotKey}:${selectedSlot}`
-  const calendarConflict = slots.find(slot => slot.time === selectedSlot && (slot.calendarConflict || slot.calendarUnchecked)) || calendarWarningKey === calendarSelectionKey
-  const handleSubmit = async () => {
+const openRefPicker = async () => {
+    setRefPickerOpen(true)
+    if (refLibrary.length) return
+    const { data } = await supabase
+      .from('designs')
+      .select('id, title, image_url')
+      .eq('is_published', true)
+      .order('created_at', { ascending: false })
+      .limit(60)
+    setRefLibrary(data || [])
+  }
+
+const [doneBookingId, setDoneBookingId] = useState(null)
+
+const handleSubmit = async () => {
     if (!selectedService || !selectedDate || !selectedSlot || !timeZone) return
     setSubmitError('')
     try {
@@ -205,352 +315,418 @@ function BookingForm({ userId }) {
     } catch (error) { setSubmitError(error.message) }
   }
 
-  const buildCalendar = () => bookingCalendar(availability, timeZone)
+const buildCalendar = () => bookingCalendar(availability, timeZone)
 
-  const chevronLeft = (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M19 12H5M12 5l-7 7 7 7"/>
-    </svg>
+if (loading) return (
+    <BookShell>
+      <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={ui(300, 14, WHITE50)}>Loading…</p>
+      </div>
+    </BookShell>
   )
 
-  if (loading) return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <p style={{ color: 'var(--text-secondary)', fontFamily: "'DM Sans', sans-serif" }}>Loading…</p>
-    </div>
+if (loadError) return (
+    <BookShell>
+      <div style={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '20px', textAlign: 'center' }}>
+        <p style={ui(600, 15)}>Couldn&apos;t load booking details</p>
+        <p style={ui(300, 13, WHITE50)}>Please try again in a moment.</p>
+        <button onClick={() => window.location.reload()} style={{ background: BTN_GRADIENT, border: 'none', borderRadius: '1000px', padding: '13px 28px', ...ui(500, 14), cursor: 'pointer' }}>
+          Retry
+        </button>
+      </div>
+    </BookShell>
   )
 
-  if (loadError) return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '20px', textAlign: 'center' }}>
-      <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif" }}>Couldn&apos;t load booking details</p>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif" }}>Please try again in a moment.</p>
-      <button onClick={() => window.location.reload()} style={{ background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '12px 24px', fontSize: '14px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
-        Retry
-      </button>
-    </div>
+if (notFoundMsg) return (
+    <BookShell>
+      <div style={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '20px', textAlign: 'center' }}>
+        <p style={ui(600, 15)}>{notFoundMsg}</p>
+        <Link href="/search" style={{ background: BTN_GRADIENT, borderRadius: '1000px', padding: '13px 28px', ...ui(500, 14), textDecoration: 'none' }}>Find an artist</Link>
+      </div>
+    </BookShell>
   )
 
-  // ── PRIVATE ACCOUNT GUARD ───────────────────────────────────────────────────
-  if (isPrivateAndBlocked) return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', fontFamily: "'DM Sans', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px', textAlign: 'center' }}>
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '16px' }}>
-        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-      </svg>
-      <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', margin: '0 0 6px' }}>This account is private</p>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '0 0 24px' }}>Follow {creator?.display_name || 'them'} to book an appointment.</p>
-      <Link href={`/creator/${creatorId}`} style={{ background: 'var(--accent)', color: '#2C0A1E', borderRadius: '12px', padding: '13px 24px', fontSize: '14px', fontWeight: '600', textDecoration: 'none' }}>
-        Back to profile
-      </Link>
-    </div>
-  )
-
-  // ── DONE SCREEN ─────────────────────────────────────────────────────────────
-  if (done) return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', fontFamily: "'DM Sans', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px', textAlign: 'center' }}>
-      <div style={{ fontSize: '48px', marginBottom: '20px' }}>✦</div>
-      <h1 style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: '600', margin: '0 0 10px' }}>Request sent!</h1>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: '0 0 8px', lineHeight: '1.6' }}>
-        Your appointment request has been sent to <strong style={{ color: 'var(--text-primary)' }}>{creator?.display_name}</strong>.
-      </p>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '0 0 32px' }}>
-        You&apos;ll get notified once they confirm or decline.
-      </p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', maxWidth: '320px' }}>
-        <Link href={`/creator/${creatorId}`} style={{ background: 'var(--accent)', color: '#2C0A1E', borderRadius: '12px', padding: '13px', fontSize: '14px', fontWeight: '600', textDecoration: 'none', textAlign: 'center' }}>
+if (isPrivateAndBlocked) return (
+    <BookShell>
+      <div style={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px', textAlign: 'center' }}>
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={WHITE50} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '16px' }}>
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        <p style={{ ...ui(600, 15), margin: '0 0 6px' }}>This account is private</p>
+        <p style={{ ...ui(300, 13, WHITE50), margin: '0 0 24px' }}>Follow {creator?.display_name || 'them'} to book an appointment.</p>
+        <Link href={`/creator/${creatorId}`} style={{ background: BTN_GRADIENT, borderRadius: '1000px', padding: '14px 28px', ...ui(500, 14), textDecoration: 'none' }}>
           Back to profile
         </Link>
-        <Link href="/feed" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '13px', fontSize: '14px', fontWeight: '500', textDecoration: 'none', textAlign: 'center' }}>
-          Go to feed
-        </Link>
       </div>
-    </div>
+    </BookShell>
   )
 
-  const calendarDays = buildCalendar()
-
-  return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', fontFamily: "'DM Sans', sans-serif", paddingBottom: '100px' }}>
-
-      {timeZone ? <p role="status" style={{ padding: '0 20px' }}>All appointment times are in {timeZone.replaceAll('_', ' ')}.</p>
-        : <p role="alert" style={{ padding: '0 20px' }}>This creator needs to set their appointment time zone before accepting bookings.</p>}
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 20px' }}>
-        <button
-          onClick={() => step > 1 ? setStep(step - 1) : router.back()}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', display: 'flex', padding: 0 }}
-        >
-          {chevronLeft}
-        </button>
-        <div style={{ flex: 1 }}>
-          <h1 style={{ color: 'var(--text-primary)', fontSize: '17px', fontWeight: '600', margin: 0 }}>Book appointment</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '2px 0 0' }}>{creator?.display_name}</p>
+if (done) return (
+    <BookShell>
+      <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px calc(env(safe-area-inset-bottom) + 40px)', textAlign: 'center' }}>
+        <div style={{ width: '68px', height: '68px', borderRadius: '34px', background: PANEL, border: PANEL_BORDER, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4z"/><path d="M18 3v4M20 5h-4"/>
+          </svg>
         </div>
-        {/* Step indicator */}
-        <div style={{ display: 'flex', gap: '4px' }}>
-          {[1,2,3,4].map(s => (
-            <div key={s} style={{ width: s <= step ? '18px' : '6px', height: '6px', borderRadius: '3px', background: s <= step ? 'var(--accent)' : 'var(--bg-chip)', transition: 'all 0.2s' }} />
-          ))}
+        <h1 style={{ ...display(26), color: ACCENT, margin: '0 0 14px' }}>Request sent!</h1>
+        <p style={{ ...ui(400, 14), margin: '0 0 6px' }}>
+          Your appointment request has been sent to {creator?.display_name}.
+        </p>
+        <p style={{ ...ui(300, 13, WHITE50), margin: '0 0 20px' }}>
+          We&apos;ll notify you when {creator?.display_name} confirms or declines.
+        </p>
+        <span style={{ background: PANEL, border: PANEL_BORDER, borderRadius: '100px', padding: '7px 14px', ...ui(300, 12, WHITE80), marginBottom: '36px' }}>
+          {selectedService?.name} · {DAY_SHORT[selectedDate.getDay()]}, {selectedDate.getDate()} {MONTH_NAMES[selectedDate.getMonth()]} · {fmt12(selectedSlot)}
+        </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', maxWidth: '345px' }}>
+          {fromChatConvId ? (
+            <>
+              <Link href={`/messages/${fromChatConvId}`} style={{ background: BTN_GRADIENT, borderRadius: '1000px', padding: '15px', ...ui(500, 15), textDecoration: 'none', textAlign: 'center' }}>
+                Back to chat
+              </Link>
+              <Link href={doneBookingId ? `/appointments/${doneBookingId}` : '/appointments'} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '1000px', padding: '14px', ...ui(400, 14), textDecoration: 'none', textAlign: 'center' }}>
+                View request
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link href={doneBookingId ? `/appointments/${doneBookingId}` : '/appointments'} style={{ background: BTN_GRADIENT, borderRadius: '1000px', padding: '15px', ...ui(500, 15), textDecoration: 'none', textAlign: 'center' }}>
+                View request
+              </Link>
+              <Link href={`/creator/${creatorId}`} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '1000px', padding: '14px', ...ui(400, 14), textDecoration: 'none', textAlign: 'center' }}>
+                Back to profile
+              </Link>
+            </>
+          )}
         </div>
       </div>
+    </BookShell>
+  )
 
-      <div style={{ padding: '0 20px' }}>
+const calendarDays = buildCalendar()
 
-        {/* ── Inspiration card ── */}
-        {inspDesign && (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: '12px',
-            background: 'rgba(212,160,192,0.08)', border: '0.5px solid rgba(212,160,192,0.3)',
-            borderRadius: '14px', padding: '12px 14px', marginBottom: '20px',
-          }}>
-            <img
-              src={inspDesign.image_url}
-              alt={inspDesign.title}
-              style={{ width: '52px', height: '52px', borderRadius: '10px', objectFit: 'cover', flexShrink: 0 }}
-            />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '10px', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 3px' }}>Inspiration</p>
-              <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inspDesign.title}</p>
-            </div>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="var(--accent)" strokeWidth="1.5" fill="rgba(212,160,192,0.15)"/>
-            </svg>
-          </div>
-        )}
+const monthLabelDate = selectedDate || new Date()
 
-        {/* ── STEP 1: Choose service ── */}
-        {step === 1 && (
-          <div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '0 0 20px' }}>What service do you want to book?</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {services.map(s => (
-                <button
-                  key={s.id}
-                  onClick={() => { setSelectedService(s); setStep(2) }}
-                  style={{
-                    background: selectedService?.id === s.id ? 'rgba(212,160,192,0.1)' : 'var(--bg-card)',
-                    border: `0.5px solid ${selectedService?.id === s.id ? 'var(--accent)' : 'var(--border)'}`,
-                    borderRadius: '14px', padding: '16px', textAlign: 'left',
-                    cursor: 'pointer', width: '100%', fontFamily: "'DM Sans', sans-serif",
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  }}
-                >
-                  <div>
-                    <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', margin: '0 0 4px' }}>{s.name}</p>
-                    {s.description && <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '0 0 6px', lineHeight: '1.4' }}>{s.description}</p>}
-                    <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{fmtDuration(s.duration_minutes)}</span>
-                  </div>
-                  <span style={{ color: 'var(--accent)', fontSize: '15px', fontWeight: '700', marginLeft: '16px', whiteSpace: 'nowrap' }}>
-                    {s.price > 0 ? `AED ${s.price}` : 'Free'}
-                  </span>
+const stepHeadings = {
+    1: ['Choose a service', null],
+    2: ['Pick a date', 'Available dates are highlighted'],
+    3: ['Pick a time', selectedDate ? `${DAY_SHORT[selectedDate.getDay()]}, ${selectedDate.getDate()} ${MONTH_NAMES[selectedDate.getMonth()]} · ${selectedService?.name} (${fmtDuration(selectedService?.duration_minutes || 0)})` : null],
+    4: ['Review your booking', 'Review and confirm your request.'],
+  }
+
+const [heading, subheading] = stepHeadings[step]
+
+const continueBtn = (enabled, onClick, label = 'Continue') => (
+    <button onClick={onClick} disabled={!enabled}
+      style={{ width: '100%', height: '52px', background: 'none', border: 'none', ...ui(500, 16, enabled ? 'var(--lq-white)' : WHITE30), cursor: enabled ? 'pointer' : 'default' }}>
+      {label}
+    </button>
+  )
+
+return (
+    <>
+      {/* ── Reference design picker ── */}
+      {refPickerOpen && (
+        <Sheet title="Attach a reference design" onClose={() => setRefPickerOpen(false)}>
+          <h2 style={{ ...ui(600, 18), margin: '0 0 4px' }}>Attach a reference design</h2>
+          <p style={{ ...ui(300, 13, WHITE50), margin: '0 0 14px' }}>Pick one from the laQue library</p>
+          {refLibrary.length === 0 ? (
+            <p style={{ ...ui(300, 14, WHITE50), textAlign: 'center', padding: '24px 0' }}>Loading designs…</p>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', paddingBottom: '16px' }}>
+              {refLibrary.map(d => (
+                <button key={d.id} onClick={() => { setRefDesign(d); setRefPickerOpen(false) }}
+                  style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', border: refDesign?.id === d.id ? `2px solid ${ACCENT}` : PANEL_BORDER, background: PANEL, aspectRatio: '1/1', padding: 0, cursor: 'pointer' }}>
+                  {d.image_url && <img src={d.image_url} alt={d.title} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
                 </button>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </Sheet>
+      )}
 
-        {/* ── STEP 2: Choose date ── */}
-        {step === 2 && (
-          <div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '0 0 6px' }}>Pick a date</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: '0 0 20px', opacity: 0.7 }}>Highlighted dates are days {creator?.display_name} is available.</p>
-
-            {/* Calendar grid */}
-            <div style={{ marginBottom: '24px' }}>
-              {/* Day headers */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: '8px' }}>
-                {DAY_SHORT.map(d => (
-                  <div key={d} style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', padding: '4px 0' }}>{d}</div>
-                ))}
-              </div>
-              {/* Day cells */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px' }}>
-                {calendarDays.map((item, i) => {
-                  const isSelected = selectedDate && item.date.toISOString() === selectedDate.toISOString()
-                  const isToday = calendarKey(item.date) === dateInZone(timeZone)
-                  return (
-                    <button
-                      key={i}
-                      aria-label={calendarKey(item.date)}
-                      onClick={() => item.available && setSelectedDate(item.date)}
-                      disabled={!item.available}
-                      style={{
-                        aspectRatio: '1', borderRadius: '10px',
-                        background: isSelected ? 'var(--accent)' : isToday ? 'var(--bg-chip)' : 'transparent',
-                        border: isToday && !isSelected ? '0.5px solid var(--border)' : 'none',
-                        color: isSelected ? '#2C0A1E' : item.available ? 'var(--text-primary)' : 'var(--bg-chip)',
-                        fontSize: '13px', fontWeight: isSelected || isToday ? '600' : '400',
-                        cursor: item.available ? 'pointer' : 'default',
-                        fontFamily: "'DM Sans', sans-serif",
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      }}
-                    >
-                      {item.date.getUTCDate()}
-                    </button>
-                  )
-                })}
+      <BookShell>
+        {/* ── Header: gradient blur bar + progress dots (frames' shell) ── */}
+        <div style={{ paddingTop: 'env(safe-area-inset-top)', background: 'linear-gradient(0deg, rgba(32,5,11,0) 0%, rgba(32,5,11,0.8) 100%)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '60px', padding: '8px 16px 8px 12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                onClick={() => step > 1 ? setStep(step - 1) : (canGoBack() ? router.back() : router.replace(`/creator/${creatorId}`))}
+                aria-label={step > 1 ? 'Previous step' : 'Back'}
+                style={{ width: '44px', height: '44px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--lq-white)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+              <div>
+                <h1 style={{ ...display(18), margin: 0 }}>Book appointment</h1>
+                <p style={{ ...ui(300, 13, WHITE50), margin: '2px 0 0' }}>{creator?.display_name}</p>
               </div>
             </div>
-
-            {/* Month label */}
-            {selectedDate && (
-              <p style={{ color: 'var(--text-secondary)', fontSize: '12px', textAlign: 'center', marginBottom: '20px' }}>
-                {DAY_NAMES[selectedDate.getUTCDay()]}, {selectedDate.getUTCDate()} {MONTH_NAMES[selectedDate.getUTCMonth()]} {selectedDate.getUTCFullYear()}
-              </p>
-            )}
-
-            <button
-              onClick={() => setStep(3)}
-              disabled={!selectedDate || !timeZone}
-              style={{
-                width: '100%', background: selectedDate ? 'var(--accent)' : 'var(--bg-chip)',
-                color: selectedDate ? '#2C0A1E' : 'var(--text-secondary)',
-                border: 'none', borderRadius: '12px', padding: '14px',
-                fontSize: '15px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif",
-                cursor: selectedDate ? 'pointer' : 'not-allowed',
-              }}
-            >
-              Continue
-            </button>
+            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }} aria-label={`Step ${step} of 4`}>
+              {[1,2,3,4].map(s => (
+                <div key={s} style={{ width: s === step ? '16px' : '6px', height: '6px', borderRadius: '100px', background: s <= step ? ACCENT : 'rgba(255,255,255,0.2)', transition: 'all 0.2s' }} />
+              ))}
+            </div>
           </div>
-        )}
+        </div>
 
-        {/* ── STEP 3: Choose time ── */}
-        {step === 3 && (
-          <div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '0 0 4px' }}>Pick a time</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: '0 0 20px', opacity: 0.7 }}>
-              {DAY_NAMES[selectedDate.getUTCDay()]}, {selectedDate.getUTCDate()} {MONTH_NAMES[selectedDate.getUTCMonth()]} · {selectedService?.name} ({fmtDuration(selectedService?.duration_minutes)})
-            </p>
+        <div style={{ padding: '20px 16px calc(env(safe-area-inset-bottom) + 32px)' }}>
 
-            {slotsError && <p role="alert">{slotsError}</p>}
-            {slotsLoading ? (
-              <p style={{ color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center', padding: '32px 0' }}>Loading slots…</p>
-            ) : slots.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '48px 0' }}>
-                <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '500', marginBottom: '8px' }}>No slots available</p>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Try a different date.</p>
-                <button onClick={() => setStep(2)} style={{ marginTop: '16px', background: 'none', border: '0.5px solid var(--border)', borderRadius: '20px', padding: '8px 20px', color: 'var(--text-secondary)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
-                  ← Change date
-                </button>
+          <div style={{ marginBottom: '16px' }}>
+            <h2 style={{ ...display(20), margin: 0 }}>{heading}</h2>
+            {subheading && <p style={{ ...ui(300, 13, WHITE40), margin: '4px 0 0' }}>{subheading}</p>}
+          </div>
+
+          {/* ── Inspiration card ── */}
+          {inspDesign && step === 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(255,81,127,0.08)', border: '1px solid rgba(255,81,127,0.3)', borderRadius: '14px', padding: '12px 14px', marginBottom: '16px' }}>
+              <img src={inspDesign.image_url} alt={inspDesign.title} style={{ width: '52px', height: '52px', borderRadius: '10px', objectFit: 'cover', flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ ...ui(600, 10, WHITE50), letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 3px' }}>Inspiration</p>
+                <p style={{ ...ui(500, 14), margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inspDesign.title}</p>
               </div>
-            ) : (
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '24px' }}>
-                  {slots.map(slot => (
-                    <button
-                      key={slot.time}
-                      onClick={() => slot.available && setSlotSelection({ key: slotKey, time: slot.time })}
-                      disabled={!slot.available}
-                      style={{
-                        padding: '12px 8px', borderRadius: '10px',
-                        background: selectedSlot === slot.time ? 'var(--accent)' : slot.available ? 'var(--bg-card)' : 'var(--bg-chip)',
-                        border: `0.5px solid ${selectedSlot === slot.time ? 'var(--accent)' : 'var(--border)'}`,
-                        color: selectedSlot === slot.time ? '#2C0A1E' : slot.available ? 'var(--text-primary)' : 'var(--text-secondary)',
-                        fontSize: '13px', fontWeight: selectedSlot === slot.time ? '600' : '400',
-                        fontFamily: "'DM Sans', sans-serif",
-                        cursor: slot.available ? 'pointer' : 'not-allowed',
-                        opacity: slot.available ? 1 : 0.4,
-                        textDecoration: slot.available ? 'none' : 'line-through',
-                      }}
-                    >
-                      {fmt12(slot.time)}
-                    </button>
+            </div>
+          )}
+
+          {timeZone && <p style={ui(400, 12, WHITE50)}>All appointment times are in {timeZone}.</p>}
+          {!timeZone && <p role="alert">This creator needs to set their appointment time zone before accepting bookings.</p>}
+          {/* ── STEP 1: Choose service (250:2116) ── */}
+          {step === 1 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {services.map(s => {
+                const sel = selectedService?.id === s.id
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => { setSelectedService(s); setStep(2) }}
+                    style={{
+                      background: PANEL,
+                      border: sel ? `1px solid ${ACCENT}` : PANEL_BORDER,
+                      borderRadius: '12px', padding: '16px', textAlign: 'left',
+                      cursor: 'pointer', width: '100%',
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    }}
+                  >
+                    <div>
+                      <p style={{ ...ui(500, 15), margin: '0 0 4px' }}>{s.name}</p>
+                      {s.description && <p style={{ ...ui(300, 12, WHITE50), margin: '0 0 6px', lineHeight: 1.4 }}>{s.description}</p>}
+                      <span style={ui(300, 13, WHITE50)}>{fmtDuration(s.duration_minutes)}</span>
+                    </div>
+                    <span style={{ ...ui(500, 15, sel ? ACCENT : 'var(--lq-white)'), marginLeft: '16px', whiteSpace: 'nowrap' }}>
+                      {s.price > 0 ? `AED ${s.price}` : 'Free'}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {/* ── STEP 2: Pick a date (250:2180) ── */}
+          {step === 2 && (
+            <div>
+              {availability.length === 0 ? (
+                <div style={{ background: PANEL, border: PANEL_BORDER, borderRadius: '16px', padding: '32px 20px', textAlign: 'center' }}>
+                  <p style={{ ...ui(500, 15), margin: '0 0 8px' }}>{creator?.display_name || 'This artist'} hasn&apos;t opened any booking dates yet</p>
+                  <p style={{ ...ui(300, 13, WHITE50), margin: '0 0 20px', lineHeight: 1.5 }}>Check back soon, or send a message to ask about their availability.</p>
+                  <Link href={`/messages?with=${creatorId}`} style={{ display: 'inline-block', background: BTN_GRADIENT, borderRadius: '1000px', padding: '13px 28px', ...ui(500, 14), textDecoration: 'none' }}>
+                    Message {creator?.display_name || 'artist'}
+                  </Link>
+                </div>
+              ) : (
+                <>
+              {/* Calendar card. The frame draws month ‹ › paging; the
+                  existing logic is a fixed 6-week window from today, so the
+                  arrows are omitted rather than shipped dead (logged). */}
+              <div style={{ background: PANEL, border: PANEL_BORDER, borderRadius: '16px', padding: '16px', marginBottom: '8px' }}>
+                <p style={{ ...ui(500, 16), textAlign: 'center', margin: '0 0 16px' }}>
+                  {MONTH_FULL[monthLabelDate.getMonth()]} {monthLabelDate.getFullYear()}
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: '8px' }}>
+                  {DAY_SHORT.map(d => (
+                    <div key={d} style={{ textAlign: 'center', ...ui(500, 12, WHITE40), padding: '4px 0' }}>{d}</div>
                   ))}
                 </div>
-                <button
-                  onClick={() => setStep(4)}
-                  disabled={!selectedSlot}
-                  style={{
-                    width: '100%', background: selectedSlot ? 'var(--accent)' : 'var(--bg-chip)',
-                    color: selectedSlot ? '#2C0A1E' : 'var(--text-secondary)',
-                    border: 'none', borderRadius: '12px', padding: '14px',
-                    fontSize: '15px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif",
-                    cursor: selectedSlot ? 'pointer' : 'not-allowed',
-                  }}
-                >
-                  Continue
-                </button>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* ── STEP 4: Confirm ── */}
-        {step === 4 && (
-          <div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '0 0 20px' }}>Review and confirm your request.</p>
-
-            {/* Summary card */}
-            <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '14px', padding: '16px', marginBottom: '16px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Service</span>
-                  <span style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500' }}>{selectedService?.name}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Date</span>
-                  <span style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500' }}>
-                    {DAY_NAMES[selectedDate.getUTCDay()]}, {selectedDate.getUTCDate()} {MONTH_NAMES[selectedDate.getUTCMonth()]}
-                  </span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Time</span>
-                  <span style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500' }}>
-                    {fmt12(selectedSlot)} – {fmt12(addMinutes(selectedSlot, selectedService?.duration_minutes))}
-                  </span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Price</span>
-                  <span style={{ color: 'var(--accent)', fontSize: '13px', fontWeight: '600' }}>
-                    {selectedService?.price > 0 ? `AED ${selectedService?.price}` : 'Free'}
-                  </span>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px 4px' }}>
+                  {calendarDays.map((item, i) => {
+                    const isSelected = selectedDate && item.date.toDateString() === selectedDate.toDateString()
+                    const isToday = item.date.toDateString() === new Date().toDateString()
+                    return (
+                      <button
+                        key={i}
+                        aria-label={calendarKey(item.date)}
+                        onClick={() => item.available && setSelectedDate(item.date)}
+                        disabled={!item.available}
+                        style={{
+                          height: '32px', borderRadius: '8px',
+                          background: isSelected ? ACCENT : isToday ? 'rgba(255,255,255,0.1)' : 'transparent',
+                          border: 'none',
+                          ...ui(isSelected ? 600 : item.available ? 500 : 400, 14, (isSelected || item.available) ? 'var(--lq-white)' : 'rgba(255,255,255,0.22)'),
+                          cursor: item.available ? 'pointer' : 'default',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}
+                      >
+                        {item.date.getDate()}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
+
+              {selectedDate && (
+                <p style={{ ...ui(500, 15, ACCENT), textAlign: 'center', padding: '8px 0', margin: 0 }}>
+                  {DAY_NAMES[selectedDate.getDay()]}, {selectedDate.getDate()} {MONTH_FULL[selectedDate.getMonth()]} {selectedDate.getFullYear()}
+                </p>
+              )}
+
+              {continueBtn(!!selectedDate && !!timeZone, () => setStep(3))}
+                </>
+              )}
             </div>
+          )}
 
-            {/* Note */}
-            <div style={{ marginBottom: '24px' }}>
-              <label style={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '500', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
-                Note to artist <span style={{ opacity: 0.5 }}>(optional)</span>
-              </label>
-              <textarea
-                value={note}
-                onChange={e => setNote(e.target.value)}
-                placeholder="e.g. I love the Velvet Noir design, can we do something similar?"
-                rows={3}
-                style={{
-                  width: '100%', background: 'var(--bg-card)', border: '0.5px solid var(--border)',
-                  borderRadius: '10px', padding: '12px', color: 'var(--text-primary)',
-                  fontSize: '14px', fontFamily: "'DM Sans', sans-serif",
-                  outline: 'none', resize: 'none', boxSizing: 'border-box',
-                }}
-              />
+          {/* ── STEP 3: Pick a time (250:2327) ── */}
+          {step === 3 && (
+            <div>
+              {slotsError && <p role="alert">{slotsError}</p>}
+              {slotsLoading ? (
+                <p style={{ ...ui(300, 14, WHITE50), textAlign: 'center', padding: '32px 0' }}>Loading slots…</p>
+              ) : slots.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '48px 0' }}>
+                  <p style={{ ...ui(500, 15), marginBottom: '8px' }}>No slots available</p>
+                  <p style={ui(300, 13, WHITE50)}>Try a different date.</p>
+                  <button onClick={() => setStep(2)} style={{ marginTop: '16px', background: 'none', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '100px', padding: '9px 20px', ...ui(300, 13, WHITE80), cursor: 'pointer' }}>
+                    ← Change date
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '16px' }}>
+                    {slots.map(slot => {
+                      const sel = selectedSlot === slot.time
+                      return (
+                        <button
+                          key={slot.time}
+                          onClick={() => slot.available && setSlotSelection({ key: slotKey, time: slot.time })}
+                          disabled={!slot.available}
+                          style={{
+                            padding: '13px 8px', borderRadius: '10px',
+                            background: sel ? 'rgba(255,255,255,0.14)' : PANEL,
+                            border: sel ? `1px solid ${ACCENT}` : PANEL_BORDER,
+                            ...ui(sel ? 600 : 400, 13, slot.available ? 'var(--lq-white)' : 'rgba(255,255,255,0.25)'),
+                            cursor: slot.available ? 'pointer' : 'not-allowed',
+                            textDecoration: slot.available ? 'none' : 'line-through',
+                          }}
+                        >
+                          {fmt12(slot.time)}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {continueBtn(!!selectedSlot, () => setStep(4))}
+                </>
+              )}
             </div>
+          )}
 
-            {calendarEnabled && calendarConflict && <div role="alert" style={{padding:16,border:'1px solid #e07070',borderRadius:12,marginBottom:16}}><p>Your Google Calendar has a conflict or could not be checked. Choose another time to avoid an overlap.</p><label><input type="checkbox" checked={calendarAcknowledgement===calendarSelectionKey} onChange={e=>setCalendarAcknowledgement(e.target.checked?calendarSelectionKey:'')}/> I understand and want to book this time anyway</label></div>}
-            {submitError && (
-              <p style={{ color: '#E07070', fontSize: '13px', textAlign: 'center', marginBottom: '10px' }}>{submitError}</p>
-            )}
-            <button
-              onClick={handleSubmit}
-              disabled={submitting || (calendarEnabled && !!calendarConflict && calendarAcknowledgement !== calendarSelectionKey)}
-              style={{
-                width: '100%', background: 'var(--accent)', color: '#2C0A1E',
-                border: 'none', borderRadius: '12px', padding: '14px',
-                fontSize: '15px', fontWeight: '600', fontFamily: "'DM Sans', sans-serif",
-                cursor: submitting ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {submitting ? 'Sending…' : 'Send booking request ✦'}
-            </button>
+          {/* ── STEP 4: Review (250:2408) ── */}
+          {step === 4 && (
+            <div>
+              {/* Summary card */}
+              <div style={{ background: PANEL, border: PANEL_BORDER, borderRadius: '12px', padding: '4px 16px', marginBottom: '16px' }}>
+                {[
+                  ['Service', selectedService?.name, false],
+                  ['Date', `${DAY_NAMES[selectedDate.getDay()]}, ${selectedDate.getDate()} ${MONTH_NAMES[selectedDate.getMonth()]}`, true],
+                  ['Time', `${fmt12(selectedSlot)} – ${fmt12(addMinutes(selectedSlot, selectedService?.duration_minutes))}`, true],
+                  ['Duration', fmtDuration(selectedService?.duration_minutes || 0), false],
+                  ['Price', selectedService?.price > 0 ? `AED ${selectedService?.price}` : 'Free', true],
+                ].map(([label, value, accent], i, arr) => (
+                  <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 0', borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+                    <span style={ui(400, 14, WHITE50)}>{label}</span>
+                    <span style={ui(500, 15, accent ? ACCENT : 'var(--lq-white)')}>{value}</span>
+                  </div>
+                ))}
+              </div>
 
-            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', textAlign: 'center', marginTop: '12px' }}>
-              This is a request — the artist will confirm or decline.
-            </p>
-          </div>
-        )}
+              {/* Note to artist — writes bookings.notes on the insert */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'flex', gap: '4px', alignItems: 'baseline', marginBottom: '8px' }}>
+                  <span style={{ ...ui(500, 11, WHITE30), letterSpacing: '0.04em' }}>NOTE TO ARTIST</span>
+                  <span style={ui(300, 10, WHITE30)}>(OPTIONAL)</span>
+                </label>
+                <textarea
+                  value={note}
+                  onChange={e => setNote(e.target.value)}
+                  placeholder="Tell the artist about the design you want…"
+                  rows={4}
+                  aria-label="Note to artist"
+                  style={{
+                    width: '100%', minHeight: '100px', background: PANEL, border: PANEL_BORDER,
+                    borderRadius: '12px', padding: '12px', color: 'var(--lq-white)',
+                    fontSize: '14px', fontFamily: 'var(--lq-font-ui)',
+                    outline: 'none', resize: 'none', boxSizing: 'border-box',
+                  }}
+                />
+              </div>
 
-      </div>
-    </div>
+              {/* Attach a reference design (feature-detected column) */}
+              {refAvailable && (
+                refDesign ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: PANEL, border: PANEL_BORDER, borderRadius: '12px', padding: '10px 12px', marginBottom: '20px' }}>
+                    <img src={refDesign.image_url} alt={refDesign.title} style={{ width: '44px', height: '44px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ ...ui(500, 10, WHITE50), letterSpacing: '0.06em', textTransform: 'uppercase', margin: '0 0 2px' }}>Reference design</p>
+                      <p style={{ ...ui(500, 13), margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{refDesign.title}</p>
+                    </div>
+                    <button onClick={() => setRefDesign(null)} aria-label="Remove reference design"
+                      style={{ background: 'none', border: 'none', color: WHITE50, cursor: 'pointer', fontSize: '16px', padding: '8px' }}>✕</button>
+                  </div>
+                ) : (
+                  <button onClick={openRefPicker}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 20px', ...ui(500, 13, ACCENT) }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+                    </svg>
+                    Attach a reference design
+                  </button>
+                )
+              )}
+
+              {calendarConflict && <label style={{ ...ui(400, 13), display: 'block', marginBottom: '16px' }}>
+                <input type="checkbox" checked={calendarAcknowledgement === calendarSelectionKey}
+                  onChange={e => setCalendarAcknowledgement(e.target.checked ? calendarSelectionKey : '')} />
+                I understand this time conflicts with my calendar, or my calendar could not be checked, and want to continue.
+              </label>}
+              {submitError && (
+                <p style={{ ...ui(400, 13, '#E07070'), textAlign: 'center', marginBottom: '10px' }}>{submitError}</p>
+              )}
+              <div style={{ padding: '0 8px' }}>
+                <button
+                  onClick={handleSubmit}
+                  disabled={submitting || (!!calendarConflict && calendarAcknowledgement !== calendarSelectionKey)}
+                  style={{
+                    width: '100%', height: '52px', background: BTN_GRADIENT,
+                    border: 'none', borderRadius: '1000px', ...ui(500, 16),
+                    cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.7 : 1,
+                  }}
+                >
+                  {submitting ? 'Sending…' : 'Send booking request ✦'}
+                </button>
+                <p style={{ ...ui(300, 12, WHITE30), textAlign: 'center', marginTop: '12px' }}>
+                  This is a request — {creator?.display_name} will confirm or decline.
+                </p>
+              </div>
+            </div>
+          )}
+
+        </div>
+      </BookShell>
+    </>
   )
+}
+
+export default function BookPage() {
+  const { creatorId } = useParams()
+  return <CheckoutSession title="Sign in to book an appointment" description="Your appointment and notes belong to your signed-in account.">{userId => <BookingForm key={`${userId}:${creatorId}`} userId={userId} />}</CheckoutSession>
 }

@@ -4,6 +4,7 @@ import { generationEnvironment, jsonRequest, user } from '../helpers/supabase'
 
 const auth = vi.hoisted(() => ({ getSessionUser: vi.fn(), client: {} }))
 vi.mock('@/lib/auth', () => ({ getSessionUser: auth.getSessionUser, serviceClient: auth.client }))
+vi.mock('@/lib/mobile-auth', () => ({ mobileUserClient: () => ({ from: () => ({ select: () => ({ eq: () => ({ not: () => ({ limit: async () => ({ data: [] }) }) }) }) }) }) }))
 import { POST } from '@/app/api/generate-nail-design/route'
 
 const body = { vibe: ['Minimal'], shape: 'Almond', length: 'Short' }

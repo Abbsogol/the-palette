@@ -28,15 +28,18 @@ beforeEach(() => {
   vi.stubGlobal('alert', vi.fn())
 })
 afterEach(cleanup)
+const openProfileEdit = () => fireEvent.click(screen.getByRole('button', { name: 'Edit Profile' }))
 
 it('P5-auth: changing account immediately removes the previous private profile while the new account loads', async () => {
   await act(async () => render(<Profile />))
+  openProfileEdit()
   expect(screen.getByText('Private phone a')).toBeVisible()
   const pending = deferred()
   mock.client.from = database(q => q.table === 'profiles' ? pending.promise : ok([])).from
   await switchSession(session('b'))
   expect(screen.queryByText('Private phone a')).not.toBeInTheDocument()
   await act(async () => pending.resolve(ok(profile('b'))))
+  if (screen.queryByRole('button', { name: 'Edit Profile' })) openProfileEdit()
   expect(screen.getByText('Private phone b')).toBeVisible()
 })
 
@@ -45,9 +48,11 @@ it('P5-auth: an older profile response cannot overwrite the newly signed-in acco
   mock.client.from = database(q => q.table === 'profiles' ? q.filters[0][2] === 'a' ? pending.promise : ok(profile('b')) : ok([])).from
   await act(async () => render(<Profile />))
   await switchSession(session('b'))
+  if (screen.queryByRole('button', { name: 'Edit Profile' })) openProfileEdit()
   expect(screen.getByText('Private phone b')).toBeVisible()
   await act(async () => pending.resolve(ok(profile('a'))))
   expect(screen.queryByText('Private phone a')).not.toBeInTheDocument()
+  if (screen.queryByRole('button', { name: 'Edit Profile' })) openProfileEdit()
   expect(screen.getByText('Private phone b')).toBeVisible()
 })
 
@@ -111,6 +116,7 @@ it('P5-auth: successful onboarding sends only the authenticated account form and
 
 it('P5-auth: a profile edit cannot use another account token before the auth event arrives', async () => {
   await act(async () => render(<Profile />))
+  openProfileEdit()
   const row = screen.getByText('Phone number').parentElement
   fireEvent.click(within(row).getByRole('button', { name: 'Edit' }))
   fireEvent.change(within(row).getByRole('textbox'), { target: { value: '+971 50 123 4567' } })
@@ -184,6 +190,7 @@ it('P5-auth: an in-flight recovery keeps its original token and cannot restore t
   expect(mock.client.auth.updateUser).not.toHaveBeenCalled()
   await switchSession(session('b'))
   await act(async () => pending.resolve(Response.json({ id: 'a' })))
+  if (screen.queryByRole('button', { name: 'Edit Profile' })) openProfileEdit()
   expect(screen.getByText('Private phone b')).toBeVisible()
   expect(screen.queryByText('Private phone a')).not.toBeInTheDocument()
 })
@@ -213,6 +220,7 @@ it('P5-auth: the account type selection cannot update another newly switched acc
 it('P5-billing: a customer whose paid tier was revoked can still manage billing', async () => {
   mock.client.from = database(q => q.table === 'profiles' ? ok(profile('a', { subscription_tier: null, stripe_customer_id: 'cus_a' })) : ok([])).from
   await act(async () => render(<Profile />))
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
   expect(screen.getByRole('button', { name: /Manage subscription/i })).toBeVisible()
   expect(screen.getByRole('link', { name: /Upgrade to Pro/i })).toBeVisible()
 })
@@ -235,4 +243,44 @@ it.each(['rejected', 'network'])('P5-referral: a %s referral failure remains ret
   expect(fetch.mock.calls.filter(([url]) => url === '/api/apply-referral')).toHaveLength(2)
   expect(fetch.mock.calls.filter(([url]) => url === '/api/complete-onboarding')).toHaveLength(1)
   expect(mock.router.push).toHaveBeenCalledWith('/feed')
+})
+
+it('the redesigned username editor cannot submit another account token before its auth event', async () => {
+  await act(async () => render(<Profile />)); openProfileEdit()
+  const row = screen.getByText('Username').parentElement
+  fireEvent.click(within(row).getByRole('button', { name: 'Edit' }))
+  fireEvent.change(within(row).getByRole('textbox'), { target: { value: 'draft_name' } })
+  mock.session = session('b')
+  await act(async () => fireEvent.click(within(row).getByRole('button', { name: 'Save' })))
+  expect(fetch).not.toHaveBeenCalled(); expect(alert).toHaveBeenCalledWith(expect.stringMatching(/account changed/i))
+})
+const openHandEditor = () => { openProfileEdit(); fireEvent.click(screen.getByRole('button', { name: /Nail Canvas/ })) }
+it('private hand-photo upload checks the rendered actor before transmitting any image', async () => {
+  await act(async () => render(<Profile />)); openHandEditor()
+  mock.session = session('b')
+  await act(async () => fireEvent.change(screen.getByLabelText('Upload private hand photo'), { target: { files: [new File(['test-image'], 'hand.png', { type: 'image/png' })] } }))
+  expect(fetch).not.toHaveBeenCalled(); expect(alert).toHaveBeenCalledWith(expect.stringMatching(/account changed/i))
+})
+it('a delayed private photo upload cannot apply its reference after account A to B to A', async () => {
+  await act(async () => render(<Profile />)); openHandEditor()
+  const pending = deferred(); fetch.mockReturnValueOnce(pending.promise)
+  await act(async () => fireEvent.change(screen.getByLabelText('Upload private hand photo'), { target: { files: [new File(['test-image'], 'hand.png', { type: 'image/png' })] } }))
+  expect(fetch).toHaveBeenCalledWith('/api/upload-image', expect.objectContaining({ headers: { Authorization: 'Bearer token-a' } }))
+  await switchSession(session('b')); await switchSession(session('a'))
+  await act(async () => pending.resolve(Response.json({ publicUrl: 'https://storage.invalid/old-private-photo' })))
+  expect(fetch).toHaveBeenCalledTimes(1)
+  expect(screen.queryByAltText('Hand')).not.toBeInTheDocument()
+})
+
+it('same-account token refresh preserves a pending username edit and its verified save', async () => {
+  await act(async () => render(<Profile />)); openProfileEdit()
+  const row = screen.getByText('Username').parentElement
+  fireEvent.click(within(row).getByRole('button', { name: 'Edit' }))
+  fireEvent.change(within(row).getByRole('textbox'), { target: { value: 'fresh_name' } })
+  const pending = deferred(); fetch.mockReturnValueOnce(pending.promise)
+  await act(async () => fireEvent.click(within(row).getByRole('button', { name: 'Save' })))
+  await act(async () => { for (const callback of mock.callbacks) callback('TOKEN_REFRESHED', mock.session) })
+  await act(async () => pending.resolve(Response.json({ ok: true })))
+  expect(within(row).getByText('@fresh_name')).toBeVisible()
+  expect(fetch).toHaveBeenCalledTimes(1)
 })

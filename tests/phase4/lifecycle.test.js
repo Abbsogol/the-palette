@@ -4,6 +4,7 @@ import { sqlSupabase } from '../helpers/sql-supabase'
 import { jsonRequest } from '../helpers/supabase'
 const mock = vi.hoisted(() => ({ client: {}, user: vi.fn() }))
 vi.mock('@/lib/auth', () => ({ getSessionUser: mock.user, serviceClient: mock.client }))
+vi.mock('@/lib/mobile-auth', () => ({ mobileUserClient: () => ({ from: () => ({ select: () => ({ eq: () => ({ not: () => ({ limit: async () => ({ data: [] }) }) }) }) }) }) }))
 import { POST as generate } from '@/app/api/generate-nail-design/route'
 import { GET as reminders } from '@/app/api/send-reminders/route'
 import { GET as generationStatus } from '@/app/api/generation-status/route'

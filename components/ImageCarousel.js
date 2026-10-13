@@ -1,8 +1,9 @@
 'use client'
+import StorageImage from '@/components/StorageImage'
 
 import { useState, useRef } from 'react'
 
-export default function ImageCarousel({ images, title }) {
+export default function ImageCarousel({ images, title, aspectRatio, overlay }) {
   const [activeIndex, setActiveIndex] = useState(0)
   const [lightboxIndex, setLightboxIndex] = useState(null)
   const scrollRef = useRef(null)
@@ -55,27 +56,37 @@ export default function ImageCarousel({ images, title }) {
               style={{
                 flexShrink: 0,
                 width: '100%',
+                aspectRatio: aspectRatio || undefined,
                 scrollSnapAlign: 'start',
                 cursor: 'zoom-in',
+                background: 'rgba(255,255,255,0.05)',
+                borderRadius: '16px',
+                overflow: 'hidden',
               }}
             >
-              <img
+              <StorageImage
                 src={src}
                 alt={`${title} ${i + 1}`}
                 loading={i === 0 ? 'eager' : 'lazy'}
                 decoding="async"
                 style={{
                   width: '100%',
-                  height: 'auto',
-                  maxHeight: '72vh',
-                  objectFit: 'contain',
+                  height: aspectRatio ? '100%' : 'auto',
+                  maxHeight: aspectRatio ? undefined : '72vh',
+                  objectFit: 'cover',
                   display: 'block',
-                  background: 'var(--bg-primary)',
                 }}
               />
             </div>
           ))}
         </div>
+
+        {/* Overlay (e.g. save ♥-count badge) — fixed over the image area */}
+        {overlay && (
+          <div style={{ position: 'absolute', right: '14px', bottom: images.length > 1 ? '34px' : '14px', zIndex: 2 }}>
+            {overlay}
+          </div>
+        )}
 
         {/* Dots */}
         {images.length > 1 && (
@@ -88,7 +99,7 @@ export default function ImageCarousel({ images, title }) {
                   width: i === activeIndex ? '18px' : '6px',
                   height: '6px',
                   borderRadius: '3px',
-                  background: i === activeIndex ? 'var(--accent)' : 'var(--bg-chip)',
+                  background: i === activeIndex ? '#FF517F' : 'rgba(255,255,255,0.25)',
                   border: 'none',
                   cursor: 'pointer',
                   padding: 0,
@@ -99,6 +110,28 @@ export default function ImageCarousel({ images, title }) {
           </div>
         )}
       </div>
+
+      {/* Thumbnail strip — tap to jump the carousel */}
+      {images.length > 1 && (
+        <div style={{ display: 'flex', gap: '8px', padding: '10px 0 0', overflowX: 'auto', scrollbarWidth: 'none' }}>
+          {images.map((src, i) => (
+            <button
+              key={i}
+              onClick={() => goTo(i)}
+              aria-label={`View image ${i + 1}`}
+              style={{
+                flexShrink: 0, width: '68px', aspectRatio: aspectRatio || '1 / 1',
+                borderRadius: '10px', overflow: 'hidden', padding: 0, cursor: 'pointer',
+                border: i === activeIndex ? '2px solid #FF517F' : '1px solid rgba(255,255,255,0.12)',
+                background: 'rgba(255,255,255,0.05)',
+              }}
+            >
+              <StorageImage src={src} alt="" loading="lazy" decoding="async"
+                style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Lightbox */}
       {lightboxIndex !== null && (
@@ -153,7 +186,7 @@ export default function ImageCarousel({ images, title }) {
           )}
 
           {/* Image */}
-          <img
+          <StorageImage
             src={images[lightboxIndex]}
             alt={`${title} ${lightboxIndex + 1}`}
             onClick={e => e.stopPropagation()}

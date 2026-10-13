@@ -1,59 +1,31 @@
 'use client'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
+import { startPresence, stopPresence } from '@/lib/presence';
+import { HomeIcon, SearchIcon, MagicStarIcon, MessageIcon, HeartIcon, UserIcon } from '@/components/ui/icons';
 
+// Redesigned floating pill nav (Figma 280:7207): active tab is a gradient
+// pill with icon + label, other tabs are icon-only. Order and the new
+// Saved tab come from the redesign frames.
+
+
+
+
+
+
+
+// Redesigned floating pill nav (Figma 280:7207): active tab is a gradient
+// pill with icon + label, other tabs are icon-only. Order and the new
+// Saved tab come from the redesign frames.
 const tabs = [
-  {
-    href: '/feed',
-    label: 'Home',
-    icon: (active) => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-        <polyline points="9 22 9 12 15 12 15 22" />
-      </svg>
-    ),
-  },
-  {
-    href: '/search',
-    label: 'Search',
-    icon: (active) => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="11" cy="11" r="8" />
-        <line x1="21" y1="21" x2="16.65" y2="16.65" />
-      </svg>
-    ),
-  },
-  {
-    href: '/nail-lab',
-    label: 'Lab',
-    icon: (active) => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M9 3h6M10 3v6l-4 8a1 1 0 00.9 1.5h10.2a1 1 0 00.9-1.5L14 9V3" />
-        <line x1="6.5" y1="14" x2="17.5" y2="14" />
-      </svg>
-    ),
-  },
-  {
-    href: '/messages',
-    label: 'Messages',
-    icon: (active) => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" fill={active ? 'currentColor' : 'none'} />
-      </svg>
-    ),
-  },
-  {
-    href: '/profile',
-    label: 'Profile',
-    icon: (active) => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
-        <circle cx="12" cy="7" r="4" />
-      </svg>
-    ),
-  },
+  { href: '/feed', label: 'Home', Icon: HomeIcon },
+  { href: '/search', label: 'Search', Icon: SearchIcon },
+  { href: '/nail-lab', label: 'Lab', Icon: MagicStarIcon },
+  { href: '/messages', label: 'Messages', Icon: MessageIcon },
+  { href: '/saved', label: 'Saved', Icon: HeartIcon },
+  { href: '/profile', label: 'Profile', Icon: UserIcon },
 ]
 
 export default function BottomNav() {
@@ -62,9 +34,12 @@ export default function BottomNav() {
 
   useEffect(() => {
     if (pathname === '/privacy' || pathname === '/lab-payment') return
+    let active = true, version = 0
     const fetchUnread = async () => {
+      const request = ++version
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!active || request !== version) return
+      if (!user) { setUnreadMessages(0); return }
 
       const { data: convs, error: convsError } = await supabase
         .from('conversations')
@@ -76,6 +51,7 @@ export default function BottomNav() {
       // (a false "no unread messages" is worse than a stale-but-plausible
       // number). Reruns on every route change anyway, so a transient blip
       // self-heals on the next navigation without needing its own retry.
+      if (!active || request !== version) return
       if (convsError) { console.error('unread count fetch failed:', convsError); return }
       if (!convs || convs.length === 0) { setUnreadMessages(0); return }
 
@@ -87,70 +63,122 @@ export default function BottomNav() {
         .eq('is_read', false)
         .neq('sender_id', user.id)
 
+      if (!active || request !== version) return
       if (countError) { console.error('unread count fetch failed:', countError); return }
       setUnreadMessages(count || 0)
     }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      version++; setUnreadMessages(0); queueMicrotask(fetchUnread)
+    })
     fetchUnread()
+    return () => { active = false; version++; subscription.unsubscribe() }
   }, [pathname])
 
+  // Track presence app-wide via the shared singleton (lib/presence) — the
+  // chat header's "Active now" is only ever derived from this being
+  // literally true. No last_seen writes anywhere.
+  useEffect(() => {
+    let active = true, changed = false
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      changed = true
+      if (active) queueMicrotask(() => { if (active) startPresence(session?.user?.id || null) })
+    })
+    supabase.auth.getUser().then(({ data: { user } }) => { if (active && !changed) startPresence(user?.id || null) })
+    return () => { active = false; subscription.unsubscribe(); stopPresence() }
+  }, [])
+
   // Hide on full-screen flows
-  if (pathname === '/lab-payment' || pathname === '/privacy' || pathname === '/story/new' || pathname === '/onboarding' || pathname?.startsWith('/messages/') || pathname?.startsWith('/admin') || pathname === '/planner' || pathname?.startsWith('/settings/') || pathname?.startsWith('/nail-card/') || pathname === '/help') return null
+  // Hide only on genuinely focused flows. Profile-cluster settings pages
+  // (Privacy, Help, Notifications, Invite) and creator dashboards (Services,
+  // Availability, Analytics, Planner) KEEP the nav — it's the way back out of
+  // a tapped row, so hiding it worsens the very complaint we're fixing, and a
+  // bar that vanishes on some sibling pages but not others reads as a bug.
+  // Planner is a schedule dashboard, not a focused input flow, and /bookings
+  // (which has the bar) → /planner shouldn't make it vanish (Sogol 2026-09-10/11).
+  if (pathname === '/' || pathname === '/story/new' || pathname === '/onboarding' || pathname?.startsWith('/book/') || (pathname?.startsWith('/messages/') && pathname !== '/messages/new') || pathname?.startsWith('/admin') || pathname?.startsWith('/nail-card/')) return null
 
   return (
-    <nav style={{
+    <nav aria-label="Main navigation" style={{
       position: 'fixed',
       bottom: 0,
       left: '50%',
       transform: 'translateX(-50%)',
       width: '100%',
       maxWidth: '480px',
-      backgroundColor: 'var(--bg-primary)',
-      borderTop: '0.5px solid var(--border)',
-      display: 'flex',
-      justifyContent: 'space-around',
-      alignItems: 'center',
-      padding: '10px 0 24px',
+      padding: '40px 24px calc(12px + env(safe-area-inset-bottom))',
+      background: 'linear-gradient(to top, var(--lq-nav-scrim), rgba(32, 5, 11, 0))',
+      backdropFilter: 'blur(10px)',
+      WebkitBackdropFilter: 'blur(10px)',
       zIndex: 100,
     }}>
-      {tabs.map((tab) => {
-        const isActive = pathname === tab.href || (tab.href === '/feed' && pathname === '/')
-        const isMessages = tab.href === '/messages'
-        return (
-          <Link
-            key={tab.href}
-            href={tab.href}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '4px',
-              textDecoration: 'none',
-              color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
-              fontSize: '10px',
-              fontFamily: "'DM Sans', sans-serif",
-              fontWeight: '500',
-              letterSpacing: '0.02em',
-              minWidth: '48px',
-              position: 'relative',
-            }}
-          >
-            {tab.icon(isActive)}
-            {isMessages && unreadMessages > 0 && (
-              <div style={{
-                position: 'absolute', top: '-2px', right: '4px',
-                width: '16px', height: '16px', borderRadius: '50%',
-                background: 'var(--accent)', display: 'flex',
-                alignItems: 'center', justifyContent: 'center',
-              }}>
-                <span style={{ color: '#2C0A1E', fontSize: '9px', fontWeight: '700' }}>
-                  {unreadMessages > 9 ? '9+' : unreadMessages}
-                </span>
-              </div>
-            )}
-            <span>{tab.label}</span>
-          </Link>
-        )
-      })}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        height: '60px',
+        padding: '8px 16px 8px 8px',
+        borderRadius: 'var(--lq-radius-pill)',
+        background: 'linear-gradient(90deg, rgba(92, 34, 48, 0.35), rgba(209, 94, 122, 0.35))',
+      }}>
+        {tabs.map(({ href, label, Icon }) => {
+          const isActive = pathname === href || (href === '/feed' && pathname === '/')
+          const isMessages = href === '/messages'
+          const badge = isMessages && unreadMessages > 0 && (
+            <span style={{
+              position: 'absolute', top: '2px', right: isActive ? '10px' : '2px',
+              minWidth: '16px', height: '16px', borderRadius: 'var(--lq-radius-pill)',
+              background: 'var(--lq-accent-b)', color: 'var(--lq-white)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '9px', fontWeight: 700, fontFamily: 'var(--lq-font-ui)',
+              padding: '0 3px',
+            }}>
+              {unreadMessages > 9 ? '9+' : unreadMessages}
+            </span>
+          )
+          if (isActive) {
+            return (
+              <Link
+                key={href}
+                href={href}
+                aria-current="page"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                  height: '44px', padding: '12px 20px',
+                  borderRadius: 'var(--lq-radius-pill)',
+                  background: 'var(--lq-accent-grad)',
+                  color: 'var(--lq-white)',
+                  textDecoration: 'none',
+                  fontFamily: 'var(--lq-font-ui)', fontSize: '14px', fontWeight: 400,
+                  position: 'relative',
+                  flexShrink: 0,
+                }}
+              >
+                <Icon size={20} />
+                <span>{label}</span>
+                {badge}
+              </Link>
+            )
+          }
+          return (
+            <Link
+              key={href}
+              href={href}
+              aria-label={label}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: '44px', height: '44px',
+                color: 'var(--lq-white-80)',
+                textDecoration: 'none',
+                position: 'relative',
+                flexShrink: 0,
+              }}
+            >
+              <Icon size={20} />
+              {badge}
+            </Link>
+          )
+        })}
+      </div>
     </nav>
   )
 }

@@ -96,13 +96,18 @@ it('explicit publication of a draft copies its owned file and replaces the priva
   Object.assign(auth.client,database(q => {
     if(q.table==='nail_lab_generations') return ok({id:'generation',user_id:user.id,image_url:'user-a/owned.png'})
     if(q.operation==='select') return ok({id:'draft',created_by:user.id,source_generation_id:'generation',is_published:false})
-    expect(q.values).toEqual({is_published:true,image_url:'https://storage.invalid/published.png'})
+    expect(q.values).toEqual({is_published:true,image_url:'https://storage.invalid/published.png',image_width:8,image_height:6})
     return ok(null)
   }))
-  const download = vi.fn(async () => ok(new Blob(['png'])))
+  const png = await sharp({create:{width:8,height:6,channels:3,background:'#ff517f'}}).png().toBuffer()
+  const download = vi.fn(async () => ok(new Blob([png])))
   const store = vi.fn(async () => ok(null))
   auth.client.storage = {from: () => ({download,upload:store,getPublicUrl:()=>({data:{publicUrl:'https://storage.invalid/published.png'}})})}
   expect((await publish(jsonRequest({generationId:'generation',designId:'draft'}))).status).toBe(200)
   expect(download).toHaveBeenCalledWith('user-a/owned.png')
   expect(store).toHaveBeenCalledTimes(1)
+  const [path, bytes, options] = store.mock.calls[0]
+  expect(path).toMatch(/\.webp$/); expect(bytes.constructor).toBe(Uint8Array)
+  expect(options.contentType).toBe('image/webp')
+  expect((await sharp(bytes).metadata()).format).toBe('webp')
 })

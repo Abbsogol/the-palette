@@ -98,7 +98,7 @@ test("sign-up without a session waits for verification and cannot bypass authent
       data: {
         age_confirmed: true,
         privacy_accepted: true,
-        privacy_policy_version: "2026-09-29",
+        privacy_policy_version: "2026-10-13",
       },
     },
   });

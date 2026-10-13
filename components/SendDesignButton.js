@@ -3,11 +3,12 @@
 import { useState } from 'react'
 import SendDesignSheet from './SendDesignSheet'
 
-export default function SendDesignButton({ design }) {
+export default function SendDesignButton({ design, renderTrigger }) {
   const [open, setOpen] = useState(false)
 
   return (
     <>
+      {renderTrigger ? renderTrigger({ open: () => setOpen(true) }) : (
       <button
         onClick={() => setOpen(true)}
         title="Send to chat"
@@ -30,6 +31,7 @@ export default function SendDesignButton({ design }) {
           <path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/>
         </svg>
       </button>
+      )}
 
       {open && (
         <SendDesignSheet

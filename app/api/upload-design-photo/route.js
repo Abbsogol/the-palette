@@ -1,4 +1,4 @@
-import { validatedImage } from '@/lib/validated-image'
+import { validatedImageMeta } from '@/lib/validated-image'
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
 
 export const runtime = 'nodejs' // sharp requires the Node runtime, not Edge
@@ -32,8 +32,8 @@ export async function POST(request) {
   // crafted title write into other prefixes of the shared designs bucket.
   const safeTitle = String(title).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'design'
   const fileName = `${user.id}-${Date.now()}-${safeTitle}.webp`
-  let uploadBody
-  try { uploadBody = await validatedImage(file) }
+  let uploadBody, imageWidth, imageHeight
+  try { ({ bytes: uploadBody, width: imageWidth, height: imageHeight } = await validatedImageMeta(file)) }
   catch (error) { return Response.json({ error: error.message }, { status: 400 }) }
 
   const { error: uploadError } = await supabase.storage
@@ -46,5 +46,5 @@ export async function POST(request) {
 
   const { data: { publicUrl } } = supabase.storage.from('designs').getPublicUrl(fileName)
 
-  return Response.json({ ok: true, publicUrl })
+  return Response.json({ ok: true, publicUrl, width: imageWidth, height: imageHeight })
 }

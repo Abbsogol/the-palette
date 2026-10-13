@@ -152,7 +152,7 @@ export default function AuthScreen() {
                 data: {
                   age_confirmed: true,
                   privacy_accepted: true,
-                  privacy_policy_version: "2026-09-29",
+                  privacy_policy_version: "2026-10-13",
                 },
               },
             })

@@ -1,6 +1,5 @@
 import { validatedImage } from '@/lib/validated-image'
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
-
 export const runtime = 'nodejs'
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 

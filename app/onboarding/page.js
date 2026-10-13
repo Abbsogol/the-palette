@@ -1,8 +1,43 @@
 'use client'
+const emptyForm = () => ({
+  display_name: '',
+  phone_number: '',
+  location: '',
+  bio: '',
+  nail_shape: null,
+  nail_length: null,
+  nail_colors: [],
+  nail_finishes: [],
+  nail_techniques: [],
+  occasions: [],
+  budget_range: null,
+  allergies: '',
+  product_sensitivities: [],
+  removal_needed: false,
+  specialties: [],
+  age_confirmed: false,
+  privacy_accepted: false
+});
 
-import { useState, useEffect, Suspense, useCallback, useRef } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+// ── Shared styles ───────────────────────────────────────────────────────────
+
+import { useState, useEffect, Suspense, useCallback, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+
+
+
+
+const ACCENT = '#FF517F'
+const WINE = '#260D14'
+const WHITE60 = 'rgba(255,255,255,0.6)'
+const PANEL = 'rgba(255,255,255,0.06)'
+const PANEL_BORDER = '1px solid rgba(255,255,255,0.1)'
+const BTN_GRADIENT = 'linear-gradient(90deg, #660007 47.832%, #FF517F 100%)'
+const ui = (weight, size, color = 'var(--lq-white)') => ({
+  fontFamily: 'var(--lq-font-ui)', fontWeight: weight, fontSize: `${size}px`, color, lineHeight: 1.4,
+})
+const display = (size) => ({ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: `${size}px`, color: 'var(--lq-white)', lineHeight: 1.2 })
 
 // ── Option lists ────────────────────────────────────────────────────────────
 const SHAPES      = ['Almond','Square','Coffin','Round','Oval','Stiletto','Squoval','Ballerina']
@@ -19,70 +54,74 @@ const SPECIALTIES = ['BIAB','Gel-X','French','Chrome','3D','Bridal','Airbrush','
 const USER_STEPS    = ['welcome','basics','style','health','credits','action','done']
 const CREATOR_STEPS = ['welcome','basics','specialties','credits','action','done']
 const SALON_STEPS   = ['welcome','basics','credits','done']
-const emptyForm = () => ({
-  display_name: '', phone_number: '', location: '', bio: '', nail_shape: null,
-  nail_length: null, nail_colors: [], nail_finishes: [], nail_techniques: [],
-  occasions: [], budget_range: null, allergies: '', product_sensitivities: [],
-  removal_needed: false, specialties: [], age_confirmed:false, privacy_accepted:false,
-})
 
 // ── Shared styles ───────────────────────────────────────────────────────────
 const inp = {
-  background: 'var(--bg-card)',
-  border: '0.5px solid var(--border)',
+  background: 'rgba(255,255,255,0.04)',
+  border: PANEL_BORDER,
   borderRadius: '12px',
   padding: '14px 16px',
-  color: 'var(--text-primary)',
-  fontSize: '14px',
-  fontFamily: "'DM Sans', sans-serif",
+  ...ui(400, 14),
   outline: 'none',
   width: '100%',
   boxSizing: 'border-box',
 }
 const chip = (active) => ({
-  background: active ? 'var(--accent)' : 'var(--bg-chip)',
-  color: active ? '#2C0A1E' : 'var(--text-secondary)',
-  border: active ? 'none' : '0.5px solid var(--border)',
-  borderRadius: '20px',
+  background: active ? ACCENT : 'rgba(255,255,255,0.06)',
+  ...ui(active ? 500 : 400, 13, active ? WINE : WHITE60),
+  border: active ? 'none' : PANEL_BORDER,
+  borderRadius: '1000px',
   padding: '7px 14px',
-  fontSize: '13px',
-  fontFamily: "'DM Sans', sans-serif",
-  fontWeight: active ? '500' : '400',
   cursor: 'pointer',
 })
-const label = {
-  color: 'var(--text-secondary)',
-  fontSize: '11px',
-  fontWeight: '500',
-  letterSpacing: '0.06em',
-  textTransform: 'uppercase',
-  marginBottom: '10px',
-  display: 'block',
+const label = { ...ui(500, 11, WHITE60), letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '10px', display: 'block' }
+
+// Module-level so it keeps a stable identity across renders. Defined inside the
+// component it was a new function every keystroke, remounting the subtree and
+// stealing focus from the text inputs (the signup-blocking bug).
+function Shell({ children }) {
+  return (
+    <div className="lq-bg-wine" style={{ position: 'fixed', inset: 0, zIndex: 200 }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
+      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', height: '100%', width: '100%', maxWidth: '480px', margin: '0 auto', display: 'flex', flexDirection: 'column' }}>
+        {children}
+      </div>
+    </div>
+  )
 }
 
 function OnboardingInner() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
+const loadVersion = useRef({ version: 0 })
 
-  const [profile, setProfile] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [stepIdx, setStepIdx] = useState(0)
-  const [saving, setSaving]   = useState(false)
+const activeUserId = useRef(null)
 
-  const [referralCode, setReferralCode] = useState(() => (searchParams.get('ref') || '').toUpperCase().trim())
-  const [errorMsg, setErrorMsg] = useState('')
-  const loadVersion = useRef({ version: 0 })
-  const activeUserId = useRef(null)
-  const [d, setD] = useState(emptyForm)
+const [profile, setProfile] = useState(null)
 
-  const clearForm = useCallback(() => {
+const [d, setD] = useState(emptyForm)
+
+const [stepIdx, setStepIdx] = useState(0)
+
+const [loading, setLoading] = useState(true)
+
+const [saving, setSaving]   = useState(false)
+
+const [errorMsg, setErrorMsg] = useState('')
+
+const clearForm = useCallback(() => {
     loadVersion.current.version++
     activeUserId.current = null
     setProfile(null); setD(emptyForm()); setStepIdx(0); setLoading(true)
     setSaving(false); setErrorMsg('')
   }, [])
 
-  const init = useCallback(async (u) => {
+const router = useRouter()
+
+const searchParams = useSearchParams()
+
+const [referralCode, setReferralCode] = useState(() => (searchParams.get('ref') || '').toUpperCase().trim())
+
+const init = useCallback(async (u) => {
     clearForm()
     activeUserId.current = u.id
     const version = loadVersion.current.version
@@ -113,7 +152,7 @@ function OnboardingInner() {
     setLoading(false)
   }, [router, clearForm])
 
-  useEffect(() => {
+useEffect(() => {
     let active = true
     const requestState = loadVersion.current
     let authChanged = false
@@ -137,24 +176,27 @@ function OnboardingInner() {
     return () => { active = false; requestState.version++; subscription.unsubscribe() }
   }, [init, router, searchParams, clearForm])
 
+const accountType = profile?.account_type || 'user'
 
+const steps   = accountType === 'creator' ? CREATOR_STEPS : accountType === 'salon' ? SALON_STEPS : USER_STEPS
 
-  const accountType = profile?.account_type || 'user'
-  const steps   = accountType === 'creator' ? CREATOR_STEPS : accountType === 'salon' ? SALON_STEPS : USER_STEPS
-  const current = steps[stepIdx]
+const current = steps[stepIdx]
 
-  // Don't count welcome/done in the progress denominator
-  const innerSteps = steps.filter(s => s !== 'welcome' && s !== 'done')
-  const innerIdx   = innerSteps.indexOf(current)
-  const progress   = innerIdx >= 0 ? ((innerIdx + 1) / innerSteps.length) * 100 : innerIdx === -1 && current === 'done' ? 100 : 0
+const innerSteps = steps.filter(s => s !== 'welcome' && s !== 'done')
 
-  const next = () => setStepIdx(i => Math.min(i + 1, steps.length - 1))
-  const back = () => setStepIdx(i => Math.max(i - 1, 0))
+const innerIdx   = innerSteps.indexOf(current)
 
-  const set1  = (field, val) => setD(p => ({ ...p, [field]: p[field] === val ? null : val }))
-  const setN  = (field, val) => setD(p => ({ ...p, [field]: (p[field]||[]).includes(val) ? p[field].filter(v=>v!==val) : [...(p[field]||[]),val] }))
+const progress   = innerIdx >= 0 ? ((innerIdx + 1) / innerSteps.length) * 100 : innerIdx === -1 && current === 'done' ? 100 : 0
 
-  const complete = async (redirectTo = '/feed') => {
+const next = () => setStepIdx(i => Math.min(i + 1, steps.length - 1))
+
+const back = () => setStepIdx(i => Math.max(i - 1, 0))
+
+const set1  = (field, val) => setD(p => ({ ...p, [field]: p[field] === val ? null : val }))
+
+const setN  = (field, val) => setD(p => ({ ...p, [field]: (p[field]||[]).includes(val) ? p[field].filter(v=>v!==val) : [...(p[field]||[]),val] }))
+
+const complete = async (redirectTo = '/feed') => {
     if (saving || !profile) return
     if (!d.age_confirmed || !d.privacy_accepted) { setErrorMsg("Confirm you are 18 or older and have read the Privacy Policy."); return }
     const version = loadVersion.current.version
@@ -214,14 +256,15 @@ function OnboardingInner() {
     router.push(redirectTo)
   }
 
-  if (loading) return (
-    <div style={{ position: 'fixed', inset: 0, background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Loading...</p>
-    </div>
+if (loading) return (
+    <Shell>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={ui(300, 14, WHITE60)}>Loading…</p>
+      </div>
+    </Shell>
   )
 
-  // ── Step renderer ─────────────────────────────────────────────────────────
-  const renderStep = () => {
+const renderStep = () => {
     switch (current) {
 
       // ── WELCOME ──────────────────────────────────────────────────────────
@@ -461,13 +504,13 @@ function OnboardingInner() {
     }
   }
 
-  // ── Bottom bar buttons ────────────────────────────────────────────────────
-  const renderActions = () => {
+const primaryBtn = { width: '100%', background: BTN_GRADIENT, color: 'var(--lq-white)', border: 'none', borderRadius: '1000px', padding: '16px', ...ui(600, 15), cursor: 'pointer' }
+
+const renderActions = () => {
     if (current === 'done') {
       return (
-        <button onClick={() => complete('/feed')} disabled={saving}
-          style={{ width: '100%', background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '15px', fontFamily: "'DM Sans', sans-serif", fontWeight: '600', cursor: 'pointer' }}>
-          {saving ? 'Setting up...' : accountType === 'creator' ? 'Go to the feed →' : 'Explore Laque →'}
+        <button onClick={() => complete('/feed')} disabled={saving} style={primaryBtn}>
+          {saving ? 'Setting up…' : accountType === 'creator' ? 'Go to the feed →' : 'Explore laQue →'}
         </button>
       )
     }
@@ -475,12 +518,11 @@ function OnboardingInner() {
     if (current === 'action') {
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <button onClick={() => complete(accountType === 'creator' ? '/upload' : '/feed')} disabled={saving}
-            style={{ width: '100%', background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '15px', fontFamily: "'DM Sans', sans-serif", fontWeight: '600', cursor: 'pointer' }}>
-            {saving ? 'Setting up...' : accountType === 'creator' ? 'Post a design now →' : 'Browse the feed →'}
+          <button onClick={() => complete(accountType === 'creator' ? '/upload' : '/feed')} disabled={saving} style={primaryBtn}>
+            {saving ? 'Setting up…' : accountType === 'creator' ? 'Post a design now →' : 'Browse the feed →'}
           </button>
           <button onClick={() => next()} disabled={saving}
-            style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', fontFamily: "'DM Sans', sans-serif", cursor: 'pointer', padding: '6px' }}>
+            style={{ background: 'none', border: 'none', ...ui(400, 13, WHITE60), cursor: 'pointer', padding: '6px' }}>
             Do this later
           </button>
         </div>
@@ -490,63 +532,63 @@ function OnboardingInner() {
     return (
       <div style={{ display: 'flex', gap: '10px' }}>
         {stepIdx > 0 && (
-          <button onClick={back}
-            style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '14px 20px', fontSize: '16px', fontFamily: "'DM Sans', sans-serif", color: 'var(--text-secondary)', cursor: 'pointer', flexShrink: 0 }}>
+          <button onClick={back} aria-label="Back a step"
+            style={{ background: PANEL, border: PANEL_BORDER, borderRadius: '1000px', padding: '14px 20px', ...ui(400, 16, WHITE60), cursor: 'pointer', flexShrink: 0 }}>
             ←
           </button>
         )}
-        <button onClick={next}
-          style={{ flex: 1, background: 'var(--accent)', color: '#2C0A1E', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '15px', fontFamily: "'DM Sans', sans-serif", fontWeight: '600', cursor: 'pointer' }}>
+        <button onClick={next} style={{ ...primaryBtn, flex: 1 }}>
           {current === 'welcome' ? "Let's go →" : 'Continue →'}
         </button>
       </div>
     )
   }
 
-  const showProgress = current !== 'welcome' && current !== 'done'
-  const showBorder   = current !== 'welcome' && current !== 'done' && current !== 'action' && current !== 'credits'
+const showProgress = current !== 'welcome' && current !== 'done'
 
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', zIndex: 200, maxWidth: '480px', margin: '0 auto' }}>
+const showBorder   = current !== 'welcome' && current !== 'done' && current !== 'action' && current !== 'credits'
 
+return (
+    <Shell>
       {/* Progress bar */}
       {showProgress && (
-        <div style={{ height: '3px', background: 'var(--bg-chip)', flexShrink: 0 }}>
-          <div style={{ height: '100%', width: `${progress}%`, background: 'var(--accent)', transition: 'width 0.35s ease', borderRadius: '0 2px 2px 0' }} />
+        <div style={{ height: '3px', background: 'rgba(255,255,255,0.1)', flexShrink: 0 }}>
+          <div style={{ height: '100%', width: `${progress}%`, background: ACCENT, transition: 'width 0.35s ease', borderRadius: '0 2px 2px 0' }} />
         </div>
       )}
 
-      {/* Step counter */}
-      {showProgress && (
-        <div style={{ padding: '14px 20px 0', flexShrink: 0 }}>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>
-            Step {innerIdx + 1} of {innerSteps.length}
-          </p>
+      {/* Top row: step counter (input steps) + Skip (every step but done) — the way out */}
+      {current !== 'done' && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'calc(env(safe-area-inset-top) + 14px) 20px 0', flexShrink: 0 }}>
+          <p style={ui(400, 12, WHITE60)}>{showProgress ? `Step ${innerIdx + 1} of ${innerSteps.length}` : ''}</p>
+          <button onClick={() => complete('/feed')} disabled={saving}
+            style={{ background: 'none', border: 'none', ...ui(500, 13, WHITE60), cursor: 'pointer', padding: '4px 6px' }}>
+            {saving ? 'Skipping…' : 'Skip'}
+          </button>
         </div>
       )}
 
       {/* Content area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', paddingTop: showProgress ? '20px' : 0 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', paddingTop: current !== 'done' ? '20px' : 0 }}>
         {renderStep()}
       </div>
 
       {/* Bottom action bar */}
       <div style={{
-        padding: '16px 20px 44px',
+        padding: '16px 20px calc(env(safe-area-inset-bottom) + 28px)',
         flexShrink: 0,
-        borderTop: showBorder ? '0.5px solid var(--border)' : 'none',
+        borderTop: showBorder ? PANEL_BORDER : 'none',
       }}>
-        {(current==='action'||current==='done')&&<div style={{display:'grid',gap:10,marginBottom:16,color:'var(--text-secondary)',fontSize:13}}>
-          <label style={{display:'flex',gap:10,alignItems:'center',minHeight:44}}><input type="checkbox" checked={d.age_confirmed} onChange={e=>setD(v=>({...v,age_confirmed:e.target.checked}))}/>I am 18 or older</label>
-          <label style={{display:'flex',gap:10,alignItems:'center',minHeight:44}}><input type="checkbox" checked={d.privacy_accepted} onChange={e=>setD(v=>({...v,privacy_accepted:e.target.checked}))}/>I have read the <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{color:'var(--accent)'}}>Privacy Policy</a></label>
-        </div>}
         {errorMsg && (
-          <p style={{ color: '#E07070', fontSize: '13px', marginBottom: '12px', textAlign: 'center' }}>{errorMsg}</p>
+          <p style={{ ...ui(400, 13, '#FF8DA8'), marginBottom: '12px', textAlign: 'center' }}>{errorMsg}</p>
         )}
+        {current !== 'done' && <div style={{ display: 'grid', gap: '10px', marginBottom: '12px' }}>
+          <label style={ui(400, 12)}><input type="checkbox" checked={!!d.age_confirmed} onChange={event => setD(previous => ({ ...previous, age_confirmed: event.target.checked }))} /> I am 18 or older</label>
+          <label style={ui(400, 12)}><input type="checkbox" checked={!!d.privacy_accepted} onChange={event => setD(previous => ({ ...previous, privacy_accepted: event.target.checked }))} /> I have read the <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a></label>
+        </div>}
         {renderActions()}
       </div>
-
-    </div>
+    </Shell>
   )
 }
 

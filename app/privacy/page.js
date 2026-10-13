@@ -48,7 +48,7 @@ export default function PrivacyPage() {
             <p className={styles.eyebrow}>YOUR INFORMATION & YOUR CHOICES</p>
             <h1>Privacy Policy</h1>
             <p className={styles.lead}>This policy explains what information LaQue handles, why we use it, and how you can exercise your privacy rights.</p>
-            <p className={styles.updated}>Last updated: <time dateTime="2026-09-29">29 September 2026</time></p>
+            <p className={styles.updated}>Last updated: <time dateTime="2026-10-13">13 October 2026</time></p>
           </div>
           <aside className={styles.contact} aria-label="Privacy contact">
             <p><strong>WeActivate Project Management Services LLC</strong><br />Dubai, United Arab Emirates</p>
@@ -71,7 +71,7 @@ export default function PrivacyPage() {
               <li><strong>Designs and activity:</strong> uploaded images, portfolio entries, stories, design descriptions and tags, preferences, saved designs, collections, follows, reviews and interactions needed to provide those features.</li>
               <li><strong>Communications and safety:</strong> messages and attachments you send, support requests, reports, block lists and the information needed to investigate misuse.</li>
               <li><strong>Bookings:</strong> customer and creator identifiers, selected services, prices, dates, time zones, availability, appointment status, notes, and payment or refund status.</li>
-              <li><strong>Purchases:</strong> provider customer and transaction identifiers, credit balances, credit use, subscriptions, entitlements and purchase verification records. Payment providers collect payment details directly; LaQue does not receive your full card number or security code through hosted checkout.</li>
+              <li><strong>Purchases:</strong> provider customer and transaction identifiers, credit balances, credit use, subscriptions, entitlements and purchase verification records. Payment providers collect payment details directly; LaQue does not receive your full card number or security code through Stripe checkout or its native payment interface.</li>
               <li><strong>Technical information:</strong> connection and request information, IP addresses in service or security logs, browser and device details, operational errors, and website usage information. If you enable mobile notifications, we use a device push token associated with your account.</li>
             </ul>
             <p>You can choose whether to supply optional profile fields, upload images or allow notifications. Some information is necessary for a feature: for example, we need an account to maintain your saves and the appointment details to arrange a booking.</p>
@@ -96,7 +96,7 @@ export default function PrivacyPage() {
               <div><dt>Vercel</dt><dd>Website and API hosting, operational logs and website analytics.</dd></div>
               <div><dt>Resend</dt><dd>Delivery of account and service emails, using recipient addresses and the email content.</dd></div>
               <div><dt>OpenAI</dt><dd>Processing the text instructions and design preferences submitted to Nail Lab when generation is available.</dd></div>
-              <div><dt>Stripe</dt><dd>Hosted web checkout, appointment deposits, payment verification and refunds. Stripe handles payment details and returns transaction information to LaQue.</dd></div>
+              <div><dt>Stripe</dt><dd>Web checkout, eligible native Lab payments, appointment deposits, payment verification and refunds. Stripe handles payment details and returns transaction information to LaQue.</dd></div>
               <div><dt>Expo, Apple and Google</dt><dd>Mobile app delivery and, where enabled, sign-in and push notifications, including device tokens and notification delivery information.</dd></div>
               <div><dt>Apple / Google billing and RevenueCat</dt><dd>When native purchases are enabled, store transaction information and a LaQue account identifier are used to verify purchases and maintain entitlements. These integrations may be unavailable during beta testing.</dd></div>
             </dl>
@@ -138,7 +138,7 @@ export default function PrivacyPage() {
               <li><strong>Specific disputes and legal requests:</strong> where a valid legal obligation or a specific claim requires preservation, only relevant information may be retained, with a documented reason, restricted access and a review date. We disclose information only after assessing a request’s legal basis and scope. We remove or anonymise retained records when the applicable purpose and retention duty end.</li>
               <li><strong>Recipient copies and providers:</strong> recipients can keep material already shared with them. Backups, cached public files and independent provider records follow their own deletion cycles and legal duties. They are not an account-restoration service. Payment providers may retain their own transaction records.</li>
             </ul>
-            <p>Deleting LaQue from your phone does not close your account. If you still have a historical subscription, cancel it with the provider that billed you; deleting your LaQue account alone does not cancel a store subscription. Contact us about unresolved refunds or retention questions.</p>
+            <p>Deleting LaQue from your phone does not close your account. If you have an active subscription, cancel it with the provider that billed you; deleting your LaQue account alone does not cancel a store subscription. Contact us about unresolved refunds or retention questions.</p>
           </Section>
 
           <Section id="rights" title="10. Your choices and rights">
