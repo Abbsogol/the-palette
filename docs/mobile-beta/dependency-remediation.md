@@ -42,4 +42,6 @@ Clean installs, root lint, 1,004 backend tests, web smoke build and 20 Chromium/
 
 The initial parallel mobile run terminated with SIGSEGV in the Node/Jest child process. A complete rerun with the same patched leaf versions passed all 743 existing tests; after SDK alignment and the new regression cases the full 748-test run passed. No tests were removed, deadlines relaxed or errors filtered to obtain the pass.
 
-Fresh native CI verification of the SDK patch updates remains pending. No production deployment or signed store-build acceptance is implied by local checks.
+Fresh CI passed at `7c2bf2a5d38375b76e5712c23b67b69a386f7296`: [backend verification](https://github.com/Abbsogol/the-palette/actions/runs/38382301431) and [mobile/native verification](https://github.com/Abbsogol/the-palette/actions/runs/38382301452). All jobs succeeded, including 1,006 backend tests without skips, 748 mobile tests, 20 browser checks, web/bundle builds, the universal Android Release APK and iOS Release simulator compilation.
+
+F03 is complete with the residual tooling dispositions above. No production deployment or signed store-build acceptance is implied. The Excel tracker contains the completion date and CI links.

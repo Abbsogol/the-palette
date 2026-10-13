@@ -1,0 +1,27 @@
+title = "LaQue repository credential checks"
+
+[extend]
+useDefault = true
+
+# Exceptions require BOTH the exact harmless value and the identified file.
+# Do not exclude entire fixture, documentation, or asset directories.
+[[rules]]
+id = "generic-api-key"
+
+[[rules.allowlists]]
+description = "Figma document identifier, not an access credential"
+condition = "AND"
+regexes = ['''^VEodtjFruvXPaIwWW2BjMC$''']
+paths = ['''^docs/mobile-beta/design-audit-figma\.json$''', '''^mobile/assets/figma/(chat|design-detail|home-main|home-v2|messages|onboarding|lab|profiles)/manifest\.json$''']
+
+[[rules.allowlists]]
+description = "Fixed mock signing value in an isolated test"
+condition = "AND"
+regexes = ['''^test-signing-secret-at-least-32-characters$''']
+paths = ['''^tests/mobile-backend/pinterest-api\.test\.js$''']
+
+[[rules.allowlists]]
+description = "Prose listing lifecycle test cases, not a token"
+condition = "AND"
+regexes = ['''^renewal/cancellation/refund/retry$''']
+paths = ['''^docs/mobile-beta/stripe-lab-sandbox\.md$''']

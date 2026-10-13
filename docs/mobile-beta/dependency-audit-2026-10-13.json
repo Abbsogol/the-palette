@@ -4504,6 +4504,14 @@
     "expoCompatibility": true,
     "iosExport": true,
     "androidExport": true,
-    "nativeCi": "pending"
+    "nativeCi": {
+      "result": "passed",
+      "sourceCommit": "7c2bf2a5d38375b76e5712c23b67b69a386f7296",
+      "backendUrl": "https://github.com/Abbsogol/the-palette/actions/runs/38382301431",
+      "mobileUrl": "https://github.com/Abbsogol/the-palette/actions/runs/38382301452",
+      "backendTests": 1006,
+      "mobileTests": 748,
+      "browserTests": 20
+    }
   }
 }
