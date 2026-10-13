@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -58,6 +58,10 @@ function BookingForm({ userId }) {
   const [timeZone, setTimeZone] = useState(null)
   const [submitError, setSubmitError] = useState('')
   const [done, setDone] = useState(false)
+  const calendarEnabled = process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_ENABLED === 'true'
+  const [calendarWarningKey, setCalendarWarningKey] = useState('')
+  const [calendarAcknowledgement, setCalendarAcknowledgement] = useState('')
+  const requestIdentity = useRef(null)
 
   // Inspiration design (from ?designId=)
   const [inspDesign, setInspDesign] = useState(null)
@@ -98,7 +102,7 @@ function BookingForm({ userId }) {
       }
 
       const [{ data: prof, error: profError }, { data: svcs, error: svcsError }, { data: avail }, { data: followRow }, { data: settings, error: zoneError }] = await Promise.all([
-        supabase.from('profiles').select('id, display_name, avatar_url, account_type, is_private').eq('id', creatorId).single(),
+        supabase.from('profiles').select('id, display_name, avatar_url, account_type, is_private, booking_area, location').eq('id', creatorId).single(),
         supabase.from('services').select('*').eq('creator_id', creatorId).eq('is_active', true).order('created_at', { ascending: true }),
         supabase.from('availability').select('*').eq('creator_id', creatorId).eq('is_active', true).order('day_of_week', { ascending: true }),
         creatorId === user.id ? { data: null } : supabase.from('follows').select('*').eq('follower_id', user.id).eq('following_id', creatorId).maybeSingle(),
@@ -144,31 +148,52 @@ function BookingForm({ userId }) {
   useEffect(() => {
     let active = true
     if (!slotKey) return
-    supabase.rpc('booking_available_slots', {
-      p_creator_id: creatorId, p_date: calendarKey(selectedDate), p_service_id: selectedService.id,
-    }).then(({ data, error }) => {
+    const loadSlots = async () => {
+      if (!calendarEnabled) return supabase.rpc('booking_available_slots', { p_creator_id: creatorId, p_date: calendarKey(selectedDate), p_service_id: selectedService.id })
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session || session.user.id !== userId) throw new Error('Sign in again to check availability.')
+      const q = new URLSearchParams({creatorId, serviceId:selectedService.id, date:calendarKey(selectedDate)})
+      const response = await fetch(`/api/mobile/calendar-slots?${q}`, {headers:{Authorization:`Bearer ${session.access_token}`}})
+      const result = await response.json()
+      return response.ok ? { data:result.slots } : { error:{message:result.error} }
+    }
+    loadSlots().then(({ data, error }) => {
       if (!active) return
       setSlotResult({ key: slotKey,
-        rows: error ? [] : (data || []).map(slot => ({ time: slot.start_time.slice(0, 5), available: slot.available })),
-        error: error ? 'Available times could not be confirmed. The creator may need to confirm their appointment time zone.' : '',
+        rows: error ? [] : (data || []).map(slot => ({ time: slot.start_time.slice(0, 5), available: slot.available, calendarConflict:slot.client_calendar_conflict, calendarUnchecked:slot.client_calendar_state === "unavailable" })),
+        error: error ? `Available times could not be confirmed. ${error.message || 'Please retry.'}` : '',
       })
     }).catch(() => {
       if (active) setSlotResult({ key: slotKey, rows: [], error: 'Available times could not be loaded. Please try another date.' })
     })
     return () => { active = false }
-  }, [creatorId, selectedDate, selectedService, slotKey])
+  }, [creatorId, selectedDate, selectedService, slotKey, calendarEnabled, userId])
 
+  const calendarSelectionKey = `${slotKey}:${selectedSlot}`
+  const calendarConflict = slots.find(slot => slot.time === selectedSlot && (slot.calendarConflict || slot.calendarUnchecked)) || calendarWarningKey === calendarSelectionKey
   const handleSubmit = async () => {
     if (!selectedService || !selectedDate || !selectedSlot || !timeZone) return
     setSubmitError('')
     try {
       const result = await run(async session => {
-        const { data: newBooking, error } = await supabase.from('bookings').insert({
+        let newBooking, error
+        if (calendarEnabled) {
+          const payload = { creatorId, serviceId:selectedService.id, date:calendarKey(selectedDate), start:selectedSlot, end:addMinutes(selectedSlot, selectedService.duration_minutes), timeZone, price:Number(selectedService.price), deposit:Number(selectedService.deposit_amount || 0), location:creator.booking_area || creator.location || '', notes:note.trim(), ...(designId ? {designId} : {}), allowCalendarConflict:calendarAcknowledgement === calendarSelectionKey }
+          const fingerprint = JSON.stringify(payload)
+          if (requestIdentity.current?.fingerprint !== fingerprint) requestIdentity.current = {id:crypto.randomUUID(),fingerprint}
+          const response = await fetch('/api/mobile/request-booking', {method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({...payload,id:requestIdentity.current.id})})
+          const result = await response.json()
+          if (!response.ok) {
+            if (['CLIENT_CALENDAR_CONFLICT','CLIENT_CALENDAR_UNCHECKED'].includes(result.code)) setCalendarWarningKey(calendarSelectionKey)
+            throw new Error(result.error || 'Appointment could not be confirmed.')
+          }
+          newBooking = result.booking
+        } else ({ data:newBooking, error } = await supabase.from('bookings').insert({
           client_id: currentUser.id, creator_id: creatorId, service_id: selectedService.id,
           booking_date: calendarKey(selectedDate), start_time: selectedSlot,
           end_time: addMinutes(selectedSlot, selectedService.duration_minutes), time_zone: timeZone,
           status: 'pending', notes: note.trim() || null,
-        }).select().single()
+        }).select().single())
         if (error || !newBooking) throw new Error('That appointment time could not be confirmed. Please refresh and choose an available time.')
         fetch('/api/add-reward', {
           method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
@@ -502,12 +527,13 @@ function BookingForm({ userId }) {
               />
             </div>
 
+            {calendarEnabled && calendarConflict && <div role="alert" style={{padding:16,border:'1px solid #e07070',borderRadius:12,marginBottom:16}}><p>Your Google Calendar has a conflict or could not be checked. Choose another time to avoid an overlap.</p><label><input type="checkbox" checked={calendarAcknowledgement===calendarSelectionKey} onChange={e=>setCalendarAcknowledgement(e.target.checked?calendarSelectionKey:'')}/> I understand and want to book this time anyway</label></div>}
             {submitError && (
               <p style={{ color: '#E07070', fontSize: '13px', textAlign: 'center', marginBottom: '10px' }}>{submitError}</p>
             )}
             <button
               onClick={handleSubmit}
-              disabled={submitting}
+              disabled={submitting || (calendarEnabled && !!calendarConflict && calendarAcknowledgement !== calendarSelectionKey)}
               style={{
                 width: '100%', background: 'var(--accent)', color: '#2C0A1E',
                 border: 'none', borderRadius: '12px', padding: '14px',

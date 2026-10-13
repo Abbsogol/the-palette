@@ -10,6 +10,7 @@ async function chooseCreator(page) {
   await page.getByPlaceholder('Email', { exact: true }).fill('artist@example.invalid')
   await page.getByPlaceholder('Password', { exact: true }).fill('test-only-password')
   await page.getByRole('checkbox', { name: /I agree/ }).check()
+  await page.getByRole('checkbox', { name: /I am 18/ }).check()
   await page.getByRole('button', { name: 'Continue →' }).click()
   await page.getByRole('button', { name: /Nail Artist/ }).click()
 }

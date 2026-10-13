@@ -64,6 +64,8 @@ it('P5-auth: a late initial session read cannot restore private data after logou
 async function completeOnboardingForm() {
   fireEvent.click(screen.getByRole('button', { name: "Let's go →" }))
   for (let count = 0; count < 4; count++) fireEvent.click(screen.getByRole('button', { name: 'Continue →' }))
+  fireEvent.click(screen.getByRole('checkbox', {name:'I am 18 or older'}))
+  fireEvent.click(screen.getByRole('checkbox', {name:/I have read/}))
 }
 const onboardingProfiles = q => q.table === 'profiles' ? ok(profile(q.filters[0][2], { onboarding_complete: false })) : ok([])
 it('P5-auth: onboarding cannot submit account A contact details using a newly switched account B token', async () => {

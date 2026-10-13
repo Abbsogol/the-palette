@@ -19,6 +19,7 @@ import { POST as buyCredits } from '@/app/api/create-checkout-session/route'
 import { POST as boostCheckout } from '@/app/api/create-boost-payment/route'
 import { GET as subscriptionStatus } from '@/app/api/subscription-checkout-status/route'
 import { GET as depositStatus } from '@/app/api/deposit-checkout-status/route'
+vi.mock('@/lib/admin/auth',()=>({adminIdentity:async()=>({role:'owner',mfa:true}),adminResponse:(body,status)=>Response.json(body,{status}),adminFailure:()=>Response.json({error:'Denied'},{status:403})}))
 import { POST as adminCredits } from '@/app/api/admin-profiles/route'
 const user='00000000-0000-4000-8000-000000000201'
 const creator='00000000-0000-4000-8000-000000000202'
@@ -126,8 +127,8 @@ it('P3-10: a portal plan change follows the actual Stripe price, not stale metad
   expect((await event('evt_portal','customer.subscription.updated',sub)).status).toBe(200)
   expect(await scalar('select subscription_tier from profiles_data where id=$1',[user])).toBe('pro_creator')
 })
-it.each([-1,1.5])('P3-11: admin cannot save an invalid credit balance (%s)',async credits=>{
-  expect((await adminCredits(jsonRequest({userId:user,credits}))).status).toBe(400)
+it.each([-1,1.5])('P3-11: retired absolute-balance admin endpoint cannot save credits (%s)',async credits=>{
+  expect((await adminCredits(jsonRequest({userId:user,credits}))).status).toBe(410)
   expect(await balance()).toBe(8)
 })
 
@@ -319,6 +320,7 @@ it('adjacent slots remain bookable and strangers see only occupied ranges',async
   await expect(db.as('anon',null,'select * from booking_busy_slots($1,current_date+1)',[creator])).rejects.toThrow()
 })
 it('deletion and generation reservation cannot both acquire permission for new work',async()=>{
+  await db.as('authenticated',user,'select cancel_mobile_booking($1)',[booking])
   const results=await Promise.allSettled([
     db.as('service_role',null,'select begin_account_deletion($1)',[user]),
     db.as('service_role',null,'select reserve_generation($1,$2,null) as reserved',[design,user]),
@@ -327,6 +329,8 @@ it('deletion and generation reservation cannot both acquire permission for new w
   expect(results[0].status==='fulfilled'&&reserved).toBe(false)
 })
 it('new work is denied after deletion has started',async()=>{
+  // The mobile cancellation policy now requires finishing the unrelated seeded booking first.
+  await db.as('authenticated',user,'select cancel_mobile_booking($1)',[booking])
   await db.as('service_role',null,'select begin_account_deletion($1)',[user])
   expect((await db.as('service_role',null,'select reserve_generation($1,$2,null) as reserved',[design,user])).rows[0].reserved).toBe(false)
   await expect(db.as('service_role',null,"select reserve_subscription_checkout_v2($1,'premium','test@example.invalid','https://example.invalid','price_test')",[user])).rejects.toThrow('ACCOUNT_UNAVAILABLE')

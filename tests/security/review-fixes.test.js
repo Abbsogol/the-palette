@@ -12,7 +12,8 @@ vi.mock('stripe', () => ({ default: class Stripe {
 import { POST as subscribe } from '@/app/api/create-subscription/route'
 import { POST as onboard } from '@/app/api/complete-onboarding/route'
 import { POST as webhook } from '@/app/api/stripe-webhook/route'
-import { POST as deleteAccount } from '@/app/api/delete-account/route'
+import { purgeAccountData } from '@/lib/account-purge'
+import Stripe from 'stripe'
 
 const alice = '00000000-0000-4000-8000-000000000101'
 const bob = '00000000-0000-4000-8000-000000000102'
@@ -22,6 +23,8 @@ const generation = '20000000-0000-4000-8000-000000000101'
 const board = '30000000-0000-4000-8000-000000000101'
 let db, sessions
 const as = (id, sql, args = []) => db.as(id ? 'authenticated' : 'anon', id, sql, args)
+// Closure is tested separately; these cases exercise the guarded physical cleanup.
+const deleteAccount = () => purgeAccountData(mocks.client, new Stripe(), alice)
 const scalar = async (sql, args = []) => Object.values((await db.query(sql, args)).rows[0])[0]
 const profile = async () => (await db.query('select * from profiles_data where id=$1',[alice])).rows[0]
 const attempt = async () => (await db.query('select * from subscription_checkouts where user_id=$1',[alice])).rows[0]
@@ -135,15 +138,15 @@ it('does not reuse an unconfirmed creation after Stripe can prune its idempotenc
 
 it.each([['user',3],['creator',5],['salon',5]])('C12-02: onboarding preserves 40 purchased credits for a %s',async(type,grant)=>{
   await db.query('update profiles_data set account_type=$2,credit_balance=40 where id=$1',[alice,type])
-  expect((await onboard(jsonRequest({display_name:'Alice',credit_balance:900,is_admin:true}))).status).toBe(200)
+  expect((await onboard(jsonRequest({age_confirmed:true,privacy_accepted:true,display_name:'Alice',credit_balance:900,is_admin:true}))).status).toBe(200)
   expect(await profile()).toMatchObject({credit_balance:40+grant,onboarding_complete:true,is_admin:false,display_name:'Alice'})
   await db.query('update profiles_data set credit_balance=1 where id=$1',[alice])
-  expect(await (await onboard(jsonRequest({display_name:'Changed'}))).json()).toMatchObject({alreadyCompleted:true})
+  expect(await (await onboard(jsonRequest({age_confirmed:true,privacy_accepted:true,display_name:'Changed'}))).json()).toMatchObject({alreadyCompleted:true})
   expect(await profile()).toMatchObject({credit_balance:1,display_name:'Alice'})
 })
 it('a purchase racing with two onboarding requests preserves the pack and grants the starter amount once',async()=>{
   const results=await Promise.all([
-    onboard(jsonRequest({display_name:'Alice'})),onboard(jsonRequest({display_name:'Alice'})),
+    onboard(jsonRequest({age_confirmed:true,privacy_accepted:true,display_name:'Alice'})),onboard(jsonRequest({age_confirmed:true,privacy_accepted:true,display_name:'Alice'})),
     db.as('service_role',null,"select apply_credit_payment('evt_pack','pi_pack',$1,40,'cs_pack')",[alice]),
   ])
   expect(results.slice(0,2).map(r=>r.status)).toEqual([200,200])
@@ -219,6 +222,8 @@ it('C12-04: deletes the owning account and its linked content while preserving a
   await db.query('insert into moodboard_members(moodboard_id,user_id,invited_by) values ($1,$2,$3)',[board,bob,alice])
   await as(bob,'insert into design_likes(user_id,design_id) values ($1,$2)',[bob,design])
   await db.query("select apply_credit_payment('evt_pack','pi_pack',$1,40,'cs_pack')",[alice])
+  // This physical-purge fixture has completed its documented retention period.
+  await db.query("insert into account_retention_holds(user_id,category,basis,retain_until,review_at) values($1,'financial','Test tax retention completed',now()-interval '1 day',now()-interval '2 days')",[alice])
   await as(alice,'select delete_own_account()')
   expect(await profile()).toBeUndefined()
   for (const table of ['designs','design_images','nail_lab_generations','collection_designs','moodboard_members','credit_payments','notifications','design_likes']) {

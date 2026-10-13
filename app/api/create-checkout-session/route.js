@@ -16,6 +16,7 @@ export async function POST(request) {
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    if (process.env.LAB_APP_ONLY_BILLING === '1') return Response.json({ error: 'Subscribe and purchase design tokens inside the LaQue app.' }, { status: 410 })
     const userId = user.id
 
     const { packId } = await request.json()

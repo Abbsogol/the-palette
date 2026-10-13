@@ -170,6 +170,8 @@ it('retrying a failed first lookup reconciles the money state without a second c
   expect(await creditOutcome()).toEqual({ status: 'refund_recorded' })
   expect(await scalar('select credit_balance from profiles_data where id=$1', [user])).toBe(0)
   expect(await scalar("select count(*)::integer from processed_webhook_events where event_id='refund-total:pi_credit:1000'")).toBe(1)
+  await expect(db.as('authenticated', user, 'select delete_own_account()')).rejects.toThrow('RETENTION_REVIEW_REQUIRED')
+  await db.query("insert into account_retention_holds(user_id,category,basis,retain_until,review_at) values($1,'financial','Test: applicable retention period has ended',now()-interval '1 day',now()-interval '2 days')", [user])
   await expect(db.as('authenticated', user, 'select delete_own_account()')).resolves.toBeDefined()
 })
 

@@ -19,10 +19,12 @@ export function database(resolve, rpc = async () => { throw new Error('Unexpecte
       const chain = {
         select(columns) { query.columns = columns; return chain },
         insert(values) { query.operation = 'insert'; query.values = values; return chain },
+        upsert(values) { query.operation = 'upsert'; query.values = values; return chain },
         update(values) { query.operation = 'update'; query.values = values; return chain },
         delete() { query.operation = 'delete'; return chain },
         eq(k, v) { query.filters.push(['eq', k, v]); return chain },
         is(k, v) { query.filters.push(['is', k, v]); return chain },
+        gt(k, v) { query.filters.push(['gt', k, v]); return chain },
         in(k, v) { query.filters.push(['in', k, v]); return chain },
         order() { return chain }, limit() { return chain },
         single() { query.single = true; return run() }, maybeSingle() { query.single = true; return run() },

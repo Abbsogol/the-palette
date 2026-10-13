@@ -68,6 +68,17 @@ export async function createSecurityDatabase({ hardened = true } = {}) {
       await db.exec(await readFile(new URL('../../supabase/migrations/202609270013_phase6_payment_recovery.sql', import.meta.url), 'utf8'))
       await db.exec(await readFile(new URL('../../supabase/migrations/202609270014_creator_booking_time.sql', import.meta.url), 'utf8'))
       await db.exec(await readFile(new URL('../../supabase/migrations/202609270015_subscription_reconciliation.sql', import.meta.url), 'utf8'))
+      await db.exec(await readFile(new URL('../../supabase/migrations/202609270016_mobile_booking_safety.sql', import.meta.url), 'utf8'))
+      await db.exec(await readFile(new URL('../../supabase/migrations/202609270017_mobile_notifications_safety.sql', import.meta.url), 'utf8'))
+      await db.exec(await readFile(new URL('../../supabase/migrations/202609270018_mobile_messages_uploads.sql', import.meta.url), 'utf8'))
+      await db.exec(await readFile(new URL('../../supabase/migrations/202609270019_mobile_collections.sql', import.meta.url), 'utf8'))
+      await db.exec(await readFile(new URL('../../supabase/migrations/202609270020_mobile_store_billing.sql', import.meta.url), 'utf8'))
+      await db.exec(await readFile(new URL('../../supabase/migrations/202609270021_mobile_media_cleanup.sql', import.meta.url), 'utf8'))
+      await db.exec(await readFile(new URL('../../supabase/migrations/202609270022_client_table_privileges.sql', import.meta.url), 'utf8'))
+      await db.exec(await readFile(new URL('../../supabase/migrations/202609290023_google_calendar.sql', import.meta.url), 'utf8'))
+      await db.exec(await readFile(new URL('../../supabase/migrations/202609290024_account_closure.sql', import.meta.url), 'utf8'))
+      await db.exec(await readFile(new URL('../../supabase/migrations/202609290025_designs_social.sql', import.meta.url), 'utf8'))
+      await db.exec(await readFile(new URL('../../supabase/migrations/202609290026_profile_media_age.sql', import.meta.url), 'utf8'))
     }
     await releaseSetupLock()
     return db

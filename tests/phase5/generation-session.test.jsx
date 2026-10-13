@@ -46,15 +46,13 @@ it('a session changed before submit cannot spend the new account credits on the 
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Generate ✦' })))
   expect(mock.generate).not.toHaveBeenCalled()
 })
-it('a new paid regeneration exposes its own free regeneration and correct parent', async () => {
+it('each new version is a paid new generation; there is no free variation', async () => {
   await generate()
-  mock.generate.mockResolvedValueOnce(result('free-A'))
-  await act(async () => fireEvent.click(screen.getByRole('button', { name: /Regenerate\s*FREE/ })))
+  expect(screen.queryByRole('button', { name: /Regenerate\s*FREE/ })).not.toBeInTheDocument()
   mock.generate.mockResolvedValueOnce(result('paid-B'))
-  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Regenerate · 1 credit' })))
-  mock.generate.mockResolvedValueOnce(result('free-B'))
-  await act(async () => fireEvent.click(screen.getByRole('button', { name: /Regenerate\s*FREE/ })))
-  expect(mock.generate.mock.lastCall[1]).toMatchObject({ freeRegen: true, parentGenerationId: 'paid-B' })
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Generate new design · 1 token' })))
+  expect(mock.generate.mock.lastCall[1]).toMatchObject({ freeRegen: false, parentGenerationId: null })
+  expect(screen.getByAltText('Generated nail design')).toHaveAttribute('src',result('paid-B').imageUrl)
 })
 
 it('refreshing the same account token preserves its generated design', async () => {

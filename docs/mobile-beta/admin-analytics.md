@@ -1,0 +1,13 @@
+# Dashboard Overview analytics
+
+Implemented 8 October 2026 in the isolated beta. Migration `202610080033_admin_analytics.sql` is applied to `atjwbdrvgljddedtwoqo`. No paid analytics service or chart dependency was added.
+
+Overview offers 7/30-day trends in Asia/Dubai, current account/content/booking totals, booking and Lab status distributions, profile setup progress and publication states. Current states of records created in the selected period are labelled explicitly; they are not conversion, payment success or failure measures. Charts provide exact daily tables and keyboard day inspection. Owner, Support and Moderator aggregates follow existing server permissions.
+
+Owner-only behavior panels show opted-in active users, temporary sessions, screen entries, users active on multiple dates, visited screens, platform sessions and retained product-action counts. Operational actions come from existing records; undone saves and follows disappear. Staff memberships (including revoked test staff), closed profiles and reserved `.example` test accounts are excluded. Beta may correctly show zero. No historical screen activity is invented.
+
+The updated mobile app adds an optional Privacy & Safety switch, off by default. It records only verified account ID, random session ID, event UUID, coarse screen category, platform and server receipt time. Search terms, route parameters, messages, media, location, IP and advertising IDs are not included in this analytics system. Events are debounced, deduplicated and limited to 30 per minute/500 per day per account; failures never interrupt app use. Sessions renew after 30 minutes without a screen visit.
+
+Raw events and preferences are service-only with RLS. The dashboard exposes aggregates, never event history or individual routes. Disabling the preference deletes that account’s screen events; account closure also erases events/preferences. Reporting excludes events older than 30 days. The existing authenticated daily `/api/send-reminders` scheduler prunes expired history; the overview RPC also prunes. Failed cleanup returns retryable status after appointment reminders have been processed, without leaking the error. Retention wording describes the reporting window and scheduled cleanup rather than guaranteeing uninterrupted job execution.
+
+Verification: database roles, consent, deduplication, date boundaries, counts, caps and cleanup; API verified identity, payload allowlist and sanitization; interactive charts and mobile consent/debounce/account-switch tests. Live beta checks verified default-off, explicit opt-in, replay, opt-out erasure, raw-history denial and ordinary-user dashboard denial. Physical-device screen tracking with the updated mobile app remains to be confirmed.

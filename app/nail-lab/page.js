@@ -272,7 +272,7 @@ function NailLabBuilder({ currentUser }) {
   const [genError, setGenError] = useState(null)
 
   // Result screen actions
-  const [freeRegenUsed, setFreeRegenUsed] = useState(false)
+  const [freeRegenUsed, setFreeRegenUsed] = useState(true)
   const [rootGenerationId, setRootGenerationId] = useState(null)
   const [publishedDesignId, setPublishedDesignId] = useState(null)
   const [publishStatus, setPublishStatus] = useState(null) // null | 'draft' | 'published'
@@ -338,7 +338,7 @@ function NailLabBuilder({ currentUser }) {
       setResult(data)
       if (!freeRegen) {
         setRootGenerationId(data.generationId)
-        setFreeRegenUsed(false)
+        setFreeRegenUsed(true)
       }
       if (!freeRegen) setCredits(data.creditsRemaining)
       setPublishedDesignId(null)
@@ -364,16 +364,16 @@ function NailLabBuilder({ currentUser }) {
   const generate = async () => {
     if (!canGenerate) return
     setResult(null)
-    setFreeRegenUsed(false)
+    setFreeRegenUsed(true)
     setRootGenerationId(null)
     await callGenerateAPI(false, null)
   }
 
   const regen = async (free = false) => {
     if (generating) return
-    if (free && freeRegenUsed) return
+    if (free) return
     if (!free && credits < 1 && !pendingGeneration) return
-    const ok = await callGenerateAPI(free, rootGenerationId)
+    const ok = await callGenerateAPI(false, null)
     if (free && ok) setFreeRegenUsed(true)
   }
 
@@ -428,7 +428,7 @@ function NailLabBuilder({ currentUser }) {
     setResult(null)
     setPublishedDesignId(null)
     setPublishStatus(null)
-    setFreeRegenUsed(false)
+    setFreeRegenUsed(true)
     setRootGenerationId(null)
     setShowSaveBoard(false)
     setShowNailTechSheet(false)
@@ -656,7 +656,7 @@ function NailLabBuilder({ currentUser }) {
             <button onClick={() => regen(false)} disabled={generating || (credits < 1 && !pendingGeneration)}
               style={{ width: '100%', background: credits >= 1 ? 'var(--accent)' : 'var(--bg-card)', color: credits >= 1 ? '#2C0A1E' : 'var(--text-secondary)', border: credits >= 1 ? 'none' : '0.5px solid var(--border)', borderRadius: '14px', padding: '15px', fontSize: '15px', fontWeight: '600', cursor: generating || credits < 1 ? 'not-allowed' : 'pointer', fontFamily: "'DM Sans', sans-serif" }}
             >
-              {generating ? 'Generating...' : pendingGeneration ? 'Check pending generation' : credits < 1 ? 'No credits left' : 'Regenerate · 1 credit'}
+              {generating ? 'Generating...' : pendingGeneration ? 'Check pending generation' : credits < 1 ? 'No credits left' : 'Generate new design · 1 token'}
             </button>
           )}
           <button onClick={() => { resetResult(); window.scrollTo({ top: 0 }) }}
@@ -854,14 +854,11 @@ function NailLabBuilder({ currentUser }) {
           </div>
         </Section>
 
-        <Section title="Reference designs" required={false}>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: 1.5 }}>
-            Image references are temporarily unavailable. Describe the colours, finish, and details you want below.
-          </p>
-        </Section>
-
         {/* ── CUSTOM TEXT ── */}
         <Section title="Additional details" required={false}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: 1.5 }}>
+            Describe your inspiration in words. Image references aren’t available in this beta.
+          </p>
           <textarea
             value={customText}
             onChange={e => setCustomText(e.target.value)}
@@ -906,7 +903,7 @@ function NailLabBuilder({ currentUser }) {
             transition: 'all 0.15s',
           }}
         >
-          {credits === 0 ? 'No credits — packs coming soon' : 'Generate ✦'}
+          {credits === 0 ? 'Subscribe in the LaQue app' : 'Generate ✦'}
         </button>
       </div>
     </>

@@ -13,7 +13,7 @@ import { ownedNailLabPath } from '@/lib/storage-path'
 
 beforeEach(() => {
   auth.getSessionUser.mockResolvedValue(user)
-  Object.assign(auth.client, database(() => ok([]), async name => { if (name === 'enqueue_booking_reminders') return ok(0); throw new Error(`Unexpected RPC: ${name}`) }))
+  Object.assign(auth.client, database(() => ok([]), async name => { if (name === 'enqueue_booking_reminders' || name === 'prune_app_analytics') return ok(0); throw new Error(`Unexpected RPC: ${name}`) }))
   auth.client.storage = { from: vi.fn() }
 })
 afterEach(() => vi.unstubAllEnvs())
@@ -27,6 +27,16 @@ it('rejects wrong scheduler credentials and accepts the configured secret', asyn
   expect((await reminders(new Request('http://localhost/api/send-reminders',{headers:{authorization:'Bearer wrong'}}))).status).toBe(401)
   expect(auth.client.from).not.toHaveBeenCalled()
   expect((await reminders(new Request('http://localhost/api/send-reminders',{headers:{authorization:'Bearer test-scheduler-secret'}}))).status).toBe(200)
+})
+it('runs daily analytics cleanup and still processes reminders if cleanup needs retry', async () => {
+  vi.stubEnv('CRON_SECRET','test-scheduler-secret')
+  vi.stubEnv('RESEND_API_KEY','')
+  Object.assign(auth.client,database(() => ok([]),async name => name === 'prune_app_analytics' ? {error:{message:'private database failure'}} : ok(2)))
+  const response=await reminders(new Request('http://localhost/api/send-reminders',{headers:{authorization:'Bearer test-scheduler-secret'}}))
+  expect(response.status).toBe(503)
+  expect(await response.json()).toMatchObject({sent:4,bookings:2,analyticsCleanupComplete:false})
+  expect(auth.client.rpc).toHaveBeenCalledWith('enqueue_booking_reminders',{p_date:null})
+  expect(auth.client.rpc).toHaveBeenCalledWith('prune_app_analytics')
 })
 it.each(['other-user/private.png','user-a/../other-user/private.png','user-a/%2e%2e/private.png','user-a\\other.png','https://foreign.invalid/storage/v1/object/public/nail-lab/user-a/image.png'])('rejects privileged copies of an unowned or ambiguous path (%s)', async path => {
   Object.assign(auth.client,database(q => q.table==='nail_lab_generations' ? ok({id:'generation',user_id:user.id,image_url:path}) : ok(null)))

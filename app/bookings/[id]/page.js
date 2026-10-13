@@ -118,7 +118,13 @@ function BookingDetail({ userId }) {
     if (busy) return
     setActing(action)
     try {
-      const updated = await run(async () => {
+      const updated = await run(async session => {
+        if (process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_ENABLED === 'true') {
+          const response=await fetch('/api/mobile/booking-action',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({bookingId:booking.id,action:status==='confirmed'?'confirm':'decline'})})
+          const result=await response.json()
+          if(!response.ok || result.booking?.id!==booking.id || result.booking.status!==status)throw new Error(result.error || `Failed to ${action} booking.`)
+          return result.booking
+        }
         const { data, error } = await supabase.from('bookings').update({ status }).eq('id', booking.id).eq('creator_id', userId).eq('status', 'pending').select('id,status').single()
         if (error || data?.id !== booking.id || data.status !== status) throw new Error(`Failed to ${action} booking. Please refresh and try again.`)
         return data

@@ -44,21 +44,22 @@ export async function POST(request) {
     if (body.referenceImageUrls != null && (!Array.isArray(body.referenceImageUrls) || body.referenceImageUrls.length)) {
       return Response.json({ error: 'Reference images are not supported yet. Remove them to generate from text.' }, { status: 422 })
     }
-    if (freeRegen && !parentGenerationId) {
-      return Response.json({ error: 'Free regen unavailable' }, { status: 403 })
+    if (freeRegen || parentGenerationId) {
+      return Response.json({ error: 'Generated designs cannot be edited. Start a new generation; each new design uses one token.' }, { status: 410 })
     }
     const requestId = body.requestId
     const hash = createHash('sha256').update(JSON.stringify({ vibe, shape, length, colors, occasion, customText })).digest('hex')
     const { data: status, error: reservationError } = await supabase.rpc('claim_generation', {
-      p_id: requestId, p_user_id: userId, p_parent_id: freeRegen ? parentGenerationId : null, p_hash: hash,
+      p_id: requestId, p_user_id: userId, p_parent_id: null, p_hash: hash,
     })
     if (reservationError) throw new Error('Failed to reserve generation', { cause: reservationError })
     if (status === 'completed') return Response.json(await generationResult(userId, requestId))
     if (status === 'reserved') return Response.json({ status: 'pending', error: 'Your design is still generating. Retry shortly to retrieve it.' }, { status: 202 })
     if (status === 'released') return Response.json({ status: 'released', error: 'This attempt ended. Check your balance before starting a new generation.' }, { status: 410 })
     if (status === 'conflict') return Response.json({ error: 'This request id belongs to another generation.' }, { status: 409 })
+    if (status === 'subscription_required') return Response.json({ error: 'An active Nail Lab subscription is required.', code: 'LAB_SUBSCRIPTION_REQUIRED' }, { status: 402 })
     if (status !== 'claimed') {
-      return Response.json({ error: freeRegen ? 'Free regen unavailable' : 'Insufficient credits or account unavailable' }, { status: freeRegen ? 403 : 402 })
+      return Response.json({ error: 'No design tokens are available or the account is unavailable' }, { status: 402 })
     }
     // Only the worker that won the claim may release it in finally. A replay
     // observing pending/completed work must never cancel the original request.

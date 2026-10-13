@@ -26,12 +26,13 @@ export async function POST(request) {
     return Response.json({ error: 'Invalid message_permission' }, { status: 400 })
   }
 
-  const { error } = await supabase.from('profiles_data').update(update).eq('id', user.id)
+  const { data, error } = await supabase.from('profiles_data').update(update).eq('id', user.id).select('is_private,message_permission,show_saves').maybeSingle()
 
   if (error) {
     console.error('update-privacy-settings error:', error)
     return Response.json({ error: 'Failed to update settings' }, { status: 500 })
   }
 
-  return Response.json({ ok: true })
+  if (!data || Object.entries(update).some(([key, value]) => data[key] !== value)) return Response.json({ error: 'Your privacy setting could not be confirmed. Refresh and retry.' }, { status: 503 })
+  return Response.json({ ok: true, settings: data }, { headers: { 'Cache-Control': 'no-store' } })
 }

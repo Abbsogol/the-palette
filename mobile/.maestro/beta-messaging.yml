@@ -1,0 +1,40 @@
+# Synthetic beta customer only. MAESTRO_NATIVE_TEST_MESSAGE must be unique per run.
+appId: app.laque.mobile
+---
+- runFlow: beta-auth.yml
+- tapOn: Go back
+- tapOn: Go back
+- tapOn: "Messages, tab,.*"
+- extendedWaitUntil:
+    visible: Beta creator
+    timeout: 20000
+- tapOn: Open conversation
+- extendedWaitUntil:
+    visible: Synthetic beta design message
+    timeout: 20000
+- tapOn: View shared design
+- extendedWaitUntil:
+    visible: Beta rose sample
+    timeout: 20000
+- tapOn: Go back
+- scrollUntilVisible:
+    element:
+      text: Message
+      index: 1
+    direction: DOWN
+- tapOn:
+    text: Message
+    index: 1
+- inputText: ${MAESTRO_NATIVE_TEST_MESSAGE}
+# Dismiss the multiline keyboard through the non-interactive heading.
+- tapOn: Conversation
+- scrollUntilVisible:
+    element:
+      text: Send message
+    direction: DOWN
+- tapOn: Send message
+- extendedWaitUntil:
+    visible: ${MAESTRO_NATIVE_TEST_MESSAGE}
+    timeout: 30000
+- assertNotVisible: Retry sending
+- takeScreenshot: beta-native-message

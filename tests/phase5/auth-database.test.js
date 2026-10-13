@@ -22,7 +22,7 @@ beforeEach(async () => {
 })
 const read = async () => (await db.query('select credit_balance,onboarding_complete,phone_number,allergies from profiles_data where id=$1', [owner])).rows[0]
 const invite = () => applyReferral(jsonRequest({ code: 'INVITE22', userId: stranger }))
-const finish = () => completeOnboarding(jsonRequest({ display_name: 'Owner', phone_number: '+123456789', allergies: 'Latex', userId: stranger, credit_balance: 9999, is_admin: true }))
+const finish = () => completeOnboarding(jsonRequest({ age_confirmed:true, privacy_accepted:true, display_name: 'Owner', phone_number: '+123456789', allergies: 'Latex', userId: stranger, credit_balance: 9999, is_admin: true }))
 
 it('P5-referral: a referral acknowledgment lost before onboarding can be retried without duplicate awards or onboarding credits', async () => {
   const initial = await invite()

@@ -1,22 +1,5 @@
-import { getSessionUser, isAdmin, serviceClient as supabase } from '@/lib/auth'
-
-export async function GET(request) {
-  const user = await getSessionUser(request)
-  if (!user || !(await isAdmin(user.id))) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  // profiles_data, not the profiles view — subscription_tier is masked
-  // behind auth.uid() = id in the view, always null for other users' rows.
-  const { count, error } = await supabase
-    .from('profiles_data')
-    .select('*', { count: 'exact', head: true })
-    .not('subscription_tier', 'is', null)
-
-  if (error) {
-    console.error('admin-subscription-count error:', error)
-    return Response.json({ error: 'Failed to load count' }, { status: 500 })
-  }
-
-  return Response.json({ count })
-}
+import { adminIdentity,adminFailure,adminResponse } from '@/lib/admin/auth'
+async function retired(request) {try {await adminIdentity(request);return adminResponse({error:'Use the protected dashboard API.',code:'ADMIN_ENDPOINT_RETIRED'},410)} catch(e){return adminFailure(e)}}
+export const GET=retired
+export const POST=retired
+export const PATCH=retired

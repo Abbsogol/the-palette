@@ -1,4 +1,10 @@
 {
+  "framework": "nextjs",
+  "git": {
+    "deploymentEnabled": {
+      "codex/native-mobile-beta": false
+    }
+  },
   "crons": [
     {
       "path": "/api/send-reminders",

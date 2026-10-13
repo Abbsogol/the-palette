@@ -1,0 +1,20 @@
+{
+  "fileKey": "VEodtjFruvXPaIwWW2BjMC",
+  "nodeId": "422:4253",
+  "assets": [
+    {
+      "file": "3df6a.svg",
+      "bytes": 618,
+      "sha256": "6aa0e3bf57755830b5ccfec3c33a7be291e0cee866e38f1f7d46867bc23396f1",
+      "width": "16",
+      "height": "16"
+    },
+    {
+      "file": "27920.svg",
+      "bytes": 1267,
+      "sha256": "e812d4bd271c307e78bb4b5a62f8171e8543768cfd439c37e68d7d08534a621f",
+      "width": "24",
+      "height": "24"
+    }
+  ]
+}

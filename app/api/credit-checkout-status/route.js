@@ -5,7 +5,7 @@ import { stripeId } from '@/lib/subscription-plans'
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
 export async function GET(request) {
-  const user = await getSessionUser(request)
+  const user = await getSessionUser(request, { allowSuspended: true })
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
   const sessionId = new URL(request.url).searchParams.get('session_id')
   if (!sessionId || !/^cs_[a-zA-Z0-9_]+$/.test(sessionId)) {
