@@ -1,12 +1,24 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useRouter, useParams } from 'next/navigation'
-import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
-import Sheet from '@/components/ui/Sheet'
-import { startPresence, onPresence } from '@/lib/presence'
-import BackButton from '@/components/ui/BackButton'
+import { useState, useEffect, useRef } from 'react';
+import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
+import CheckoutSession from '@/components/CheckoutSession';
+import { useAccountAction } from '@/lib/use-account-action';
+import StorageImage from '@/components/StorageImage';
+import Sheet from '@/components/ui/Sheet';
+import { startPresence, onPresence } from '@/lib/presence';
+import BackButton from '@/components/ui/BackButton';
+
+// ── Chat palette from frames 242:2385 / 249:2208 / 249:2052 ────────────────
+
+
+
+
+
+
+
 
 // ── Chat palette from frames 242:2385 / 249:2208 / 249:2052 ────────────────
 const PANEL = 'rgba(255, 255, 255, 0.06)'
@@ -44,7 +56,8 @@ function dayLabel(iso) {
 
 const fmtTime = (iso) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
-export default function ChatPage() {
+function ChatContent({userId}) {
+  const { run } = useAccountAction(userId)
   const { id } = useParams()
   const router = useRouter()
   const [currentUser, setCurrentUser] = useState(null)
@@ -72,6 +85,7 @@ export default function ChatPage() {
   const [muteAvailable, setMuteAvailable] = useState(false)
   const [muted, setMuted] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [viewedPhoto, setViewedPhoto] = useState(null)
 
   // Keyboard handling
   useEffect(() => {
@@ -84,34 +98,33 @@ export default function ChatPage() {
   }, [])
 
   useEffect(() => {
+    let active = true
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/profile'); return }
+      if (!active) return
+      if (!user || user.id !== userId) { router.push('/profile'); return }
       setCurrentUser(user)
 
       // Load conversation + other participant
-      const { data: convRow, error: convError } = await supabase
+      const { data: conv, error: convError } = await supabase
         .from('conversations')
         .select('*')
         .eq('id', id)
         .single()
+      if (!active) return
       if (convError) console.error('conversation fetch failed:', convError)
 
-      if (!convRow) { setNotFound(true); setLoading(false); return }
-      setConv(convRow)
-      // muted_by ships before its column may exist — feature-detect from the
-      // row shape so the Mute row never renders as a control that errors.
-      const hasMute = Object.hasOwn(convRow, 'muted_by')
-      setMuteAvailable(hasMute)
-      if (hasMute) setMuted((convRow.muted_by || []).includes(user.id))
+      if (!conv) { router.push('/messages'); return }
+      setConv(conv)
 
-      const otherId = convRow.client_id === user.id ? convRow.creator_id : convRow.client_id
+      const otherId = conv.client_id === user.id ? conv.creator_id : conv.client_id
       const { data: profile } = await supabase
         .from('profiles')
-        .select('id, display_name, username, avatar_url, account_type, location')
+        .select('id, display_name, username, avatar_url, account_type')
         .eq('id', otherId)
         .single()
 
+      if (!active) return
       setOther(profile)
 
       // Load the most recent messages — ordered newest-first so .limit()
@@ -124,6 +137,7 @@ export default function ChatPage() {
         .limit(200)
       if (msgsError) console.error('messages fetch failed:', msgsError)
 
+      if (!active) return
       setMessages((msgs || []).slice().reverse())
 
       // Mark unread as read
@@ -135,32 +149,11 @@ export default function ChatPage() {
         .eq('is_read', false)
       if (markReadError) console.error('mark-read error:', markReadError)
 
-      // Real upcoming booking between the pair → pinned banner + sheet CTA
-      const today = new Date().toISOString().split('T')[0]
-      const { data: bookings } = await supabase
-        .from('bookings')
-        .select('id, booking_date, start_time, status, service:services(name)')
-        .eq('client_id', convRow.client_id)
-        .eq('creator_id', convRow.creator_id)
-        .in('status', ['pending', 'confirmed'])
-        .gte('booking_date', today)
-        .order('booking_date', { ascending: true })
-        .order('start_time', { ascending: true })
-        .limit(1)
-      setUpcomingBooking(bookings?.[0] || null)
-
-      // Favourite + block state for the sheet rows
-      const [{ data: fav }, { data: blockRow }] = await Promise.all([
-        supabase.from('favourite_creators').select('creator_id').eq('user_id', user.id).eq('creator_id', otherId).maybeSingle(),
-        supabase.from('blocks').select('id').eq('blocker_id', user.id).eq('blocked_id', otherId).maybeSingle(),
-      ])
-      setIsFavourite(!!fav)
-      setIBlocked(!!blockRow)
-
       setLoading(false)
     }
     init()
-  }, [id])
+    return () => { active = false }
+  }, [id, router, userId])
 
   // Realtime subscription
   useEffect(() => {
@@ -230,11 +223,17 @@ export default function ChatPage() {
     setSendError('')
     setInput('')
 
+    const result = await run(async () => {
     const { error } = await supabase.from('messages').insert({
       conversation_id: id,
       sender_id: currentUser.id,
       content: text,
     })
+
+      return { error }
+    }).catch(error => ({ error }))
+    if (!result) return
+    const { error } = result
 
     if (error) {
       setInput(text)
@@ -249,7 +248,6 @@ export default function ChatPage() {
       return
     }
 
-    await afterSend()
     setSending(false)
   }
 
@@ -260,29 +258,23 @@ export default function ChatPage() {
     setUploadingPhoto(true)
     setSendError('')
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const fd = new FormData()
-      fd.append('file', file)
-      fd.append('purpose', 'chat-photo')
-      const res = await fetch('/api/upload-image', {
-        method: 'POST',
-        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
-        body: fd,
+      const uploaded = await run(async session => {
+        const fd = new FormData(); fd.append('file', file); fd.append('purpose', 'chat-photo'); fd.append('conversationId', id)
+        const response = await fetch('/api/upload-image', { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` }, body: fd })
+        const result = await response.json()
+        if (!response.ok) throw new Error(result.error || 'Upload failed')
+        return result
       })
-      const json = await res.json().catch(() => ({}))
-      if (!res.ok || json.error) throw new Error(json.error || 'Upload failed')
-
-      const { error } = await supabase.from('messages').insert({
-        conversation_id: id,
-        sender_id: currentUser.id,
-        content: JSON.stringify({ __type: 'photo', url: json.publicUrl }),
+      if (!uploaded) return
+      await run(async session => {
+        const response = await fetch('/api/mobile/message', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ id: crypto.randomUUID(), conversationId: id,
+            content: JSON.stringify({ __type: 'photo', url: uploaded.publicUrl }), imagePath: uploaded.path }),
+        })
+        const result = await response.json()
+        if (!response.ok) throw new Error(result.error || 'Photo failed to send. Please try again.')
       })
-      if (error) throw new Error(
-        error.message?.includes('BLOCKED_CANNOT_MESSAGE') ? "You can't message this person."
-        : error.message?.includes('MESSAGE_PERMISSION_DENIED') ? "This person isn't accepting messages right now."
-        : 'Photo failed to send. Please try again.'
-      )
-      await afterSend()
     } catch (err) {
       setSendError(err.message)
     } finally {
@@ -444,6 +436,7 @@ export default function ChatPage() {
       )}
 
       {/* ── Shared media gallery ── */}
+      {viewedPhoto && <Sheet title="Shared photo" onClose={() => setViewedPhoto(null)}><StorageImage src={viewedPhoto} alt="Shared photo" style={{ width: '100%', height: 'auto' }} /></Sheet>}
       {mediaOpen && (
         <Sheet title="Shared designs and photos" onClose={() => setMediaOpen(false)}>
           <h2 style={{ ...ui(600, 18), margin: '0 0 14px' }}>Shared designs & photos</h2>
@@ -456,12 +449,12 @@ export default function ChatPage() {
                 const img = p.__type === 'design' ? p.image_url : p.url
                 const href = p.__type === 'design' ? `/design/${p.id}` : p.url
                 return (
-                  <a key={m.id} href={href} target={p.__type === 'photo' ? '_blank' : undefined} rel="noreferrer"
+                  <button key={m.id} onClick={() => p.__type === 'photo' ? setViewedPhoto(img) : router.push(href)} aria-label={p.__type === 'photo' ? 'Open shared photo' : 'Open shared design'}
                     style={{ display: 'block', borderRadius: '12px', overflow: 'hidden', background: PANEL, border: PANEL_BORDER, ...(p.__type === 'design' && p.image_width && p.image_height ? {} : { aspectRatio: '1/1' }) }}>
                     {img && (p.__type === 'design'
-                      ? <img src={img} alt={p.title || 'Shared design'} loading="lazy" width={p.image_width || undefined} height={p.image_height || undefined} style={p.image_width && p.image_height ? { width: '100%', height: 'auto', aspectRatio: `${p.image_width} / ${p.image_height}`, display: 'block' } : { width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
-                      : <img src={img} alt="Shared photo" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />)}
-                  </a>
+                      ? <StorageImage src={img} alt={p.title || 'Shared design'} loading="lazy" width={p.image_width || undefined} height={p.image_height || undefined} style={p.image_width && p.image_height ? { width: '100%', height: 'auto', aspectRatio: `${p.image_width} / ${p.image_height}`, display: 'block' } : { width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+                      : <StorageImage src={img} alt="Shared photo" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />)}
+                  </button>
                 )
               })}
             </div>
@@ -586,9 +579,9 @@ export default function ChatPage() {
                     </a>
                   ) : payload?.__type === 'photo' ? (
                     /* Photo message (242:2467) */
-                    <a href={payload.url} target="_blank" rel="noreferrer" style={{ display: 'block', borderRadius: '12px', overflow: 'hidden', maxWidth: '200px' }}>
-                      <img src={payload.url} alt="Shared photo" style={{ width: '200px', height: 'auto', display: 'block', borderRadius: '12px' }} />
-                    </a>
+                    <button onClick={() => setViewedPhoto(payload.url)} aria-label="Open shared photo" style={{ display: 'block', borderRadius: '12px', overflow: 'hidden', maxWidth: '200px' }}>
+                      <StorageImage src={payload.url} alt="Shared photo" style={{ width: '200px', height: 'auto', display: 'block', borderRadius: '12px' }} />
+                    </button>
                   ) : (
                     /* Text bubble */
                     <div style={{
@@ -675,4 +668,9 @@ export default function ChatPage() {
       </div>
     </>
   )
+}
+
+export default function ChatPage() {
+  const { id } = useParams()
+  return <CheckoutSession title="Sign in to view messages">{userId => <ChatContent key={`${userId}:${id}`} userId={userId} />}</CheckoutSession>
 }

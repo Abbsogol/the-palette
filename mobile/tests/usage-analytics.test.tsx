@@ -1,0 +1,14 @@
+import {render,act,fireEvent} from '@testing-library/react-native';
+import {AppState} from 'react-native';
+import {UsageAnalytics,UsagePreference,usageScreen} from '../src/features/analytics/usage';
+import {accountScope} from '../src/lib/account-scope';
+const owner='owner-a';let mockPath='/',mockEnabled=false;const mockApi=jest.fn(),mockQuery={data:{enabled:false},isPending:false,error:null,refetch:jest.fn()};
+jest.mock('expo-router',()=>({usePathname:()=>mockPath}));
+jest.mock('expo-crypto',()=>({randomUUID:()=> '00000000-0000-4000-8000-000000000555'}));
+jest.mock('../src/lib/api',()=>({api:(...args:unknown[])=>mockApi(...args)}));
+jest.mock('../src/lib/auth',()=>({useAuth:()=>({session:{user:{id:'owner-a'}},epoch:0}),useAccountQuery:()=>({...mockQuery,data:{enabled:mockEnabled}}),queryClient:{setQueryData:jest.fn()}}));
+beforeEach(()=>{jest.useFakeTimers();accountScope.change(owner,true);mockPath='/';mockEnabled=false;mockApi.mockReset().mockResolvedValue({ok:true});Object.defineProperty(AppState,'currentState',{value:'active',configurable:true})});afterEach(()=>jest.useRealTimers());
+it('transmits screen categories only, never route parameters or query text',()=>{expect(usageScreen('/design/private-uuid?secret')).toBe('design');expect(usageScreen('/conversation/private-id')).toBe('messages');expect(usageScreen('/auth/callback')).toBeNull();expect(usageScreen('/lab')).toBe('lab');expect(usageScreen('/saved')).toBe('favorites')});
+it('does not record until opted in, then debounces screen entry without raw paths',async()=>{const tree=await render(<UsageAnalytics/>);await act(async()=>{jest.advanceTimersByTime(1000)});expect(mockApi).not.toHaveBeenCalled();mockEnabled=true;mockPath='/design/private-id';await tree.rerender(<UsageAnalytics/>);await act(async()=>{jest.advanceTimersByTime(1000)});expect(mockApi).toHaveBeenCalledTimes(1);expect(mockApi.mock.calls[0][1]).toMatchObject({screen:'design'});expect(JSON.stringify(mockApi.mock.calls)).not.toContain('private-id');await tree.rerender(<UsageAnalytics/>);await act(async()=>{jest.advanceTimersByTime(1000)});expect(mockApi).toHaveBeenCalledTimes(1)});
+it('does not record a stale account visit after an identity change',async()=>{mockEnabled=true;await render(<UsageAnalytics/>);accountScope.change('owner-b');await act(async()=>{jest.advanceTimersByTime(1000)});expect(mockApi).not.toHaveBeenCalled()});
+it('saves explicit opt-in and does not silently enable usage on mount',async()=>{mockApi.mockResolvedValue({enabled:true});const tree=await render(<UsagePreference/>);expect(mockApi).not.toHaveBeenCalled();await fireEvent(tree.getByLabelText('Share app usage statistics'),'valueChange',true);await act(async()=>{});expect(mockApi).toHaveBeenCalledWith('/mobile/analytics',{action:'preference',enabled:true})});

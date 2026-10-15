@@ -1,15 +1,34 @@
-import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
-import ImageCarousel from '@/components/ImageCarousel'
-import ColourSwatches from '@/components/ColourSwatches'
-import ShareButton from '@/components/ShareButton'
-import BackButton from '@/components/ui/BackButton'
-import DesignUtilityRow from '@/components/DesignUtilityRow'
-import DesignSaveHeart from '@/components/DesignSaveHeart'
-import DesignPrimaryActions from '@/components/DesignPrimaryActions'
-import { LaqueWordmark } from '@/components/ui/icons'
+'use client'
+import { useEffect, useState, Suspense } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
+import CheckoutSession from '@/components/CheckoutSession';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
+import ImageCarousel from '@/components/ImageCarousel';
+import ColourSwatches from '@/components/ColourSwatches';
+import ShareButton from '@/components/ShareButton';
+import BackButton from '@/components/ui/BackButton';
+import DesignUtilityRow from '@/components/DesignUtilityRow';
+import DesignSaveHeart from '@/components/DesignSaveHeart';
+import DesignPrimaryActions from '@/components/DesignPrimaryActions';
+import { LaqueWordmark } from '@/components/ui/icons';
+import SaveButton from '@/components/SaveButton';
+import NailTechCard from '@/components/NailTechCard';
+import SaveToBoard from '@/components/SaveToBoard';
+import SendDesignButton from '@/components/SendDesignButton';
+import BoostButton from '@/components/BoostButton';
 
-export const dynamic = 'force-dynamic'
+
+
+
+
+
+
+
+
+
+
+
 
 const ACCENT = '#FF517F'
 const WHITE80 = 'rgba(255,255,255,0.8)'
@@ -33,46 +52,45 @@ function Shell({ children }) {
   )
 }
 
-export default async function DesignPage({ params, searchParams }) {
-  const { id } = await params
-  const { from, boosted } = await searchParams || {}
-  const backHref = from ? decodeURIComponent(from) : '/'
+async function loadDesignData(id) {
 
-  const { data: design } = await supabase.from('designs').select('*').eq('id', id).single()
+const { data: linkedProductRows } = await supabase
+    .from('design_products')
+    .select('products(*)')
+    .eq('design_id', id)
+    .order('sort_order', { ascending: true })
 
-  if (!design) {
-    return (
-      <Shell>
-        <div style={{ minHeight: '70vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center' }}>
-          <p style={{ ...ui(400, 15), margin: '0 0 20px' }}>Design not found.</p>
-          <Link href="/feed" style={{ ...ui(500, 14, ACCENT), textDecoration: 'none' }}>← Browse designs</Link>
-        </div>
-      </Shell>
-    )
-  }
+const shopProducts = linkedProductRows?.map(row => row.products).filter(Boolean) || []
 
-  let creator = null
-  if (design.created_by) {
+const { data: design } = await supabase.from('designs').select('*').eq('id', id).single()
+
+if (!design) return null
+
+let creator = null
+
+if (design.created_by) {
     const { data } = await supabase.from('profiles')
       .select('id, display_name, avatar_url, is_verified, account_type')
       .eq('id', design.created_by).single()
     creator = data
   }
 
-  const { data: colours } = await supabase.from('design_colours').select('*').eq('design_id', id).order('colour_order', { ascending: true })
-  const { data: extraImages } = await supabase.from('design_images').select('*').eq('design_id', id).order('image_order', { ascending: true })
-  const { data: designTags } = await supabase.from('design_tags').select('tags(name)').eq('design_id', id)
+const { data: colours } = await supabase.from('design_colours').select('*').eq('design_id', id).order('colour_order', { ascending: true })
 
-  let creatorHasServices = false
-  if (creator && (creator.account_type === 'creator' || creator.account_type === 'salon')) {
+const { data: extraImages } = await supabase.from('design_images').select('*').eq('design_id', id).order('image_order', { ascending: true })
+
+const { data: designTags } = await supabase.from('design_tags').select('tags(name)').eq('design_id', id)
+
+let creatorHasServices = false
+
+if (creator && (creator.account_type === 'creator' || creator.account_type === 'salon')) {
     const { count } = await supabase.from('services').select('id', { count: 'exact', head: true }).eq('creator_id', creator.id).eq('is_active', true)
     creatorHasServices = (count || 0) > 0
   }
 
-  // Related — category first, then shape/occasion (same-attribute fallback,
-  // not a true similarity signal). Carries stored dims for reserved boxes.
-  let related = []
-  {
+let related = []
+
+{
     const category = design.category?.trim()
     const shape = design.shape?.trim()
     const occasion = design.occasion?.split(',')[0]?.trim()
@@ -104,15 +122,34 @@ export default async function DesignPage({ params, searchParams }) {
     }
   }
 
-  const tags = designTags?.map(dt => dt.tags?.name).filter(Boolean) || []
-  const allImages = [design.image_url, ...(extraImages?.map(img => img.image_url) || [])].filter(Boolean)
-  const specChips = [design.shape, design.length].filter(Boolean)
+const tags = designTags?.map(dt => dt.tags?.name).filter(Boolean) || []
+
+const allImages = [design.image_url, ...(extraImages?.map(img => img.image_url) || [])].filter(Boolean)
+
+const specChips = [design.shape, design.length].filter(Boolean)
     .concat(design.occasion ? design.occasion.split(',').map(o => o.trim()).filter(Boolean) : [])
     .concat(design.technique ? design.technique.split(',').map(t => t.trim()).filter(Boolean) : [])
+
+const carouselAspect = design.image_width && design.image_height ? `${design.image_width} / ${design.image_height}` : undefined
+
+const isActuallyBoosted = design.boosted_until && new Date(design.boosted_until) > new Date()
+
+
+return { design, shopProducts, creator, colours, extraImages, designTags, creatorHasServices, related }
+}
+
+function DesignView({ data, from, boosted }) {
+  const { design, shopProducts, creator, colours, extraImages, designTags, creatorHasServices, related } = data
+  const id = design.id
+  const backHref = from?.startsWith('/') && !from.startsWith('//') ? from : '/feed'
+  const techniqueChips = design.technique?.split(',').map(t => t.trim()).filter(Boolean) || []
+  const occasionChips = design.occasion?.split(',').map(t => t.trim()).filter(Boolean) || []
+  const tags = designTags?.map(dt => dt.tags?.name).filter(Boolean) || []
+  const allImages = [design.image_url, ...(extraImages?.map(img => img.image_url) || [])].filter(Boolean)
+  const specChips = [design.shape, design.length, ...occasionChips, ...techniqueChips].filter(Boolean)
   const carouselAspect = design.image_width && design.image_height ? `${design.image_width} / ${design.image_height}` : undefined
   const isActuallyBoosted = design.boosted_until && new Date(design.boosted_until) > new Date()
-
-  return (
+return (
     <Shell>
       <div style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 120px)' }}>
 
@@ -238,4 +275,33 @@ export default async function DesignPage({ params, searchParams }) {
       </div>
     </Shell>
   )
+}
+
+
+function MemberDesign({ id }) {
+  const search = useSearchParams()
+  const [result, setResult] = useState(null)
+  useEffect(() => {
+    let active = true, version = 0
+    const refresh = async () => {
+      const request = ++version
+      setResult(null)
+      try {
+        const data = await loadDesignData(id)
+        if (active && request === version) setResult({ data })
+      } catch { if (active && request === version) setResult({ data: null }) }
+    }
+    const foreground = () => { if (document.visibilityState === 'visible') refresh() }
+    refresh()
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', foreground)
+    return () => { active = false; version++; window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', foreground) }
+  }, [id])
+  if (!result) return <Shell><p role="status" style={{ padding: '40px 24px' }}>Loading design…</p></Shell>
+  if (!result.data) return <Shell><div style={{ padding: '40px 24px' }}><p role="alert">Design unavailable.</p><Link href="/feed">Browse designs</Link></div></Shell>
+  return <DesignView data={result.data} from={search.get('from')} boosted={search.get('boosted')} />
+}
+export default function DesignPage() {
+  const { id } = useParams()
+  return <Suspense fallback={<p>Loading design…</p>}><CheckoutSession title="Sign in to view designs">{userId => <MemberDesign key={`${userId}:${id}`} id={id} />}</CheckoutSession></Suspense>
 }

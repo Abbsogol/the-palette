@@ -6,11 +6,22 @@
 // Shown once per device via lq-onboarded (fail-open: unreadable storage
 // shows the carousel); signed-in users bypass straight to /feed.
 
-import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
-import { LaqueWordmark } from '@/components/ui/icons'
+// Onboarding carousel — replaces the scrolling marketing landing entirely
+// (Sogol, 2026-09-02). Slides from frames 136:2214 + 144:2387/2418/2448,
+// plus two harvested from landing 262:2452 with verified-live claims only.
+// Shown once per device via lq-onboarded (fail-open: unreadable storage
+// shows the carousel); signed-in users bypass straight to /feed.
+
+import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
+import { LaqueWordmark } from '@/components/ui/icons';
+
+
+
+
+
 
 const BLUSH = '#FFEDED'
 const BTN_GRADIENT = 'linear-gradient(90deg, #660007 47.832%, #FF517F 100%)'
@@ -39,13 +50,23 @@ const NUMBERED = SLIDES.length - 1
 const ONBOARDED_KEY = 'lq-onboarded'
 
 export default function OnboardingPage() {
+const wrapperRef     = useRef(null)
+const canvasRef      = useRef(null)
+const heroRef        = useRef(null)
+const featRef        = useRef(null)
+const creatRef       = useRef(null)
+const cardRefs       = useRef([])
+const featRibbonRef  = useRef(null)
+const creatRibbonRef = useRef(null)
+const [designs, setDesigns] = useState([])
+
   const router = useRouter()
   const [ready, setReady] = useState(false)
   const [index, setIndex] = useState(0)
   const [reduced, setReduced] = useState(false)
   const touchRef = useRef(null)
   const indexRef = useRef(0)
-  indexRef.current = index
+  useEffect(() => { indexRef.current = index }, [index])
 
   // Once-only + signed-in bypass. Storage must fail OPEN: if it throws,
   // show the carousel rather than erroring.
@@ -66,10 +87,10 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
-    setReduced(mq.matches)
+    const frame=requestAnimationFrame(() => setReduced(mq.matches))
     const onChange = (e) => setReduced(e.matches)
     mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
+    return () => { cancelAnimationFrame(frame); mq.removeEventListener('change', onChange) }
   }, [])
 
   const finish = () => {

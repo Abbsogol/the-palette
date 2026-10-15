@@ -1,0 +1,7 @@
+{
+  "productionProjectRef": "faunikvhoommbebsmevg",
+  "productionApiOrigins": ["https://www.laque.app", "https://laque.app"],
+  "betaApiOrigins": ["https://laque-beta.vercel.app"],
+  "betaProjectRef": "atjwbdrvgljddedtwoqo",
+  "schemes": { "development": "laque-dev", "beta": "laque", "production": "laque-app" }
+}

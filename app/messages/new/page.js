@@ -25,7 +25,7 @@ export default function NewMessagePage() {
   const router = useRouter()
   const [currentUser, setCurrentUser] = useState(null)
   const [recent, setRecent] = useState([])
-  const [results, setResults] = useState(null) // null = not searching
+  const [loadedResults, setResults] = useState(null) // null = not searching
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
 
@@ -55,10 +55,12 @@ export default function NewMessagePage() {
     init()
   }, [])
 
+  const results = query.trim() ? loadedResults : null
+
   // Debounced profile search across name / username / city
   useEffect(() => {
     const q = query.trim()
-    if (!q) { setResults(null); return }
+    if (!q) return
     const t = setTimeout(async () => {
       const { data, error } = await supabase
         .from('profiles')

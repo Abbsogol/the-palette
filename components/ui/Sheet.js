@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 // The redesign's modal/sheet primitive. Every overlay in the redesign builds
 // on this so the accessibility contract holds everywhere: aria-modal dialog,
@@ -32,9 +32,9 @@ export default function Sheet({
   // focus from whatever the user was typing in (each keystroke re-renders
   // the parent, so the mobile keyboard closed after every character).
   const onCloseRef = useRef(onClose)
-  onCloseRef.current = onClose
+  useEffect(() => { onCloseRef.current = onClose }, [onClose])
 
-  const reduceMotion = useRef(false)
+  const reduced = useSyncExternalStore(subscribeMotion, motionSnapshot, () => false)
   const [kbOffset, setKbOffset] = useState(0)
   const [dragY, setDragY] = useState(0)
   const [dragging, setDragging] = useState(false)
@@ -43,7 +43,6 @@ export default function Sheet({
   // the drag/keyboard state above deliberately does NOT live in this effect's
   // deps, so re-renders can't re-run it and steal focus.
   useEffect(() => {
-    reduceMotion.current = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || false
     previouslyFocused.current = document.activeElement
     panelRef.current?.focus()
 
@@ -154,7 +153,7 @@ export default function Sheet({
           maxHeight: fullScreen ? 'none' : '86vh',
           display: 'flex', flexDirection: 'column',
           transform: dragY ? `translateY(${dragY}px)` : undefined,
-          transition: dragging ? 'none' : (reduceMotion.current ? 'none' : 'transform 0.25s ease'),
+          transition: dragging ? 'none' : (reduced ? 'none' : 'transform 0.25s ease'),
         }}
       >
         {!fullScreen && (
@@ -178,3 +177,6 @@ export default function Sheet({
     </div>
   )
 }
+
+function motionSnapshot() { return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || false }
+function subscribeMotion(listener) { const media=window.matchMedia?.('(prefers-reduced-motion: reduce)'); media?.addEventListener('change',listener); return () => media?.removeEventListener('change',listener) }

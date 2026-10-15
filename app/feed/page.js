@@ -1,17 +1,32 @@
 'use client'
+import StorageImage from '@/components/StorageImage';
+import CheckoutSession from '@/components/CheckoutSession';
 
-import { useState, useEffect, useRef } from 'react'
-import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
-import CommunityCard from '@/components/CommunityCard'
-import StoryViewer from '@/components/StoryViewer'
-import IconButton from '@/components/ui/IconButton'
-import PillButton from '@/components/ui/PillButton'
-import Chip from '@/components/ui/Chip'
-import SearchInput from '@/components/ui/SearchInput'
-import DesignCard from '@/components/ui/DesignCard'
-import { BellIcon, StarIcon, LaqueWordmark, CardHeartIcon, CommentDotsIcon } from '@/components/ui/icons'
-import { useScrollMemory } from '@/lib/scrollMemory'
+import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
+import CommunityCard from '@/components/CommunityCard';
+import StoryViewer from '@/components/StoryViewer';
+import IconButton from '@/components/ui/IconButton';
+import PillButton from '@/components/ui/PillButton';
+import Chip from '@/components/ui/Chip';
+import SearchInput from '@/components/ui/SearchInput';
+import DesignCard from '@/components/ui/DesignCard';
+import { BellIcon, StarIcon, LaqueWordmark, CardHeartIcon, CommentDotsIcon } from '@/components/ui/icons';
+import { useScrollMemory } from '@/lib/scrollMemory';
+import { useCurrentTime } from '@/lib/use-current-time';
+
+
+
+
+
+
+
+
+
+
+
+
 
 const VIBE_TABS = ['All', 'Dark', 'Minimal', 'Glam', 'Y2K', 'Colourful', 'Bridal']
 
@@ -38,59 +53,134 @@ function formatCount(n) {
   return String(n)
 }
 
-export default function FeedPage() {
-  // Main tab: 'explore' | 'community' | 'following' | 'updates'
-  // Active tab persists per session so back/return lands on the same tab
-  // (scroll memory is keyed per tab; the tab itself must survive too).
-  const [mainTab, setMainTab] = useState(() => {
+function FeedPageContent() {
+const now = useCurrentTime()
+
+const [chosenSort, setSort] = useState(null)
+
+const [storyIndex, setStoryIndex]   = useState(0)
+
+const [storyLikes, setStoryLikes]   = useState(new Set())
+
+const [likeCounts, setLikeCounts]   = useState({})
+
+const [viewingStories, setViewingStories] = useState(null)
+
+const closeStories = () => setViewingStories(null)
+
+const nextStory = () => { if (storyIndex < viewingStories.length - 1) setStoryIndex(i => i + 1); else closeStories() }
+
+const prevStory = () => { if (storyIndex > 0) setStoryIndex(i => i - 1) }
+
+const [currentUser, setCurrentUser] = useState(null)
+
+const toggleStoryLike = async (e) => {
+    e.stopPropagation()
+    if (!currentUser || !viewingStories) return
+    const storyId = viewingStories[storyIndex].id
+    const liked = storyLikes.has(storyId)
+    if (liked) {
+      const { error } = await supabase.from('story_likes').delete().eq('story_id', storyId).eq('user_id', currentUser.id)
+      if (error) return
+      setStoryLikes(prev => { const s = new Set(prev); s.delete(storyId); return s })
+      setLikeCounts(prev => ({ ...prev, [storyId]: Math.max(0, (prev[storyId] || 1) - 1) }))
+    } else {
+      const { error } = await supabase.from('story_likes').insert({ story_id: storyId, user_id: currentUser.id })
+      if (error) return
+      setStoryLikes(prev => new Set([...prev, storyId]))
+      setLikeCounts(prev => ({ ...prev, [storyId]: (prev[storyId] || 0) + 1 }))
+    }
+  }
+
+const [stories, setStories]         = useState([])
+
+const deleteStory = async (e) => {
+    e.stopPropagation()
+    if (!viewingStories) return
+    const story = viewingStories[storyIndex]
+    if (!confirm('Delete this story?')) return
+    const { error } = await supabase.from('stories').delete().eq('id', story.id)
+    if (error) { alert('Failed to delete story. Please try again.'); return }
+    const remaining = viewingStories.filter((_, i) => i !== storyIndex)
+    if (remaining.length === 0) { closeStories(); setStories(prev => prev.filter(s => s.user_id !== story.user_id)) }
+    else { setViewingStories(remaining); setStoryIndex(Math.min(storyIndex, remaining.length - 1)) }
+  }
+
+const timeAgo = (iso) => {
+    const diff = now - new Date(iso).getTime()
+    const h = Math.floor(diff / 3600000)
+    const m = Math.floor(diff / 60000)
+    if (h >= 1) return `${h}h ago`
+    if (m >= 1) return `${m}m ago`
+    return 'Just now'
+  }
+
+const [userProfile, setUserProfile] = useState(null)
+
+const hasPrefs = userProfile && (
+    userProfile.nail_shape ||
+    userProfile.nail_techniques?.length ||
+    userProfile.occasions?.length ||
+    userProfile.nail_finishes?.length
+  )
+
+const sort = chosenSort ?? (hasPrefs ? 'for_you' : 'newest')
+
+const [mainTab, setMainTab] = useState(() => {
     try { return sessionStorage.getItem('lq-tab:/feed') || 'explore' } catch { return 'explore' }
   })
 
-  // Explore state
-  const [designs, setDesigns]       = useState([])
-  const [activeTab, setActiveTab]   = useState('All')
-  const [sort, setSort]             = useState('newest')
-  const [sortInitialized, setSortInitialized] = useState(false)
-  const [loadingExplore, setLoadingExplore] = useState(true)
+const [designs, setDesigns]       = useState([])
 
-  // Community state
-  const [community, setCommunity]   = useState([])
-  const [loadingCommunity, setLoadingCommunity] = useState(false)
-  const [communityLoaded, setCommunityLoaded]   = useState(false)
+const [activeTab, setActiveTab]   = useState('All')
 
-  // Following state
-  const [followingFeed, setFollowingFeed]         = useState([])
-  const [loadingFollowing, setLoadingFollowing]   = useState(false)
-  const [followingLoaded, setFollowingLoaded]     = useState(false)
+const [sortInitialized, setSortInitialized] = useState(false)
 
-  // Updates state
-  const [updates, setUpdates]               = useState([])
-  const [loadingUpdates, setLoadingUpdates] = useState(false)
-  const [updatesLoaded, setUpdatesLoaded]   = useState(false)
-  const [followsCount, setFollowsCount]     = useState(null)
+const [loadingExplore, setLoadingExplore] = useState(true)
 
-  // Shared
-  const [currentUser, setCurrentUser] = useState(null)
-  const [userProfile, setUserProfile] = useState(null)
-  const [likedDesignIds, setLikedDesignIds] = useState(new Set())
-  const [savedDesignIds, setSavedDesignIds] = useState(new Set())
-  const [unreadCount, setUnreadCount] = useState(0)
-  const [dropDesigns, setDropDesigns] = useState([])
-  const [boostedDesigns, setBoostedDesigns] = useState([])
-  const [activeChallenge, setActiveChallenge] = useState(null)
-  const [communityStats, setCommunityStats] = useState(null)
-  const [teaserPosts, setTeaserPosts] = useState([])
-  const [compactHeader, setCompactHeader] = useState(false)
+const [community, setCommunity]   = useState([])
 
-  // Stories state
-  const [stories, setStories]         = useState([])
-  const [viewingStories, setViewingStories] = useState(null)
-  const [viewedUsers, setViewedUsers] = useState(() => {
+const [loadingCommunity, setLoadingCommunity] = useState(false)
+
+const [communityLoaded, setCommunityLoaded]   = useState(false)
+
+const [followingFeed, setFollowingFeed]         = useState([])
+
+const [loadingFollowing, setLoadingFollowing]   = useState(false)
+
+const [followingLoaded, setFollowingLoaded]     = useState(false)
+
+const [updates, setUpdates]               = useState([])
+
+const [loadingUpdates, setLoadingUpdates] = useState(false)
+
+const [updatesLoaded, setUpdatesLoaded]   = useState(false)
+
+const [followsCount, setFollowsCount]     = useState(null)
+
+const [likedDesignIds, setLikedDesignIds] = useState(new Set())
+
+const [savedDesignIds, setSavedDesignIds] = useState(new Set())
+
+const [unreadCount, setUnreadCount] = useState(0)
+
+const [dropDesigns, setDropDesigns] = useState([])
+
+const [boostedDesigns, setBoostedDesigns] = useState([])
+
+const [activeChallenge, setActiveChallenge] = useState(null)
+
+const [communityStats, setCommunityStats] = useState(null)
+
+const [teaserPosts, setTeaserPosts] = useState([])
+
+const [compactHeader, setCompactHeader] = useState(false)
+
+const [viewedUsers, setViewedUsers] = useState(() => {
     try { return new Set(JSON.parse(localStorage.getItem('viewed-stories') || '[]')) } catch { return new Set() }
   })
 
-  // ── Initial load ──────────────────────────────────────────────────────────
-  useEffect(() => {
+useEffect(() => {
     const load = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       const u = session?.user || null
@@ -119,7 +209,7 @@ export default function FeedPage() {
         supabase.from('designs').select('id, title, image_url, image_width, image_height, created_at, saves_count').eq('is_published', true).eq('is_drop', true).order('created_at', { ascending: false }).limit(100),
         supabase.from('stories')
           .select('*, profiles(id, display_name, avatar_url)')
-          .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+          .gte('created_at', new Date(now - 24 * 60 * 60 * 1000).toISOString())
           .order('created_at', { ascending: false })
           .limit(200),
         supabase.from('challenges').select('id, title, ends_at').gt('ends_at', new Date().toISOString()).order('ends_at', { ascending: true }).limit(1).maybeSingle(),
@@ -166,37 +256,18 @@ export default function FeedPage() {
     load()
   }, [])
 
-  // Auto-select "for you" sort when profile has preferences
+const heroRef = useRef(null)
 
-  // Sheet-over-hero scroll: the hero is fixed behind the sheet and drifts up
-  // at ~25% scroll speed (0 under prefers-reduced-motion) while the sheet
-  // travels over it. Once the sheet's edge reaches the viewport top the hero
-  // fades out (its translucent areas would otherwise leak it) and its
-  // controls stop hit-testing. Written to the DOM directly per frame —
-  // a state round-trip per scroll event would jank. The compact blur bar
-  // appears just before the sticky tab row pins beneath it.
-  const heroRef = useRef(null)
-  useEffect(() => {
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const onScroll = () => {
-      const y = window.scrollY
-      const heroH = heroRef.current?.offsetHeight || 430
-      if (heroRef.current) {
-        const covered = y >= heroH - 36
-        heroRef.current.style.transform = `translate(-50%, ${reducedMotion ? 0 : -y * 0.25}px)`
-        heroRef.current.style.opacity = covered ? '0' : '1'
-        heroRef.current.style.pointerEvents = covered ? 'none' : 'auto'
+useEffect(() => {
+    if (!loadingExplore) {
+      const saved = sessionStorage.getItem('feed-scroll')
+      if (saved) {
+        setTimeout(() => { window.scrollTo(0, parseInt(saved)); sessionStorage.removeItem('feed-scroll') }, 50)
       }
-      setCompactHeader(y > heroH - 170)
     }
-    onScroll()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
+  }, [loadingExplore])
 
-  // One batched "did I like these" query for a whole visible set, instead
-  // of each CommunityCard querying its own like status individually.
-  const loadLikedStatus = async (designIds) => {
+const loadLikedStatus = async (designIds) => {
     if (!currentUser || designIds.length === 0) return
     const { data, error } = await supabase
       .from('design_likes')
@@ -207,21 +278,7 @@ export default function FeedPage() {
     setLikedDesignIds(prev => new Set([...prev, ...(data || []).map(d => d.design_id)]))
   }
 
-  // ── Load community / following tabs on first switch ─────────────────────
-  // A tab tapped before auth resolves skips its signed-in load and would
-  // otherwise sit on a false empty state ("not following anyone" while a
-  // follow exists). Re-run the pending load once currentUser lands.
-  useEffect(() => {
-    // Covers both the auth race (tab tapped before session resolved) and a
-    // session-restored tab whose lazy loader never ran on this mount.
-    if (mainTab === 'community' && !communityLoaded && !loadingCommunity) switchTab('community')
-    if (!currentUser) return
-    if (mainTab === 'following' && !followingLoaded && !loadingFollowing) switchTab('following')
-    else if (mainTab === 'updates' && !updatesLoaded && !loadingUpdates) switchTab('updates')
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser, mainTab])
-
-  const switchTab = async (tab) => {
+const switchTab = async (tab) => {
     setMainTab(tab)
     try { sessionStorage.setItem('lq-tab:/feed', tab) } catch {}
     if (tab === 'community' && !communityLoaded) {
@@ -295,12 +352,24 @@ export default function FeedPage() {
     }
   }
 
-  // ── Story logic ───────────────────────────────────────────────────────────
-  const openStories = async (userId) => {
+useEffect(() => {
+    let active=true
+    queueMicrotask(() => {
+      if (!active) return
+      if (mainTab === 'community' && !communityLoaded && !loadingCommunity) switchTab('community')
+      if (!currentUser) return
+      if (mainTab === 'following' && !followingLoaded && !loadingFollowing) switchTab('following')
+      else if (mainTab === 'updates' && !updatesLoaded && !loadingUpdates) switchTab('updates')
+    })
+    return () => { active=false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser, mainTab])
+
+const openStories = async (userId) => {
     const { data } = await supabase.from('stories')
       .select('*, profiles(display_name, avatar_url)')
       .eq('user_id', userId)
-      .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+      .gte('created_at', new Date(now - 24 * 60 * 60 * 1000).toISOString())
       .order('created_at', { ascending: true })
     if (!data?.length) return
 
@@ -309,20 +378,22 @@ export default function FeedPage() {
     setViewedUsers(next)
     localStorage.setItem('viewed-stories', JSON.stringify([...next]))
 
+    const ids = data.map(s => s.id)
+    const [{ data: myLikes }, { data: counts }] = await Promise.all([
+      currentUser
+        ? supabase.from('story_likes').select('story_id').eq('user_id', currentUser.id).in('story_id', ids)
+        : Promise.resolve({ data: [] }),
+      supabase.from('story_likes').select('story_id').in('story_id', ids),
+    ])
+    setStoryLikes(new Set(myLikes?.map(l => l.story_id) || []))
+    const countMap = {}
+    counts?.forEach(l => { countMap[l.story_id] = (countMap[l.story_id] || 0) + 1 })
+    setLikeCounts(countMap)
     setViewingStories(data)
+    setStoryIndex(0)
   }
 
-  const closeStories = () => setViewingStories(null)
-
-  // ── Personalization score ─────────────────────────────────────────────────
-  const hasPrefs = userProfile && (
-    userProfile.nail_shape ||
-    userProfile.nail_techniques?.length ||
-    userProfile.occasions?.length ||
-    userProfile.nail_finishes?.length
-  )
-
-  function scoreDesign(d) {
+function scoreDesign(d) {
     if (!hasPrefs) return 0
     let score = 0
     const p = userProfile
@@ -343,12 +414,11 @@ export default function FeedPage() {
     return score
   }
 
-  // Continuous anchor-based scroll memory replaced the on-click writer
-  useScrollMemory(mainTab, mainTab === 'explore' ? !loadingExplore : mainTab === 'community' ? communityLoaded : mainTab === 'following' ? followingLoaded : updatesLoaded)
-  const rememberScroll = () => {}
+useScrollMemory(mainTab, mainTab === 'explore' ? !loadingExplore : mainTab === 'community' ? communityLoaded : mainTab === 'following' ? followingLoaded : updatesLoaded)
 
-  // ── Explore derived lists ─────────────────────────────────────────────────
-  const filtered = designs
+const rememberScroll = () => {}
+
+const filtered = designs
     .filter(VIBE_FILTER[activeTab])
     .sort((a, b) => {
       if (sort === 'for_you') return scoreDesign(b) - scoreDesign(a)
@@ -356,45 +426,51 @@ export default function FeedPage() {
       return new Date(b.created_at) - new Date(a.created_at)
     })
 
-  const trending = [...designs].filter(d => (d.saves_count || 0) > 0).sort((a, b) => (b.saves_count || 0) - (a.saves_count || 0)).slice(0, 10)
+const trending = [...designs].filter(d => (d.saves_count || 0) > 0).sort((a, b) => (b.saves_count || 0) - (a.saves_count || 0)).slice(0, 10)
 
-  // New This Week absorbs Trend Drops: drop cards get a "Drop" badge
-  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
-  const dropIds = new Set(dropDesigns.map(d => d.id))
-  const newThisWeek = [
+const weekAgo = now - 7 * 24 * 60 * 60 * 1000
+
+const dropIds = new Set(dropDesigns.map(d => d.id))
+
+const newThisWeek = [
     ...dropDesigns.map(d => ({ ...d, __drop: true })),
     ...designs.filter(d => new Date(d.created_at).getTime() >= weekAgo && !dropIds.has(d.id)),
   ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 12)
 
-  // "Popular in Your Area" — no location data exists yet, so this is driven
-  // by saves on recent designs (deferred-list item) with the drawn title.
-  const monthAgo = Date.now() - 30 * 24 * 60 * 60 * 1000
-  const popular = [...designs]
+const monthAgo = now - 30 * 24 * 60 * 60 * 1000
+
+const popular = [...designs]
     .filter(d => new Date(d.created_at).getTime() >= monthAgo && (d.saves_count || 0) > 0)
     .sort((a, b) => (b.saves_count || 0) - (a.saves_count || 0))
     .slice(0, 10)
 
-  // Explore Library grid with Promoted (boosted) designs interleaved as
-  // labeled slots: first at position 2, then every 8 cards.
-  const boostedIds = new Set(boostedDesigns.map(d => d.id))
-  const gridItems = []
-  const organic = filtered.filter(d => !boostedIds.has(d.id))
-  let promoIdx = 0
-  organic.forEach((d, i) => {
+const boostedIds = new Set(boostedDesigns.map(d => d.id))
+
+const gridItems = []
+
+const organic = filtered.filter(d => !boostedIds.has(d.id))
+
+let promoIdx = 0
+
+organic.forEach((d, i) => {
     if (boostedDesigns.length > 0 && (i === 2 || (i > 2 && (i - 2) % 8 === 0)) && promoIdx < boostedDesigns.length) {
       gridItems.push({ ...boostedDesigns[promoIdx], __promoted: true })
       promoIdx++
     }
     gridItems.push(d)
   })
-  const gridCols = [[], []]
-  gridItems.forEach((d, i) => gridCols[i % 2].push(d))
 
-  const teaserPost = teaserPosts.find(p => p.image_url) || null
-  const teaserAvatars = teaserPosts.map(p => p.profiles).filter(Boolean).slice(0, 3)
-  const tileImages = teaserPosts.filter(p => p.image_url).slice(0, 2)
+const gridCols = [[], []]
 
-  const headerIcons = (
+gridItems.forEach((d, i) => gridCols[i % 2].push(d))
+
+const teaserPost = teaserPosts.find(p => p.image_url) || null
+
+const teaserAvatars = teaserPosts.map(p => p.profiles).filter(Boolean).slice(0, 3)
+
+const tileImages = teaserPosts.filter(p => p.image_url).slice(0, 2)
+
+const headerIcons = (
     <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
       {currentUser && (
         <IconButton label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`} href="/notifications" visualSize={34} badge={unreadCount > 0 ? (
@@ -414,20 +490,20 @@ export default function FeedPage() {
     </div>
   )
 
-  const sectionHeader = (title, sub) => (
+const sectionHeader = (title, sub) => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
       <h2 style={{ ...ui(400, 18), letterSpacing: '0.02em' }}>{title}</h2>
       {sub && <p style={ui(300, 14, 'var(--lq-white-80)')}>{sub}</p>}
     </div>
   )
 
-  const carousel = (children, gap = 16) => (
+const carousel = (children, gap = 16) => (
     <div style={{ display: 'flex', gap: `${gap}px`, overflowX: 'auto', scrollbarWidth: 'none', margin: '0 -24px', padding: '0 24px' }}>
       {children}
     </div>
   )
 
-  return (
+return (
     <div style={{ position: 'relative' }}>
 
       {/* Fixed blurred-wine page background (Figma page underlay). z-index 0,
@@ -471,7 +547,7 @@ export default function FeedPage() {
         width: '100%', maxWidth: '480px', height: 'clamp(360px, 52vh, 500px)',
         zIndex: 0, transition: 'opacity 0.3s ease', willChange: 'transform, opacity',
       }}>
-        <img src="/redesign/hero.jpg" alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 25%' }} />
+        <StorageImage src="/redesign/hero.jpg" alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 25%' }} />
         <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(41,0,10,0.55) 0%, rgba(41,0,10,0.08) 30%, rgba(41,0,10,0.12) 62%, var(--lq-wine) 100%)' }} />
         <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: 'calc(env(safe-area-inset-top) + 16px) 24px 0' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -570,7 +646,7 @@ export default function FeedPage() {
                     >
                       <div style={{ border: `1.5px solid ${viewed ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.53)'}`, borderRadius: '50%', padding: '3px' }}>
                         <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'var(--lq-glass)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          {avatar ? <img src={avatar} alt={name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          {avatar ? <StorageImage src={avatar} alt={name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             : <span style={{ color: 'var(--lq-white)', fontSize: '18px', fontWeight: '400' }}>{name[0].toUpperCase()}</span>}
                         </div>
                       </div>
@@ -648,7 +724,7 @@ export default function FeedPage() {
               }}>
                 {teaserPost && (
                   <div style={{ position: 'relative', borderRadius: 'var(--lq-radius-card-lg)', overflow: 'hidden' }}>
-                    <img src={teaserPost.image_url} alt="Recent community post" loading="lazy" width={teaserPost.image_width || undefined} height={teaserPost.image_height || undefined} style={{ width: '100%', height: 'auto', aspectRatio: teaserPost.image_width && teaserPost.image_height ? `${teaserPost.image_width} / ${teaserPost.image_height}` : undefined, display: 'block', background: 'rgba(32,5,11,0.15)' }} />
+                    <StorageImage src={teaserPost.image_url} alt="Recent community post" loading="lazy" width={teaserPost.image_width || undefined} height={teaserPost.image_height || undefined} style={{ width: '100%', height: 'auto', aspectRatio: teaserPost.image_width && teaserPost.image_height ? `${teaserPost.image_width} / ${teaserPost.image_height}` : undefined, display: 'block', background: 'rgba(32,5,11,0.15)' }} />
                     <div style={{
                       position: 'absolute', left: '16px', bottom: '16px', display: 'flex', gap: '8px', alignItems: 'center',
                       background: 'rgba(32, 5, 11, 0.4)', backdropFilter: 'blur(6px)', borderRadius: 'var(--lq-radius-pill)', padding: '8px 14px',
@@ -672,7 +748,7 @@ export default function FeedPage() {
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                           }}>
                             {p.avatar_url
-                              ? <img src={p.avatar_url} alt={p.display_name || 'Member'} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              ? <StorageImage src={p.avatar_url} alt={p.display_name || 'Member'} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                               : <span style={ui(400, 13)}>{(p.display_name || '?')[0].toUpperCase()}</span>}
                           </div>
                         ))}
@@ -698,7 +774,7 @@ export default function FeedPage() {
                       { img: tileImages[1] || tileImages[0], text: communityStats.posts >= 100 ? `${formatCount(communityStats.posts)} Community Posts` : 'Community Posts' },
                     ].map((tile, i) => (
                       <div key={i} style={{ flex: 1, position: 'relative', borderRadius: 'var(--lq-radius-tile)', overflow: 'hidden' }}>
-                        <img src={tile.img.image_url} alt="" loading="lazy" width={tile.img.image_width || undefined} height={tile.img.image_height || undefined} style={{ width: '100%', height: 'auto', aspectRatio: tile.img.image_width && tile.img.image_height ? `${tile.img.image_width} / ${tile.img.image_height}` : undefined, display: 'block', background: 'rgba(32,5,11,0.15)' }} />
+                        <StorageImage src={tile.img.image_url} alt="" loading="lazy" width={tile.img.image_width || undefined} height={tile.img.image_height || undefined} style={{ width: '100%', height: 'auto', aspectRatio: tile.img.image_width && tile.img.image_height ? `${tile.img.image_width} / ${tile.img.image_height}` : undefined, display: 'block', background: 'rgba(32,5,11,0.15)' }} />
                         <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'rgba(32, 5, 11, 0.35)' }} />
                         <p style={{
                           position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -816,7 +892,7 @@ export default function FeedPage() {
                 {updates.map(post => {
                   const name   = post.profiles?.display_name || 'Creator'
                   const avatar = post.profiles?.avatar_url
-                  const diff   = Date.now() - new Date(post.created_at).getTime()
+                  const diff   = now - new Date(post.created_at).getTime()
                   const h = Math.floor(diff / 3600000)
                   const d = Math.floor(diff / 86400000)
                   const ago = d >= 1 ? `${d}d ago` : h >= 1 ? `${h}h ago` : 'Just now'
@@ -826,7 +902,7 @@ export default function FeedPage() {
                         <Link href={`/creator/${post.creator_id}`} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
                           <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'rgba(255,255,255,0.15)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             {avatar
-                              ? <img src={avatar} alt={name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              ? <StorageImage src={avatar} alt={name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                               : <span style={ui(400, 15)}>{name[0].toUpperCase()}</span>
                             }
                           </div>
@@ -881,4 +957,9 @@ export default function FeedPage() {
       </div>
     </div>
   )
+}
+
+
+export default function FeedPage() {
+  return <CheckoutSession title="Sign in to browse LaQue">{userId => <FeedPageContent key={userId} />}</CheckoutSession>
 }

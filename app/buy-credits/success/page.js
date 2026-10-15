@@ -1,9 +1,14 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
-import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+import { useEffect, useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
+import CheckoutSession from '@/components/CheckoutSession';
+
+
+
+
 
 const ACCENT = '#FF517F'
 const WHITE60 = 'rgba(255,255,255,0.6)'
@@ -18,9 +23,20 @@ const display = (size) => ({ fontFamily: 'var(--lq-font-display)', fontWeight: 4
 const POLL_INTERVAL_MS = 1500
 const MAX_POLL_ATTEMPTS = 8 // ~12s of polling, on top of the immediate first read
 
-function SuccessContent() {
+function CheckoutResult({sessionId,userId}) {
+const [outcome, setOutcome] = useState('pending')
+const [heading, description] = {
+    fulfilled: ['Credits added ✦', 'Your purchase is recorded. Head to Nail Lab and start creating.'],
+    refund_recorded: ['Refund recorded', 'This purchase has a refund recorded. Your current credit balance is shown below.'],
+    refund_pending: ['Refund in progress', 'Your refund is still being processed. Your current credit balance is shown below.'],
+    payment_review: ['Payment needs review', 'Your refund needs attention. Please contact support before starting a replacement purchase.'],
+    failed: ['Payment failed', 'Your payment did not complete. You can try again.'],
+    expired: ['Checkout expired', 'This checkout expired. Start a new checkout when you are ready.'],
+    pending: ['Confirming your purchase', 'Waiting for payment and credit confirmation.'],
+  }[outcome]
+
   const searchParams = useSearchParams()
-  const sessionId = searchParams.get('session_id')
+
   const [creditBalance, setCreditBalance] = useState(null)
   const [checking, setChecking] = useState(true)
   const [timedOut, setTimedOut] = useState(false)
@@ -29,40 +45,34 @@ function SuccessContent() {
     let cancelled = false
     let timeoutId
     let attempts = 0
-    let lastValue // undefined until the first read
-
-    const fetchBalance = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return null
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('credit_balance')
-        .eq('id', user.id)
-        .single()
-      return profile ? profile.credit_balance : null
-    }
-
     const tick = async () => {
-      const balance = await fetchBalance()
-      if (cancelled) return
       attempts += 1
-
-      if (balance !== null) setCreditBalance(balance)
-
-      // Settled once a read agrees with the previous one — handles both a
-      // webhook that already landed (stable on the very first read) and one
-      // that's still catching up (value changes, then stabilizes).
-      const settled = balance !== null && balance === lastValue
-      lastValue = balance
-
-      if (settled) { setChecking(false); return }
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (cancelled) return
+        if (!sessionId || !session || session.user?.id !== userId) throw new Error('Sign in to confirm this checkout')
+        const response = await fetch(`/api/credit-checkout-status?session_id=${encodeURIComponent(sessionId)}`, {
+          headers: { Authorization: `Bearer ${session.access_token}` }, cache: 'no-store',
+        })
+        const result = await response.json()
+        if (cancelled) return
+        if (!response.ok) throw new Error(result.error || 'Unable to confirm checkout')
+        if (['fulfilled','refund_recorded','refund_pending','payment_review','failed','expired'].includes(result.status)) {
+          setOutcome(result.status)
+          setCreditBalance(result.creditBalance ?? null)
+          setChecking(false)
+          return
+        }
+      } catch {
+        if (cancelled) return
+      }
       if (attempts >= MAX_POLL_ATTEMPTS) { setChecking(false); setTimedOut(true); return }
       timeoutId = setTimeout(tick, POLL_INTERVAL_MS)
     }
 
     tick()
     return () => { cancelled = true; clearTimeout(timeoutId) }
-  }, [])
+  }, [sessionId, userId])
 
   return (
     <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
@@ -75,10 +85,10 @@ function SuccessContent() {
           </svg>
         </div>
 
-        <h1 style={{ ...display(26), margin: '0 0 8px' }}>Credits added ✦</h1>
+        <h1 style={{ ...display(26), margin: '0 0 8px' }}>{heading}</h1>
 
         <p style={{ ...ui(300, 14, WHITE60), lineHeight: 1.6, margin: '0 0 28px', maxWidth: '280px' }}>
-          Your credits are ready. Head to Nail Lab and start creating.
+          {description}
         </p>
 
         {creditBalance !== null && (
@@ -114,11 +124,17 @@ function SuccessContent() {
 export default function BuyCreditsSuccessPage() {
   return (
     <Suspense fallback={
-      <div className="lq-bg-wine" style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ fontFamily: 'var(--lq-font-ui)', fontWeight: 300, fontSize: '14px', color: 'rgba(255,255,255,0.6)' }}>Loading…</p>
+      <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: 'var(--text-secondary)', fontFamily: "'DM Sans', sans-serif" }}>Loading…</p>
       </div>
     }>
       <SuccessContent />
     </Suspense>
   )
+}
+
+function SuccessContent() {
+  const searchParams = useSearchParams()
+  const sessionId = searchParams.get('session_id')
+  return <CheckoutSession>{userId => <CheckoutResult key={sessionId || 'none'} sessionId={sessionId} userId={userId} />}</CheckoutSession>
 }

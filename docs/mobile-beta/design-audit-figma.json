@@ -1,0 +1,2842 @@
+{
+  "auditedOn": "2026-09-29",
+  "fileKey": "VEodtjFruvXPaIwWW2BjMC",
+  "app": {
+    "page": {
+      "id": "345:2",
+      "name": "app"
+    },
+    "frames": [
+      {
+        "id": "345:2953",
+        "name": "34",
+        "width": 393,
+        "height": 7197
+      },
+      {
+        "id": "345:3103",
+        "name": "Onboarding 1",
+        "width": 393,
+        "height": 852
+      },
+      {
+        "id": "345:3115",
+        "name": "Onboarding 2",
+        "width": 393,
+        "height": 852
+      },
+      {
+        "id": "345:3130",
+        "name": "Onboarding 3",
+        "width": 393,
+        "height": 852
+      },
+      {
+        "id": "345:3145",
+        "name": "Onboarding 4",
+        "width": 393,
+        "height": 852
+      },
+      {
+        "id": "345:3160",
+        "name": "Search - Filter main",
+        "width": 393,
+        "height": 1785
+      },
+      {
+        "id": "415:2087",
+        "name": "Artist Profile 1 — Public",
+        "width": 393,
+        "height": 1506,
+        "text": [
+          "LaQue",
+          "9:41",
+          "LaQue",
+          "NAIL ARTIST",
+          "Kimia Kimia",
+          "Dubai",
+          "Specializing in high-end luxury chrome, encapsulated florals, & exquisite hand-painted marble finishes.",
+          "Minimal",
+          "Glam",
+          "Nail Art",
+          "Gel",
+          "Extensions",
+          "Book Appointment",
+          "Message",
+          "Usually replies in 1hr",
+          "1.2K",
+          "Followers",
+          "24",
+          "Designs",
+          "4.9",
+          "Rating",
+          "Designs",
+          "Services",
+          "Reviews",
+          "About",
+          "Cathedral",
+          "Glamour",
+          "Cathedral",
+          "Glamour",
+          "Cathedral",
+          "Glamour",
+          "Cathedral",
+          "Glamour",
+          "Cathedral",
+          "Glamour",
+          "Cathedral",
+          "Glamour",
+          "Home"
+        ]
+      },
+      {
+        "id": "419:3185",
+        "name": "Profile 2 — Redesigned",
+        "width": 393,
+        "height": 1779,
+        "text": [
+          "LaQue",
+          "9:41",
+          "LaQue",
+          "NAIL LOVER",
+          "Sarah",
+          " Dubai, UAE",
+          "Nail art enthusiast & collector.  Always looking for the next stunning set ✨",
+          "Minimal",
+          "Glam",
+          "Nail Art",
+          "Gel",
+          "Extensions",
+          "Public Profile",
+          "My Account",
+          "847",
+          "Followers",
+          "12",
+          "Designs",
+          "234",
+          "Following",
+          "2",
+          "Upcoming",
+          "48",
+          "Saved",
+          "8",
+          "Favorites",
+          "5",
+          "Collections",
+          "12",
+          "Credits",
+          "Upcoming Appointment",
+          "Confirmed",
+          "Kim",
+          "Nail Artist • Dubai",
+          "Service: Chrome Marble Dream",
+          "Aug 18, 2026 • 2:00 PM",
+          "View Appointment →",
+          "My Designs",
+          "Saved",
+          "Collections",
+          "Cathedral",
+          "Glamour",
+          "Public",
+          "Cathedral",
+          "Glamour",
+          "Private",
+          "Cathedral",
+          "Glamour",
+          "Public",
+          "Cathedral",
+          "Glamour",
+          "Private",
+          "Home"
+        ]
+      },
+      {
+        "id": "421:3669",
+        "name": "Profile — Setting 1",
+        "width": 393,
+        "height": 668,
+        "text": [
+          "9:41",
+          "LaQue",
+          "Settings",
+          "Booking History",
+          "›",
+          "Nail Lab History",
+          "›",
+          "Notifications",
+          "›",
+          "Privacy & Safety",
+          "›",
+          "Payment Methods",
+          "›",
+          "Help & Support",
+          "›",
+          "Home"
+        ]
+      },
+      {
+        "id": "345:3470",
+        "name": "Main V2  - Filter",
+        "width": 393,
+        "height": 1785
+      },
+      {
+        "id": "345:3621",
+        "name": "Home main",
+        "width": 393,
+        "height": 2325
+      },
+      {
+        "id": "422:4253",
+        "name": "Home main - Message 1",
+        "width": 393,
+        "height": 1315
+      },
+      {
+        "id": "345:3776",
+        "name": "Stories Scroll",
+        "width": 377,
+        "height": 79
+      },
+      {
+        "id": "345:3795",
+        "name": "Frame 109",
+        "width": 345,
+        "height": 948
+      },
+      {
+        "id": "345:3856",
+        "name": "Frame 110",
+        "width": 345,
+        "height": 948
+      },
+      {
+        "id": "345:3917",
+        "name": "Home",
+        "width": 393,
+        "height": 1339
+      },
+      {
+        "id": "345:4066",
+        "name": "Search main",
+        "width": 393,
+        "height": 1339
+      },
+      {
+        "id": "345:4160",
+        "name": "Search main 1",
+        "width": 393,
+        "height": 1339
+      },
+      {
+        "id": "345:4257",
+        "name": "Search - Artists & Salons main",
+        "width": 393,
+        "height": 1339
+      },
+      {
+        "id": "345:4513",
+        "name": "Lab - Redesigned",
+        "width": 393,
+        "height": 1664,
+        "text": [
+          "Lab",
+          "9:41",
+          "Select vibe, shape & length to generate",
+          "No credits — packs coming soon",
+          "LaQue",
+          "History",
+          "0",
+          "CREDITS",
+          "Nail Lab",
+          "Generate a custom nail design with AI",
+          "No credits left — Credit packs coming soon",
+          "1. Essentials",
+          "Required",
+          "Vibe / Style",
+          "Minimal",
+          "Moody",
+          "Dark",
+          "Coastal",
+          "Glam",
+          "Y2K",
+          "Bridal",
+          "Abstract",
+          "Floral",
+          "Pastel",
+          "Edgy",
+          "Clean Girl",
+          "Shape",
+          "Almond",
+          "Stiletto",
+          "Coffin",
+          "Square",
+          "Oval",
+          "Squoval",
+          "Length",
+          "Short",
+          "Medium",
+          "Long",
+          "Extra Long",
+          "2. Personalize",
+          "Optional",
+          "Colours",
+          "Select up to 4",
+          "Nudes",
+          "+",
+          "Pinks",
+          "Custom colour picker",
+          "›",
+          "Occasion",
+          "Everyday",
+          "Date Night",
+          "Wedding",
+          "Work",
+          "Festival",
+          "Birthday",
+          "Holiday",
+          "Party",
+          "3. Inspiration",
+          "Optional",
+          "Reference designs",
+          "Pick from the Laque library",
+          "›",
+          "Additional details",
+          "e.g. chrome finish, marble texture, with tiny stars…"
+        ]
+      },
+      {
+        "id": "345:4669",
+        "name": "Lab - My Generations",
+        "width": 393,
+        "height": 1339
+      },
+      {
+        "id": "345:4708",
+        "name": "Messages — Redesigned",
+        "width": 393,
+        "height": 1339
+      },
+      {
+        "id": "345:4763",
+        "name": "Messages — New Chat",
+        "width": 393,
+        "height": 1339,
+        "text": [
+          "9:41",
+          "LaQue",
+          "New message",
+          "Search by name, @username or city…",
+          "RECENT CONTACTS",
+          "K",
+          "Kim",
+          "NAIL ARTIST",
+          "📍",
+          "Dubai",
+          "›",
+          "K",
+          "keyvan",
+          "CLIENT",
+          "›",
+          "N",
+          "Nail Bar Studio",
+          "SALON",
+          "📍",
+          "Kyiv",
+          "›",
+          "P",
+          "Polished",
+          "SALON",
+          "📍",
+          "London",
+          "›",
+          "G",
+          "Glow & Go",
+          "NAIL ARTIST",
+          "›",
+          "Messages"
+        ]
+      },
+      {
+        "id": "345:4846",
+        "name": "Chat 1— Redesigned",
+        "width": 393,
+        "height": 1570
+      },
+      {
+        "id": "345:4923",
+        "name": "Chat  1 — More Options",
+        "width": 393,
+        "height": 852,
+        "text": [
+          "9:41",
+          "K",
+          "keyvan",
+          "Active now",
+          "•••",
+          "K",
+          "keyvan",
+          "Nail Artist",
+          "Book appointment",
+          "Profile",
+          "View profile",
+          "›",
+          "View services & portfolio",
+          "›",
+          "Add to favorites",
+          "›",
+          "Conversation",
+          "Shared designs, photos & locations",
+          "›",
+          "Search in conversation",
+          "›",
+          "Mute notifications",
+          "›",
+          "Safety",
+          "Report",
+          "Block",
+          "Delete conversation"
+        ]
+      },
+      {
+        "id": "345:5033",
+        "name": "Chat — Upcoming Appointment",
+        "width": 393,
+        "height": 874
+      },
+      {
+        "id": "345:5126",
+        "name": "Chat — Manage Appointment",
+        "width": 393,
+        "height": 874,
+        "text": [
+          "9:41",
+          "K",
+          "keyvan",
+          "Active now",
+          "•••",
+          "K",
+          "keyvan",
+          "Nail Artist",
+          "Manage appointment",
+          "Profile",
+          "View profile",
+          "›",
+          "View services & portfolio",
+          "›",
+          "Add to favorites",
+          "›",
+          "Conversation",
+          "Shared designs, photos & locations",
+          "›",
+          "Search in conversation",
+          "›",
+          "Mute notifications",
+          "›",
+          "Safety",
+          "Report",
+          "Block",
+          "Delete conversation"
+        ]
+      },
+      {
+        "id": "345:5236",
+        "name": "Booking — Select Service",
+        "width": 393,
+        "height": 852
+      },
+      {
+        "id": "345:5285",
+        "name": "Booking — Select Date",
+        "width": 393,
+        "height": 852
+      },
+      {
+        "id": "345:5417",
+        "name": "Booking — Select Time",
+        "width": 393,
+        "height": 852
+      },
+      {
+        "id": "345:5478",
+        "name": "Booking — Review",
+        "width": 393,
+        "height": 874
+      },
+      {
+        "id": "345:5539",
+        "name": "Booking — Request Sent",
+        "width": 393,
+        "height": 874
+      },
+      {
+        "id": "345:5568",
+        "name": "Booking — Confirmed",
+        "width": 393,
+        "height": 874
+      },
+      {
+        "id": "345:5642",
+        "name": "Artist Profile — Public",
+        "width": 393,
+        "height": 1372
+      },
+      {
+        "id": "345:5779",
+        "name": "Profile — Redesigned",
+        "width": 393,
+        "height": 1909
+      },
+      {
+        "id": "345:5971",
+        "name": "35",
+        "width": 393,
+        "height": 1339
+      },
+      {
+        "id": "345:6071",
+        "name": "36",
+        "width": 393,
+        "height": 1339
+      },
+      {
+        "id": "345:6171",
+        "name": "37",
+        "width": 393,
+        "height": 1339
+      },
+      {
+        "id": "345:6270",
+        "name": "38",
+        "width": 393,
+        "height": 1339
+      },
+      {
+        "id": "345:6370",
+        "name": "39",
+        "width": 393,
+        "height": 1339
+      },
+      {
+        "id": "345:6470",
+        "name": "40",
+        "width": 393,
+        "height": 1339
+      },
+      {
+        "id": "413:4507",
+        "name": "Onboarding 0",
+        "width": 393,
+        "height": 1339
+      },
+      {
+        "id": "417:1759",
+        "name": "Messages — Redesigned",
+        "width": 393,
+        "height": 1339
+      }
+    ]
+  },
+  "otherPages": [
+    {
+      "page": "Page 1",
+      "children": [
+        {
+          "id": "1:4",
+          "name": "image 1",
+          "type": "RECTANGLE",
+          "width": 1199,
+          "height": 874
+        },
+        {
+          "id": "1:7",
+          "name": "image 2",
+          "type": "RECTANGLE",
+          "width": 788,
+          "height": 1226
+        },
+        {
+          "id": "1:10",
+          "name": "image 3",
+          "type": "RECTANGLE",
+          "width": 703,
+          "height": 874
+        },
+        {
+          "id": "1:13",
+          "name": "image 4",
+          "type": "RECTANGLE",
+          "width": 700,
+          "height": 874
+        },
+        {
+          "id": "1:16",
+          "name": "image 5",
+          "type": "RECTANGLE",
+          "width": 874,
+          "height": 874
+        },
+        {
+          "id": "1:19",
+          "name": "image 6",
+          "type": "RECTANGLE",
+          "width": 700,
+          "height": 874
+        },
+        {
+          "id": "1:22",
+          "name": "image 7",
+          "type": "RECTANGLE",
+          "width": 700,
+          "height": 874
+        },
+        {
+          "id": "1:25",
+          "name": "image 8",
+          "type": "RECTANGLE",
+          "width": 700,
+          "height": 876
+        },
+        {
+          "id": "1:28",
+          "name": "image 9",
+          "type": "RECTANGLE",
+          "width": 706,
+          "height": 1259
+        },
+        {
+          "id": "2:3",
+          "name": "image 10",
+          "type": "RECTANGLE",
+          "width": 736,
+          "height": 920
+        },
+        {
+          "id": "2:6",
+          "name": "image 11",
+          "type": "RECTANGLE",
+          "width": 1198,
+          "height": 898
+        },
+        {
+          "id": "2:9",
+          "name": "image 12",
+          "type": "RECTANGLE",
+          "width": 1016,
+          "height": 793
+        },
+        {
+          "id": "2:12",
+          "name": "image 13",
+          "type": "RECTANGLE",
+          "width": 1200,
+          "height": 950
+        },
+        {
+          "id": "2:15",
+          "name": "image 14",
+          "type": "RECTANGLE",
+          "width": 972,
+          "height": 1214
+        },
+        {
+          "id": "2:18",
+          "name": "image 15",
+          "type": "RECTANGLE",
+          "width": 1000,
+          "height": 1109
+        },
+        {
+          "id": "2:21",
+          "name": "image 16",
+          "type": "RECTANGLE",
+          "width": 1000,
+          "height": 1019
+        },
+        {
+          "id": "22:304",
+          "name": "image 66",
+          "type": "RECTANGLE",
+          "width": 1000,
+          "height": 1019
+        },
+        {
+          "id": "2:24",
+          "name": "image 17",
+          "type": "RECTANGLE",
+          "width": 1200,
+          "height": 900
+        },
+        {
+          "id": "2:27",
+          "name": "image 18",
+          "type": "RECTANGLE",
+          "width": 818,
+          "height": 1022
+        },
+        {
+          "id": "2:33",
+          "name": "image 19",
+          "type": "RECTANGLE",
+          "width": 954,
+          "height": 1193
+        },
+        {
+          "id": "2:36",
+          "name": "image 20",
+          "type": "RECTANGLE",
+          "width": 769,
+          "height": 991
+        },
+        {
+          "id": "2:39",
+          "name": "image 21",
+          "type": "RECTANGLE",
+          "width": 874,
+          "height": 874
+        },
+        {
+          "id": "2:42",
+          "name": "image 22",
+          "type": "RECTANGLE",
+          "width": 779,
+          "height": 973
+        },
+        {
+          "id": "2:45",
+          "name": "image 23",
+          "type": "RECTANGLE",
+          "width": 729,
+          "height": 1253
+        },
+        {
+          "id": "2:48",
+          "name": "image 24",
+          "type": "RECTANGLE",
+          "width": 1087,
+          "height": 769
+        },
+        {
+          "id": "3:51",
+          "name": "image 25",
+          "type": "RECTANGLE",
+          "width": 773,
+          "height": 580
+        },
+        {
+          "id": "3:54",
+          "name": "image 26",
+          "type": "RECTANGLE",
+          "width": 965,
+          "height": 724
+        },
+        {
+          "id": "3:57",
+          "name": "image 27",
+          "type": "RECTANGLE",
+          "width": 1276,
+          "height": 957
+        },
+        {
+          "id": "3:60",
+          "name": "image 28",
+          "type": "RECTANGLE",
+          "width": 1046,
+          "height": 785
+        },
+        {
+          "id": "3:63",
+          "name": "image 29",
+          "type": "RECTANGLE",
+          "width": 1306,
+          "height": 979
+        },
+        {
+          "id": "4:66",
+          "name": "image 30",
+          "type": "RECTANGLE",
+          "width": 1275,
+          "height": 956
+        },
+        {
+          "id": "4:69",
+          "name": "image 31",
+          "type": "RECTANGLE",
+          "width": 857,
+          "height": 1155
+        },
+        {
+          "id": "5:72",
+          "name": "image 32",
+          "type": "RECTANGLE",
+          "width": 1200,
+          "height": 900
+        },
+        {
+          "id": "5:75",
+          "name": "image 33",
+          "type": "RECTANGLE",
+          "width": 968,
+          "height": 1210
+        },
+        {
+          "id": "22:302",
+          "name": "image 65",
+          "type": "RECTANGLE",
+          "width": 968,
+          "height": 1210
+        },
+        {
+          "id": "5:78",
+          "name": "image 34",
+          "type": "RECTANGLE",
+          "width": 824,
+          "height": 1031
+        },
+        {
+          "id": "5:81",
+          "name": "image 35",
+          "type": "RECTANGLE",
+          "width": 845,
+          "height": 1123
+        },
+        {
+          "id": "5:84",
+          "name": "image 36",
+          "type": "RECTANGLE",
+          "width": 1080,
+          "height": 810
+        },
+        {
+          "id": "5:87",
+          "name": "image 37",
+          "type": "RECTANGLE",
+          "width": 916,
+          "height": 1424
+        },
+        {
+          "id": "6:90",
+          "name": "image 38",
+          "type": "RECTANGLE",
+          "width": 831,
+          "height": 1108
+        },
+        {
+          "id": "6:93",
+          "name": "image 39",
+          "type": "RECTANGLE",
+          "width": 753,
+          "height": 942
+        },
+        {
+          "id": "6:96",
+          "name": "image 40",
+          "type": "RECTANGLE",
+          "width": 735,
+          "height": 918
+        },
+        {
+          "id": "6:99",
+          "name": "image 41",
+          "type": "RECTANGLE",
+          "width": 736,
+          "height": 1308
+        },
+        {
+          "id": "6:102",
+          "name": "image 42",
+          "type": "RECTANGLE",
+          "width": 872,
+          "height": 1073
+        },
+        {
+          "id": "6:105",
+          "name": "image 43",
+          "type": "RECTANGLE",
+          "width": 770,
+          "height": 1369
+        },
+        {
+          "id": "6:108",
+          "name": "image 44",
+          "type": "RECTANGLE",
+          "width": 821,
+          "height": 821
+        },
+        {
+          "id": "6:111",
+          "name": "image 45",
+          "type": "RECTANGLE",
+          "width": 872,
+          "height": 872
+        },
+        {
+          "id": "6:114",
+          "name": "image 46",
+          "type": "RECTANGLE",
+          "width": 736,
+          "height": 1308
+        },
+        {
+          "id": "6:117",
+          "name": "image 47",
+          "type": "RECTANGLE",
+          "width": 909,
+          "height": 1206
+        },
+        {
+          "id": "6:120",
+          "name": "image 48",
+          "type": "RECTANGLE",
+          "width": 960,
+          "height": 1278
+        },
+        {
+          "id": "6:123",
+          "name": "image 49",
+          "type": "RECTANGLE",
+          "width": 1080,
+          "height": 1350
+        },
+        {
+          "id": "6:126",
+          "name": "image 50",
+          "type": "RECTANGLE",
+          "width": 1080,
+          "height": 1346
+        },
+        {
+          "id": "6:129",
+          "name": "image 51",
+          "type": "RECTANGLE",
+          "width": 609,
+          "height": 1082
+        },
+        {
+          "id": "7:132",
+          "name": "image 52",
+          "type": "RECTANGLE",
+          "width": 736,
+          "height": 1308
+        },
+        {
+          "id": "7:135",
+          "name": "image 53",
+          "type": "RECTANGLE",
+          "width": 720,
+          "height": 720
+        },
+        {
+          "id": "7:138",
+          "name": "image 54",
+          "type": "RECTANGLE",
+          "width": 832,
+          "height": 1472
+        },
+        {
+          "id": "7:141",
+          "name": "image 55",
+          "type": "RECTANGLE",
+          "width": 1080,
+          "height": 1438
+        },
+        {
+          "id": "7:144",
+          "name": "image 56",
+          "type": "RECTANGLE",
+          "width": 820,
+          "height": 1026
+        },
+        {
+          "id": "7:147",
+          "name": "image 57",
+          "type": "RECTANGLE",
+          "width": 1080,
+          "height": 1345
+        },
+        {
+          "id": "7:150",
+          "name": "image 58",
+          "type": "RECTANGLE",
+          "width": 1080,
+          "height": 1350
+        },
+        {
+          "id": "7:153",
+          "name": "image 59",
+          "type": "RECTANGLE",
+          "width": 900,
+          "height": 1200
+        },
+        {
+          "id": "7:156",
+          "name": "image 60",
+          "type": "RECTANGLE",
+          "width": 850,
+          "height": 1044
+        },
+        {
+          "id": "7:159",
+          "name": "image 61",
+          "type": "RECTANGLE",
+          "width": 1200,
+          "height": 1500
+        },
+        {
+          "id": "7:162",
+          "name": "image 62",
+          "type": "RECTANGLE",
+          "width": 806,
+          "height": 1006
+        },
+        {
+          "id": "7:165",
+          "name": "image 63",
+          "type": "RECTANGLE",
+          "width": 960,
+          "height": 1199
+        },
+        {
+          "id": "7:168",
+          "name": "image 64",
+          "type": "RECTANGLE",
+          "width": 1199,
+          "height": 1495
+        }
+      ]
+    },
+    {
+      "page": "Design",
+      "children": [
+        {
+          "id": "18:777",
+          "name": "Home",
+          "type": "FRAME",
+          "width": 375,
+          "height": 943
+        },
+        {
+          "id": "20:387",
+          "name": "Navigation",
+          "type": "FRAME",
+          "width": 344,
+          "height": 60
+        },
+        {
+          "id": "19:75",
+          "name": "Знімок екрана 2026-06-17 о 10.24.35 1",
+          "type": "RECTANGLE",
+          "width": 478,
+          "height": 78
+        },
+        {
+          "id": "20:384",
+          "name": "image 26",
+          "type": "RECTANGLE",
+          "width": 965,
+          "height": 724
+        },
+        {
+          "id": "20:523",
+          "name": "Component 1",
+          "type": "COMPONENT_SET",
+          "width": 589,
+          "height": 64
+        },
+        {
+          "id": "22:192",
+          "name": "Nav",
+          "type": "COMPONENT_SET",
+          "width": 295,
+          "height": 492
+        },
+        {
+          "id": "22:480",
+          "name": "Nav",
+          "type": "INSTANCE",
+          "width": 114,
+          "height": 44
+        },
+        {
+          "id": "22:208",
+          "name": "Nav",
+          "type": "INSTANCE",
+          "width": 28,
+          "height": 44
+        },
+        {
+          "id": "22:301",
+          "name": "iPhone 16 - 1",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1100
+        },
+        {
+          "id": "26:165",
+          "name": "iPhone 16 - 2",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "83:442",
+          "name": "iPhone 16 - 9",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "83:570",
+          "name": "iPhone 16 - 10",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "83:698",
+          "name": "iPhone 16 - 11",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "26:1092",
+          "name": "iPhone 16 - 5",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "26:1240",
+          "name": "iPhone 16 - 6",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "26:1497",
+          "name": "iPhone 16 - 7",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "26:1625",
+          "name": "iPhone 16 - 8",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "26:960",
+          "name": "iPhone 16 - 4",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "83:844",
+          "name": "iPhone 16 - 12",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "83:1015",
+          "name": "iPhone 16 - 13",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "112:708",
+          "name": "13",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "112:964",
+          "name": "14",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "136:1872",
+          "name": "22",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "262:2452",
+          "name": "34",
+          "type": "FRAME",
+          "width": 393,
+          "height": 7197
+        },
+        {
+          "id": "262:2288",
+          "name": "33",
+          "type": "FRAME",
+          "width": 393,
+          "height": 7197
+        },
+        {
+          "id": "178:1901",
+          "name": "31",
+          "type": "FRAME",
+          "width": 393,
+          "height": 7197
+        },
+        {
+          "id": "180:1523",
+          "name": "32",
+          "type": "FRAME",
+          "width": 393,
+          "height": 7197
+        },
+        {
+          "id": "178:1560",
+          "name": "29",
+          "type": "FRAME",
+          "width": 393,
+          "height": 7197
+        },
+        {
+          "id": "178:1701",
+          "name": "30",
+          "type": "FRAME",
+          "width": 393,
+          "height": 7197
+        },
+        {
+          "id": "178:1762",
+          "name": "Coming soon — AR try-on for every design",
+          "type": "TEXT",
+          "width": 345,
+          "height": 15
+        },
+        {
+          "id": "136:2112",
+          "name": "Tech",
+          "type": "FRAME",
+          "width": 84,
+          "height": 30
+        },
+        {
+          "id": "136:2153",
+          "name": "NavigationBar",
+          "type": "FRAME",
+          "width": 393,
+          "height": 134
+        },
+        {
+          "id": "136:2214",
+          "name": "24",
+          "type": "FRAME",
+          "width": 393,
+          "height": 852
+        },
+        {
+          "id": "202:1547",
+          "name": "1_L",
+          "type": "FRAME",
+          "width": 1800,
+          "height": 1800
+        },
+        {
+          "id": "202:1559",
+          "name": "3_L",
+          "type": "FRAME",
+          "width": 1800,
+          "height": 1800
+        },
+        {
+          "id": "202:1548",
+          "name": "2_L",
+          "type": "FRAME",
+          "width": 1800,
+          "height": 1800
+        },
+        {
+          "id": "144:2387",
+          "name": "25",
+          "type": "FRAME",
+          "width": 393,
+          "height": 852
+        },
+        {
+          "id": "144:2418",
+          "name": "26",
+          "type": "FRAME",
+          "width": 393,
+          "height": 852
+        },
+        {
+          "id": "144:2448",
+          "name": "27",
+          "type": "FRAME",
+          "width": 393,
+          "height": 852
+        },
+        {
+          "id": "136:2212",
+          "name": "image 54",
+          "type": "RECTANGLE",
+          "width": 566,
+          "height": 1002
+        },
+        {
+          "id": "136:2129",
+          "name": "image 61",
+          "type": "RECTANGLE",
+          "width": 748,
+          "height": 935
+        },
+        {
+          "id": "112:1846",
+          "name": "Search",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "117:1700",
+          "name": "Search - Filter main",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1785
+        },
+        {
+          "id": "275:6380",
+          "name": "Search - Filter",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1785
+        },
+        {
+          "id": "280:7065",
+          "name": "Home main",
+          "type": "FRAME",
+          "width": 393,
+          "height": 2325
+        },
+        {
+          "id": "226:1811",
+          "name": "Stories Scroll",
+          "type": "FRAME",
+          "width": 377,
+          "height": 79
+        },
+        {
+          "id": "281:7338",
+          "name": "Frame 109",
+          "type": "FRAME",
+          "width": 345,
+          "height": 948
+        },
+        {
+          "id": "289:7608",
+          "name": "Frame 110",
+          "type": "FRAME",
+          "width": 345,
+          "height": 948
+        },
+        {
+          "id": "112:1186",
+          "name": "15",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "112:1324",
+          "name": "16",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "112:1462",
+          "name": "17",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "119:1859",
+          "name": "Group 2",
+          "type": "GROUP",
+          "width": 629,
+          "height": 665
+        },
+        {
+          "id": "119:1860",
+          "name": "Group 3",
+          "type": "GROUP",
+          "width": 629,
+          "height": 665
+        },
+        {
+          "id": "119:1864",
+          "name": "Group 4",
+          "type": "GROUP",
+          "width": 629,
+          "height": 665
+        },
+        {
+          "id": "119:1868",
+          "name": "Group 5",
+          "type": "GROUP",
+          "width": 629,
+          "height": 665
+        },
+        {
+          "id": "112:1617",
+          "name": "18",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "83:1143",
+          "name": "iPhone 16 - 14",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "83:1271",
+          "name": "iPhone 16 - 15",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "26:680",
+          "name": "iPhone 16 - 3",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "23:185",
+          "name": "Back",
+          "type": "TEXT",
+          "width": 28,
+          "height": 18
+        },
+        {
+          "id": "23:187",
+          "name": "Laque",
+          "type": "TEXT",
+          "width": 34,
+          "height": 18
+        },
+        {
+          "id": "23:189",
+          "name": "Laque",
+          "type": "TEXT",
+          "width": 35,
+          "height": 18
+        },
+        {
+          "id": "23:191",
+          "name": "Laque",
+          "type": "TEXT",
+          "width": 32,
+          "height": 18
+        },
+        {
+          "id": "23:193",
+          "name": "Laque",
+          "type": "TEXT",
+          "width": 33,
+          "height": 18
+        },
+        {
+          "id": "23:195",
+          "name": "Laque",
+          "type": "TEXT",
+          "width": 35,
+          "height": 18
+        },
+        {
+          "id": "23:197",
+          "name": "Laque",
+          "type": "TEXT",
+          "width": 27,
+          "height": 18
+        },
+        {
+          "id": "22:306",
+          "name": "image 66",
+          "type": "RECTANGLE",
+          "width": 1000,
+          "height": 1019
+        },
+        {
+          "id": "22:307",
+          "name": "image 22",
+          "type": "RECTANGLE",
+          "width": 779,
+          "height": 973
+        },
+        {
+          "id": "22:308",
+          "name": "image 23",
+          "type": "RECTANGLE",
+          "width": 729,
+          "height": 1253
+        },
+        {
+          "id": "22:309",
+          "name": "image 65",
+          "type": "RECTANGLE",
+          "width": 968,
+          "height": 1210
+        },
+        {
+          "id": "23:161",
+          "name": "Знімок екрана 2026-06-17 о 11.24.06 1",
+          "type": "RECTANGLE",
+          "width": 514,
+          "height": 686
+        },
+        {
+          "id": "23:162",
+          "name": "Знімок екрана 2026-06-17 о 11.23.59 1",
+          "type": "RECTANGLE",
+          "width": 541,
+          "height": 669
+        },
+        {
+          "id": "26:1091",
+          "name": "Frame 27",
+          "type": "FRAME",
+          "width": 1254,
+          "height": 1254
+        },
+        {
+          "id": "115:3597",
+          "name": "Input",
+          "type": "COMPONENT_SET",
+          "width": 557,
+          "height": 514
+        },
+        {
+          "id": "115:3960",
+          "name": "image 68",
+          "type": "RECTANGLE",
+          "width": 736,
+          "height": 1104
+        },
+        {
+          "id": "136:2095",
+          "name": "image 69",
+          "type": "RECTANGLE",
+          "width": 968,
+          "height": 1210
+        },
+        {
+          "id": "146:2510",
+          "name": "image 70",
+          "type": "RECTANGLE",
+          "width": 735,
+          "height": 815
+        },
+        {
+          "id": "150:2575",
+          "name": "image 71",
+          "type": "RECTANGLE",
+          "width": 1080,
+          "height": 1080
+        },
+        {
+          "id": "150:2578",
+          "name": "image 72",
+          "type": "RECTANGLE",
+          "width": 736,
+          "height": 1382
+        },
+        {
+          "id": "226:1778",
+          "name": "Home",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "234:1600",
+          "name": "Search main",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "269:3154",
+          "name": "Search main 1",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "236:1687",
+          "name": "Search - Artists & Salons main",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "237:1752",
+          "name": "Lab - Redesigned",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1664
+        },
+        {
+          "id": "239:1800",
+          "name": "Lab - My Generations",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "242:1994",
+          "name": "Messages — Redesigned",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "242:2175",
+          "name": "Messages — New Chat",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "242:2385",
+          "name": "Chat — Redesigned",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1570
+        },
+        {
+          "id": "249:2052",
+          "name": "Chat — More Options",
+          "type": "FRAME",
+          "width": 393,
+          "height": 852
+        },
+        {
+          "id": "249:2208",
+          "name": "Chat — Upcoming Appointment",
+          "type": "FRAME",
+          "width": 393,
+          "height": 874
+        },
+        {
+          "id": "249:2334",
+          "name": "Chat — Manage Appointment",
+          "type": "FRAME",
+          "width": 393,
+          "height": 874
+        },
+        {
+          "id": "250:2116",
+          "name": "Booking — Select Service",
+          "type": "FRAME",
+          "width": 393,
+          "height": 852
+        },
+        {
+          "id": "250:2180",
+          "name": "Booking — Select Date",
+          "type": "FRAME",
+          "width": 393,
+          "height": 852
+        },
+        {
+          "id": "250:2327",
+          "name": "Booking — Select Time",
+          "type": "FRAME",
+          "width": 393,
+          "height": 852
+        },
+        {
+          "id": "250:2408",
+          "name": "Booking — Review",
+          "type": "FRAME",
+          "width": 393,
+          "height": 874
+        },
+        {
+          "id": "250:2483",
+          "name": "Booking — Request Sent",
+          "type": "FRAME",
+          "width": 393,
+          "height": 874
+        },
+        {
+          "id": "250:2526",
+          "name": "Booking — Confirmed",
+          "type": "FRAME",
+          "width": 393,
+          "height": 874
+        },
+        {
+          "id": "257:2206",
+          "name": "Artist Profile — Public",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1372
+        },
+        {
+          "id": "257:2444",
+          "name": "Profile — Redesigned",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1909
+        },
+        {
+          "id": "269:3419",
+          "name": "35",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "269:3519",
+          "name": "36",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "269:3619",
+          "name": "37",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "269:3718",
+          "name": "38",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "269:3818",
+          "name": "39",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "269:3918",
+          "name": "40",
+          "type": "FRAME",
+          "width": 393,
+          "height": 1339
+        },
+        {
+          "id": "274:4916",
+          "name": "image 73",
+          "type": "RECTANGLE",
+          "width": 646,
+          "height": 484
+        },
+        {
+          "id": "275:4919",
+          "name": "image 74",
+          "type": "RECTANGLE",
+          "width": 736,
+          "height": 920
+        },
+        {
+          "id": "275:5917",
+          "name": "image 75",
+          "type": "RECTANGLE",
+          "width": 736,
+          "height": 1104
+        },
+        {
+          "id": "289:7689",
+          "name": "image 76",
+          "type": "RECTANGLE",
+          "width": 736,
+          "height": 857
+        }
+      ]
+    },
+    {
+      "page": "Font",
+      "children": [
+        {
+          "id": "26:505",
+          "name": "Back",
+          "type": "TEXT",
+          "width": 28,
+          "height": 18
+        },
+        {
+          "id": "26:506",
+          "name": "Laque",
+          "type": "TEXT",
+          "width": 34,
+          "height": 18
+        },
+        {
+          "id": "26:507",
+          "name": "Laque",
+          "type": "TEXT",
+          "width": 35,
+          "height": 18
+        },
+        {
+          "id": "26:508",
+          "name": "Laque",
+          "type": "TEXT",
+          "width": 32,
+          "height": 18
+        },
+        {
+          "id": "26:509",
+          "name": "Laque",
+          "type": "TEXT",
+          "width": 33,
+          "height": 18
+        },
+        {
+          "id": "26:510",
+          "name": "Laque",
+          "type": "TEXT",
+          "width": 35,
+          "height": 18
+        },
+        {
+          "id": "26:511",
+          "name": "Laque",
+          "type": "TEXT",
+          "width": 27,
+          "height": 18
+        }
+      ]
+    }
+  ],
+  "legacyFrameContent": [
+    {
+      "id": "22:301",
+      "name": "iPhone 16 - 1",
+      "labels": [
+        "9:41",
+        "Share",
+        "Back",
+        "5",
+        "Cathedral",
+        "24 Review",
+        "Ivory stiletto nails with a glossy stone-like finish. Featuring 3D gothic details, ornate arches, crosses, and sacred star accents for a clean, architectural look.",
+        "Technique",
+        "Stiletto",
+        "Long",
+        "Gel",
+        "3D Gel",
+        "Gothic",
+        "Ivory",
+        "Editorial",
+        "Colour Specs",
+        "Cathedral Ivory",
+        "Code:",
+        "#D8D4CC",
+        "Tags"
+      ]
+    },
+    {
+      "id": "26:165",
+      "name": "iPhone 16 - 2",
+      "labels": [
+        "9:41",
+        "Share",
+        "Back",
+        "5",
+        "Cathedral",
+        "24 Review",
+        "Glossy ivory stiletto nails with 3D gothic arches, cross motifs, and sacred star accents. Clean, elegant, and architectural.",
+        "Technique",
+        "Stiletto",
+        "Long",
+        "Gel",
+        "3D Gel",
+        "Gothic",
+        "Ivory",
+        "Editorial",
+        "Colour Specs",
+        "Cathedral Ivory",
+        "Code:",
+        "#D8D4CC",
+        "Tags",
+        "#gothic",
+        "#ivory"
+      ]
+    },
+    {
+      "id": "83:442",
+      "name": "iPhone 16 - 9",
+      "labels": [
+        "9:41",
+        "Share",
+        "Back",
+        "5",
+        "Cathedral",
+        "24 Review",
+        "Glossy ivory stiletto nails with 3D gothic arches, cross motifs, and sacred star accents. Clean, elegant, and architectural.",
+        "Technique",
+        "Stiletto",
+        "Long",
+        "Gel",
+        "3D Gel",
+        "Gothic",
+        "Ivory",
+        "Editorial",
+        "Colour Specs",
+        "Cathedral Ivory",
+        "Code:",
+        "#D8D4CC",
+        "Tags",
+        "#gothic",
+        "#ivory"
+      ]
+    },
+    {
+      "id": "83:570",
+      "name": "iPhone 16 - 10",
+      "labels": [
+        "9:41",
+        "Share",
+        "Back",
+        "5",
+        "Cathedral",
+        "24 Review",
+        "Glossy ivory stiletto nails with 3D gothic arches, cross motifs, and sacred star accents. Clean, elegant, and architectural.",
+        "Technique",
+        "Stiletto",
+        "Long",
+        "Gel",
+        "3D Gel",
+        "Gothic",
+        "Ivory",
+        "Editorial",
+        "Colour Specs",
+        "Cathedral Ivory",
+        "Code:",
+        "#D8D4CC",
+        "Tags",
+        "#gothic",
+        "#ivory"
+      ]
+    },
+    {
+      "id": "83:698",
+      "name": "iPhone 16 - 11",
+      "labels": [
+        "9:41",
+        "Share",
+        "Back",
+        "5",
+        "Cathedral",
+        "24 Review",
+        "Glossy ivory stiletto nails with 3D gothic arches, cross motifs, and sacred star accents. Clean, elegant, and architectural.",
+        "Technique",
+        "Stiletto",
+        "Long",
+        "Gel",
+        "3D Gel",
+        "Gothic",
+        "Ivory",
+        "Editorial",
+        "Colour Specs",
+        "Cathedral Ivory",
+        "Code:",
+        "#D8D4CC",
+        "Tags",
+        "#gothic",
+        "#ivory"
+      ]
+    },
+    {
+      "id": "26:1092",
+      "name": "iPhone 16 - 5",
+      "labels": [
+        "9:41",
+        "Share",
+        "Back",
+        "5",
+        "Cathedral",
+        "24 Review",
+        "Glossy ivory stiletto nails with 3D gothic arches, cross motifs, and sacred star accents. Clean, elegant, and architectural.",
+        "Technique",
+        "Stiletto",
+        "Long",
+        "Gel",
+        "3D Gel",
+        "Gothic",
+        "Ivory",
+        "Editorial",
+        "Colour Specs",
+        "Cathedral Ivory",
+        "Code:",
+        "#D8D4CC",
+        "Tags",
+        "#gothic",
+        "#ivory"
+      ]
+    },
+    {
+      "id": "26:1240",
+      "name": "iPhone 16 - 6",
+      "labels": [
+        "9:41",
+        "Share",
+        "Back",
+        "5",
+        "Cathedral",
+        "24 Review",
+        "Glossy ivory stiletto nails with 3D gothic arches, cross motifs, and sacred star accents. Clean, elegant, and architectural.",
+        "Technique",
+        "Stiletto",
+        "Long",
+        "Gel",
+        "3D Gel",
+        "Gothic",
+        "Ivory",
+        "Editorial",
+        "Colour Specs",
+        "Cathedral Ivory",
+        "Code:",
+        "#D8D4CC",
+        "Tags",
+        "#gothic",
+        "#ivory"
+      ]
+    },
+    {
+      "id": "26:1497",
+      "name": "iPhone 16 - 7",
+      "labels": [
+        "9:41",
+        "Share",
+        "Back",
+        "5",
+        "Cathedral",
+        "24 Review",
+        "Glossy ivory stiletto nails with 3D gothic arches, cross motifs, and sacred star accents. Clean, elegant, and architectural.",
+        "Technique",
+        "Stiletto",
+        "Long",
+        "Gel",
+        "3D Gel",
+        "Gothic",
+        "Ivory",
+        "Editorial",
+        "Colour Specs",
+        "Cathedral Ivory",
+        "Code:",
+        "#D8D4CC",
+        "Tags",
+        "#gothic",
+        "#ivory"
+      ]
+    },
+    {
+      "id": "26:1625",
+      "name": "iPhone 16 - 8",
+      "labels": [
+        "9:41",
+        "Share",
+        "Back",
+        "5",
+        "Cathedral",
+        "24 Review",
+        "Glossy ivory stiletto nails with 3D gothic arches, cross motifs, and sacred star accents. Clean, elegant, and architectural.",
+        "Technique",
+        "Stiletto",
+        "Long",
+        "Gel",
+        "3D Gel",
+        "Gothic",
+        "Ivory",
+        "Editorial",
+        "Colour Specs",
+        "Cathedral Ivory",
+        "Code:",
+        "#D8D4CC",
+        "Tags",
+        "#gothic",
+        "#ivory"
+      ]
+    },
+    {
+      "id": "26:960",
+      "name": "iPhone 16 - 4",
+      "labels": [
+        "9:41",
+        "Share",
+        "Back",
+        "5",
+        "Rosewood Bride",
+        "24 Review",
+        "Dusty mauve-rose coffin nails — between rose and nude, desaturated and grown-up, for a bride who didn't want white.",
+        "Technique",
+        "Stiletto",
+        "Long",
+        "Gel",
+        "3D Gel",
+        "Gothic",
+        "Ivory",
+        "Editorial",
+        "Colour Specs",
+        "Code:",
+        "CB7D7C",
+        "Tags",
+        "#gothic",
+        "#ivory",
+        "#editorial"
+      ]
+    },
+    {
+      "id": "83:844",
+      "name": "iPhone 16 - 12",
+      "labels": [
+        "9:41",
+        "Share",
+        "Back",
+        "5",
+        "Rosewood Bride",
+        "24 Review",
+        "Dusty mauve-rose coffin nails — between rose and nude, desaturated and grown-up, for a bride who didn't want white.",
+        "Technique",
+        "Stiletto",
+        "Long",
+        "Gel",
+        "3D Gel",
+        "Gothic",
+        "Ivory",
+        "Editorial",
+        "Colour Specs",
+        "Code:",
+        "CB7D7C",
+        "Tags",
+        "#gothic",
+        "#ivory",
+        "#editorial"
+      ]
+    },
+    {
+      "id": "83:1015",
+      "name": "iPhone 16 - 13",
+      "labels": [
+        "9:41",
+        "Share",
+        "Back",
+        "5",
+        "Rosewood Bride",
+        "24 Review",
+        "Dusty mauve-rose coffin nails — between rose and nude, desaturated and grown-up, for a bride who didn't want white.",
+        "Technique",
+        "Stiletto",
+        "Long",
+        "Gel",
+        "3D Gel",
+        "Gothic",
+        "Ivory",
+        "Editorial",
+        "Colour Specs",
+        "Code:",
+        "CB7D7C",
+        "Tags",
+        "#gothic",
+        "#ivory",
+        "#editorial"
+      ]
+    },
+    {
+      "id": "112:708",
+      "name": "13",
+      "labels": [
+        "9:41",
+        "Share",
+        "Back",
+        "5",
+        "Rosewood Bride",
+        "24 Review",
+        "Dusty mauve-rose coffin nails — between rose and nude, desaturated and grown-up, for a bride who didn't want white.",
+        "Technique",
+        "Stiletto",
+        "Long",
+        "Gel",
+        "3D Gel",
+        "Gothic",
+        "Ivory",
+        "Editorial",
+        "Colour Specs",
+        "Code:",
+        "CB7D7C",
+        "Show my nail tech",
+        "Tags",
+        "#gothic",
+        "#ivory"
+      ]
+    },
+    {
+      "id": "112:964",
+      "name": "14",
+      "labels": [
+        "9:41",
+        "LaQue",
+        "Share",
+        "Back",
+        "5",
+        "Cathedral",
+        "24 Review",
+        "Glossy ivory stiletto nails with 3D gothic arches, cross motifs, and sacred star accents. Clean, elegant, and architectural.",
+        "Technique",
+        "Stiletto",
+        "Long",
+        "Gel",
+        "3D Gel",
+        "Gothic",
+        "Ivory",
+        "Editorial",
+        "Colour Specs",
+        "Cathedral Ivory",
+        "Code:",
+        "#D8D4CC",
+        "Show my nail tech",
+        "Tags"
+      ]
+    },
+    {
+      "id": "136:1872",
+      "name": "22",
+      "labels": [
+        "9:41",
+        "LaQue",
+        "laQue",
+        "Home",
+        "Your next nail set, designed,  tried on, and booked",
+        "Explore Design",
+        "Join as a Creator"
+      ]
+    },
+    {
+      "id": "262:2452",
+      "name": "34",
+      "labels": [
+        "9:41",
+        "LaQue",
+        "Find the look Know every detail",
+        "Your next nail set, designed,   tried on, and booked",
+        "Explore Design",
+        "Join as a Creator",
+        "Save & share",
+        "Bookmark looks and send a direct  link straight to your nail tech",
+        "01",
+        "Post designs with full specs — colour codes, techniques, price",
+        "5 uploads/week free Pro from $15/mo",
+        "Turn your nail work into bookings",
+        "For nail artists & salons",
+        "Coming soon",
+        "Join the waitlist at signup",
+        "Create your own nail design with Nail Lab",
+        "Nail Lab",
+        "Use credits to generate custom nail designs by colour, mood, occasion, shape, length, and style. Save, share, or book your generated look.",
+        "Describe your vision — AI generates it instantly\n\nTry the result in Nail Mirror before booking\n\nSend the spec directly to  your nail tech",
+        "Coming soon — AR try-on for every design",
+        "Point your camera at your hand — see the design in real time",
+        "Try multiple looks before committing  to one"
+      ]
+    },
+    {
+      "id": "262:2288",
+      "name": "33",
+      "labels": [
+        "9:41",
+        "LaQue",
+        "Find the look Know every detail",
+        "Your next nail set, designed,   tried on, and booked",
+        "Explore Design",
+        "Join as a Creator",
+        "Save & share",
+        "Bookmark looks and send a direct  link straight to your nail tech",
+        "01",
+        "Post designs with full specs — colour codes, techniques, price",
+        "5 uploads/week free Pro from $15/mo",
+        "Turn your nail work into bookings",
+        "For nail artists & salons",
+        "Coming soon",
+        "Join the waitlist at signup",
+        "Create your own nail design with Nail Lab",
+        "Nail Lab",
+        "Use credits to generate custom nail designs by colour, mood, occasion, shape, length, and style. Save, share, or book your generated look.",
+        "Describe your vision — AI generates it instantly\n\nTry the result in Nail Mirror before booking\n\nSend the spec directly to  your nail tech",
+        "Coming soon — AR try-on for every design",
+        "Point your camera at your hand — see the design in real time",
+        "Try multiple looks before committing  to one"
+      ]
+    },
+    {
+      "id": "178:1901",
+      "name": "31",
+      "labels": [
+        "9:41",
+        "LaQue",
+        "Find the look Know every detail",
+        "Your next nail set, designed,   tried on, and booked",
+        "Explore Design",
+        "Join as a Creator",
+        "Save & share",
+        "Bookmark looks and send a direct  link straight to your nail tech",
+        "01",
+        "Post designs with full specs — colour codes, techniques, price",
+        "5 uploads/week free Pro from $15/mo",
+        "Turn your nail work into bookings",
+        "For nail artists & salons",
+        "Coming soon",
+        "Join the waitlist at signup",
+        "Create your own nail design with Nail Lab",
+        "Nail Lab",
+        "Use credits to generate custom nail designs by colour, mood, occasion, shape, length, and style. Save, share, or book your generated look.",
+        "Describe your vision — AI generates it instantly\n\nTry the result in Nail Mirror before booking\n\nSend the spec directly to  your nail tech",
+        "Coming soon — AR try-on for every design",
+        "Point your camera at your hand — see the design in real time",
+        "Try multiple looks before committing  to one"
+      ]
+    },
+    {
+      "id": "180:1523",
+      "name": "32",
+      "labels": [
+        "9:41",
+        "LaQue",
+        "Find the look Know every detail",
+        "Your next nail set, designed,   tried on, and booked",
+        "Explore Design",
+        "Join as a Creator",
+        "Save & share",
+        "Bookmark looks and send a direct  link straight to your nail tech",
+        "01",
+        "Post designs with full specs — colour codes, techniques, price",
+        "5 uploads/week free Pro from $15/mo",
+        "Turn your nail work into bookings",
+        "For nail artists & salons",
+        "Coming soon",
+        "Join the waitlist at signup",
+        "Create your own nail design with Nail Lab",
+        "Nail Lab",
+        "Use credits to generate custom nail designs by colour, mood, occasion, shape, length, and style. Save, share, or book your generated look.",
+        "Describe your vision — AI generates it instantly\n\nTry the result in Nail Mirror before booking\n\nSend the spec directly to  your nail tech",
+        "Coming soon — AR try-on for every design",
+        "Point your camera at your hand — see the design in real time",
+        "Try multiple looks before committing  to one"
+      ]
+    },
+    {
+      "id": "178:1560",
+      "name": "29",
+      "labels": [
+        "9:41",
+        "LaQue",
+        "Find the look Know every detail",
+        "Your next nail set, designed,   tried on, and booked",
+        "Explore Design",
+        "Join as a Creator",
+        "Save & share",
+        "Bookmark looks and send a direct  link straight to your nail tech",
+        "01",
+        "Post designs with full specs — colour codes, techniques, price",
+        "5 uploads/week free Pro from $15/mo",
+        "Turn your nail work into bookings",
+        "For nail artists & salons",
+        "Coming soon",
+        "Join the waitlist at signup",
+        "Create your own nail design with Nail Lab",
+        "Nail Lab",
+        "Use credits to generate custom nail designs by colour, mood, occasion, shape, length, and style. Save, share, or book your generated look.",
+        "Describe your vision — AI generates it instantly\n\nTry the result in Nail Mirror before booking\n\nSend the spec directly to  your nail tech",
+        "Coming soon — AR try-on for every design",
+        "Point your camera at your hand — see the design in real time",
+        "Try multiple looks before committing  to one"
+      ]
+    },
+    {
+      "id": "178:1701",
+      "name": "30",
+      "labels": [
+        "9:41",
+        "LaQue",
+        "Find the look Know every detail",
+        "Your next nail set, designed,   tried on, and booked",
+        "Explore Design",
+        "Join as a Creator",
+        "Save & share",
+        "Bookmark looks and send a direct  link straight to your nail tech",
+        "01",
+        "Post designs with full specs — colour codes, techniques, price",
+        "5 uploads/week free Pro from $15/mo",
+        "Turn your nail work into bookings",
+        "For nail artists & salons",
+        "Coming soon",
+        "Join the waitlist at signup",
+        "Create your own nail design with Nail Lab",
+        "Nail Lab",
+        "Use credits to generate custom nail designs by colour, mood, occasion, shape, length, and style. Save, share, or book your generated look.",
+        "Describe your vision — AI generates it instantly\n\nTry the result in Nail Mirror before booking\n\nSend the spec directly to  your nail tech",
+        "Point your camera at your hand — see the design in real time",
+        "Try multiple looks before committing  to one",
+        "02"
+      ]
+    },
+    {
+      "id": "136:2214",
+      "name": "24",
+      "labels": [
+        "9:41",
+        "Explore Design",
+        "laQue",
+        "Your next nail set, designed,  tried on, and booked"
+      ]
+    },
+    {
+      "id": "202:1547",
+      "name": "1_L",
+      "labels": []
+    },
+    {
+      "id": "202:1559",
+      "name": "3_L",
+      "labels": []
+    },
+    {
+      "id": "202:1548",
+      "name": "2_L",
+      "labels": []
+    },
+    {
+      "id": "144:2387",
+      "name": "25",
+      "labels": [
+        "Skip",
+        "9:41",
+        "Explore Design",
+        "01/03",
+        "Full colour specs",
+        "Hex codes, gel brand, shade names, finish type. No more vague inspo"
+      ]
+    },
+    {
+      "id": "144:2418",
+      "name": "26",
+      "labels": [
+        "Skip",
+        "9:41",
+        "Explore Design",
+        "02/03",
+        "Search & filter",
+        "By shape, length, technique, \nor occasion. Everyday to editorial"
+      ]
+    },
+    {
+      "id": "144:2448",
+      "name": "27",
+      "labels": [
+        "9:41",
+        "Explore Design",
+        "03/03",
+        "Save & share",
+        "Bookmark looks and send a direct  link straight to your nail tech",
+        "Skip"
+      ]
+    },
+    {
+      "id": "281:7338",
+      "name": "Frame 109",
+      "labels": [
+        "Explore Library",
+        "Matte Black",
+        "Milk Glass",
+        "Mossy Oak",
+        "Retro Checker"
+      ]
+    },
+    {
+      "id": "289:7608",
+      "name": "Frame 110",
+      "labels": [
+        "Explore Library",
+        "Matte Black",
+        "Milk Glass",
+        "Mossy Oak",
+        "Retro Checker"
+      ]
+    },
+    {
+      "id": "112:1186",
+      "name": "15",
+      "labels": [
+        "9:41",
+        "LaQue",
+        "Share",
+        "Back",
+        "5",
+        "Cathedral",
+        "24 Review",
+        "Glossy ivory stiletto nails with 3D gothic arches, cross motifs, and sacred star accents. Clean, elegant, and architectural.",
+        "Technique",
+        "Stiletto",
+        "Long",
+        "Gel",
+        "3D Gel",
+        "Gothic",
+        "Ivory",
+        "Editorial",
+        "Colour Specs",
+        "Cathedral Ivory",
+        "Code:",
+        "#D8D4CC",
+        "Show my nail tech",
+        "Tags"
+      ]
+    },
+    {
+      "id": "112:1324",
+      "name": "16",
+      "labels": [
+        "9:41",
+        "LaQue",
+        "Share",
+        "Back",
+        "5",
+        "Cathedral",
+        "24 Review",
+        "Glossy ivory stiletto nails with 3D gothic arches, cross motifs, and sacred star accents. Clean, elegant, and architectural.",
+        "Technique",
+        "Stiletto",
+        "Long",
+        "Gel",
+        "3D Gel",
+        "Gothic",
+        "Ivory",
+        "Editorial",
+        "Colour Specs",
+        "Cathedral Ivory",
+        "Code:",
+        "#D8D4CC",
+        "Show my nail tech",
+        "Tags"
+      ]
+    },
+    {
+      "id": "112:1462",
+      "name": "17",
+      "labels": [
+        "9:41",
+        "LaQue",
+        "Share",
+        "Back",
+        "5",
+        "Cathedral",
+        "24 Review",
+        "Glossy ivory stiletto nails with 3D gothic arches, cross motifs, and sacred star accents. Clean, elegant, and architectural.",
+        "Technique",
+        "Stiletto",
+        "Long",
+        "Gel",
+        "3D Gel",
+        "Gothic",
+        "Ivory",
+        "Editorial",
+        "Colour Specs",
+        "Cathedral Ivory",
+        "Code:",
+        "#D8D4CC",
+        "Show my nail tech",
+        "Tags"
+      ]
+    },
+    {
+      "id": "112:1617",
+      "name": "18",
+      "labels": [
+        "9:41",
+        "LaQue",
+        "Share",
+        "Back",
+        "5",
+        "Cathedral",
+        "24 Review",
+        "Glossy ivory stiletto nails with 3D gothic arches, cross motifs, and sacred star accents. Clean, elegant, and architectural.",
+        "Technique",
+        "Stiletto",
+        "Long",
+        "Gel",
+        "3D Gel",
+        "Gothic",
+        "Ivory",
+        "Editorial",
+        "Colour Specs",
+        "Cathedral Ivory",
+        "Code:",
+        "#D8D4CC",
+        "Show my nail tech",
+        "Tags"
+      ]
+    },
+    {
+      "id": "83:1143",
+      "name": "iPhone 16 - 14",
+      "labels": [
+        "9:41",
+        "Share",
+        "Back",
+        "5",
+        "Rosewood Bride",
+        "24 Review",
+        "Dusty mauve-rose coffin nails — between rose and nude, desaturated and grown-up, for a bride who didn't want white.",
+        "Technique",
+        "Stiletto",
+        "Long",
+        "Gel",
+        "3D Gel",
+        "Gothic",
+        "Ivory",
+        "Editorial",
+        "Colour Specs",
+        "Code:",
+        "CB7D7C",
+        "Tags",
+        "#gothic",
+        "#ivory",
+        "#editorial"
+      ]
+    },
+    {
+      "id": "83:1271",
+      "name": "iPhone 16 - 15",
+      "labels": [
+        "9:41",
+        "Share",
+        "Back",
+        "5",
+        "Rosewood Bride",
+        "24 Review",
+        "Dusty mauve-rose coffin nails — between rose and nude, desaturated and grown-up, for a bride who didn't want white.",
+        "Technique",
+        "Stiletto",
+        "Long",
+        "Gel",
+        "3D Gel",
+        "Gothic",
+        "Ivory",
+        "Editorial",
+        "Colour Specs",
+        "Code:",
+        "CB7D7C",
+        "Tags",
+        "#gothic",
+        "#ivory",
+        "#editorial"
+      ]
+    },
+    {
+      "id": "26:680",
+      "name": "iPhone 16 - 3",
+      "labels": [
+        "9:41",
+        "Share",
+        "Back",
+        "5",
+        "Cathedral",
+        "24 Review",
+        "Stiletto • Long • Gel • 3D Design • Gothic • Ivory • Fashion",
+        "Pistachio"
+      ]
+    },
+    {
+      "id": "26:1091",
+      "name": "Frame 27",
+      "labels": []
+    },
+    {
+      "id": "269:3419",
+      "name": "35",
+      "labels": [
+        "9:41",
+        "Share",
+        "Back",
+        "5",
+        "Rosewood Bride",
+        "24 Review",
+        "Dusty mauve-rose coffin nails — between rose and nude, desaturated and grown-up, for a bride who didn't want white.",
+        "Technique",
+        "Stiletto",
+        "Long",
+        "Gel",
+        "3D Gel",
+        "Gothic",
+        "Ivory",
+        "Editorial",
+        "Colour Specs",
+        "Code:",
+        "CB7D7C",
+        "Show my nail tech",
+        "Tags",
+        "#gothic",
+        "#ivory"
+      ]
+    },
+    {
+      "id": "269:3519",
+      "name": "36",
+      "labels": [
+        "9:41",
+        "LaQue",
+        "Share",
+        "Back",
+        "5",
+        "Cathedral",
+        "24 Review",
+        "Glossy ivory stiletto nails with 3D gothic arches, cross motifs, and sacred star accents. Clean, elegant, and architectural.",
+        "Technique",
+        "Stiletto",
+        "Long",
+        "Gel",
+        "3D Gel",
+        "Gothic",
+        "Ivory",
+        "Editorial",
+        "Colour Specs",
+        "Cathedral Ivory",
+        "Code:",
+        "#D8D4CC",
+        "Show my nail tech",
+        "Tags"
+      ]
+    },
+    {
+      "id": "269:3619",
+      "name": "37",
+      "labels": [
+        "9:41",
+        "LaQue",
+        "Share",
+        "Back",
+        "5",
+        "Cathedral",
+        "24 Review",
+        "Glossy ivory stiletto nails with 3D gothic arches, cross motifs, and sacred star accents. Clean, elegant, and architectural.",
+        "Technique",
+        "Stiletto",
+        "Long",
+        "Gel",
+        "3D Gel",
+        "Gothic",
+        "Ivory",
+        "Editorial",
+        "Colour Specs",
+        "Cathedral Ivory",
+        "Code:",
+        "#D8D4CC",
+        "Show my nail tech",
+        "Tags"
+      ]
+    },
+    {
+      "id": "269:3718",
+      "name": "38",
+      "labels": [
+        "9:41",
+        "LaQue",
+        "Share",
+        "Back",
+        "5",
+        "Cathedral",
+        "24 Review",
+        "Glossy ivory stiletto nails with 3D gothic arches, cross motifs, and sacred star accents. Clean, elegant, and architectural.",
+        "Technique",
+        "Stiletto",
+        "Long",
+        "Gel",
+        "3D Gel",
+        "Gothic",
+        "Ivory",
+        "Editorial",
+        "Colour Specs",
+        "Cathedral Ivory",
+        "Code:",
+        "#D8D4CC",
+        "Show my nail tech",
+        "Tags"
+      ]
+    },
+    {
+      "id": "269:3818",
+      "name": "39",
+      "labels": [
+        "9:41",
+        "LaQue",
+        "Share",
+        "Back",
+        "5",
+        "Cathedral",
+        "24 Review",
+        "Glossy ivory stiletto nails with 3D gothic arches, cross motifs, and sacred star accents. Clean, elegant, and architectural.",
+        "Technique",
+        "Stiletto",
+        "Long",
+        "Gel",
+        "3D Gel",
+        "Gothic",
+        "Ivory",
+        "Editorial",
+        "Colour Specs",
+        "Cathedral Ivory",
+        "Code:",
+        "#D8D4CC",
+        "Show my nail tech",
+        "Tags"
+      ]
+    },
+    {
+      "id": "269:3918",
+      "name": "40",
+      "labels": [
+        "9:41",
+        "LaQue",
+        "Share",
+        "Back",
+        "5",
+        "Cathedral",
+        "24 Review",
+        "Glossy ivory stiletto nails with 3D gothic arches, cross motifs, and sacred star accents. Clean, elegant, and architectural.",
+        "Technique",
+        "Stiletto",
+        "Long",
+        "Gel",
+        "3D Gel",
+        "Gothic",
+        "Ivory",
+        "Editorial",
+        "Colour Specs",
+        "Cathedral Ivory",
+        "Code:",
+        "#D8D4CC",
+        "Show my nail tech",
+        "Tags"
+      ]
+    }
+  ]
+}

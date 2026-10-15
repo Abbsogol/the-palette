@@ -1,11 +1,19 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
-import BackButton from '@/components/ui/BackButton'
-import { useScrollMemory } from '@/lib/scrollMemory'
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
+import BackButton from '@/components/ui/BackButton';
+import { useScrollMemory } from '@/lib/scrollMemory';
+import CheckoutSession from '@/components/CheckoutSession';
+import { bookingHasEnded, bookingZoneLabel } from '@/lib/booking-time';
+
+
+
+
+
+
 
 const ACCENT = '#FF517F'
 const WHITE60 = 'rgba(255,255,255,0.6)'
@@ -97,33 +105,20 @@ function BookingCard({ booking }) {
   )
 }
 
-export default function BookingsPage() {
-  const router = useRouter()
-  const [bookings, setBookings] = useState([])
-  const [loading, setLoading] = useState(true)
-  // Active tab persists per session so back-from-detail lands on the same tab
-  // (scroll memory is keyed per tab; the tab itself must survive too).
-  const [tab, setTabState] = useState(() => {
-    try { return sessionStorage.getItem('lq-tab:/bookings') || 'requests' } catch { return 'requests' }
-  })
-  const setTab = (t) => { setTabState(t); try { sessionStorage.setItem('lq-tab:/bookings', t) } catch {} }
-  useScrollMemory(tab, !loading)
+function BookingsList({userId}) {
+const [currentUser, setCurrentUser] = useState(null)
 
-  useEffect(() => {
-    const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/profile'); return }
-      const { data: profile } = await supabase.from('profiles').select('account_type').eq('id', user.id).single()
-      if (!profile || !['nail_artist', 'creator', 'salon'].includes(profile.account_type)) {
-        router.push('/profile'); return
-      }
-      await loadBookings(user.id)
-      setLoading(false)
-    }
-    init()
-  }, [])
+const [tab, setTab] = useState('requests')
 
-  const loadBookings = async (userId) => {
+const router = useRouter()
+
+const [bookings, setBookings] = useState([])
+
+const [loading, setLoading] = useState(true)
+
+useScrollMemory(tab, !loading)
+
+const loadBookings = useCallback(async (userId, isActive) => {
     // Ordered newest-first + capped so the limit drops old history rather
     // than cutting off upcoming bookings, then reversed back to
     // chronological order for display.
@@ -134,6 +129,7 @@ export default function BookingsPage() {
       .order('booking_date', { ascending: false })
       .order('start_time', { ascending: false })
       .limit(300)
+    if (!isActive()) return
     if (error) console.error('bookings fetch failed:', error)
     if (!data) { setBookings([]); return }
     const chronological = data.slice().reverse()
@@ -145,63 +141,57 @@ export default function BookingsPage() {
       .select('id, display_name, username, avatar_url')
       .in('id', clientIds)
 
-    // Client-provided notes, RLS-gated: health only if the client shared,
-    // salon notes on any pending/confirmed upcoming booking. The DB returns
-    // rows only for eligible clients; we still attach per-card so notes never
-    // render on a client's past/declined card even if another of their bookings
-    // is eligible.
-    const [{ data: healthRows }, { data: notesRows }] = await Promise.all([
-      supabase.from('client_health_notes').select('user_id, allergies, product_sensitivities, removal_needed').in('user_id', clientIds),
-      supabase.from('client_booking_notes').select('user_id, booking_notes').in('user_id', clientIds),
-    ])
-    const healthMap = Object.fromEntries((healthRows || []).map(h => [h.user_id, h]))
-    const notesMap = Object.fromEntries((notesRows || []).map(n => [n.user_id, n.booking_notes]))
-    const todayStr = new Date().toISOString().split('T')[0]
+    if (!isActive()) return
 
     const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
-    setBookings(chronological.map(b => {
-      const eligible = b.status === 'pending' || (b.status === 'confirmed' && b.booking_date >= todayStr)
-      return {
-        ...b,
-        client: profileMap[b.client_id] || null,
-        clientHealth: eligible ? (healthMap[b.client_id] || null) : null,
-        clientSalonNotes: eligible ? (notesMap[b.client_id] || null) : null,
+    setBookings(chronological.map(b => ({ ...b, client: profileMap[b.client_id] || null })))
+  }, [])
+
+useEffect(() => {
+    let active = true
+    const init = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!active) return
+      if (user?.id !== userId) { router.push('/profile'); return }
+      const { data: profile } = await supabase.from('profiles').select('account_type').eq('id', user.id).single()
+      if (!active) return
+      if (!profile || !['nail_artist', 'creator', 'salon'].includes(profile.account_type)) {
+        router.push('/profile'); return
       }
-    }))
-  }
+      setCurrentUser(user)
+      await loadBookings(user.id, () => active)
+      if (active) setLoading(false)
+    }
+    init()
+    return () => { active = false }
+  }, [loadBookings, router, userId])
 
-  const today = new Date().toISOString().split('T')[0]
+const today = new Date().toISOString().split('T')[0]
 
-  const pending   = bookings.filter(b => b.status === 'pending')
-  const upcoming  = bookings.filter(b => b.status === 'confirmed' && b.booking_date >= today)
-  const past      = bookings.filter(b =>
+const pending   = bookings.filter(b => b.status === 'pending' && !bookingHasEnded(b))
+
+const upcoming  = bookings.filter(b => b.status === 'confirmed' && !bookingHasEnded(b))
+
+const past      = bookings.filter(b =>
     b.status === 'declined' || b.status === 'cancelled' ||
-    (b.status === 'confirmed' && b.booking_date < today)
+    (['confirmed','pending'].includes(b.status) && bookingHasEnded(b))
   )
 
-  const tabs = [
+const tabs = [
     { key: 'requests', label: 'Requests', count: pending.length },
     { key: 'upcoming', label: 'Upcoming', count: upcoming.length },
     { key: 'past',     label: 'Past',     count: past.length },
   ]
 
-  const activeList = tab === 'requests' ? pending : tab === 'upcoming' ? upcoming : past
+const activeList = tab === 'requests' ? pending : tab === 'upcoming' ? upcoming : past
 
-  const emptyMessages = {
+const emptyMessages = {
     requests: { title: 'No pending requests', sub: 'New booking requests from clients will appear here.' },
     upcoming: { title: 'No upcoming bookings', sub: 'Confirmed appointments will show here.' },
     past:     { title: 'No past bookings', sub: 'Completed and cancelled bookings will show here.' },
   }
 
-  const Shell = ({ children }) => (
-    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
-      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
-      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 100px)' }}>{children}</div>
-    </div>
-  )
-
-  if (loading) return (
+if (loading) return (
     <Shell>
       <div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <p style={ui(300, 14, WHITE60)}>Loading…</p>
@@ -209,7 +199,7 @@ export default function BookingsPage() {
     </Shell>
   )
 
-  return (
+return (
     <Shell>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: 'calc(env(safe-area-inset-top) + 16px) 20px 16px' }}>
@@ -268,3 +258,14 @@ export default function BookingsPage() {
     </Shell>
   )
 }
+
+export default function BookingsPage() {
+  return <CheckoutSession title="Sign in to view appointments" description="Appointment details are private to the people involved.">{userId => <BookingsList key={userId} userId={userId} />}</CheckoutSession>
+}
+const Shell = ({ children }) => (
+    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
+      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 100px)' }}>{children}</div>
+    </div>
+  )

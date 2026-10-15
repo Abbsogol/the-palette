@@ -1,11 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
-import BackButton from '@/components/ui/BackButton'
-import { useScrollMemory } from '@/lib/scrollMemory'
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+import BackButton from '@/components/ui/BackButton';
+import { useScrollMemory } from '@/lib/scrollMemory';
+
+
+
+
+
+
 
 const ACCENT = '#FF517F'
 const WHITE60 = 'rgba(255,255,255,0.6)'
@@ -83,7 +89,7 @@ export default function NotificationsPage() {
         .eq('read', false)
       if (markReadError) console.error('mark-read error:', markReadError)
     })
-  }, [])
+  }, [router])
 
   return (
     <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>

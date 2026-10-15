@@ -1,9 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
-import BackButton from '@/components/ui/BackButton'
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+import BackButton from '@/components/ui/BackButton';
+import Link from 'next/link';
+import CheckoutSession from '@/components/CheckoutSession';
+import { useAccountAction } from '@/lib/use-account-action';
+
+
+
+
 
 const ACCENT = '#FF517F'
 const WHITE60 = 'rgba(255,255,255,0.6)'
@@ -61,52 +68,88 @@ function Toggle({ on, onClick, label }) {
   )
 }
 
-export default function AvailabilityPage() {
-  const router = useRouter()
-  const [currentUser, setCurrentUser] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
+function AvailabilityForm({userId}) {
+const { run, busy: saving } = useAccountAction(userId)
 
-  // Schedule: day_of_week → { is_active, start_time, end_time }
-  const [schedule, setSchedule] = useState(() =>
+const [timeZone, setTimeZone] = useState('')
+
+const [zones] = useState(() => ['UTC', ...Intl.supportedValuesOf('timeZone')])
+
+const [saveError, setSaveError] = useState('')
+
+const [loadError, setLoadError] = useState('')
+
+const [loadAttempt, setLoadAttempt] = useState(0)
+
+const chevronRight = (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path d="M6 4l4 4-4 4" stroke="var(--text-secondary)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+
+const router = useRouter()
+
+const [currentUser, setCurrentUser] = useState(null)
+
+const [loading, setLoading] = useState(true)
+
+const [saved, setSaved] = useState(false)
+
+const [schedule, setSchedule] = useState(() =>
     Object.fromEntries(DAYS.map(d => [d.value, { is_active: false, start_time: DEFAULT_START, end_time: DEFAULT_END }]))
   )
 
-  useEffect(() => {
+useEffect(() => {
+    let active = true
     const init = async () => {
+      try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/profile'); return }
-      const { data: profile } = await supabase.from('profiles').select('account_type').eq('id', user.id).single()
+      if (!active) return
+      if (user?.id !== userId) { router.push('/profile'); return }
+      const { data: profile, error: profileError } = await supabase.from('profiles').select('account_type').eq('id', user.id).single()
+      if (!active) return
+      if (profileError) throw profileError
       if (!profile || !['nail_artist', 'creator', 'salon'].includes(profile.account_type)) {
         router.push('/profile'); return
       }
-      setCurrentUser(user)
+      const { data: settings, error: settingsError } = await supabase.from('creator_booking_settings').select('time_zone').eq('creator_id', userId).maybeSingle()
+      if (!active) return
+      if (settingsError) throw settingsError
 
       // Load existing availability
-      const { data: rows } = await supabase
+      const { data: rows, error: hoursError } = await supabase
         .from('availability')
         .select('*')
         .eq('creator_id', user.id)
 
+      if (!active) return
+      if (hoursError) throw hoursError
+      setTimeZone(settings?.time_zone || '')
+
       if (rows && rows.length > 0) {
-        const loaded = { ...schedule }
-        rows.forEach(r => {
-          loaded[r.day_of_week] = {
-            is_active: r.is_active,
-            start_time: r.start_time.slice(0, 5),
-            end_time: r.end_time.slice(0, 5),
-          }
+        setSchedule(previous => {
+          const loaded = { ...previous }
+          rows.forEach(r => {
+            loaded[r.day_of_week] = {
+              is_active: r.is_active,
+              start_time: r.start_time.slice(0, 5),
+              end_time: r.end_time.slice(0, 5),
+            }
         })
-        setSchedule(loaded)
+        return loaded
+        })
       }
 
       setLoading(false)
+      } catch {
+        if (active) { setLoadError('Availability could not be loaded. Please retry.'); setLoading(false) }
+      }
     }
     init()
-  }, [])
+    return () => { active = false }
+  }, [router, userId, loadAttempt])
 
-  const toggleDay = (day) => {
+const toggleDay = (day) => {
     setSchedule(prev => ({
       ...prev,
       [day]: { ...prev[day], is_active: !prev[day].is_active }
@@ -114,7 +157,7 @@ export default function AvailabilityPage() {
     setSaved(false)
   }
 
-  const setTime = (day, field, value) => {
+const setTime = (day, field, value) => {
     setSchedule(prev => ({
       ...prev,
       [day]: { ...prev[day], [field]: value }
@@ -122,39 +165,23 @@ export default function AvailabilityPage() {
     setSaved(false)
   }
 
-  const handleSave = async () => {
-    setSaving(true)
-
-    // Upsert all 7 days
-    const rows = DAYS.map(d => ({
-      creator_id: currentUser.id,
-      day_of_week: d.value,
-      is_active: schedule[d.value].is_active,
-      start_time: schedule[d.value].start_time,
-      end_time: schedule[d.value].end_time,
-    }))
-
-    const { error } = await supabase
-      .from('availability')
-      .upsert(rows, { onConflict: 'creator_id,day_of_week' })
-
-    setSaving(false)
-    if (error) {
-      alert('Failed to save availability. Please try again.')
-      return
-    }
-    setSaved(true)
+const handleSave = async () => {
+    setSaveError(''); setSaved(false)
+    try {
+      const result = await run(async session => {
+        const response = await fetch('/api/update-availability', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ timeZone, schedule: DAYS.map(d => ({ day_of_week: d.value, ...schedule[d.value] })) }),
+        })
+        const data = await response.json()
+        if (!response.ok) throw new Error(data.error || 'Availability could not be saved.')
+        return data
+      })
+      if (result?.ok) setSaved(true)
+    } catch (error) { setSaveError(error.message) }
   }
 
-  const Shell = ({ children }) => (
-    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
-      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
-      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 120px)' }}>{children}</div>
-    </div>
-  )
-
-  if (loading) return (
+if (loading) return (
     <Shell>
       <div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <p style={ui(300, 14, WHITE60)}>Loading…</p>
@@ -162,9 +189,14 @@ export default function AvailabilityPage() {
     </Shell>
   )
 
-  const activeDays = DAYS.filter(d => schedule[d.value].is_active)
+if (loadError) return <Shell><div style={{ padding: '40px 20px' }}>
+  <p role="alert">{loadError}</p>
+  <button onClick={() => { setLoading(true); setLoadError(''); setLoadAttempt(value => value + 1) }}>Retry</button>
+</div></Shell>
 
-  return (
+const activeDays = DAYS.filter(d => schedule[d.value].is_active)
+
+return (
     <Shell>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: 'calc(env(safe-area-inset-top) + 16px) 20px 12px' }}>
@@ -258,3 +290,14 @@ export default function AvailabilityPage() {
     </Shell>
   )
 }
+
+export default function AvailabilityPage() {
+  return <CheckoutSession title="Sign in to manage availability" description="Your working hours belong to your creator account.">{userId => <AvailabilityForm key={userId} userId={userId} />}</CheckoutSession>
+}
+const Shell = ({ children }) => (
+    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
+      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 120px)' }}>{children}</div>
+    </div>
+  )

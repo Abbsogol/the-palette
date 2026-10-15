@@ -1,4 +1,5 @@
 'use client'
+import StorageImage from '@/components/StorageImage'
 
 import { useState, useRef } from 'react'
 
@@ -63,7 +64,7 @@ export default function ImageCarousel({ images, title, aspectRatio, overlay }) {
                 overflow: 'hidden',
               }}
             >
-              <img
+              <StorageImage
                 src={src}
                 alt={`${title} ${i + 1}`}
                 loading={i === 0 ? 'eager' : 'lazy'}
@@ -125,7 +126,7 @@ export default function ImageCarousel({ images, title, aspectRatio, overlay }) {
                 background: 'rgba(255,255,255,0.05)',
               }}
             >
-              <img src={src} alt="" loading="lazy" decoding="async"
+              <StorageImage src={src} alt="" loading="lazy" decoding="async"
                 style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
             </button>
           ))}
@@ -185,7 +186,7 @@ export default function ImageCarousel({ images, title, aspectRatio, overlay }) {
           )}
 
           {/* Image */}
-          <img
+          <StorageImage
             src={images[lightboxIndex]}
             alt={`${title} ${lightboxIndex + 1}`}
             onClick={e => e.stopPropagation()}

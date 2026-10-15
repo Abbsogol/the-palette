@@ -1,10 +1,16 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
-import BackButton from '@/components/ui/BackButton'
-import Sheet from '@/components/ui/Sheet'
+import { useState, useEffect, useRef } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+import BackButton from '@/components/ui/BackButton';
+import Sheet from '@/components/ui/Sheet';
+import Link from 'next/link';
+
+
+
+
+
 
 const ACCENT = '#FF517F'
 const WINE = '#260D14'
@@ -115,7 +121,7 @@ export default function ChallengeDetailPage() {
       setLoading(false)
     }
     load()
-  }, [id])
+  }, [id, router])
 
   const handleImagePick = (e) => {
     const file = e.target.files?.[0]

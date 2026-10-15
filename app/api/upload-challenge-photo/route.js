@@ -1,10 +1,6 @@
+import { validatedImage } from '@/lib/validated-image'
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
-import { transformDesignImage, toUploadBody } from '@/lib/imageTransform'
-
-export const runtime = 'nodejs' // sharp requires the Node runtime, not Edge
-
-const ALLOWED_TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' }
-const MAX_SIZE_BYTES = 10 * 1024 * 1024 // 10MB
+export const runtime = 'nodejs'
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export async function POST(request) {
@@ -30,14 +26,6 @@ export async function POST(request) {
   if (typeof challengeId !== 'string' || !UUID_RE.test(challengeId)) {
     return Response.json({ error: 'Invalid challengeId' }, { status: 400 })
   }
-  const ext = ALLOWED_TYPES[file.type]
-  if (!ext) {
-    return Response.json({ error: 'Unsupported file type' }, { status: 400 })
-  }
-  if (file.size > MAX_SIZE_BYTES) {
-    return Response.json({ error: 'File is too large (max 10MB)' }, { status: 400 })
-  }
-
   // Confirm the challenge actually exists and hasn't already ended.
   const { data: challenge } = await supabase
     .from('challenges')
@@ -51,18 +39,14 @@ export async function POST(request) {
     return Response.json({ error: 'This challenge has ended' }, { status: 403 })
   }
 
-  const path = `challenges/${challengeId}/${user.id}-${Date.now()}.webp`
   let buffer
-  try {
-    buffer = await transformDesignImage(Buffer.from(await file.arrayBuffer()))
-  } catch (err) {
-    console.error('Image processing error:', err)
-    return Response.json({ error: 'Failed to process image' }, { status: 400 })
-  }
+  try { buffer = await validatedImage(file) }
+  catch (error) { return Response.json({ error: error.message }, { status: 400 }) }
+  const path = `challenges/${challengeId}/${user.id}-${crypto.randomUUID()}.webp`
 
   const { error: uploadError } = await supabase.storage
     .from('designs')
-    .upload(path, toUploadBody(buffer), { cacheControl: '3600', upsert: false, contentType: 'image/webp' })
+    .upload(path, buffer, { upsert: false, contentType: 'image/webp' })
 
   if (uploadError) {
     return Response.json({ error: 'Failed to upload image' }, { status: 500 })

@@ -1,4 +1,5 @@
-import { serviceClient as supabase } from '@/lib/auth'
+import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
+import { mobileJson, mobileUserClient, uuidPattern } from '@/lib/mobile-auth'
 
 // Median time for a creator's first reply in their recent conversations.
 // Service-role because messages are only readable by participants — this
@@ -6,11 +7,18 @@ import { serviceClient as supabase } from '@/lib/auth'
 // "Usually replies in ..." line with real data (no fake "1hr"): the client
 // shows it only when samples >= 3.
 export async function GET(request) {
+  const user = await getSessionUser(request)
+  if (!user) return mobileJson({ error: 'Unauthorized' }, 401)
   const { searchParams } = new URL(request.url)
   const creatorId = searchParams.get('creator')
-  if (!creatorId) {
-    return Response.json({ error: 'creator required' }, { status: 400 })
+  if (!uuidPattern.test(creatorId || '')) {
+    return mobileJson({ error: 'Valid creator required' }, 400)
   }
+  // The caller's RLS view applies blocking, privacy, suspension and deletion.
+  const { data: visible, error: visibilityError } = await mobileUserClient(request)
+    .from('profiles').select('id,account_type').eq('id', creatorId).maybeSingle()
+  if (visibilityError || !visible || !['creator', 'salon'].includes(visible.account_type))
+    return mobileJson({ error: 'Profile unavailable' }, 404)
 
   const { data: convs, error: convError } = await supabase
     .from('conversations')
@@ -18,8 +26,8 @@ export async function GET(request) {
     .eq('creator_id', creatorId)
     .order('created_at', { ascending: false })
     .limit(30)
-  if (convError) return Response.json({ error: 'lookup failed' }, { status: 500 })
-  if (!convs?.length) return Response.json({ medianMinutes: null, samples: 0 })
+  if (convError) return mobileJson({ error: 'lookup failed' }, 500)
+  if (!convs?.length) return mobileJson({ medianMinutes: null, samples: 0 })
 
   const { data: msgs, error: msgError } = await supabase
     .from('messages')
@@ -27,7 +35,7 @@ export async function GET(request) {
     .in('conversation_id', convs.map(c => c.id))
     .order('created_at', { ascending: true })
     .limit(2000)
-  if (msgError) return Response.json({ error: 'lookup failed' }, { status: 500 })
+  if (msgError) return mobileJson({ error: 'lookup failed' }, 500)
 
   const gaps = []
   const byConv = new Map()
@@ -45,13 +53,10 @@ export async function GET(request) {
     gaps.push((new Date(firstReply.created_at) - new Date(firstClientMsg.created_at)) / 60000)
   }
 
-  if (gaps.length === 0) return Response.json({ medianMinutes: null, samples: 0 })
+  if (gaps.length === 0) return mobileJson({ medianMinutes: null, samples: 0 })
   gaps.sort((a, b) => a - b)
   const mid = Math.floor(gaps.length / 2)
   const median = gaps.length % 2 ? gaps[mid] : (gaps[mid - 1] + gaps[mid]) / 2
 
-  return Response.json(
-    { medianMinutes: Math.round(median), samples: gaps.length },
-    { headers: { 'Cache-Control': 's-maxage=3600, stale-while-revalidate=86400' } }
-  )
+  return mobileJson({ medianMinutes: Math.round(median), samples: gaps.length })
 }

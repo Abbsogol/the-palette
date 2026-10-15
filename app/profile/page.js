@@ -1,14 +1,29 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
-import CropModal from '@/components/CropModal'
-import IconButton from '@/components/ui/IconButton'
-import Sheet from '@/components/ui/Sheet'
-import { LaqueWordmark, BellIcon, HeartIcon, MagicStarIcon } from '@/components/ui/icons'
-import { useScrollMemory } from '@/lib/scrollMemory'
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
+import CropModal from '@/components/CropModal';
+import IconButton from '@/components/ui/IconButton';
+import Sheet from '@/components/ui/Sheet';
+import { LaqueWordmark, BellIcon, HeartIcon, MagicStarIcon } from '@/components/ui/icons';
+import { useScrollMemory } from '@/lib/scrollMemory';
+
+// ── Page palette from the Own Profile frame (257:2444) ─────────────────────
+import StorageImage from '@/components/StorageImage';
+import DeleteAccountButton from '@/components/DeleteAccountButton';
+import { useCurrentTime } from '@/lib/use-current-time';
+import { updateSessionPassword } from '@/lib/update-session-password';
+
+
+
+
+
+
+
+
+
 
 // ── Page palette from the Own Profile frame (257:2444) ─────────────────────
 const GROUND = '#260D14'
@@ -221,7 +236,7 @@ function EditRow({ label, field, value, placeholder, multiline, onSave, validate
 }
 
 // ── Username editable row (with format validation + unique error) ──────────
-function UsernameRow({ value }) {
+function UsernameRow({ value, onSave }) {
   const [editing, setEditing] = useState(false)
   const [input, setInput]     = useState('')
   const [saving, setSaving]   = useState(false)
@@ -238,22 +253,9 @@ function UsernameRow({ value }) {
     if (!val) { setError('Username cannot be empty'); return }
     if (!USERNAME_RE.test(val)) { setError('3–30 chars, lowercase letters, numbers, _ and . only'); return }
     setSaving(true); setError('')
-    const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/update-profile', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-      },
-      body: JSON.stringify({ username: val }),
-    })
-    const json = await res.json().catch(() => ({}))
+    const saved = await onSave('username', val)
     setSaving(false)
-    if (!res.ok || json.error) {
-      if (json.code === '23505' || json.error?.includes('unique')) setError('Username already taken')
-      else setError(json.error || 'Failed to save')
-      return
-    }
+    if (!saved) return
     setCurrent(val); setEditing(false)
   }
 
@@ -315,7 +317,7 @@ function Shell({ avatarUrl, children }) {
         width: '100%', maxWidth: '480px', zIndex: 0, overflow: 'hidden', background: GROUND,
       }}>
         {avatarUrl && (
-          <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'blur(56px) saturate(0.5)', transform: 'scale(1.3)' }} />
+          <StorageImage src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'blur(56px) saturate(0.5)', transform: 'scale(1.3)' }} />
         )}
         <div style={{ position: 'absolute', inset: 0, background: avatarUrl ? 'rgba(38, 13, 20, 0.88)' : 'radial-gradient(120% 60% at 50% 0%, rgba(102,0,7,0.25) 0%, rgba(38,13,20,0) 70%)' }} />
         <div className="lq-grain" />
@@ -329,219 +331,145 @@ function Shell({ avatarUrl, children }) {
 
 // ── Main component ─────────────────────────────────────────────────────────
 export default function ProfilePage() {
-  const router = useRouter()
-  // Preserve ?ref= from an invite link across the /onboarding -> /profile ->
-  // /onboarding signup round-trip (captured once on mount, client-side only).
-  const [refCode] = useState(() =>
+const loadVersion = useRef({ version: 0 })
+
+const activeUserId = useRef(null)
+const accountEpoch = useRef(0)
+
+const [ageConfirmed, setAgeConfirmed] = useState(false)
+
+const [confirmationSent, setConfirmationSent] = useState(false)
+
+const now = useCurrentTime()
+
+const [profile, setProfile] = useState(null)
+
+const [savedCount, setSavedCount]       = useState(0)
+
+const [followerCount, setFollowerCount] = useState(0)
+
+const [followingCount, setFollowingCount] = useState(0)
+
+const [myDesigns, setMyDesigns]         = useState([])
+
+const [myPosts, setMyPosts]           = useState([])
+
+const [needsAccountType, setNeedsAccountType] = useState(false)
+
+const [expanded, setExpanded] = useState({})
+
+const [cropFile, setCropFile]               = useState(null)
+
+const [postModalOpen, setPostModalOpen] = useState(false)
+
+const [postText, setPostText]         = useState('')
+
+const [editingPostId, setEditingPostId] = useState(null)
+
+const [postSaving, setPostSaving]     = useState(false)
+
+const [uploadingAvatar, setUploadingAvatar] = useState(false)
+
+const [managingSubscription, setManagingSubscription] = useState(false)
+
+const [submitting, setSubmitting]       = useState(false)
+
+const [error, setError]                 = useState('')
+
+const [newPassword, setNewPassword]     = useState('')
+
+const [resetMode, setResetMode]         = useState(false)
+
+const [resetDone, setResetDone]         = useState(false)
+
+const [editOpen, setEditOpen]         = useState(false)
+
+const [settingsOpen, setSettingsOpen] = useState(false)
+
+const [openSheet, setOpenSheet] = useState(null)
+
+const sheetPushedRef = useRef(false)
+
+const [favourites, setFavourites] = useState([])
+
+const [savedDesigns, setSavedDesigns] = useState([])
+
+const [boards, setBoards] = useState([])
+
+const [boardCounts, setBoardCounts] = useState({})
+
+const [favouritesLoading, setFavouritesLoading] = useState(false)
+
+const [savedLoading, setSavedLoading] = useState(false)
+
+const [boardsLoading, setBoardsLoading] = useState(false)
+
+const [savedLoaded, setSavedLoaded] = useState(false)
+
+const [boardsLoaded, setBoardsLoaded] = useState(false)
+
+const favouritesLoadedRef = useRef(false)
+
+const savedLoadedRef = useRef(false)
+
+const boardsLoadedRef = useRef(false)
+
+const clearUserData = useCallback(() => {
+    accountEpoch.current++
+    setProfile(null); setSavedCount(0); setFollowerCount(0); setFollowingCount(0)
+    setMyDesigns([]); setMyPosts([]); setNeedsAccountType(false); setExpanded({})
+    setCropFile(null); setPostModalOpen(false); setPostText(''); setEditingPostId(null)
+    setPostSaving(false); setUploadingAvatar(false); setManagingSubscription(false); setSubmitting(false)
+    setError(''); setNewPassword(''); setResetMode(false); setResetDone(false)
+    setEditOpen(false); setSettingsOpen(false); setOpenSheet(null); sheetPushedRef.current = false
+    setFavourites([]); setSavedDesigns([]); setBoards([]); setBoardCounts({})
+    setFavouritesLoading(false); setSavedLoading(false); setBoardsLoading(false)
+    setSavedLoaded(false); setBoardsLoaded(false)
+    favouritesLoadedRef.current = false; savedLoadedRef.current = false; boardsLoadedRef.current = false
+  }, [])
+
+const router = useRouter()
+
+const [refCode] = useState(() =>
     typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('ref') || ''
   )
-  const [user, setUser]       = useState(null)
 
-  // Tile sheets (Saved / Favorites / Collections) ride on ?sheet= so the
-  // back gesture closes them: opening PUSHES a real history entry; back
-  // pops it and lands on the profile untouched. Deep-linked ?sheet= (depth
-  // 1) closes via replace instead, so close never exits the app.
-  // Tile sheets are driven by LOCAL state, not useSearchParams: same-route
-  // query-only navigations don't reliably re-render this static+Suspense
-  // page (verified live 2026-09-08 — both push and replace failed to update
-  // searchParams on close). The URL/history entry exists only so the phone
-  // back gesture closes the sheet: opening pushes an entry (via the
-  // navHistory-wrapped history.pushState, so depth stays correct), and a
-  // popstate — back gesture OR our own back() — clears the local state,
-  // leaving the user on their untouched profile. Closing never exits the app.
-  const [openSheet, setOpenSheet] = useState(null)
-  const sheetPushedRef = useRef(false)
-  useEffect(() => {
-    const p = new URLSearchParams(window.location.search).get('sheet')
-    if (p && ['saved', 'favorites', 'collections'].includes(p)) setOpenSheet(p)
-    const onPop = () => { sheetPushedRef.current = false; setOpenSheet(null) }
-    window.addEventListener('popstate', onPop)
-    return () => window.removeEventListener('popstate', onPop)
-  }, [])
-  const openTileSheet = (key) => {
-    setOpenSheet(key)
-    sheetPushedRef.current = true
-    try { window.history.pushState({ ...(window.history.state || {}) }, '', `/profile?sheet=${key}`) } catch {}
-  }
-  const closeTileSheet = () => {
-    if (sheetPushedRef.current) { sheetPushedRef.current = false; window.history.back(); return }
-    setOpenSheet(null)
-    try { window.history.replaceState({ ...(window.history.state || {}) }, '', '/profile') } catch {}
-  }
-  const [favourites, setFavourites] = useState([])
-  const [favouritesLoading, setFavouritesLoading] = useState(false)
-  const favouritesLoadedRef = useRef(false)
-  const loadFavourites = async (uid) => {
-    if (favouritesLoadedRef.current) return
-    favouritesLoadedRef.current = true
-    setFavouritesLoading(true)
-    const { data: favRows } = await supabase.from('favourite_creators').select('creator_id').eq('user_id', uid)
-    const ids = (favRows || []).map(r => r.creator_id)
-    if (ids.length) {
-      const { data: profs } = await supabase.from('profiles')
-        .select('id, display_name, username, avatar_url, account_type, location')
-        .in('id', ids)
-      setFavourites(profs || [])
+const [user, setUser]       = useState(null)
+
+const [loading, setLoading] = useState(true)
+
+const loadUserData = useCallback(async (u) => {
+    const version = ++loadVersion.current.version
+    if (activeUserId.current !== u.id) {
+      clearUserData()
+      setLoading(true)
     }
-    setFavouritesLoading(false)
-  }
-  useEffect(() => {
-    if (!user || !openSheet) return
-    if (openSheet === 'saved') loadSavedTab(user.id)
-    else if (openSheet === 'collections') loadCollectionsTab(user.id)
-    else if (openSheet === 'favorites') loadFavourites(user.id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, openSheet])
-  const [profile, setProfile] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [managingSubscription, setManagingSubscription] = useState(false)
-
-  // Auth state
-  const [mode, setMode]                   = useState('login')
-  const [email, setEmail]                 = useState('')
-  const [password, setPassword]           = useState('')
-  const [displayName, setDisplayName]     = useState('')
-  const [chosenType, setChosenType]       = useState(null)
-  const [error, setError]                 = useState('')
-  const [submitting, setSubmitting]       = useState(false)
-  const [termsAccepted, setTermsAccepted] = useState(false)
-  const [marketingConsent, setMarketingConsent] = useState(false)
-  const [resetMode, setResetMode]         = useState(false)
-  const [newPassword, setNewPassword]     = useState('')
-  const [resetDone, setResetDone]         = useState(false)
-  const [forgotSent, setForgotSent]       = useState(false)
-  const [needsAccountType, setNeedsAccountType] = useState(false)
-
-  // Avatar
-  const [uploadingAvatar, setUploadingAvatar] = useState(false)
-  const [cropFile, setCropFile]               = useState(null)
-
-  // Counts
-  const [savedCount, setSavedCount]       = useState(0)
-  const [followerCount, setFollowerCount] = useState(0)
-  const [followingCount, setFollowingCount] = useState(0)
-  const [favouritesCount, setFavouritesCount] = useState(0)
-  const [collectionsCount, setCollectionsCount] = useState(0)
-  const [upcomingCount, setUpcomingCount] = useState(0)
-  const [nextAppointment, setNextAppointment] = useState(null)
-  const [myDesigns, setMyDesigns]         = useState([])
-
-  // Tabs: My Designs / Saved / Collections (saved + collections lazy-load)
-  const [activeTab, setActiveTabState] = useState(() => {
-    try { return sessionStorage.getItem('lq-tab:/profile') } catch { return null }
-  })
-  const setActiveTab = (t) => {
-    setActiveTabState(t)
-    try { sessionStorage.setItem('lq-tab:/profile', t) } catch {}
-  }
-  const [savedDesigns, setSavedDesigns] = useState([])
-  const [boards, setBoards] = useState([])
-  const [boardCounts, setBoardCounts] = useState({})
-  const savedLoadedRef = useRef(false)
-  const boardsLoadedRef = useRef(false)
-  const [savedLoading, setSavedLoading] = useState(false)
-  const [boardsLoading, setBoardsLoading] = useState(false)
-  // Tab grids load AFTER the profile object (lazily / at the end of
-  // loadUserData), so scroll restore must wait for the CURRENT tab's grid —
-  // gating ready on !!profile alone restored against a short page and
-  // clamped to the top (only bit rows that navigate away; sheets don't
-  // unmount the profile so they were unaffected).
-  const [savedLoaded, setSavedLoaded] = useState(false)
-  const [boardsLoaded, setBoardsLoaded] = useState(false)
-
-  // Salon posts (Updates)
-  const [myPosts, setMyPosts]           = useState([])
-  const [postModalOpen, setPostModalOpen] = useState(false)
-  const [postText, setPostText]         = useState('')
-  const [editingPostId, setEditingPostId] = useState(null)
-  const [postSaving, setPostSaving]     = useState(false)
-
-  // Settings sheet + edit mode
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const [editOpen, setEditOpen]         = useState(false)
-
-  // Expandable sections
-  const [expanded, setExpanded] = useState({})
-  const toggle = (key) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }))
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) loadUserData(session.user)
-      else setLoading(false)
-    })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (_event === 'PASSWORD_RECOVERY') { setResetMode(true); return }
-      if (session?.user) loadUserData(session.user)
-      else { setUser(null); setProfile(null); setLoading(false) }
-    })
-    return () => subscription.unsubscribe()
-  }, [])
-
-  const loadUserData = async (u) => {
+    activeUserId.current = u.id
     setUser(u)
     const { data: prof } = await supabase.from('profiles').select('*').eq('id', u.id).single()
-    // Health notes + booking notes live in their own RLS tables now, not on the
-    // profiles view. Read the owner's rows and merge them in so the Nail Health
-    // section shows the real values (and stays correct after edits, which write
-    // to those tables — the view's own copies are ignored/being retired).
-    const [{ data: health }, { data: bnotes }] = await Promise.all([
-      supabase.from('client_health_notes').select('allergies, product_sensitivities, removal_needed, share_with_tech').eq('user_id', u.id).maybeSingle(),
+    if (version !== loadVersion.current.version) return
+    const [{ data: health }, { data: bookingNotes }] = await Promise.all([
+      supabase.from('client_health_notes').select('allergies,product_sensitivities,removal_needed,share_with_tech').eq('user_id', u.id).maybeSingle(),
       supabase.from('client_booking_notes').select('booking_notes').eq('user_id', u.id).maybeSingle(),
     ])
-    setProfile(prof ? {
-      ...prof,
-      allergies: health?.allergies ?? null,
-      product_sensitivities: health?.product_sensitivities ?? [],
-      removal_needed: health?.removal_needed ?? false,
-      share_with_tech: health?.share_with_tech ?? false,
-      booking_notes: bnotes?.booking_notes ?? null,
-    } : prof)
+    if (version !== loadVersion.current.version) return
+    setProfile({ ...prof, ...(health || {}), ...(bookingNotes ? { booking_notes: bookingNotes.booking_notes } : {}) })
     // New users (onboarding_complete === false explicitly) → send to onboarding
     if (prof?.onboarding_complete === false) {
       router.push(refCode ? `/onboarding?ref=${encodeURIComponent(refCode)}` : '/onboarding')
       return
     }
-    if (!prof?.account_type) setNeedsAccountType(true)
-    const today = new Date().toISOString().split('T')[0]
-    const [
-      { count: sc },
-      { count: frs },
-      { count: fng },
-      { count: fav },
-      { count: boardCount },
-      { data: upcomingRows, count: upc },
-    ] = await Promise.all([
-      supabase.from('saved_designs').select('*', { count: 'exact', head: true }).eq('user_id', u.id),
+    setNeedsAccountType(!prof?.account_type)
+    const { count: sc } = await supabase.from('saved_designs').select('*', { count: 'exact', head: true }).eq('user_id', u.id)
+    if (version !== loadVersion.current.version) return
+    setSavedCount(sc || 0)
+    const [{ count: frs }, { count: fng }] = await Promise.all([
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', u.id),
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', u.id),
-      supabase.from('favourite_creators').select('*', { count: 'exact', head: true }).eq('user_id', u.id),
-      supabase.from('moodboards').select('*', { count: 'exact', head: true }).eq('user_id', u.id),
-      supabase.from('bookings')
-        .select('id, booking_date, start_time, status, creator_id, service:services(name)', { count: 'exact' })
-        .eq('client_id', u.id)
-        .in('status', ['pending', 'confirmed'])
-        .gte('booking_date', today)
-        .order('booking_date', { ascending: true })
-        .order('start_time', { ascending: true })
-        .limit(1),
     ])
-    setSavedCount(sc || 0)
+    if (version !== loadVersion.current.version) return
     setFollowerCount(frs || 0)
     setFollowingCount(fng || 0)
-    setFavouritesCount(fav || 0)
-    setCollectionsCount(boardCount || 0)
-    setUpcomingCount(upc || 0)
-    const next = upcomingRows?.[0]
-    if (next) {
-      const { data: creatorProf } = await supabase
-        .from('profiles')
-        .select('id, display_name, username, avatar_url, account_type, location')
-        .eq('id', next.creator_id)
-        .single()
-      setNextAppointment({ ...next, creator: creatorProf || null })
-    } else {
-      setNextAppointment(null)
-    }
     if (prof?.account_type === 'creator' || prof?.account_type === 'salon') {
       const [{ data: designs }, { data: posts }] = await Promise.all([
         supabase.from('designs').select('*').eq('created_by', u.id)
@@ -549,14 +477,75 @@ export default function ProfilePage() {
           .order('created_at', { ascending: false }),
         supabase.from('salon_posts').select('*').eq('creator_id', u.id).order('created_at', { ascending: false }),
       ])
+      if (version !== loadVersion.current.version) return
       setMyDesigns(designs || [])
       setMyPosts(posts || [])
     }
     setLoading(false)
+  }, [router, refCode, clearUserData])
+
+const [password, setPassword]           = useState('')
+
+useEffect(() => {
+    let active = true
+    const requestState = loadVersion.current
+    let authChanged = false
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!active || authChanged) return
+      if (session?.user) loadUserData(session.user)
+      else setLoading(false)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      authChanged = true
+      if (_event === 'PASSWORD_RECOVERY') {
+        loadVersion.current.version++; clearUserData()
+        activeUserId.current = session?.user?.id || null
+        setUser(session?.user || null); setResetMode(true); setLoading(false)
+        return
+      }
+      if (session?.user) loadUserData(session.user)
+      else {
+        loadVersion.current.version++; activeUserId.current = null
+        clearUserData(); setUser(null); setLoading(false); setPassword('')
+      }
+    })
+    return () => { active = false; activeUserId.current = null; requestState.version++; subscription.unsubscribe() }
+  }, [loadUserData, clearUserData])
+
+const openTileSheet = (key) => {
+    setOpenSheet(key)
+    sheetPushedRef.current = true
+    try { window.history.pushState({ ...(window.history.state || {}) }, '', `/profile?sheet=${key}`) } catch {}
   }
 
-  // Lazy loads for the Saved / Collections tabs (same queries as /saved)
-  const loadSavedTab = async (uid) => {
+const closeTileSheet = () => {
+    if (sheetPushedRef.current) { sheetPushedRef.current = false; window.history.back(); return }
+    setOpenSheet(null)
+    try { window.history.replaceState({ ...(window.history.state || {}) }, '', '/profile') } catch {}
+  }
+
+const loadFavourites = async (uid) => {
+    const version = loadVersion.current.version
+    const current = () => activeUserId.current === uid && loadVersion.current.version === version
+    if (favouritesLoadedRef.current) return
+    favouritesLoadedRef.current = true
+    setFavouritesLoading(true)
+    const { data: favRows } = await supabase.from('favourite_creators').select('creator_id').eq('user_id', uid)
+    if (!current()) return
+    const ids = (favRows || []).map(r => r.creator_id)
+    if (ids.length) {
+      const { data: profs } = await supabase.from('profiles')
+        .select('id, display_name, username, avatar_url, account_type, location')
+        .in('id', ids)
+      if (!current()) return
+      setFavourites(profs || [])
+    }
+    setFavouritesLoading(false)
+  }
+
+const loadSavedTab = async (uid) => {
+    const version = loadVersion.current.version
+    const current = () => activeUserId.current === uid && loadVersion.current.version === version
     if (savedLoadedRef.current) return
     savedLoadedRef.current = true
     setSavedLoading(true)
@@ -564,12 +553,15 @@ export default function ProfilePage() {
       .from('saved_designs').select('design_id, designs(*)')
       .eq('user_id', uid).order('saved_at', { ascending: false }).limit(200)
     if (savedError) console.error('saved designs fetch failed:', savedError)
+    if (!current()) return
     setSavedDesigns(data?.map(r => r.designs).filter(Boolean) || [])
     setSavedLoading(false)
     setSavedLoaded(true)
   }
 
-  const loadCollectionsTab = async (uid) => {
+const loadCollectionsTab = async (uid) => {
+    const version = loadVersion.current.version
+    const current = () => activeUserId.current === uid && loadVersion.current.version === version
     if (boardsLoadedRef.current) return
     boardsLoadedRef.current = true
     setBoardsLoading(true)
@@ -586,6 +578,7 @@ export default function ProfilePage() {
     }
     const data = (rawBoards || []).map(b => ({ ...b, __coverDims: coverDims[b.cover_image_url] || null }))
     if (boardsError) console.error('moodboards fetch failed:', boardsError)
+    if (!current()) return
     setBoards(data || [])
     if (data?.length) {
       const { data: countData } = await supabase
@@ -593,29 +586,85 @@ export default function ProfilePage() {
         .in('moodboard_id', data.map(b => b.id))
       const c = {}
       countData?.forEach(r => { c[r.moodboard_id] = (c[r.moodboard_id] || 0) + 1 })
+      if (!current()) return
       setBoardCounts(c)
     }
     setBoardsLoading(false)
     setBoardsLoaded(true)
   }
 
-  const isCreatorType = profile?.account_type === 'creator' || profile?.account_type === 'salon'
-  const currentTab = activeTab ?? (isCreatorType ? 'designs' : 'saved')
-  // Per-tab readiness: 'designs' (My Designs) loads inside loadUserData so
-  // !loading covers it; 'saved'/'collections' load lazily, so wait for their
-  // loaded flag. Restore then runs against the tab's full height.
-  const tabReady = currentTab === 'saved' ? savedLoaded : currentTab === 'collections' ? boardsLoaded : true
-  useScrollMemory(currentTab, !!profile && !loading && tabReady)
+useEffect(() => {
+    if (!user || !openSheet) return
+    let active=true
+    queueMicrotask(() => {
+      if (!active || activeUserId.current !== user.id) return
+      if (openSheet === 'saved') loadSavedTab(user.id)
+      else if (openSheet === 'collections') loadCollectionsTab(user.id)
+      else if (openSheet === 'favorites') loadFavourites(user.id)
+    })
+    return () => { active=false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, openSheet])
 
-  useEffect(() => {
+const [mode, setMode]                   = useState('login')
+
+const [email, setEmail]                 = useState('')
+
+const [displayName, setDisplayName]     = useState('')
+
+const [chosenType, setChosenType]       = useState(null)
+
+const [termsAccepted, setTermsAccepted] = useState(false)
+
+const [marketingConsent, setMarketingConsent] = useState(false)
+
+const [forgotSent, setForgotSent]       = useState(false)
+
+const [favouritesCount, setFavouritesCount] = useState(0)
+
+const [collectionsCount, setCollectionsCount] = useState(0)
+
+const [upcomingCount, setUpcomingCount] = useState(0)
+
+const [nextAppointment, setNextAppointment] = useState(null)
+
+const [activeTab, setActiveTabState] = useState(() => {
+    try { return sessionStorage.getItem('lq-tab:/profile') } catch { return null }
+  })
+
+const setActiveTab = (t) => {
+    setActiveTabState(t)
+    try { sessionStorage.setItem('lq-tab:/profile', t) } catch {}
+  }
+
+const toggle = (key) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }))
+
+const isCreatorType = profile?.account_type === 'creator' || profile?.account_type === 'salon'
+
+const currentTab = activeTab ?? (isCreatorType ? 'designs' : 'saved')
+
+const tabReady = currentTab === 'saved' ? savedLoaded : currentTab === 'collections' ? boardsLoaded : true
+
+useScrollMemory(currentTab, !!profile && !loading && tabReady)
+
+useEffect(() => {
     if (!user || loading) return
-    if (currentTab === 'saved') loadSavedTab(user.id)
-    if (currentTab === 'collections') loadCollectionsTab(user.id)
+    let active=true
+    queueMicrotask(() => {
+      if (!active || activeUserId.current !== user.id) return
+      if (currentTab === 'saved') loadSavedTab(user.id)
+      if (currentTab === 'collections') loadCollectionsTab(user.id)
+    })
+    return () => { active=false }
   }, [user, loading, currentTab])
 
-  const saveField = async (field, value) => {
+const saveField = async (field, value) => {
+    const accountId = user?.id, version = accountEpoch.current
     try {
       const { data: { session } } = await supabase.auth.getSession()
+      if (version !== accountEpoch.current || !accountId || session?.user?.id !== accountId || activeUserId.current !== accountId) {
+        throw new Error('Your account changed. Reload your profile before saving.')
+      }
       const res = await fetch('/api/update-profile', {
         method: 'POST',
         headers: {
@@ -626,6 +675,7 @@ export default function ProfilePage() {
       })
       const json = await res.json().catch(() => ({}))
       if (!res.ok || json.error) throw new Error(json.error || 'Failed to save')
+      if (version !== accountEpoch.current || activeUserId.current !== accountId) return false
       setProfile(prev => ({ ...prev, [field]: value }))
       return true
     } catch (err) {
@@ -634,20 +684,25 @@ export default function ProfilePage() {
     }
   }
 
-  const openNewPost = () => { setEditingPostId(null); setPostText(''); setPostModalOpen(true) }
-  const openEditPost = (post) => { setEditingPostId(post.id); setPostText(post.body); setPostModalOpen(true) }
-  const closePostModal = () => { setPostModalOpen(false); setPostText(''); setEditingPostId(null) }
+const openNewPost = () => { setEditingPostId(null); setPostText(''); setPostModalOpen(true) }
 
-  const handleSubmitPost = async () => {
+const openEditPost = (post) => { setEditingPostId(post.id); setPostText(post.body); setPostModalOpen(true) }
+
+const closePostModal = () => { setPostModalOpen(false); setPostText(''); setEditingPostId(null) }
+
+const handleSubmitPost = async () => {
     if (!postText.trim() || postSaving) return
+    const accountId = user?.id
     setPostSaving(true)
     let postError = null
     if (editingPostId) {
       const { error } = await supabase.from('salon_posts').update({ body: postText.trim(), updated_at: new Date().toISOString() }).eq('id', editingPostId)
+      if (activeUserId.current !== accountId) return
       postError = error
       if (!error) setMyPosts(prev => prev.map(p => p.id === editingPostId ? { ...p, body: postText.trim() } : p))
     } else {
       const { data, error } = await supabase.from('salon_posts').insert({ creator_id: user.id, body: postText.trim() }).select().single()
+      if (activeUserId.current !== accountId) return
       postError = error
       if (data) setMyPosts(prev => [data, ...prev])
     }
@@ -659,14 +714,14 @@ export default function ProfilePage() {
     closePostModal()
   }
 
-  const handleDeletePost = async (postId) => {
+const handleDeletePost = async (postId) => {
     if (!confirm('Delete this update?')) return
     const { error } = await supabase.from('salon_posts').delete().eq('id', postId)
     if (error) { alert('Failed to delete update. Please try again.'); return }
     setMyPosts(prev => prev.filter(p => p.id !== postId))
   }
 
-  const toggleChip = async (field, item, single) => {
+const toggleChip = async (field, item, single) => {
     const current = profile?.[field]
     const next = single
       ? (current === item ? null : item)
@@ -674,17 +729,20 @@ export default function ProfilePage() {
     await saveField(field, next)
   }
 
-  // ── Auth handlers ──────────────────────────────────────────────────────
-  const handleSignUpStep1 = (e) => {
+const handleSignUpStep1 = (e) => {
     e.preventDefault()
     if (password.length < 6) { setError('Password must be at least 6 characters'); return }
     if (!displayName.trim()) { setError('Please enter a display name'); return }
+    if (!ageConfirmed) { setError('You must be 18 or older to create a LaQue account'); return }
     if (!termsAccepted) { setError('Please accept the Terms & Privacy Policy to continue'); return }
     setError(''); setMode('choose-type')
   }
 
-  const setAccountType = async (accountType, name) => {
+const setAccountType = async (accountType, name) => {
     const { data: { session } } = await supabase.auth.getSession()
+    if (!user?.id || session?.user?.id !== user.id || activeUserId.current !== user.id) {
+      throw new Error('Your account changed. Reload your profile before saving.')
+    }
     const res = await fetch('/api/set-account-type', {
       method: 'POST',
       headers: {
@@ -697,47 +755,68 @@ export default function ProfilePage() {
     if (!res.ok || json.error) throw new Error(json.error || 'Failed to set account type')
   }
 
-  const handleCreateAccount = async () => {
+const handleCreateAccount = async () => {
     if (!chosenType) return
+    if (!ageConfirmed || !termsAccepted) {setError('Confirm you are 18 or older and acknowledge the Privacy Policy');return}
     setSubmitting(true); setError('')
-    const { data, error } = await supabase.auth.signUp({ email, password })
-    if (error) { setError(error.message); setSubmitting(false); return }
-    if (data.user) {
-      try {
-        await setAccountType(chosenType, displayName.trim())
-        await loadUserData(data.user)
-      } catch (err) {
-        setError(err.message)
-      }
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email, password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/profile${refCode ? `?ref=${encodeURIComponent(refCode)}` : ''}`,
+          data: { account_type: chosenType, display_name: displayName.trim(),age_confirmed:true,privacy_accepted:true,privacy_policy_version:"2026-10-13" },
+        },
+      })
+      if (error) throw error
+      if (data.session?.user) await loadUserData(data.session.user)
+      else { setConfirmationSent(true); setMode('login') }
+    } catch (err) {
+      setError(err.message || 'Could not create your account. Please try again.')
+    } finally {
+      setSubmitting(false)
     }
-    setSubmitting(false)
   }
 
-  const handleLogin = async (e) => {
+const handleLogin = async (e) => {
     e.preventDefault(); setError(''); setSubmitting(true)
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) setError(error.message)
     setSubmitting(false)
   }
 
-  const handleForgotPassword = async (e) => {
+const handleForgotPassword = async (e) => {
     e.preventDefault(); setError(''); setSubmitting(true)
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: 'https://laque.app/profile' })
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/profile` })
     if (error) setError(error.message)
     else setForgotSent(true)
     setSubmitting(false)
   }
 
-  const handleGoogleSignIn = async () => {
-    await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/profile`, queryParams: { prompt: 'select_account' } } })
+const handleGoogleSignIn = async () => {
+    if (submitting) return
+    setSubmitting(true); setError('')
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/profile${refCode ? `?ref=${encodeURIComponent(refCode)}` : ''}`,
+          queryParams: { prompt: 'select_account' },
+        },
+      })
+      if (error) throw error
+    } catch (error) {
+      setError(error.message || 'Google sign-in could not be started. Please retry.')
+    } finally { setSubmitting(false) }
   }
 
-  const handleSetGoogleAccountType = async () => {
+const handleSetGoogleAccountType = async () => {
     if (!chosenType) return
+    if (!ageConfirmed || !termsAccepted) {setError('Confirm you are 18 or older and acknowledge the Privacy Policy');return}
     setSubmitting(true); setError('')
     const name = displayName.trim() || user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User'
     try {
       await setAccountType(chosenType, name)
+      if (activeUserId.current !== user.id) return
       await loadUserData(user)
     } catch (err) {
       setError(err.message)
@@ -745,7 +824,7 @@ export default function ProfilePage() {
     setSubmitting(false)
   }
 
-  const handlePin = async (design) => {
+const handlePin = async (design) => {
     const newVal = !design.is_pinned
     const { error } = await supabase.from('designs').update({ is_pinned: newVal }).eq('id', design.id)
     if (error) { alert('Failed to update. Please try again.'); return }
@@ -758,26 +837,29 @@ export default function ProfilePage() {
     })
   }
 
-  const handleBecomeCreator = async () => {
+const handleBecomeCreator = async () => {
     if (!confirm('Switch your account to a Creator account?')) return
     try {
       await setAccountType('creator')
+      if (activeUserId.current !== user.id) return
       setProfile(prev => ({ ...prev, account_type: 'creator' }))
     } catch (err) {
       alert(err.message || 'Something went wrong. Please try again.')
     }
   }
 
-  const handleManageSubscription = async () => {
+const handleManageSubscription = async () => {
     if (managingSubscription) return
     setManagingSubscription(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
+      if (!user?.id || session?.user?.id !== user.id || activeUserId.current !== user.id) throw new Error('Your account changed. Reload before managing billing.')
       const res = await fetch('/api/create-billing-portal-session', {
         method: 'POST',
         headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
       })
       const data = await res.json()
+      if (activeUserId.current !== user.id) return
       if (data.url) window.location.href = data.url
       else { alert(data.error || 'Something went wrong.'); setManagingSubscription(false) }
     } catch {
@@ -786,65 +868,64 @@ export default function ProfilePage() {
     }
   }
 
-  const handleSetNewPassword = async (e) => {
+const handleSetNewPassword = async (e) => {
     e.preventDefault()
     if (newPassword.length < 6) { setError('Password must be at least 6 characters'); return }
     setSubmitting(true); setError('')
-    const { error } = await supabase.auth.updateUser({ password: newPassword })
-    if (error) setError(error.message)
-    else { setResetDone(true); setResetMode(false) }
-    setSubmitting(false)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!user?.id || session?.user?.id !== user.id || activeUserId.current !== user.id) {
+        throw new Error('Your account changed. Open the recovery link again before resetting your password.')
+      }
+      await updateSessionPassword(session, newPassword)
+      if (activeUserId.current !== user.id) return
+      setResetDone(true); setResetMode(false)
+      await loadUserData(user)
+    } catch (error) {
+      setError(error.message || 'Could not update your password. Please retry.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  const handleLogout       = async () => { await supabase.auth.signOut() }
-  const handleDeleteAccount = async () => {
-    if (!confirm('Delete your account permanently? This cannot be undone.')) return
-    await supabase.rpc('delete_own_account')
-    await supabase.auth.signOut()
-  }
+const handleLogout       = async () => { await supabase.auth.signOut() }
 
-  const handleAvatarPick = (e) => {
+const handleAvatarPick = (e) => {
     const file = e.target.files[0]
     if (file) setCropFile(file)
     e.target.value = ''
   }
 
-  const handleCroppedUpload = async (croppedFile) => {
+const handleCroppedUpload = async (croppedFile) => {
     setCropFile(null)
     if (!user) return
     setUploadingAvatar(true)
-    // Through /api/upload-image (shared resize+WebP pipeline) — direct
-    // client uploads previously stored the raw crop untransformed.
-    const { data: { session } } = await supabase.auth.getSession()
-    const fd = new FormData()
-    fd.append('file', croppedFile)
-    fd.append('purpose', 'avatar')
-    const res = await fetch('/api/upload-image', {
-      method: 'POST',
-      headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
-      body: fd,
-    })
-    const json = await res.json().catch(() => ({}))
-    if (!res.ok || json.error) { alert('Upload failed: ' + (json.error || res.status)); setUploadingAvatar(false); return }
-    const bustedUrl = `${json.publicUrl}?t=${Date.now()}`
-    await saveField('avatar_url', bustedUrl)
-    setUploadingAvatar(false)
+    const actor = user.id, version = accountEpoch.current
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (version !== accountEpoch.current || session?.user.id !== actor || activeUserId.current !== actor) throw new Error('Your account changed. Please try again.')
+      const form = new FormData(); form.set('file', croppedFile); form.set('purpose', 'avatar')
+      const response = await fetch('/api/upload-image', { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` }, body: form })
+      const result = await response.json()
+      if (version !== accountEpoch.current) return
+      if (!response.ok) throw new Error(result.error || 'Upload failed')
+      await saveField('avatar_url', result.publicUrl)
+    } catch (error) { if (version === accountEpoch.current) alert(error.message) }
+    finally { if (version === accountEpoch.current) setUploadingAvatar(false) }
   }
 
-  const removeAvatar = async () => {
+const removeAvatar = async () => {
     if (!confirm('Remove profile photo?')) return
     await saveField('avatar_url', null)
   }
 
-  // ── Loading ────────────────────────────────────────────────────────────
-  if (loading) return (
+if (loading) return (
     <Shell>
       <div style={{ padding: '24px', ...ui(300, 14, MUTED) }}>Loading...</div>
     </Shell>
   )
 
-  // ── Password recovery ──────────────────────────────────────────────────
-  if (resetMode) {
+if (resetMode) {
     return (
       <Shell>
         <div style={{ padding: 'calc(env(safe-area-inset-top) + 32px) 24px 140px' }}>
@@ -863,14 +944,13 @@ export default function ProfilePage() {
     )
   }
 
-  // ── Forgot password ────────────────────────────────────────────────────
-  if (!user && mode === 'forgot') {
+if (!user && mode === 'forgot') {
     return (
       <Shell>
         <div style={{ padding: 'calc(env(safe-area-inset-top) + 32px) 24px 140px' }}>
           <div style={{ marginBottom: '28px', color: 'var(--lq-white)' }}><LaqueWordmark height={24} /></div>
           <h1 style={{ ...ui(600, 24), letterSpacing: '-0.02em', marginBottom: '4px' }}>Reset password</h1>
-          <p style={{ ...ui(300, 14, MUTED), marginBottom: '32px' }}>We'll send a reset link to your email</p>
+          <p style={{ ...ui(300, 14, MUTED), marginBottom: '32px' }}>We&apos;ll send a reset link to your email</p>
           {forgotSent ? (
             <div style={{ ...sectionCard, padding: '20px', textAlign: 'center' }}>
               <p style={{ ...ui(500, 15), marginBottom: '8px' }}>Check your email</p>
@@ -894,26 +974,25 @@ export default function ProfilePage() {
     )
   }
 
-  // ── Choose account type ────────────────────────────────────────────────
-  const accountTypes = [
+const accountTypes = [
     { type: 'user',    label: 'Nail Lover',             desc: 'Browse, save, and discover nail designs' },
     { type: 'creator', label: 'Nail Artist / Nail Tech', desc: 'Publish your work and build your portfolio' },
     { type: 'salon',   label: 'Salon Owner',             desc: "Showcase your salon's designs and manage your team" },
   ]
 
-  const typeCard = (active) => ({
+const typeCard = (active) => ({
     background: active ? BTN_GRADIENT : PANEL,
     border: active ? '1px solid transparent' : PANEL_BORDER,
     borderRadius: '16px', padding: '16px', textAlign: 'left', cursor: 'pointer', fontFamily: 'var(--lq-font-ui)',
   })
 
-  if (!user && mode === 'choose-type') {
+if (!user && mode === 'choose-type') {
     return (
       <Shell>
         <div style={{ padding: 'calc(env(safe-area-inset-top) + 32px) 24px 140px' }}>
           <div style={{ marginBottom: '28px', color: 'var(--lq-white)' }}><LaqueWordmark height={24} /></div>
           <h1 style={{ ...ui(600, 24), letterSpacing: '-0.02em', marginBottom: '4px' }}>I am a...</h1>
-          <p style={{ ...ui(300, 14, MUTED), marginBottom: '28px' }}>Choose how you'll use laQue</p>
+          <p style={{ ...ui(300, 14, MUTED), marginBottom: '28px' }}>Choose how you&apos;ll use laQue</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
             {accountTypes.map(({ type, label, desc }) => (
               <button key={type} onClick={() => setChosenType(type)} style={typeCard(chosenType === type)}>
@@ -933,8 +1012,7 @@ export default function ProfilePage() {
     )
   }
 
-  // ── Google user: pick account type ────────────────────────────────────
-  if (user && needsAccountType) {
+if (user && needsAccountType) {
     const suggestedName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || ''
     return (
       <Shell>
@@ -961,8 +1039,15 @@ export default function ProfilePage() {
     )
   }
 
-  // ── Login / Signup ─────────────────────────────────────────────────────
-  if (!user) {
+if (!user && confirmationSent) return (
+  <Shell><div style={{ padding: '48px 24px' }}>
+    <h1 style={ui(600, 28)}>Check your email</h1>
+    <p style={ui(400, 15)}>Confirm your email before signing in to complete your profile.</p>
+    <button onClick={() => { setConfirmationSent(false); setMode('login') }} style={primaryBtn}>Back to sign in</button>
+  </div></Shell>
+)
+
+if (!user) {
     return (
       <Shell>
         <div style={{ padding: 'calc(env(safe-area-inset-top) + 32px) 24px 140px' }}>
@@ -979,13 +1064,17 @@ export default function ProfilePage() {
             )}
             <input type="email" placeholder="Email" aria-label="Email" value={email} onChange={e => setEmail(e.target.value)} required style={inp} />
             <input type="password" placeholder="Password" aria-label="Password" value={password} onChange={e => setPassword(e.target.value)} required style={inp} />
-            {mode === 'signup' && (
+            {(
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: '4px' }}>
+                <label style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <input type="checkbox" checked={ageConfirmed} onChange={event => setAgeConfirmed(event.target.checked)} />
+                  <span style={ui(400, 12, MUTED)}>I am 18 or older</span>
+                </label>
                 <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
                   <input type="checkbox" checked={termsAccepted} onChange={e => setTermsAccepted(e.target.checked)}
                     style={{ marginTop: '2px', accentColor: ACCENT, flexShrink: 0 }} />
                   <span style={{ ...ui(300, 12, MUTED), lineHeight: 1.5 }}>
-                    I agree to the <span style={{ color: ACCENT }}>Terms of Service</span> and <span style={{ color: ACCENT }}>Privacy Policy</span>
+                    I agree to the <Link href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: ACCENT }}>Terms of Service</Link> and <Link href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: ACCENT }}>Privacy Policy</Link>
                   </span>
                 </label>
                 <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
@@ -1037,27 +1126,33 @@ export default function ProfilePage() {
     )
   }
 
-  // ── LOGGED IN ──────────────────────────────────────────────────────────
-  const isCreator   = isCreatorType
-  const accountLabel = profile?.account_type === 'creator' ? 'NAIL ARTIST' : profile?.account_type === 'salon' ? 'SALON' : 'NAIL LOVER'
-  const initials    = (profile?.display_name || user.email || '?').slice(0, 2).toUpperCase()
-  const completion  = calcCompletion(profile, user)
+const isCreator   = isCreatorType
 
-  // Per-section completion
-  const bookingPct = Math.round(([profile?.preferred_contact, profile?.booking_area].filter(Boolean).length / 2) * 100)
-  const stylePct   = Math.round(([profile?.nail_shape, profile?.nail_length, profile?.nail_colors?.length, profile?.nail_finishes?.length, profile?.budget_range].filter(Boolean).length / 5) * 100)
-  const healthPct  = (profile?.allergies || profile?.product_sensitivities?.length) ? 100 : 0
+const accountLabel = profile?.account_type === 'creator' ? 'NAIL ARTIST' : profile?.account_type === 'salon' ? 'SALON' : 'NAIL LOVER'
 
-  const used    = profile?.weekly_uploads || 0
-  const isPro   = profile?.subscription_tier === 'pro_creator'
-  const atLimit = !isPro && used >= 5
+const initials    = (profile?.display_name || user.email || '?').slice(0, 2).toUpperCase()
 
-  const nextCreator = nextAppointment?.creator
-  const apptStatus = nextAppointment?.status === 'confirmed'
+const completion  = calcCompletion(profile, user)
+
+const bookingPct = Math.round(([profile?.preferred_contact, profile?.booking_area].filter(Boolean).length / 2) * 100)
+
+const stylePct   = Math.round(([profile?.nail_shape, profile?.nail_length, profile?.nail_colors?.length, profile?.nail_finishes?.length, profile?.budget_range].filter(Boolean).length / 5) * 100)
+
+const healthPct  = (profile?.allergies || profile?.product_sensitivities?.length) ? 100 : 0
+
+const used    = profile?.weekly_uploads || 0
+
+const isPro   = profile?.subscription_tier === 'pro_creator'
+
+const atLimit = !isPro && used >= 5
+
+const nextCreator = nextAppointment?.creator
+
+const apptStatus = nextAppointment?.status === 'confirmed'
     ? { label: 'Confirmed', bg: 'rgba(16,185,129,0.15)', color: '#10B981' }
     : { label: 'Pending',   bg: 'rgba(255,184,76,0.15)', color: '#FFB84C' }
 
-  const tiles = [
+const tiles = [
     { key: 'upcoming',    label: 'Upcoming',    count: upcomingCount,    href: '/appointments', icon: <CalendarIcon /> },
     { key: 'saved',       label: 'Saved',       count: savedCount,       sheet: 'saved',        icon: <BookmarkIcon /> },
     { key: 'favorites',   label: 'Favorites',   count: favouritesCount,  sheet: 'favorites',    icon: <HeartIcon size={16} /> },
@@ -1067,7 +1162,7 @@ export default function ProfilePage() {
     { key: 'credits',     label: 'Credits',     count: profile?.credit_balance ?? 0, href: '/buy-credits', icon: <MagicStarIcon size={16} /> },
   ]
 
-  const tileInner = (t) => (
+const tileInner = (t) => (
     <>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
         <span style={{ color: ACCENT, display: 'flex' }}>{t.icon}</span>
@@ -1076,19 +1171,21 @@ export default function ProfilePage() {
       <span style={ui(300, 11, MUTED)}>{t.label}</span>
     </>
   )
-  const tileStyle = { ...sectionCard, borderRadius: '16px', padding: '12px', textDecoration: 'none', display: 'block', minHeight: '44px', width: '100%', textAlign: 'left', border: sectionCard.border, cursor: 'pointer' }
-  const Tile = ({ t }) => t.sheet
+
+const tileStyle = { ...sectionCard, borderRadius: '16px', padding: '12px', textDecoration: 'none', display: 'block', minHeight: '44px', width: '100%', textAlign: 'left', border: sectionCard.border, cursor: 'pointer' }
+
+const Tile = ({ t }) => t.sheet
     ? <button onClick={() => openTileSheet(t.sheet)} style={tileStyle}>{tileInner(t)}</button>
     : <Link href={t.href} style={tileStyle}>{tileInner(t)}</Link>
 
-  const designCard = (design, { showState = false, showPin = false } = {}) => (
+const designCard = (design, { showState = false, showPin = false } = {}) => (
     <article key={design.id} style={{ position: 'relative' }}>
       <Link href={`/design/${design.id}`} style={{ textDecoration: 'none', display: 'block' }}>
         {/* Natural aspect, no crop — settled 2026-08-19 for design boards
             (baked-in titles get sliced by fixed-height crops). */}
         <div style={{ position: 'relative', width: '100%', borderRadius: '24px', overflow: 'hidden', background: PANEL, border: PANEL_BORDER }}>
           {design.image_url
-            ? <img src={design.image_url} alt={design.title || 'Design'} loading="lazy" decoding="async" width={design.image_width || undefined} height={design.image_height || undefined} style={{ width: '100%', height: 'auto', aspectRatio: design.image_width && design.image_height ? `${design.image_width} / ${design.image_height}` : undefined, display: 'block' }} />
+            ? <StorageImage src={design.image_url} alt={design.title || 'Design'} loading="lazy" decoding="async" width={design.image_width || undefined} height={design.image_height || undefined} style={{ width: '100%', height: 'auto', aspectRatio: design.image_width && design.image_height ? `${design.image_width} / ${design.image_height}` : undefined, display: 'block' }} />
             : <div style={{ width: '100%', aspectRatio: '1 / 1' }} />}
           {design.category && (
             <span style={{
@@ -1133,7 +1230,7 @@ export default function ProfilePage() {
     </article>
   )
 
-  return (
+return (
     <>
       {/* Overlays live OUTSIDE Shell: its zIndex:1 content wrapper is a
           stacking context, which resolved every overlay below the z-100
@@ -1222,7 +1319,7 @@ export default function ProfilePage() {
                   <Link key={b.id} href={`/moodboards/${b.id}`} style={{ textDecoration: 'none', display: 'block' }}>
                     <div style={{ width: '100%', borderRadius: '24px', overflow: 'hidden', background: PANEL, border: PANEL_BORDER }}>
                       {b.cover_image_url
-                        ? <img src={b.cover_image_url} alt="" loading="lazy" decoding="async" width={b.__coverDims?.image_width || undefined} height={b.__coverDims?.image_height || undefined} style={{ width: '100%', height: 'auto', aspectRatio: b.__coverDims ? `${b.__coverDims.image_width} / ${b.__coverDims.image_height}` : undefined, display: 'block' }} />
+                        ? <StorageImage src={b.cover_image_url} alt="" loading="lazy" decoding="async" width={b.__coverDims?.image_width || undefined} height={b.__coverDims?.image_height || undefined} style={{ width: '100%', height: 'auto', aspectRatio: b.__coverDims ? `${b.__coverDims.image_width} / ${b.__coverDims.image_height}` : undefined, display: 'block' }} />
                         : <div style={{ width: '100%', aspectRatio: '1 / 1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: MUTED }}><FolderIcon size={24} /></div>}
                     </div>
                     <p style={{ ...ui(600, 15), margin: '8px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</p>
@@ -1251,7 +1348,7 @@ export default function ProfilePage() {
                   <Link key={f.id} href={`/creator/${f.id}`} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', textDecoration: 'none', borderBottom: '1px solid rgba(255,255,255,0.08)', minHeight: '44px' }}>
                     <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255,255,255,0.15)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {f.avatar_url
-                        ? <img src={f.avatar_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ? <StorageImage src={f.avatar_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         : <span style={ui(400, 16)}>{(f.display_name || '?')[0].toUpperCase()}</span>}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -1269,7 +1366,7 @@ export default function ProfilePage() {
         <Sheet title="Settings" onClose={() => setSettingsOpen(false)}>
           <h2 style={{ ...ui(600, 20), margin: '0 0 16px' }}>Settings</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {profile?.subscription_tier && (
+            {(profile?.subscription_tier || profile?.stripe_customer_id) && (
               <button onClick={handleManageSubscription} disabled={managingSubscription}
                 style={{ ...menuRow, width: '100%', cursor: managingSubscription ? 'default' : 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
                 <span style={{ color: ACCENT, display: 'flex' }}><CardIcon /></span>
@@ -1286,20 +1383,13 @@ export default function ProfilePage() {
               <span style={{ ...ui(400, 15), flex: 1 }}>Log out</span>
               <span style={{ color: MUTED, display: 'flex' }}><ChevronRight /></span>
             </button>
-            <button onClick={handleDeleteAccount} style={{ ...menuRow, width: '100%', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
-              <span style={{ color: '#E07070', display: 'flex' }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
-                </svg>
-              </span>
-              <span style={{ ...ui(400, 15, '#E07070'), flex: 1 }}>Delete account</span>
-            </button>
+            <DeleteAccountButton key={user.id} userId={user.id} />
           </div>
           <p style={{ ...ui(300, 12, MUTED), textAlign: 'center', margin: '20px 0 0', paddingBottom: 'env(safe-area-inset-bottom)' }}>laQue · Version 0.2 · Beta</p>
         </Sheet>
       )}
 
-      <Shell avatarUrl={profile?.avatar_url}>
+      <Shell key={user.id} avatarUrl={profile?.avatar_url}>
 
       <div style={{ padding: 'calc(env(safe-area-inset-top) + 12px) 24px calc(env(safe-area-inset-bottom) + 140px)', display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
@@ -1325,7 +1415,7 @@ export default function ProfilePage() {
               <div style={{ width: '100px', height: '100px', borderRadius: '50%', border: `2px solid ${ACCENT}`, padding: '2px', boxSizing: 'content-box' }}>
                 <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: PANEL, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
                   {profile?.avatar_url
-                    ? <img src={profile.avatar_url} alt="Your avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ? <StorageImage src={profile.avatar_url} alt="Your avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     : <span style={ui(400, 30)}>{initials}</span>}
                   {uploadingAvatar && (
                     <div style={{ position: 'absolute', inset: 0, background: 'rgba(20,3,8,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
@@ -1397,7 +1487,7 @@ export default function ProfilePage() {
                 <EditRow label="Display name" field="display_name" value={profile?.display_name} placeholder="Your name" onSave={saveField} />
               </div>
               <div style={{ borderTop: PANEL_BORDER }}>
-                <UsernameRow value={profile?.username} />
+                <UsernameRow key={user.id} value={profile?.username} onSave={saveField} />
               </div>
               <div style={{ borderTop: PANEL_BORDER, padding: '14px 16px' }}>
                 <p style={{ ...ui(500, 11, MUTED), letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '6px' }}>Email</p>
@@ -1555,15 +1645,17 @@ export default function ProfilePage() {
                     <p style={{ ...ui(500, 11, MUTED), letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '10px' }}>Hand photo</p>
                     {profile?.hand_photo_url ? (
                       <div style={{ position: 'relative', display: 'inline-block' }}>
-                        <img src={profile.hand_photo_url} alt="Hand" style={{ width: '140px', height: '100px', objectFit: 'cover', borderRadius: '10px', border: PANEL_BORDER, display: 'block' }} />
+                        <StorageImage src={profile.hand_photo_url} alt="Hand" style={{ width: '140px', height: '100px', objectFit: 'cover', borderRadius: '10px', border: PANEL_BORDER, display: 'block' }} />
                         <button onClick={() => saveField('hand_photo_url', null)} aria-label="Remove hand photo"
                           style={{ position: 'absolute', top: '6px', right: '6px', width: '22px', height: '22px', borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
                       </div>
                     ) : (
                       <label style={{ cursor: 'pointer', display: 'inline-block' }}>
-                        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async (e) => {
+                        <input type="file" aria-label="Upload private hand photo" accept="image/*" style={{ display: 'none' }} onChange={async (e) => {
                           const file = e.target.files[0]; if (!file) return
+                          const actor = user.id, version = accountEpoch.current
                           const { data: { session } } = await supabase.auth.getSession()
+                          if (session?.user?.id !== actor || activeUserId.current !== actor || version !== accountEpoch.current) { alert('Your account changed. Please try again.'); return }
                           const fd = new FormData()
                           fd.append('file', file)
                           fd.append('purpose', 'hand-photo')
@@ -1574,6 +1666,7 @@ export default function ProfilePage() {
                           })
                           const json = await res.json().catch(() => ({}))
                           if (!res.ok || json.error) { alert('Upload failed: ' + (json.error || res.status)); return }
+                          if (activeUserId.current !== actor || version !== accountEpoch.current) return
                           await saveField('hand_photo_url', json.publicUrl)
                           e.target.value = ''
                         }} />
@@ -1641,7 +1734,7 @@ export default function ProfilePage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
               <div style={{ width: '40px', height: '40px', borderRadius: '20px', background: CHIP_BG, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {nextCreator?.avatar_url
-                  ? <img src={nextCreator.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ? <StorageImage src={nextCreator.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   : <span style={ui(500, 16, ACCENT)}>{(nextCreator?.display_name || nextCreator?.username || '?')[0].toUpperCase()}</span>}
               </div>
               <div style={{ minWidth: 0 }}>
@@ -1753,7 +1846,7 @@ export default function ProfilePage() {
                     <Link key={b.id} href={`/moodboards/${b.id}`} style={{ textDecoration: 'none', display: 'block' }}>
                       <div style={{ width: '100%', borderRadius: '24px', overflow: 'hidden', background: PANEL, border: PANEL_BORDER }}>
                         {b.cover_image_url
-                          ? <img src={b.cover_image_url} alt="" loading="lazy" decoding="async" width={b.__coverDims?.image_width || undefined} height={b.__coverDims?.image_height || undefined} style={{ width: '100%', height: 'auto', aspectRatio: b.__coverDims ? `${b.__coverDims.image_width} / ${b.__coverDims.image_height}` : undefined, display: 'block' }} />
+                          ? <StorageImage src={b.cover_image_url} alt="" loading="lazy" decoding="async" width={b.__coverDims?.image_width || undefined} height={b.__coverDims?.image_height || undefined} style={{ width: '100%', height: 'auto', aspectRatio: b.__coverDims ? `${b.__coverDims.image_width} / ${b.__coverDims.image_height}` : undefined, display: 'block' }} />
                           : <div style={{ width: '100%', aspectRatio: '1 / 1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: MUTED }}><FolderIcon size={24} /></div>}
                       </div>
                       <p style={{ ...ui(600, 15), margin: '8px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</p>
@@ -1786,7 +1879,7 @@ export default function ProfilePage() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {myPosts.map(post => {
-                  const diff = Date.now() - new Date(post.created_at).getTime()
+                  const diff = now - new Date(post.created_at).getTime()
                   const h = Math.floor(diff / 3600000)
                   const d = Math.floor(diff / 86400000)
                   const ago = d >= 1 ? `${d}d ago` : h >= 1 ? `${h}h ago` : 'Just now'

@@ -1,0 +1,1 @@
+Upstream decode-uri-component 0.5.0 from its npm release, including its MIT license. Only the ESM export is converted to CommonJS to support Expo Router 57’s query-string 7 dependency. This retains the upstream linear-time decoder fix for GHSA-vcc3-ghjq-m6fr. Remove the override when Expo Router updates its dependency.

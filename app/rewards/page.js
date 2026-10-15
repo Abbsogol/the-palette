@@ -1,9 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
-import BackButton from '@/components/ui/BackButton'
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+import BackButton from '@/components/ui/BackButton';
+import Link from 'next/link';
+
+
+
+
 
 const ACCENT = '#FF517F'
 const WHITE60 = 'rgba(255,255,255,0.6)'
@@ -46,12 +51,15 @@ function timeAgo(iso) {
 }
 
 export default function RewardsPage() {
-  const router = useRouter()
-  const [loading, setLoading] = useState(true)
-  const [totalPoints, setTotalPoints] = useState(0)
-  const [history, setHistory] = useState([])
+const router = useRouter()
 
-  useEffect(() => {
+const [loading, setLoading] = useState(true)
+
+const [totalPoints, setTotalPoints] = useState(0)
+
+const [history, setHistory] = useState([])
+
+useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session?.user) { router.push('/profile'); return }
       // Two queries: a capped one for the displayed history list, and a
@@ -68,23 +76,17 @@ export default function RewardsPage() {
       setTotalPoints((allPoints || []).reduce((sum, r) => sum + r.points, 0))
       setLoading(false)
     })
-  }, [])
+  }, [router])
 
-  const level = getLevel(totalPoints)
-  const nextLevel = LEVELS[LEVELS.findIndex(l => l.name === level.name) + 1]
-  const progressPct = nextLevel
+const level = getLevel(totalPoints)
+
+const nextLevel = LEVELS[LEVELS.findIndex(l => l.name === level.name) + 1]
+
+const progressPct = nextLevel
     ? Math.min(((totalPoints - level.min) / (nextLevel.min - level.min)) * 100, 100)
     : 100
 
-  const Shell = ({ children }) => (
-    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
-      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
-      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 100px)' }}>{children}</div>
-    </div>
-  )
-
-  if (loading) return (
+if (loading) return (
     <Shell>
       <div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <p style={ui(300, 14, WHITE60)}>Loading…</p>
@@ -92,7 +94,7 @@ export default function RewardsPage() {
     </Shell>
   )
 
-  return (
+return (
     <Shell>
       {/* Header */}
       <div style={{ padding: 'calc(env(safe-area-inset-top) + 16px) 20px 16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -163,3 +165,11 @@ export default function RewardsPage() {
     </Shell>
   )
 }
+
+const Shell = ({ children }) => (
+    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
+      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 100px)' }}>{children}</div>
+    </div>
+  )

@@ -1,10 +1,20 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter, useParams } from 'next/navigation'
-import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
-import BackButton from '@/components/ui/BackButton'
+import { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
+import BackButton from '@/components/ui/BackButton';
+
+// ── Palette from the booking frames (250:2526 Confirmed is the model) ──────
+import { useAccountAction } from '@/lib/use-account-action';
+import CheckoutSession from '@/components/CheckoutSession';
+import { bookingHasEnded, bookingZoneLabel, bookingCanTakeDeposit } from '@/lib/booking-time';
+
+
+
+
+
 
 // ── Palette from the booking frames (250:2526 Confirmed is the model) ──────
 const PANEL = 'rgba(255, 255, 255, 0.06)'
@@ -25,7 +35,7 @@ const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','
 function fmt12(t) {
   if (!t) return ''
   const [h, m] = t.slice(0,5).split(':').map(Number)
-  const ampm = h < 12 ? 'am' : 'pm'
+  const ampm = h % 24 < 12 ? 'am' : 'pm'
   const h12 = h % 12 === 0 ? 12 : h % 12
   return `${h12}${m > 0 ? `:${String(m).padStart(2,'0')}` : ''}${ampm}`
 }
@@ -73,26 +83,31 @@ function downloadIcs(booking, creator) {
   URL.revokeObjectURL(url)
 }
 
-export default function AppointmentDetailPage() {
+function AppointmentDetail({userId}) {
+const { run: runPayment, busy: payLoading } = useAccountAction(userId)
+const { run: runReview, busy: reviewLoading } = useAccountAction(userId)
+
   const { id } = useParams()
   const router = useRouter()
   const [booking, setBooking] = useState(null)
   const [currentUser, setCurrentUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
-  const [payLoading, setPayLoading] = useState(false)
+
   const [refDesign, setRefDesign] = useState(null)
   const [review, setReview] = useState(null)
   const [reviewRating, setReviewRating] = useState(0)
   const [reviewText, setReviewText] = useState('')
   const [hoverRating, setHoverRating] = useState(0)
-  const [reviewLoading, setReviewLoading] = useState(false)
+
   const [reviewSubmitted, setReviewSubmitted] = useState(false)
 
   useEffect(() => {
+    let active = true
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/profile'); return }
+      if (!active) return
+      if (user?.id !== userId) { router.push('/profile'); return }
       setCurrentUser(user)
 
       const { data } = await supabase
@@ -102,13 +117,17 @@ export default function AppointmentDetailPage() {
         .eq('client_id', user.id)
         .single()
 
-      if (!data) { setNotFound(true); setLoading(false); return }
+      if (!active) return
+
+      if (!data) { router.push('/appointments'); return }
 
       // Fetch creator profile + existing review in parallel
       const [{ data: creator }, { data: existingReview }] = await Promise.all([
-        supabase.from('profiles').select('id, display_name, avatar_url, username, is_verified, account_type, location').eq('id', data.creator_id).single(),
+        supabase.from('profiles').select('id, display_name, avatar_url, username, is_verified, account_type').eq('id', data.creator_id).single(),
         supabase.from('reviews').select('*').eq('booking_id', data.id).maybeSingle(),
       ])
+
+      if (!active) return
 
       if (existingReview) {
         setReview(existingReview)
@@ -117,70 +136,48 @@ export default function AppointmentDetailPage() {
         setReviewSubmitted(true)
       }
 
-      // Attached reference design (column may predate some rows — optional)
-      if (data.reference_design_id) {
-        const { data: ref } = await supabase.from('designs').select('id, title, image_url').eq('id', data.reference_design_id).maybeSingle()
-        if (ref) setRefDesign(ref)
-      }
-
       setBooking({ ...data, creator })
       setLoading(false)
     }
     init()
-  }, [id])
+    return () => { active = false }
+  }, [id, router, userId])
 
   const handlePayDeposit = async () => {
-    if (payLoading) return
-    setPayLoading(true)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch('/api/create-deposit-payment', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-        },
-        body: JSON.stringify({ bookingId: booking.id }),
+      const data = await runPayment(async session => {
+        const response = await fetch('/api/create-deposit-payment', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ bookingId: booking.id }),
+        })
+        const result = await response.json()
+        if (!response.ok || !result.url) throw new Error(result.error || 'Payment could not be prepared.')
+        return result
       })
-      const data = await res.json()
-      if (data.url) window.location.href = data.url
-      else { alert(data.error || 'Something went wrong.'); setPayLoading(false) }
-    } catch { alert('Something went wrong.'); setPayLoading(false) }
+      if (data?.url) window.location.href = data.url
+    } catch (error) { alert(error.message) }
   }
 
   const handleSubmitReview = async () => {
-    if (!reviewRating) return
-    setReviewLoading(true)
-    const payload = {
-      booking_id: booking.id,
-      reviewer_id: currentUser.id,
-      creator_id: booking.creator_id,
-      rating: reviewRating,
-      text: reviewText.trim() || null,
-    }
-    let reviewError = null
-    if (review) {
-      const { error } = await supabase.from('reviews').update({ rating: reviewRating, text: reviewText.trim() || null }).eq('id', review.id)
-      reviewError = error
-    } else {
-      const { error } = await supabase.from('reviews').insert(payload)
-      reviewError = error
-      if (!error) {
-        // Reward for leaving a review (first time only)
-        const { data: { session } } = await supabase.auth.getSession()
-        fetch('/api/add-reward', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) },
-          body: JSON.stringify({ reason: 'leave_review', ref_id: booking.id }),
-        })
-      }
-    }
-    setReviewLoading(false)
-    if (reviewError) {
-      alert('Failed to submit review. Please try again.')
-      return
-    }
-    setReviewSubmitted(true)
+    if (!reviewRating || reviewLoading) return
+    try {
+      const saved = await runReview(async session => {
+        const payload = { booking_id: booking.id, reviewer_id: currentUser.id, creator_id: booking.creator_id, rating: reviewRating, text: reviewText.trim() || null }
+        const query = review
+          ? supabase.from('reviews').update({ rating: reviewRating, text: reviewText.trim() || null }).eq('id', review.id).eq('reviewer_id', userId)
+          : supabase.from('reviews').insert(payload)
+        const { data, error } = await query.select('id').single()
+        if (error || !data?.id) throw new Error('Failed to submit review. Please try again.')
+        if (!review) {
+          fetch('/api/add-reward', {
+            method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+            body: JSON.stringify({ reason: 'leave_review', ref_id: booking.id }),
+          }).catch(() => {})
+        }
+        return data
+      })
+      if (saved) { setReview(saved); setReviewSubmitted(true) }
+    } catch (error) { alert(error.message) }
   }
 
   const shell = (children) => (
@@ -214,7 +211,7 @@ export default function AppointmentDetailPage() {
     cancelled: { label: 'Cancelled', color: WHITE50,   bg: 'rgba(255,255,255,0.08)' },
   }
   const s = statusMap[booking.status] || statusMap.pending
-  const showDeposit = booking.status === 'confirmed' && service?.deposit_amount > 0 && !booking.deposit_paid
+  const showDeposit = booking.status === 'confirmed' && service?.deposit_amount > 0 && bookingCanTakeDeposit(booking)
 
   // Status-led hero: Confirmed per frame 250:2526; Declined is the honest
   // extrapolated counterpart (no reason invented — the app records none);
@@ -442,4 +439,9 @@ export default function AppointmentDetailPage() {
       )}
     </>
   )
+}
+
+export default function AppointmentDetailPage() {
+  const { id } = useParams()
+  return <CheckoutSession title="Sign in to view appointments" description="Appointment details are private to the people involved.">{userId => <AppointmentDetail key={`${userId}:${id}`} userId={userId} />}</CheckoutSession>
 }

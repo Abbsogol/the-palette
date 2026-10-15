@@ -41,7 +41,7 @@ export default function StoryViewer({ stories: initialStories, currentUser, onCl
   const [imgReady, setImgReady] = useState(false)
 
   const indexRef = useRef(0)
-  indexRef.current = index
+  useEffect(() => { indexRef.current = index }, [index])
   const heldRef = useRef(false)
   const holdTimer = useRef(null)
   const touchStart = useRef(null)
@@ -220,12 +220,12 @@ export default function StoryViewer({ stories: initialStories, currentUser, onCl
       <div
         style={{ position: 'absolute', left: 0, top: 0, width: '35%', height: '75%', zIndex: 2, cursor: 'pointer' }}
         onPointerDown={onPointerDown} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
-        onClick={tap(prevStory)}
+        onClick={() => tap(prevStory)()}
       />
       <div
         style={{ position: 'absolute', right: 0, top: 0, width: '65%', height: '75%', zIndex: 2, cursor: 'pointer' }}
         onPointerDown={onPointerDown} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
-        onClick={tap(nextStory)}
+        onClick={() => tap(nextStory)()}
       />
 
       {/* Caption + actions */}

@@ -1,0 +1,11 @@
+import {it,expect,vi,beforeEach} from 'vitest';
+const m=vi.hoisted(()=>({user:vi.fn(),pilot:vi.fn(),stripe:vi.fn(),payment:vi.fn(),db:{}}));
+vi.mock('@/lib/auth',()=>({getSessionUser:m.user,serviceClient:m.db}));
+vi.mock('@/lib/lab-stripe',()=>({labStripePilot:m.pilot,checkedLabStripe:m.stripe,packageFor:key=>['monthly','tokens30','tokens100'].includes(key)}));
+vi.mock('@/lib/lab-stripe-native',()=>({createNativeLabPayment:m.payment}));
+import{POST}from '../../app/api/mobile/billing/stripe/native/route';
+const id='00000000-0000-4000-8000-000000000001';const req=body=>new Request('https://laque-beta.vercel.app/api/mobile/billing/stripe/native',{method:'POST',body:JSON.stringify(body)});
+beforeEach(()=>{vi.clearAllMocks();m.user.mockResolvedValue({id:'verified-pilot'});m.pilot.mockReturnValue(true);m.stripe.mockResolvedValue({});m.payment.mockResolvedValue({sandbox:true,clientSecret:'pi_test_secret_fixture',publishableKey:'pk_test_fixture'});});
+it('rejects signed-out and ordinary users before Stripe access',async()=>{m.user.mockResolvedValue(null);expect((await POST(req({action:'payment',id,package:'monthly'}))).status).toBe(401);m.user.mockResolvedValue({id:'ordinary'});m.pilot.mockReturnValue(false);expect((await POST(req({action:'payment',id,package:'monthly'}))).status).toBe(403);expect(m.stripe).not.toHaveBeenCalled();});
+it('binds the session user and fixed package; rejects arbitrary prices/actions',async()=>{expect((await POST(req({action:'payment',id,package:'free'}))).status).toBe(400);expect((await POST(req({action:'confirm',id,package:'monthly'}))).status).toBe(400);expect((await POST(req({action:'payment',id,package:'monthly',userId:'victim',amount:1}))).status).toBe(200);expect(m.payment).toHaveBeenCalledWith(m.db,{},'verified-pilot',id,'monthly');});
+it('sanitizes provider errors without exposing keys/client secrets',async()=>{m.payment.mockRejectedValue(new Error('rk_test_private pi_private_secret_private'));const r=await POST(req({action:'payment',id,package:'monthly'}));expect(r.status).toBe(503);expect(JSON.stringify(await r.json())).not.toMatch(/rk_test|secret_private/);});

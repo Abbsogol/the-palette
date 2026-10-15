@@ -51,20 +51,27 @@ function Row({ label, desc, children }) {
 }
 
 export default function PrivacySettingsPage() {
-  const router = useRouter()
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(null)
-  const [blockedUsers, setBlockedUsers] = useState([])
-  const [unblocking, setUnblocking] = useState(null)
+const router = useRouter()
 
-  // Settings state
-  const [isPrivate, setIsPrivate] = useState(false)
-  const [messagePermission, setMessagePermission] = useState('everyone')
-  const [showSaves, setShowSaves] = useState(true)
-  const [saveError, setSaveError] = useState('')
+const [user, setUser] = useState(null)
 
-  useEffect(() => {
+const [loading, setLoading] = useState(true)
+
+const [saving, setSaving] = useState(null)
+
+const [blockedUsers, setBlockedUsers] = useState([])
+
+const [unblocking, setUnblocking] = useState(null)
+
+const [isPrivate, setIsPrivate] = useState(false)
+
+const [messagePermission, setMessagePermission] = useState('everyone')
+
+const [showSaves, setShowSaves] = useState(true)
+
+const [saveError, setSaveError] = useState('')
+
+useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/profile'); return }
@@ -94,9 +101,9 @@ export default function PrivacySettingsPage() {
       setLoading(false)
     }
     init()
-  }, [])
+  }, [router])
 
-  const save = async (field, value, revert) => {
+const save = async (field, value, revert) => {
     setSaving(field)
     setSaveError('')
     const { data: { session } } = await supabase.auth.getSession()
@@ -116,25 +123,25 @@ export default function PrivacySettingsPage() {
     setSaving(null)
   }
 
-  const handleTogglePrivate = async (val) => {
+const handleTogglePrivate = async (val) => {
     const prev = isPrivate
     setIsPrivate(val)
     await save('is_private', val, () => setIsPrivate(prev))
   }
 
-  const handleMessagePermission = async (val) => {
+const handleMessagePermission = async (val) => {
     const prev = messagePermission
     setMessagePermission(val)
     await save('message_permission', val, () => setMessagePermission(prev))
   }
 
-  const handleShowSaves = async (val) => {
+const handleShowSaves = async (val) => {
     const prev = showSaves
     setShowSaves(val)
     await save('show_saves', val, () => setShowSaves(prev))
   }
 
-  const handleUnblock = async (blockedId) => {
+const handleUnblock = async (blockedId) => {
     setUnblocking(blockedId)
     setSaveError('')
     const { error } = await supabase.from('blocks').delete().eq('blocker_id', user.id).eq('blocked_id', blockedId)
@@ -147,15 +154,7 @@ export default function PrivacySettingsPage() {
     setUnblocking(null)
   }
 
-  const Shell = ({ children }) => (
-    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
-      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
-      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 60px)' }}>{children}</div>
-    </div>
-  )
-
-  if (loading) return (
+if (loading) return (
     <Shell>
       <div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <p style={ui(300, 14, WHITE60)}>Loading…</p>
@@ -163,13 +162,13 @@ export default function PrivacySettingsPage() {
     </Shell>
   )
 
-  const msgOptions = [
+const msgOptions = [
     { value: 'everyone',  label: 'Everyone',       desc: 'Anyone on laQue can message you' },
     { value: 'followers', label: 'Followers only',  desc: 'Only people you follow back' },
     { value: 'none',      label: 'No one',          desc: 'Turn off messages entirely' },
   ]
 
-  return (
+return (
     <Shell>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: 'calc(env(safe-area-inset-top) + 16px) 20px 16px' }}>
@@ -272,3 +271,11 @@ export default function PrivacySettingsPage() {
     </Shell>
   )
 }
+
+const Shell = ({ children }) => (
+    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
+      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 60px)' }}>{children}</div>
+    </div>
+  )

@@ -1,86 +1,56 @@
+import { verifyStripeEnvironment } from '@/lib/stripe-environment'
 import Stripe from 'stripe'
+import { depositReturnContext, depositReturnUrls } from '@/lib/mobile-return'
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
-
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
-
 export async function POST(request) {
+  const user=await getSessionUser(request)
+  if (!user) return Response.json({ error:'Unauthorized' },{ status:401 })
   try {
-    const user = await getSessionUser(request)
-    if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    await verifyStripeEnvironment(stripe)
+    const {bookingId,returnContext}=await request.json()
+    let context
+    try { context=depositReturnContext(returnContext) } catch { return Response.json({error:'Invalid mobile return context'},{status:400}) }
+    if (typeof bookingId!=='string' || !bookingId) return Response.json({ error:'Missing bookingId' },{ status:400 })
+    for(let retry=0;retry<2;retry++) {
+      const {data:attempt,error}=await supabase.rpc('reserve_deposit_checkout',{
+        p_user_id:user.id,p_booking_id:bookingId,p_base_url:process.env.NEXT_PUBLIC_APP_URL || 'https://laque.app',
+      })
+      if(error) {
+        if(error.message?.includes('BOOKING_NOT_FOUND')) return Response.json({error:'Booking not found'},{status:404})
+        if(error.message?.includes('NO_DEPOSIT_REQUIRED')) return Response.json({error:'No deposit required'},{status:400})
+        if(error.message?.includes('BOOKING_NOT_PAYABLE')) return Response.json({error:'This booking cannot accept a deposit'},{status:409})
+        throw error
+      }
+      if(attempt.session_id) {
+        const session=await stripe.checkout.sessions.retrieve(attempt.session_id)
+        if(session.status==='expired') {
+          const {error:expiryError}=await supabase.from('deposit_checkouts').delete().eq('id',attempt.id).eq('user_id',user.id)
+          if(expiryError)throw expiryError
+          continue
+        }
+        if(session.status!=='open' || !session.url) return Response.json({error:'Your deposit is being processed. Please wait.'},{status:409})
+        return Response.json({url:session.url})
+      }
+      if(Date.now()-new Date(attempt.created_at).getTime()>23*3600000) return Response.json({error:'Your previous checkout needs support review before retrying.'},{status:503})
+      // Bind every channel before calling Stripe. Concurrent web/mobile requests
+      // must send the same parameters for the shared idempotency key.
+      const {data:boundContext,error:bindError}=await supabase.rpc('bind_deposit_return',{p_attempt_id:attempt.id,p_user_id:user.id,p_context:context})
+      if(bindError || !boundContext)throw bindError || new Error('Return context was not saved')
+      const metadata={type:'deposit',bookingId,userId:user.id,checkoutAttemptId:attempt.id}
+      const session=await stripe.checkout.sessions.create({
+        integration_identifier:'laque_checkout_qmrtxvpa',mode:'payment',
+        line_items:[{price_data:{currency:'aed',product_data:{name:`Deposit — ${attempt.service_name}`},unit_amount:attempt.amount},quantity:1}],
+        metadata,payment_intent_data:{metadata},
+        ...depositReturnUrls(attempt,bookingId,boundContext),
+      },{idempotencyKey:`deposit-${attempt.id}`})
+      const {data:saved,error:saveError}=await supabase.from('deposit_checkouts').update({session_id:session.id}).eq('id',attempt.id).eq('user_id',user.id).select('id').single()
+      if(saveError || !saved)throw saveError || new Error('Checkout was not saved')
+      return Response.json({url:session.url})
     }
-
-    const { bookingId } = await request.json()
-
-    if (!bookingId) {
-      return Response.json({ error: 'Missing bookingId' }, { status: 400 })
-    }
-
-    // Fetch the booking + service to get deposit amount
-    const { data: booking, error } = await supabase
-      .from('bookings')
-      .select('*, service:services(name, deposit_amount)')
-      .eq('id', bookingId)
-      .eq('client_id', user.id)
-      .single()
-
-    if (error || !booking) {
-      return Response.json({ error: 'Booking not found' }, { status: 404 })
-    }
-
-    const depositAmount = booking.service?.deposit_amount
-    if (!depositAmount || depositAmount <= 0) {
-      return Response.json({ error: 'No deposit required for this booking' }, { status: 400 })
-    }
-
-    if (booking.deposit_paid) {
-      return Response.json({ error: 'Deposit already paid' }, { status: 400 })
-    }
-
-    // Buckets rapid double-clicks/retries into the same Stripe session instead
-    // of creating a second real Checkout Session for one intended deposit.
-    const idempotencyKey = `deposit-${user.id}-${bookingId}-${Math.floor(Date.now() / 300000)}`
-
-    // Create Stripe checkout session
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      mode: 'payment',
-      line_items: [
-        {
-          price_data: {
-            currency: 'aed',
-            product_data: {
-              name: `Deposit — ${booking.service?.name || 'Appointment'}`,
-              description: `Booking deposit for your appointment`,
-            },
-            unit_amount: Math.round(depositAmount * 100), // AED to fils
-          },
-          quantity: 1,
-        },
-      ],
-      metadata: {
-        type: 'deposit',
-        bookingId,
-        userId: user.id,
-      },
-      // Same metadata on the PaymentIntent (not just the Checkout Session) —
-      // a charge.refunded webhook only has the charge/PaymentIntent to work
-      // from, not the ephemeral session, so this is what makes a refund
-      // traceable back to what it should reverse.
-      payment_intent_data: {
-        metadata: {
-          type: 'deposit',
-          bookingId,
-          userId: user.id,
-        },
-      },
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://laque.app'}/appointments/deposit-success?booking=${bookingId}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://laque.app'}/appointments`,
-    }, { idempotencyKey })
-
-    return Response.json({ url: session.url })
-  } catch (err) {
-    console.error('Create deposit payment error:', err)
-    return Response.json({ error: 'Server error' }, { status: 500 })
+    return Response.json({error:'Checkout changed. Please retry.'},{status:409})
+  } catch(error) {
+    console.error('Deposit checkout failed:')
+    return Response.json({error:'Unable to prepare deposit checkout'},{status:503})
   }
 }

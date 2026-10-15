@@ -1,9 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
-import BackButton from '@/components/ui/BackButton'
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+import BackButton from '@/components/ui/BackButton';
+import CheckoutSession from '@/components/CheckoutSession';
+import { useAccountAction } from '@/lib/use-account-action';
+
+
+
+
 
 const ACCENT = '#FF517F'
 const WHITE60 = 'rgba(255,255,255,0.6)'
@@ -41,32 +47,61 @@ function CheckIcon() {
   )
 }
 
-export default function UpgradePage() {
-  const router = useRouter()
-  const [profile, setProfile] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState(false)
-  const [subscribing, setSubscribing] = useState(null)
+function UpgradeOptions({userId}) {
+const { run, busy } = useAccountAction(userId)
 
-  useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session?.user) { router.push('/profile'); return }
+const [subscribing, setSubscribing] = useState(null)
+
+const handleManageSubscription = async () => {
+    if (busy) return
+    setSubscribing('manage')
+    try {
+      const data = await run(async session => {
+      const response = await fetch('/api/create-billing-portal-session', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session?.access_token || ''}` },
+      })
+      const data = await response.json()
+      if (!response.ok || !data.url) throw new Error(data.error || 'Unable to open billing management')
+      return data
+      })
+      if (data?.url) window.location.assign(data.url)
+    } catch (error) {
+      alert(error.message)
+    } finally { setSubscribing(null) }
+  }
+
+const router = useRouter()
+
+const [profile, setProfile] = useState(null)
+
+const [loading, setLoading] = useState(true)
+
+const [loadError, setLoadError] = useState(false)
+
+useEffect(() => {
+    let active = true
+    const load = async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, display_name, account_type, subscription_tier')
-        .eq('id', session.user.id)
+        .select('id, display_name, account_type, subscription_tier, stripe_customer_id')
+        .eq('id', userId)
         .single()
+      if (!active) return
       if (error) { console.error('profile fetch failed:', error); setLoadError(true) }
       setProfile(data)
       setLoading(false)
-    })
-  }, [])
+    }
+    load().catch(() => { if (active) { setLoadError(true); setLoading(false) } })
+    return () => { active = false }
+  }, [userId])
 
-  const handleSubscribe = async (planId) => {
-    if (!profile) return
+const handleSubscribe = async (planId) => {
+    if (!profile || busy) return
+    if (profile.subscription_tier && profile.subscription_tier !== 'free') return handleManageSubscription()
     setSubscribing(planId)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      const data = await run(async session => {
       const res = await fetch('/api/create-subscription', {
         method: 'POST',
         headers: {
@@ -75,27 +110,20 @@ export default function UpgradePage() {
         },
         body: JSON.stringify({ planId }),
       })
-      const { url, error } = await res.json()
-      if (error) { alert('Something went wrong. Please try again.'); setSubscribing(null); return }
-      window.location.href = url
-    } catch {
-      alert('Something went wrong. Please try again.')
-      setSubscribing(null)
-    }
+      const data = await res.json()
+      if (!res.ok || !data.url) throw new Error(data.error || 'Something went wrong. Please try again.')
+      return data
+      })
+      if (data?.url) window.location.href = data.url
+    } catch (error) { alert(error.message || 'Something went wrong. Please try again.') }
+    finally { setSubscribing(null) }
   }
 
-  const isCreator = profile?.account_type && ['nail_artist', 'creator', 'salon'].includes(profile.account_type)
-  const currentTier = profile?.subscription_tier
+const isCreator = profile?.account_type && ['nail_artist', 'creator', 'salon'].includes(profile.account_type)
 
-  const Shell = ({ children }) => (
-    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
-      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
-      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 60px)' }}>{children}</div>
-    </div>
-  )
+const currentTier = profile?.subscription_tier
 
-  if (loading) return (
+if (loading) return (
     <Shell>
       <div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <p style={ui(300, 14, WHITE60)}>Loading…</p>
@@ -103,10 +131,7 @@ export default function UpgradePage() {
     </Shell>
   )
 
-  // Don't show the "not subscribed" upgrade options if the profile fetch
-  // itself failed — a real subscriber could otherwise be misled into
-  // thinking they need to pay again.
-  if (loadError) return (
+if (loadError) return (
     <Shell>
       <div style={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '20px', textAlign: 'center' }}>
         <p style={ui(600, 15)}>Couldn&apos;t load your subscription status</p>
@@ -118,7 +143,7 @@ export default function UpgradePage() {
     </Shell>
   )
 
-  return (
+return (
     <Shell>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: 'calc(env(safe-area-inset-top) + 16px) 20px 16px' }}>
@@ -136,6 +161,9 @@ export default function UpgradePage() {
       <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
         {/* Pro Creator Plan — only show to creator accounts */}
+        {(profile?.stripe_customer_id || profile?.subscription_tier) && <button onClick={handleManageSubscription} disabled={busy} style={{ background: PANEL, border: PANEL_BORDER, borderRadius: '20px', padding: '16px', ...ui(500, 15) }}>
+          {subscribing === 'manage' ? 'Redirecting…' : 'Manage subscription'}
+        </button>}
         {isCreator && (
           <div style={{
             background: PANEL,
@@ -258,3 +286,14 @@ export default function UpgradePage() {
     </Shell>
   )
 }
+
+export default function UpgradePage() {
+  return <CheckoutSession>{userId => <UpgradeOptions userId={userId} />}</CheckoutSession>
+}
+const Shell = ({ children }) => (
+    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
+      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 60px)' }}>{children}</div>
+    </div>
+  )

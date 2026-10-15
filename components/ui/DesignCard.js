@@ -1,4 +1,5 @@
 'use client'
+import StorageImage from '@/components/StorageImage'
 import Link from 'next/link'
 import HeartSaveButton from './HeartSaveButton'
 
@@ -36,7 +37,7 @@ export default function DesignCard({
     <div style={{ width: typeof width === 'number' ? `${width}px` : width, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 'var(--lq-space-sm)' }}>
       <div style={{ position: 'relative', borderRadius: 'var(--lq-radius-card-lg)', overflow: 'hidden' }}>
         <Link href={`/design/${design.id}`} onClick={onNavigate} aria-label={design.title || 'View design'}>
-          <img
+          <StorageImage
             src={design.image_url}
             alt={design.title || 'Nail design'}
             loading="lazy"

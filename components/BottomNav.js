@@ -1,10 +1,20 @@
 'use client'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
-import { startPresence } from '@/lib/presence'
-import { HomeIcon, SearchIcon, MagicStarIcon, MessageIcon, HeartIcon, UserIcon } from '@/components/ui/icons'
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
+import { startPresence, stopPresence } from '@/lib/presence';
+import { HomeIcon, SearchIcon, MagicStarIcon, MessageIcon, HeartIcon, UserIcon } from '@/components/ui/icons';
+
+// Redesigned floating pill nav (Figma 280:7207): active tab is a gradient
+// pill with icon + label, other tabs are icon-only. Order and the new
+// Saved tab come from the redesign frames.
+
+
+
+
+
+
 
 // Redesigned floating pill nav (Figma 280:7207): active tab is a gradient
 // pill with icon + label, other tabs are icon-only. Order and the new
@@ -23,34 +33,29 @@ export default function BottomNav() {
   const [unreadMessages, setUnreadMessages] = useState(0)
 
   useEffect(() => {
+    if (pathname === '/privacy' || pathname === '/lab-payment') return
+    let active = true, version = 0
     const fetchUnread = async () => {
+      const request = ++version
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!active || request !== version) return
+      if (!user) { setUnreadMessages(0); return }
 
-      // muted_by ships before its column may exist — try the mute-aware
-      // select first and fall back so the badge never breaks pre-SQL.
-      let convs, convsError
-      ;({ data: convs, error: convsError } = await supabase
+      const { data: convs, error: convsError } = await supabase
         .from('conversations')
-        .select('id, muted_by')
-        .or(`client_id.eq.${user.id},creator_id.eq.${user.id}`))
-      if (convsError) {
-        ;({ data: convs, error: convsError } = await supabase
-          .from('conversations')
-          .select('id')
-          .or(`client_id.eq.${user.id},creator_id.eq.${user.id}`))
-      }
+        .select('id')
+        .or(`client_id.eq.${user.id},creator_id.eq.${user.id}`)
 
       // A passive background badge, not primary page content — on failure,
       // log and leave the last-known count as-is rather than resetting to 0
       // (a false "no unread messages" is worse than a stale-but-plausible
       // number). Reruns on every route change anyway, so a transient blip
       // self-heals on the next navigation without needing its own retry.
+      if (!active || request !== version) return
       if (convsError) { console.error('unread count fetch failed:', convsError); return }
       if (!convs || convs.length === 0) { setUnreadMessages(0); return }
 
-      const convIds = convs.filter(c => !(c.muted_by || []).includes(user.id)).map(c => c.id)
-      if (convIds.length === 0) { setUnreadMessages(0); return }
+      const convIds = convs.map(c => c.id)
       const { count, error: countError } = await supabase
         .from('messages')
         .select('*', { count: 'exact', head: true })
@@ -58,19 +63,28 @@ export default function BottomNav() {
         .eq('is_read', false)
         .neq('sender_id', user.id)
 
+      if (!active || request !== version) return
       if (countError) { console.error('unread count fetch failed:', countError); return }
       setUnreadMessages(count || 0)
     }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      version++; setUnreadMessages(0); queueMicrotask(fetchUnread)
+    })
     fetchUnread()
+    return () => { active = false; version++; subscription.unsubscribe() }
   }, [pathname])
 
   // Track presence app-wide via the shared singleton (lib/presence) — the
   // chat header's "Active now" is only ever derived from this being
   // literally true. No last_seen writes anywhere.
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) startPresence(user.id)
+    let active = true, changed = false
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      changed = true
+      if (active) queueMicrotask(() => { if (active) startPresence(session?.user?.id || null) })
     })
+    supabase.auth.getUser().then(({ data: { user } }) => { if (active && !changed) startPresence(user?.id || null) })
+    return () => { active = false; subscription.unsubscribe(); stopPresence() }
   }, [])
 
   // Hide on full-screen flows

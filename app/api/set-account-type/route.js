@@ -20,7 +20,7 @@ export async function POST(request) {
   const { error } = await supabase.from('profiles_data').update(update).eq('id', user.id)
 
   if (error) {
-    console.error('set-account-type error:', error)
+    console.error('set-account-type error:')
     return Response.json({ error: 'Failed to update account type' }, { status: 500 })
   }
 

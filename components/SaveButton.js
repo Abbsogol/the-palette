@@ -1,8 +1,10 @@
 'use client'
+import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export default function SaveButton({ designId }) {
+  const router = useRouter()
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -33,7 +35,7 @@ export default function SaveButton({ designId }) {
     e.preventDefault()
     e.stopPropagation()
     if (!user) {
-      window.location.href = '/profile'
+      router.push('/profile')
       return
     }
     if (saving) return
@@ -45,7 +47,6 @@ export default function SaveButton({ designId }) {
         const { error } = await supabase.from('saved_designs').insert({ user_id: user.id, design_id: designId })
         if (error) { alert('Failed to save. Please try again.'); return }
         setSaved(true)
-        await supabase.rpc('increment_saves', { design_id: designId })
         const { data: { session } } = await supabase.auth.getSession()
         fetch('/api/add-reward', {
           method: 'POST',
@@ -56,7 +57,6 @@ export default function SaveButton({ designId }) {
         const { error } = await supabase.from('saved_designs').delete().eq('user_id', user.id).eq('design_id', designId)
         if (error) { alert('Failed to unsave. Please try again.'); return }
         setSaved(false)
-        await supabase.rpc('decrement_saves', { design_id: designId })
       }
     } finally {
       setSaving(false)

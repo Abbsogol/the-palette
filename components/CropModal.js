@@ -24,20 +24,22 @@ export default function CropModal({ file, onCrop, onCancel }) {
   const objUrl    = useRef(null)
   const panelRef  = useRef(null)
   const onCancelRef = useRef(onCancel)
-  onCancelRef.current = onCancel
+  useEffect(() => { onCancelRef.current = onCancel }, [onCancel])
 
   useEffect(() => {
     if (!file) return
     const url = URL.createObjectURL(file)
     objUrl.current = url
-    setSrc(url)
     const img = new window.Image()
     img.onload = () => {
+      setSrc(url)
+      setPos({ x: 0, y: 0 })
+      setZoom(1)
       setNatural({ w: img.naturalWidth, h: img.naturalHeight })
       setReady(true)
     }
     img.src = url
-    return () => URL.revokeObjectURL(url)
+    return () => { img.onload = null; URL.revokeObjectURL(url) }
   }, [file])
 
   // A11y contract (mount only): focus in + return, Escape closes, scroll lock.
@@ -204,6 +206,7 @@ export default function CropModal({ file, onCrop, onCancel }) {
         {src && (
           <img
             src={src}
+            alt="Profile photo crop preview"
             draggable={false}
             style={{
               position: 'absolute',

@@ -1,18 +1,52 @@
 'use client'
+import StorageImage from '@/components/StorageImage';
+import CheckoutSession from '@/components/CheckoutSession';
+// Maps color filter → search terms for colour_name in design_colours table
+const COLOR_MAP = {
+  'black': ['black', 'noir', 'ebony', 'onyx', 'obsidian'],
+  'white & nude': ['white', 'nude', 'ivory', 'cream', 'milk', 'sheer', 'vanilla', 'champagne', 'pearl'],
+  'pink & mauve': ['pink', 'mauve', 'rose', 'blush', 'petal', 'peach', 'coral', 'dusty'],
+  'red & berry': ['red', 'berry', 'crimson', 'cherry', 'burgundy', 'wine', 'blood', 'cranberry'],
+  'purple & lilac': ['purple', 'lilac', 'lavender', 'violet', 'plum', 'grape', 'amethyst'],
+  'blue & teal': ['blue', 'teal', 'navy', 'cobalt', 'aqua', 'cyan', 'ocean', 'sapphire'],
+  'green & sage': ['green', 'sage', 'mint', 'olive', 'moss', 'forest', 'emerald', 'matcha'],
+  'brown & caramel': ['brown', 'caramel', 'tan', 'chocolate', 'espresso', 'coffee', 'terracotta', 'sienna'],
+  'gold & chrome': ['gold', 'chrome', 'silver', 'metallic', 'mirror', 'foil', 'bronze', 'copper'],
+  'glitter & multi': ['glitter', 'sparkle', 'iridescent', 'holographic', 'rainbow', 'multi', 'neon']
+};
 
-import { useState, useEffect, useRef } from 'react'
-import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
-import Chip from '@/components/ui/Chip'
-import SearchInput from '@/components/ui/SearchInput'
-import IconButton from '@/components/ui/IconButton'
-import PillButton from '@/components/ui/PillButton'
-import HeartSaveButton from '@/components/ui/HeartSaveButton'
-import FavouriteButton from '@/components/ui/FavouriteButton'
-import Sheet from '@/components/ui/Sheet'
-import { LaqueWordmark, CandleFilterIcon } from '@/components/ui/icons'
-import { useScrollMemory } from '@/lib/scrollMemory'
-import { useTabSwipe } from '@/lib/tabSwipe'
+import { useState, useEffect, useRef, Suspense } from 'react';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
+import Chip from '@/components/ui/Chip';
+import SearchInput from '@/components/ui/SearchInput';
+import IconButton from '@/components/ui/IconButton';
+import PillButton from '@/components/ui/PillButton';
+import HeartSaveButton from '@/components/ui/HeartSaveButton';
+import FavouriteButton from '@/components/ui/FavouriteButton';
+import Sheet from '@/components/ui/Sheet';
+import { LaqueWordmark, CandleFilterIcon } from '@/components/ui/icons';
+import { useScrollMemory } from '@/lib/scrollMemory';
+import { useTabSwipe } from '@/lib/tabSwipe';
+
+// Filter taxonomy from the redesign's filter panel (117:1700). Occasion keeps
+// party/birthday/office beyond the drawn 18 — 72/46/53 published designs use
+// them (checked 2026-08-19), dropping them would strand those designs. Length
+// is kept as a sixth group by Sogol's call (data exists, not drawn).
+import { useSearchParams } from 'next/navigation';
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // Filter taxonomy from the redesign's filter panel (117:1700). Occasion keeps
 // party/birthday/office beyond the drawn 18 — 72/46/53 published designs use
@@ -174,85 +208,88 @@ async function buildDesignQuery({ filters, text, tagFilter, sort, forCount = fal
   return { query: q }
 }
 
-export default function SearchPage() {
-  const [mainTab, setMainTab] = useState('designs')
-  const [currentUser, setCurrentUser] = useState(null)
+function SearchContent({userId}) {
+const searchParams = useSearchParams()
 
-  // Designs tab state
-  const [query, setQuery] = useState('')
-  const [debouncedQuery, setDebouncedQuery] = useState('')
-  const [filters, setFilters] = useState(EMPTY_FILTERS)
-  const [sort, setSort] = useState('newest')
-  const [tagFilter, setTagFilter] = useState(null)
-  const [designs, setDesigns] = useState([])
-  const [savedDesignIds, setSavedDesignIds] = useState(new Set())
-  const [people, setPeople] = useState([])
-  const [loading, setLoading] = useState(false)
+const [activeFilters, setActiveFilters] = useState({})
 
-  // Filter panel state (staged locally, applied on "Show N Results")
-  const [panelOpen, setPanelOpen] = useState(false)
-  const [panelFilters, setPanelFilters] = useState(EMPTY_FILTERS)
-  const [panelCount, setPanelCount] = useState(null)
+const [peopleResult, setPeopleResult] = useState({ query: '', people: [] })
 
-  // Artists & Salons tab state
-  const [salons, setSalons] = useState([])
-  const [salonsLoaded, setSalonsLoaded] = useState(false)
-  const [locationFilter, setLocationFilter] = useState('')
-  const [favouriteIds, setFavouriteIds] = useState(new Set())
-  const [creatorRatings, setCreatorRatings] = useState(new Map())
-  const [artistSort, setArtistSort] = useState('az')          // 'az' | 'newest'
-  const [artistFilters, setArtistFilters] = useState({ role: [], city: [] })
-  const [artistPanelFilters, setArtistPanelFilters] = useState({ role: [], city: [] })
-  const [artistPanelOpen, setArtistPanelOpen] = useState(false)
-  // ?favourites=1 (profile "Favorites" tile): show only favourited creators
-  const [favouritesOnly, setFavouritesOnly] = useState(false)
+const [query, setQuery] = useState(() => searchParams.get('q') || '')
 
-  // Read tag/query/filters/tab from URL on mount. The tab param makes
-  // back-navigation from a creator profile and ?tab=artists deep links both
-  // land on the Artists tab; switching happens after the session resolves so
-  // the favourites batch can use the real user.
-  const isFirstQuery = useRef(true)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const tag = params.get('tag')
-    const q = params.get('q')
-    if (tag) setTagFilter(tag)
-    if (q) setQuery(q)
-    if (params.get('filters')) setPanelOpen(true)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const u = session?.user || null
-      setCurrentUser(u)
-      const wantsFavourites = params.get('favourites') === '1'
-      if (wantsFavourites && u) setFavouritesOnly(true)
-      if (wantsFavourites && !u) {
-        // Guests have no favourites list — drop the param instead of
-        // silently showing an unfiltered grid under a "favourites" URL.
-        params.delete('favourites')
-        const qs = params.toString()
-        window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
-      }
-      if (params.get('tab') === 'artists' || wantsFavourites) switchMainTab('salons', u)
-    })
-  }, [])
+const [debouncedQuery, setDebouncedQuery] = useState(query)
 
-  // Debounce query → debouncedQuery (500ms, same semantics as the existing
-  // debounce in app/moodboards/[id]/page.js) so filter taps (which key off
-  // `filters` directly, not this) stay instant while typing doesn't fire a
-  // request per keystroke. Skips the debounce for the very first value so a
-  // deep link (?q=...) still searches immediately.
-  useEffect(() => {
-    if (isFirstQuery.current) {
-      isFirstQuery.current = false
-      setDebouncedQuery(query)
-      return
-    }
+const people = peopleResult.query === debouncedQuery && debouncedQuery.trim() ? peopleResult.people : []
+
+const [openSection, setOpenSection] = useState(null)
+
+const toggleFilter = (category, value) => {
+    setActiveFilters(prev => ({
+      ...prev,
+      [category]: prev[category] === value ? undefined : value,
+    }))
+  }
+
+const [tagFilter, setTagFilter] = useState(() => searchParams.get('tag'))
+
+const clearAll = () => {
+    setActiveFilters({})
+    setQuery('')
+    setTagFilter(null)
+  }
+
+const hasActiveFilters = Object.values(activeFilters).some(Boolean) || query.trim() || tagFilter
+
+const [mainTab, setMainTab] = useState('designs')
+
+const currentUser = { id: userId }
+
+const [filters, setFilters] = useState(EMPTY_FILTERS)
+
+const [sort, setSort] = useState('newest')
+
+const [designs, setDesigns] = useState([])
+
+const [savedDesignIds, setSavedDesignIds] = useState(new Set())
+
+const [loading, setLoading] = useState(false)
+
+const [panelOpen, setPanelOpen] = useState(false)
+
+const [panelFilters, setPanelFilters] = useState(EMPTY_FILTERS)
+
+const [panelCount, setPanelCount] = useState(null)
+
+const [salons, setSalons] = useState([])
+
+const [salonsLoaded, setSalonsLoaded] = useState(false)
+
+const [locationFilter, setLocationFilter] = useState('')
+
+const [favouriteIds, setFavouriteIds] = useState(new Set())
+
+const [creatorRatings, setCreatorRatings] = useState(new Map())
+
+const [artistSort, setArtistSort] = useState('az')
+
+const [artistFilters, setArtistFilters] = useState({ role: [], city: [] })
+
+const [artistPanelFilters, setArtistPanelFilters] = useState({ role: [], city: [] })
+
+const [artistPanelOpen, setArtistPanelOpen] = useState(false)
+
+const [favouritesOnly, setFavouritesOnly] = useState(false)
+
+const isFirstQuery = useRef(true)
+
+useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(query), 500)
     return () => clearTimeout(timer)
   }, [query])
 
-  // People search — runs in parallel when query is non-empty
-  useEffect(() => {
-    if (!debouncedQuery.trim()) { setPeople([]); return }
+useEffect(() => {
+    if (!debouncedQuery.trim()) return
+    let cancelled = false
     const searchPeople = async () => {
       const q = debouncedQuery.trim()
       // Two separate .ilike() queries instead of one raw .or() string — a comma or
@@ -272,19 +309,22 @@ export default function SearchPage() {
       const merged = [...(byName || [])]
       const seen = new Set(merged.map(p => p.id))
       ;(byUsername || []).forEach(p => { if (!seen.has(p.id)) merged.push(p) })
-      setPeople(merged.slice(0, 5))
+      if (!cancelled) setPeopleResult({ query: debouncedQuery, people: merged.slice(0, 5) })
     }
     searchPeople()
+    return () => { cancelled = true }
   }, [debouncedQuery])
 
-  // Results fetch
-  useEffect(() => {
+useEffect(() => {
+    let active = true
     const run = async () => {
       setLoading(true)
       try {
         const built = await buildDesignQuery({ filters, text: debouncedQuery, tagFilter, sort })
+        if (!active) return
         if (!built) { setDesigns([]); return }
         const { data, error } = await built.query.limit(100)
+        if (!active) return
         if (error) { console.error('search fetch failed:', error); return }
         setDesigns(data || [])
         if (currentUser && data?.length) {
@@ -293,21 +333,22 @@ export default function SearchPage() {
             .select('design_id')
             .eq('user_id', currentUser.id)
             .in('design_id', data.map(d => d.id))
+          if (!active) return
           setSavedDesignIds(new Set((savedRows || []).map(r => r.design_id)))
         }
       } catch (err) {
         console.error('search fetch failed:', err)
       } finally {
-        setLoading(false)
+        if (active) setLoading(false)
       }
     }
     run()
-  }, [debouncedQuery, filters, tagFilter, sort, currentUser])
+    return () => { active = false }
+  }, [debouncedQuery, filters, tagFilter, sort, userId])
 
-  // Live result count while the panel is open (debounced on staged edits)
-  useEffect(() => {
+useEffect(() => {
     if (!panelOpen) return
-    setPanelCount(null)
+    const reset=requestAnimationFrame(() => setPanelCount(null))
     const timer = setTimeout(async () => {
       try {
         const built = await buildDesignQuery({ filters: panelFilters, text: debouncedQuery, tagFilter, forCount: true })
@@ -318,19 +359,21 @@ export default function SearchPage() {
         console.error('filter count failed:', err)
       }
     }, 350)
-    return () => clearTimeout(timer)
+    return () => { cancelAnimationFrame(reset); clearTimeout(timer) }
   }, [panelOpen, panelFilters, debouncedQuery, tagFilter])
 
-  const openPanel = () => { setPanelFilters(filters); setPanelOpen(true) }
-  const applyPanel = () => { setFilters(panelFilters); setPanelOpen(false) }
-  const togglePanelValue = (group, value) => {
+const openPanel = () => { setPanelFilters(filters); setPanelOpen(true) }
+
+const applyPanel = () => { setFilters(panelFilters); setPanelOpen(false) }
+
+const togglePanelValue = (group, value) => {
     setPanelFilters(prev => {
       const has = prev[group].includes(value)
       return { ...prev, [group]: has ? prev[group].filter(v => v !== value) : [...prev[group], value] }
     })
   }
 
-  const switchMainTab = async (tab, userOverride) => {
+const switchMainTab = async (tab, userOverride) => {
     setMainTab(tab)
     // Keep the tab in the URL so back/deep-link restore it
     const params = new URLSearchParams(window.location.search)
@@ -378,7 +421,7 @@ export default function SearchPage() {
     }
   }
 
-  const clearFavourites = () => {
+const clearFavourites = () => {
     setFavouritesOnly(false)
     const params = new URLSearchParams(window.location.search)
     params.delete('favourites')
@@ -386,49 +429,49 @@ export default function SearchPage() {
     window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
   }
 
-  // Artists pipeline: favourites scope -> text search -> role/city filters -> sort
-  const applyArtistFilters = (list, f) => list
+const applyArtistFilters = (list, f) => list
     .filter(s => f.role.length === 0 || f.role.includes(s.account_type === 'salon' ? 'salon' : 'nail artist'))
     .filter(s => f.city.length === 0 || f.city.some(c => (s.location || '').trim().toLowerCase() === c.toLowerCase()))
-  const favouriteScopedSalons = favouritesOnly ? salons.filter(s => favouriteIds.has(s.id)) : salons
-  const textFilteredSalons = locationFilter.trim()
+
+const favouriteScopedSalons = favouritesOnly ? salons.filter(s => favouriteIds.has(s.id)) : salons
+
+const textFilteredSalons = locationFilter.trim()
     ? favouriteScopedSalons.filter(s =>
         s.location?.toLowerCase().includes(locationFilter.trim().toLowerCase()) ||
         s.display_name?.toLowerCase().includes(locationFilter.trim().toLowerCase()) ||
         s.username?.toLowerCase().includes(locationFilter.trim().toLowerCase())
       )
     : favouriteScopedSalons
-  const filteredSalons = applyArtistFilters(textFilteredSalons, artistFilters)
+
+const filteredSalons = applyArtistFilters(textFilteredSalons, artistFilters)
     .sort((a, b) => artistSort === 'newest'
       ? new Date(b.created_at) - new Date(a.created_at)
       : (a.display_name || '').localeCompare(b.display_name || ''))
-  const artistCities = [...new Map(
+
+const artistCities = [...new Map(
     salons.map(s => (s.location || '').trim()).filter(Boolean).map(c => [c.toLowerCase(), c])
   ).values()].sort((a, b) => a.localeCompare(b))
-  const artistActiveCount = artistFilters.role.length + artistFilters.city.length
-  const artistPanelCount = applyArtistFilters(textFilteredSalons, artistPanelFilters).length
 
-  const activeCount = countActive(filters)
-  const hasActive = activeCount > 0 || query.trim() || tagFilter
+const artistActiveCount = artistFilters.role.length + artistFilters.city.length
 
-  const metaLine = (d) => [
+const artistPanelCount = applyArtistFilters(textFilteredSalons, artistPanelFilters).length
+
+const activeCount = countActive(filters)
+
+const hasActive = activeCount > 0 || query.trim() || tagFilter
+
+const metaLine = (d) => [
     d.shape, d.length,
     ...(d.technique || '').split(',').map(t => t.trim()).filter(Boolean).slice(0, 2),
     d.category,
     (d.occasion || '').split(',')[0]?.trim(),
   ].filter(Boolean)
 
-  // ready must fire AFTER the grid renders, not before: loading starts false
-  // here, so gate on designs being present too (the old ad-hoc restore guarded
-  // on designs.length !== 0 for the same reason).
-  // Tab-suffixed so each tab restores its OWN scroll position — the swipe must
-  // land the scroll on the tab the gesture arrives at, not carry the departing
-  // tab's position (Sogol's verification requirement). Ready gate is per-tab:
-  // the designs grid vs the salons list.
-  useScrollMemory(mainTab, mainTab === 'designs' ? (!loading && designs.length > 0) : salonsLoaded)
-  const swipeRef = useTabSwipe({ tabs: ['designs', 'salons'], active: mainTab, onSelect: switchMainTab })
+useScrollMemory(mainTab, mainTab === 'designs' ? (!loading && designs.length > 0) : salonsLoaded)
 
-  return (
+const swipeRef = useTabSwipe({ tabs: ['designs', 'salons'], active: mainTab, onSelect: switchMainTab })
+
+return (
     <div style={{ position: 'relative' }}>
 
       {/* Fixed blurred-wine page background. z-index 0 + positioned content
@@ -554,7 +597,7 @@ export default function SearchPage() {
                 }}>
                   <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(255,255,255,0.15)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {person.avatar_url
-                      ? <img src={person.avatar_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ? <StorageImage src={person.avatar_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       : <span style={ui(400, 18)}>{(person.display_name || '?')[0].toUpperCase()}</span>}
                   </div>
                   <div style={{ textAlign: 'center' }}>
@@ -583,7 +626,7 @@ export default function SearchPage() {
                       // Natural aspect ratio — design boards are wide compositions
                       // with titles and side panels; cropping them cuts words off.
                       // First cards load eagerly so the fold never sits blank.
-                      <img src={design.image_url} alt={design.title} loading={i < 2 ? 'eager' : 'lazy'}
+                      <StorageImage src={design.image_url} alt={design.title} loading={i < 2 ? 'eager' : 'lazy'}
                         fetchPriority={i === 0 ? 'high' : undefined} decoding="async"
                         width={design.image_width || undefined} height={design.image_height || undefined}
                         style={{ width: '100%', height: 'auto', aspectRatio: design.image_width && design.image_height ? `${design.image_width} / ${design.image_height}` : undefined, display: 'block', background: 'rgba(255,255,255,0.06)' }} />
@@ -695,7 +738,7 @@ export default function SearchPage() {
                     }}>
                       <div style={{ width: '112px', height: '112px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '-8px' }}>
                         {salon.avatar_url
-                          ? <img src={salon.avatar_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ? <StorageImage src={salon.avatar_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           : <span style={ui(400, 32)}>{(salon.display_name || salon.username) ? (salon.display_name || salon.username)[0].toUpperCase() : '?'}</span>}
                       </div>
                       <span style={{ background: 'linear-gradient(90deg, #FF517F 39.5%, #99314C 100%)', color: 'var(--lq-white)', ...ui(500, 10), padding: '4px 8px', borderRadius: 'var(--lq-radius-pill)', letterSpacing: '0.04em', textTransform: 'uppercase', position: 'relative' }}>
@@ -864,4 +907,8 @@ export default function SearchPage() {
 
     </div>
   )
+}
+
+export default function SearchPage() {
+  return <Suspense fallback={<p>Loading search…</p>}><CheckoutSession title="Sign in to search LaQue">{userId => <SearchContent key={userId} userId={userId} />}</CheckoutSession></Suspense>
 }

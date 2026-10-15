@@ -1,10 +1,16 @@
 'use client'
+import { useCurrentTime } from '@/lib/use-current-time'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
-import BackButton from '@/components/ui/BackButton'
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
+import BackButton from '@/components/ui/BackButton';
+
+
+
+
+
 
 const ACCENT = '#FF517F'
 const WINE = '#260D14'
@@ -43,6 +49,7 @@ const Shell = ({ children }) => (
 )
 
 export default function UploadPage() {
+  const now = useCurrentTime()
   const router = useRouter()
   const [user, setUser]       = useState(null)
   const [loading, setLoading] = useState(true)
@@ -71,7 +78,7 @@ export default function UploadPage() {
       const u = session.user
       setUser(u)
 
-      let { data: prof } = await supabase.from('profiles').select('*').eq('id', u.id).single()
+      const { data: prof } = await supabase.from('profiles').select('*').eq('id', u.id).single()
 
       // Must be a creator or salon
       if (prof?.account_type !== 'creator' && prof?.account_type !== 'salon') {
@@ -79,32 +86,15 @@ export default function UploadPage() {
         return
       }
 
-      // Reset weekly count if 7+ days have passed. This write is
-      // display-only — the server-side enforce_weekly_upload_limit trigger
-      // independently recomputes the same 7-day reset at insert time, so a
-      // failure here can't let anyone bypass the real limit. But the local
-      // "uploads left" count should only reflect the reset if it actually
-      // persisted, so the UI never claims more availability than the
-      // server will honor.
-      const lastReset = prof.week_reset_at ? new Date(prof.week_reset_at) : new Date(0)
-      const daysSince = (Date.now() - lastReset.getTime()) / (1000 * 60 * 60 * 24)
-      if (daysSince >= 7) {
-        const reset = { weekly_uploads: 0, week_reset_at: new Date().toISOString() }
-        const { error: resetError } = await supabase.from('profiles').update(reset).eq('id', u.id)
-        if (resetError) console.error('weekly reset failed:', resetError)
-        else prof = { ...prof, ...reset }
-      }
-
-      const used  = prof.weekly_uploads || 0
+      // The insertion trigger owns the reset; this is only a display estimate.
+      const expired = !prof.week_reset_at || new Date(prof.week_reset_at).getTime() < now - 7 * 86400000
+      const used = expired ? 0 : prof.weekly_uploads || 0
       const isPro = prof.subscription_tier === 'pro_creator'
       setUploadsLeft(isPro ? Infinity : Math.max(0, FREE_LIMIT - used))
       setAtLimit(!isPro && used >= FREE_LIMIT)
-      // Limit resets 7 days after the current window start (week_reset_at) —
-      // the same value enforce_weekly_upload_limit uses, so this is the real date.
-      setResetAt(prof.week_reset_at ? new Date(new Date(prof.week_reset_at).getTime() + 7 * 86400000) : null)
       setLoading(false)
     })
-  }, [])
+  }, [router])
 
   const toggle = (list, setList, item) =>
     setList(prev => prev.includes(item) ? prev.filter(x => x !== item) : [...prev, item])
@@ -131,14 +121,12 @@ export default function UploadPage() {
       const uploadJson = await uploadRes.json().catch(() => ({}))
       if (!uploadRes.ok || uploadJson.error) throw new Error('Photo upload failed: ' + (uploadJson.error || 'Unknown error'))
       const publicUrl = uploadJson.publicUrl
-      const uploadedDims = { image_width: uploadJson.width ?? null, image_height: uploadJson.height ?? null }
 
       // Insert design row
       const { data: design, error: designErr } = await supabase.from('designs').insert({
         title:       title.trim(),
         description: description.trim() || null,
         image_url:   publicUrl,
-        ...uploadedDims,
         shape:       shape   || null,
         length:      length  || null,
         occasion:    occasions.join(', ')  || null,
@@ -164,8 +152,7 @@ export default function UploadPage() {
         if (coloursErr) throw new Error('Failed to save colours: ' + coloursErr.message)
       }
 
-      // Tags + weekly upload count — via server route (tags table and profiles
-      // updates are blocked by RLS for direct client writes)
+      // Tags are attached through an owner-checked server route.
       const tagNames = tagsInput.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
       const finalizeRes = await fetch('/api/finalize-design-upload', {
         method: 'POST',
@@ -176,7 +163,7 @@ export default function UploadPage() {
         body: JSON.stringify({ designId: design.id, tagNames }),
       })
       if (!finalizeRes.ok) {
-        throw new Error('Design was uploaded, but tags/weekly count failed to save. Please contact support if this repeats.')
+        throw new Error('Design was uploaded, but tags failed to save. Please contact support if this repeats.')
       }
 
       // Reward for posting a design
@@ -211,7 +198,7 @@ export default function UploadPage() {
 
   const resetText = () => {
     if (!resetAt) return 'Your limit resets in a few days.'
-    const days = Math.ceil((resetAt.getTime() - Date.now()) / 86400000)
+    const days = Math.ceil((resetAt.getTime() - now) / 86400000)
     if (days <= 0) return 'Your limit resets today.'
     if (days === 1) return 'Your limit resets tomorrow.'
     return `Your limit resets in ${days} days.`

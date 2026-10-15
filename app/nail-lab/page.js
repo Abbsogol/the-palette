@@ -1,9 +1,18 @@
 'use client'
-import { useState, useEffect, useRef, useCallback } from 'react'
-import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
-import SaveToBoard from '@/components/SaveToBoard'
-import { LaqueWordmark, MagicStarIcon } from '@/components/ui/icons'
+import { useState, useEffect, useRef, useCallback } from 'react';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
+import SaveToBoard from '@/components/SaveToBoard';
+import { LaqueWordmark, MagicStarIcon } from '@/components/ui/icons';
+
+// ── Page palette from the Lab frames (237:1752 / 239:1800) ─────────────────
+// The Lab's accent is the softer #D98CAB rose, not the feed's #FF517F.
+import { requestGeneration, hasPendingGeneration } from '@/lib/generation-request';
+
+
+
+
+
 
 // ── Page palette from the Lab frames (237:1752 / 239:1800) ─────────────────
 // The Lab's accent is the softer #D98CAB rose, not the feed's #FF517F.
@@ -289,8 +298,10 @@ const ImageIcon = ({ size = 16 }) => (
   </svg>
 )
 
-export default function NailLabPage() {
-  const [currentUser, setCurrentUser] = useState(null)
+function NailLabBuilder({currentUser}) {
+const pendingGeneration = hasPendingGeneration(currentUser?.id)
+
+
   const [credits, setCredits] = useState(null)
   const [loadingUser, setLoadingUser] = useState(true)
 
@@ -316,7 +327,7 @@ export default function NailLabPage() {
   const [genError, setGenError] = useState(null)
 
   // Result screen actions
-  const [freeRegenUsed, setFreeRegenUsed] = useState(false)
+  const [freeRegenUsed, setFreeRegenUsed] = useState(true)
   const [rootGenerationId, setRootGenerationId] = useState(null)
   const [publishedDesignId, setPublishedDesignId] = useState(null)
   const [publishStatus, setPublishStatus] = useState(null) // null | 'draft' | 'published'
@@ -329,21 +340,17 @@ export default function NailLabPage() {
   useEffect(() => {
     const load = async () => {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.user) { setLoadingUser(false); return }
-      setCurrentUser(session.user)
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('credit_balance')
-        .eq('id', session.user.id)
-        .single()
-      if (error) console.error('credit balance fetch failed:', error)
-      // Leave credits unset (renders as "—") rather than defaulting to 0 on
-      // a fetch failure, so a real error isn't shown as "no credits left."
-      if (profile) setCredits(profile.credit_balance ?? 0)
+      if (!session?.user || session.user.id !== currentUser?.id) { setLoadingUser(false); return }
+      try {
+        const response = await fetch('/api/generation-status', { headers: { Authorization: `Bearer ${session.access_token}` }, cache: 'no-store' })
+        const data = await response.json()
+        if (!response.ok) throw new Error(data.error)
+        setCredits(data.creditsRemaining)
+      } catch (error) { setGenError(error.message || 'Could not load your credit balance. Please reload.') }
       setLoadingUser(false)
     }
     load()
-  }, [])
+  }, [currentUser?.id])
 
   const loadDesigns = async () => {
     if (allDesigns.length > 0) return
@@ -391,32 +398,23 @@ export default function NailLabPage() {
   const toggleVibe = (v) => setVibes(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v])
   const toggleOccasion = (o) => setOccasions(prev => prev.includes(o) ? prev.filter(x => x !== o) : [...prev, o])
 
-  const canGenerate = vibes.length > 0 && shape && length && currentUser && credits >= 1 && !generating
+  const canGenerate = vibes.length > 0 && shape && length && currentUser && (credits >= 1 || pendingGeneration) && !generating
 
   const callGenerateAPI = async (freeRegen = false, parentId = null) => {
     setGenerating(true)
     setGenError(null)
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch('/api/generate-nail-design', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-        },
-        body: JSON.stringify({
-          vibe: vibes, shape, length, colors,
-          occasion: occasions,
-          customText: customText || null,
-          referenceImageUrls: refDesigns.map(d => d.image_url).filter(Boolean),
-          freeRegen,
-          parentGenerationId: parentId,
-        }),
+      if (!session?.user || session.user.id !== currentUser?.id) throw new Error('Your account changed. Reload before generating.')
+      const data = await requestGeneration(session, {
+        vibe: vibes, shape, length, colors, occasion: occasions,
+        customText: customText || null, freeRegen, parentGenerationId: parentId,
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Generation failed')
       setResult(data)
-      if (!parentId) setRootGenerationId(data.generationId)
+      if (!freeRegen) {
+        setRootGenerationId(data.generationId)
+        setFreeRegenUsed(true)
+      }
       if (!freeRegen) setCredits(data.creditsRemaining)
       setPublishedDesignId(null)
       setPublishStatus(null)
@@ -424,6 +422,14 @@ export default function NailLabPage() {
       return true
     } catch (e) {
       setGenError(e.message)
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.access_token && session.user.id === currentUser?.id) {
+          const response = await fetch('/api/generation-status', { headers: { Authorization: `Bearer ${session.access_token}` }, cache: 'no-store' })
+          const status = await response.json()
+          if (response.ok) setCredits(status.creditsRemaining)
+        }
+      } catch { /* retain the original error if balance recovery is unavailable */ }
       return false
     } finally {
       setGenerating(false)
@@ -433,16 +439,16 @@ export default function NailLabPage() {
   const generate = async () => {
     if (!canGenerate) return
     setResult(null)
-    setFreeRegenUsed(false)
+    setFreeRegenUsed(true)
     setRootGenerationId(null)
     await callGenerateAPI(false, null)
   }
 
   const regen = async (free = false) => {
     if (generating) return
-    if (free && freeRegenUsed) return
-    if (!free && credits < 1) return
-    const ok = await callGenerateAPI(free, rootGenerationId)
+    if (free) return
+    if (!free && credits < 1 && !pendingGeneration) return
+    const ok = await callGenerateAPI(false, null)
     if (free && ok) setFreeRegenUsed(true)
   }
 
@@ -452,6 +458,7 @@ export default function NailLabPage() {
   // reliably reachable from the anon client for this cross-bucket flow).
   const publishGeneration = async (asDraft) => {
     const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.user || session.user.id !== currentUser?.id) throw new Error('Your account changed. Reload before publishing.')
     const res = await fetch('/api/publish-nail-lab-generation', {
       method: 'POST',
       headers: {
@@ -496,7 +503,7 @@ export default function NailLabPage() {
     setResult(null)
     setPublishedDesignId(null)
     setPublishStatus(null)
-    setFreeRegenUsed(false)
+    setFreeRegenUsed(true)
     setRootGenerationId(null)
     setShowSaveBoard(false)
     setShowNailTechSheet(false)
@@ -732,19 +739,12 @@ export default function NailLabPage() {
 
             {/* ── REGEN BUTTONS ── */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {!freeRegenUsed ? (
-                <button onClick={() => regen(true)} disabled={generating}
-                  style={{ width: '100%', background: BTN_GRADIENT, border: 'none', borderRadius: '24px', padding: '15px', ...ui(600, 15), cursor: generating ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
-                >
-                  {generating ? 'Generating...' : <><span>Regenerate</span><span style={{ background: 'rgba(255,255,255,0.25)', color: 'var(--lq-white)', fontSize: '10px', fontWeight: '700', borderRadius: '8px', padding: '2px 8px', letterSpacing: '0.06em' }}>FREE</span></>}
-                </button>
-              ) : (
                 <button onClick={() => regen(false)} disabled={generating || credits < 1}
                   style={{ width: '100%', background: credits >= 1 ? BTN_GRADIENT : PANEL, border: credits >= 1 ? 'none' : PANEL_BORDER, borderRadius: '24px', padding: '15px', ...ui(600, 15, credits >= 1 ? 'var(--lq-white)' : MUTED50), cursor: generating || credits < 1 ? 'not-allowed' : 'pointer' }}
                 >
-                  {generating ? 'Generating...' : credits < 1 ? 'No credits left' : 'Regenerate · 1 credit'}
+                  {generating ? 'Generating...' : credits < 1 ? 'No design tokens left' : 'Generate new design · 1 token'}
                 </button>
-              )}
+
               <button onClick={() => { resetResult(); window.scrollTo({ top: 0 }) }}
                 style={{ width: '100%', background: 'none', border: 'none', ...ui(400, 14, MUTED60), cursor: 'pointer', padding: '8px' }}
               >
@@ -1002,7 +1002,7 @@ export default function NailLabPage() {
           <div style={{ ...card, gap: '16px' }}>
             <CardHeader title="3. Inspiration" />
             <button
-              onClick={() => { loadDesigns(); setShowRefPicker(true) }}
+              disabled aria-disabled="true"
               style={{
                 width: '100%', background: 'rgba(255,255,255,0.03)', border: PANEL_BORDER,
                 borderRadius: '12px', padding: '12px',
@@ -1013,9 +1013,9 @@ export default function NailLabPage() {
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <ImageIcon size={16} />
                 <span style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <span style={ui(500, 14)}>Reference designs</span>
+                  <span style={ui(500, 14)}>Reference generation unavailable</span>
                   <span style={ui(400, 12, MUTED50)}>
-                    {refDesigns.length > 0 ? `${refDesigns.length} design${refDesigns.length > 1 ? 's' : ''} selected` : 'Pick from the laQue library'}
+                    {refDesigns.length > 0 ? `${refDesigns.length} design${refDesigns.length > 1 ? 's' : ''} selected` : 'Image-guided generation is not available in this build'}
                   </span>
                 </span>
               </span>
@@ -1113,4 +1113,23 @@ export default function NailLabPage() {
       </div>
     </>
   )
+}
+
+export default function NailLabPage() {
+  const [user, setUser] = useState(undefined)
+  useEffect(() => {
+    let active = true, changed = false
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      changed = true
+      if (active) setUser(session?.user || null)
+    })
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (active && !changed) setUser(session?.user || null)
+    }).catch(() => { if (active && !changed) setUser(null) })
+    return () => { active = false; subscription.unsubscribe() }
+  }, [])
+  if (user === undefined) return <p>Loading...</p>
+  // A new account gets a new builder. Private images, prompts, open dialogs,
+  // and callbacks from the previous account cannot enter its component state.
+  return <NailLabBuilder key={user?.id || 'signed-out'} currentUser={user} />
 }

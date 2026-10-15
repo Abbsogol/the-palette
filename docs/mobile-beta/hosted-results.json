@@ -1,0 +1,156 @@
+{
+  "recordedAt": "2026-09-27T15:36:49.309043+00:00",
+  "services": {
+    "supabase": "atjwbdrvgljddedtwoqo",
+    "backend": "https://laque-beta.vercel.app",
+    "stripeAccount": "acct_1TvxxEGpyT5aBYxx",
+    "stripeMode": "test"
+  },
+  "note": "Synthetic accounts only. Direct hosted API/SDK journeys and browser Checkout; not complete native/device acceptance.",
+  "journey": {
+    "date": "2026-09-27T15:19:19.327Z",
+    "origin": "https://laque-beta.vercel.app",
+    "projectRef": "atjwbdrvgljddedtwoqo",
+    "passed": [
+      "Backend identity and test Stripe gate",
+      "Signed-out mutation denied",
+      "Three real JWT accounts onboarded with matching database roles",
+      "Private upload bytes and draft visibility verified",
+      "Publish → discover → save → collection; stranger denied",
+      "Message retry deduped; stranger and blocked sender denied",
+      "Creator timezone and hours saved through permitted API; customer denied",
+      "Concurrent booking: one reservation; stranger cancellation denied; creator confirmed; Stripe test Checkout created"
+    ],
+    "ids": {
+      "bookingId": "902e89a3-10a5-4cda-8343-0f1fbc955cfa",
+      "designId": "eb048766-c01e-415d-bd5e-30cfa60355cd",
+      "conversationId": "852d7cdd-b61b-4286-8a02-5e2677734acf",
+      "serviceId": "b484689a-f121-4468-a31a-b9783cfd80c4"
+    }
+  },
+  "payment": {
+    "checkedAt": "2026-09-27T15:25:52.580Z",
+    "checkoutId": "cs_test_a1JGMlQEGiga32GjBYXYb980Q0kM5ucos5vcumyeYQcRaJtPMWVw7fKNc2",
+    "livemode": false,
+    "amount": 2000,
+    "paymentIntent": "pi_3UKJwoGpyT5aBYxx0vGykhkj",
+    "booking": {
+      "id": "902e89a3-10a5-4cda-8343-0f1fbc955cfa",
+      "status": "confirmed",
+      "deposit_paid": true
+    },
+    "receipts": [
+      {
+        "fulfilled": true,
+        "refund_required": false,
+        "refund_status": null,
+        "refunded": false,
+        "payment_intent": "pi_3UKJwoGpyT5aBYxx0vGykhkj"
+      }
+    ]
+  },
+  "refund": {
+    "checkedAt": "2026-09-27T15:27:39.305Z",
+    "refunds": [
+      {
+        "id": "re_3UKJwoGpyT5aBYxx0GACxZnR",
+        "amount": 2000,
+        "status": "succeeded",
+        "payment_intent": "pi_3UKJwoGpyT5aBYxx0vGykhkj"
+      }
+    ],
+    "receipts": [
+      {
+        "fulfilled": true,
+        "refund_required": true,
+        "refund_status": "succeeded",
+        "refunded": true,
+        "refund_id": "re_3UKJwoGpyT5aBYxx0GACxZnR"
+      }
+    ]
+  },
+  "lateDeposit": {
+    "at": "2026-09-27T15:32:58.695Z",
+    "checkout": {
+      "id": "cs_test_a111rU0kybJS2Yx9dobrOjxbeIiCKKYCt7nnAAVS4GSmkRNGxggfkJzm2Y",
+      "livemode": false,
+      "paymentStatus": "paid"
+    },
+    "booking": {
+      "status": "cancelled",
+      "deposit_paid": false
+    },
+    "receipts": [
+      {
+        "fulfilled": true,
+        "refund_required": true,
+        "refunded": true,
+        "refund_status": "succeeded",
+        "refund_id": "re_3UKK46GpyT5aBYxx0J2jzOME"
+      }
+    ],
+    "refunds": [
+      {
+        "id": "re_3UKK46GpyT5aBYxx0J2jzOME",
+        "status": "succeeded",
+        "amount": 2000
+      }
+    ]
+  },
+  "deletionAndRefundAccess": {
+    "at": "2026-09-27T15:28:38.138Z",
+    "refundVisibility": {
+      "customer": {
+        "http": 200,
+        "status": "refunded"
+      },
+      "creator": {
+        "http": 200,
+        "status": "refunded"
+      },
+      "stranger": {
+        "http": 404
+      }
+    },
+    "deletion": {
+      "authRemoved": true,
+      "profileRemoved": true,
+      "storageBytesRemoved": true
+    }
+  },
+  "duplicateLatePaymentReplay": {
+    "kind": "deliberate signed replay of real sandbox event (not provider redelivery)",
+    "eventId": "evt_1UKK47GpyT5aBYxxoCHhUIfa",
+    "responses": [
+      {
+        "http": 200,
+        "body": {
+          "received": true
+        }
+      },
+      {
+        "http": 200,
+        "body": {
+          "received": true
+        }
+      }
+    ],
+    "refundCount": 1,
+    "receipts": [
+      {
+        "refund_status": "succeeded",
+        "refunded": true
+      }
+    ]
+  },
+  "nativeMessage": {
+    "at": "2026-09-27T15:56:45.099Z",
+    "status": "passed",
+    "buildId": "3fc3e493-07dd-4c85-9c77-78bb5f8dd79c",
+    "sender": "customer",
+    "reader": "creator",
+    "rows": 1,
+    "messageId": "90dbcaba-191c-491f-82b0-02c369a1b896",
+    "conversationId": "852d7cdd-b61b-4286-8a02-5e2677734acf"
+  }
+}

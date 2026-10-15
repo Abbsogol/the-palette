@@ -1,7 +1,11 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
-import { supabase } from '@/lib/supabase'
-import Sheet from '@/components/ui/Sheet'
+import { useState, useEffect, useRef } from 'react';
+import { supabase } from '@/lib/supabase';
+import Sheet from '@/components/ui/Sheet';
+import { useCurrentTime } from '@/lib/use-current-time';
+
+
+
 
 const ACCENT = '#FF517F'
 const WHITE60 = 'rgba(255,255,255,0.6)'
@@ -11,6 +15,8 @@ const ui = (weight, size, color = 'var(--lq-white)') => ({
 })
 
 export default function CommentSheet({ design, currentUser, onClose, onCommentAdded, onCommentDeleted }) {
+const now = useCurrentTime()
+
   const [comments, setComments] = useState([])
   const [loading, setLoading]   = useState(true)
   const [loadError, setLoadError] = useState(false)
@@ -20,10 +26,18 @@ export default function CommentSheet({ design, currentUser, onClose, onCommentAd
   const inputRef = useRef(null)
 
   useEffect(() => {
-    loadComments()
+    let cancelled = false
+    supabase.from('design_comments').select('*, profiles(display_name, avatar_url)')
+      .eq('design_id', design.id).order('created_at', { ascending: true })
+      .then(({ data, error }) => {
+        if (cancelled) return
+        setLoadError(!!error)
+        setComments(data || [])
+        setLoading(false)
+      })
     const focusTimer = setTimeout(() => inputRef.current?.focus(), 300)
-    return () => clearTimeout(focusTimer)
-  }, [])
+    return () => { cancelled = true; clearTimeout(focusTimer) }
+  }, [design.id])
 
   async function loadComments() {
     const { data, error } = await supabase
@@ -50,19 +64,8 @@ export default function CommentSheet({ design, currentUser, onClose, onCommentAd
       setSubmitting(false)
       return
     }
-    await supabase.rpc('increment_comments', { design_id: design.id })
     setComments(prev => [...prev, data])
     onCommentAdded?.()
-    // Notify design owner (skip if commenting on own design)
-    if (design.created_by && design.created_by !== currentUser.id) {
-      await supabase.from('notifications').insert({
-        user_id: design.created_by,
-        actor_id: currentUser.id,
-        type: 'comment',
-        design_id: design.id,
-        comment_preview: body.trim().slice(0, 80),
-      })
-    }
     setBody('')
     setSubmitting(false)
   }
@@ -73,7 +76,6 @@ export default function CommentSheet({ design, currentUser, onClose, onCommentAd
     try {
       const { error } = await supabase.from('design_comments').delete().eq('id', comment.id)
       if (error) { alert('Failed to delete comment. Please try again.'); return }
-      await supabase.rpc('decrement_comments', { design_id: design.id })
       setComments(prev => prev.filter(c => c.id !== comment.id))
       onCommentDeleted?.()
     } finally {
@@ -82,7 +84,7 @@ export default function CommentSheet({ design, currentUser, onClose, onCommentAd
   }
 
   const timeAgo = (iso) => {
-    const diff = Date.now() - new Date(iso).getTime()
+    const diff = now - new Date(iso).getTime()
     const d = Math.floor(diff / 86400000)
     const h = Math.floor(diff / 3600000)
     const m = Math.floor(diff / 60000)

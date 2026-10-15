@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import BackButton from '@/components/ui/BackButton'
@@ -106,14 +106,28 @@ function ServiceSheet({ service, onSave, onClose }) {
 }
 
 export default function ServicesPage() {
-  const router = useRouter()
-  const [currentUser, setCurrentUser] = useState(null)
-  const [services, setServices] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [showSheet, setShowSheet] = useState(false)
-  const [editingService, setEditingService] = useState(null)
+const router = useRouter()
 
-  useEffect(() => {
+const [currentUser, setCurrentUser] = useState(null)
+
+const [services, setServices] = useState([])
+
+const [loading, setLoading] = useState(true)
+
+const [showSheet, setShowSheet] = useState(false)
+
+const [editingService, setEditingService] = useState(null)
+
+const loadServices = useCallback(async (userId) => {
+    const { data } = await supabase
+      .from('services')
+      .select('*')
+      .eq('creator_id', userId)
+      .order('created_at', { ascending: true })
+    setServices(data || [])
+  }, [])
+
+useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/profile'); return }
@@ -126,18 +140,9 @@ export default function ServicesPage() {
       setLoading(false)
     }
     init()
-  }, [])
+  }, [loadServices, router])
 
-  const loadServices = async (userId) => {
-    const { data } = await supabase
-      .from('services')
-      .select('*')
-      .eq('creator_id', userId)
-      .order('created_at', { ascending: true })
-    setServices(data || [])
-  }
-
-  const handleSave = async (fields) => {
+const handleSave = async (fields) => {
     const { error } = editingService
       ? await supabase.from('services').update(fields).eq('id', editingService.id)
       : await supabase.from('services').insert({ ...fields, creator_id: currentUser.id })
@@ -147,28 +152,20 @@ export default function ServicesPage() {
     setEditingService(null)
   }
 
-  const handleToggle = async (service) => {
+const handleToggle = async (service) => {
     const { error } = await supabase.from('services').update({ is_active: !service.is_active }).eq('id', service.id)
     if (error) { alert('Failed to update service. Please try again.'); return }
     await loadServices(currentUser.id)
   }
 
-  const formatDuration = (mins) => {
+const formatDuration = (mins) => {
     if (mins < 60) return `${mins} min`
     const h = Math.floor(mins / 60)
     const m = mins % 60
     return m > 0 ? `${h} hr ${m} min` : `${h} hr`
   }
 
-  const Shell = ({ children }) => (
-    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
-      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
-      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 120px)' }}>{children}</div>
-    </div>
-  )
-
-  if (loading) return (
+if (loading) return (
     <Shell>
       <div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <p style={ui(300, 14, WHITE60)}>Loading…</p>
@@ -176,7 +173,7 @@ export default function ServicesPage() {
     </Shell>
   )
 
-  return (
+return (
     <Shell>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: 'calc(env(safe-area-inset-top) + 16px) 20px 16px' }}>
@@ -262,3 +259,11 @@ export default function ServicesPage() {
     </Shell>
   )
 }
+
+const Shell = ({ children }) => (
+    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
+      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 120px)' }}>{children}</div>
+    </div>
+  )

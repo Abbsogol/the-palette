@@ -1,16 +1,33 @@
 'use client'
+import StorageImage from '@/components/StorageImage';
+import CheckoutSession from '@/components/CheckoutSession';
 
-import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { useParams, useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
-import IconButton from '@/components/ui/IconButton'
-import PillButton from '@/components/ui/PillButton'
-import FavouriteButton from '@/components/ui/FavouriteButton'
-import Sheet from '@/components/ui/Sheet'
-import { MagicStarIcon } from '@/components/ui/icons'
-import { canGoBack } from '@/lib/navHistory'
-import { useScrollMemory } from '@/lib/scrollMemory'
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useParams, useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+import IconButton from '@/components/ui/IconButton';
+import PillButton from '@/components/ui/PillButton';
+import FavouriteButton from '@/components/ui/FavouriteButton';
+import Sheet from '@/components/ui/Sheet';
+import { MagicStarIcon } from '@/components/ui/icons';
+import { canGoBack } from '@/lib/navHistory';
+import { useScrollMemory } from '@/lib/scrollMemory';
+
+// Page-specific palette from the Artist Profile frame (257:2206): rose
+// accent + near-black plum ground, distinct from the feed's wine tokens.
+import ShareButton from '@/components/ShareButton';
+
+
+
+
+
+
+
+
+
+
+
 
 // Page-specific palette from the Artist Profile frame (257:2206): rose
 // accent + near-black plum ground, distinct from the feed's wine tokens.
@@ -39,7 +56,9 @@ function fmtReply(min) {
   return `${Math.round(min / 1440)}d`
 }
 
-export default function CreatorPage() {
+function CreatorPageContent() {
+const [showBlockMenu, setShowBlockMenu] = useState(false)
+
   const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   const fmt12 = (t) => {
     if (!t) return ''
@@ -173,8 +192,10 @@ export default function CreatorPage() {
 
       // Real median first-reply time (aggregate only, computed server-side);
       // rendered only at >= 3 samples — honest fallback otherwise.
-      fetch(`/api/creator-reply-time?creator=${id}`)
-        .then(r => r.ok ? r.json() : null)
+      supabase.auth.getSession().then(({ data: { session } }) => session?.access_token
+        ? fetch(`/api/creator-reply-time?creator=${id}`, { headers: { Authorization: `Bearer ${session.access_token}` }, cache: 'no-store' })
+        : null)
+        .then(r => r?.ok ? r.json() : null)
         .then(data => { if (data && !data.error) setReplyTime(data) })
         .catch(() => {})
     }
@@ -194,10 +215,6 @@ export default function CreatorPage() {
       if (error) { alert('Failed to follow. Please try again.'); setFollowLoading(false); return }
       setIsFollowing(true)
       setFollowerCount(c => c + 1)
-      // Notify — skip if following yourself
-      if (currentUser.id !== id) {
-        await supabase.from('notifications').insert({ user_id: id, actor_id: currentUser.id, type: 'follow' })
-      }
     }
     setFollowLoading(false)
   }
@@ -297,7 +314,7 @@ export default function CreatorPage() {
 
   if (loadError) return pageShell(
     <div style={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '20px', textAlign: 'center' }}>
-      <p style={ui(400, 15)}>Couldn't load this profile</p>
+      <p style={ui(400, 15)}>Couldn&apos;t load this profile</p>
       <p style={ui(300, 13, MUTED)}>Please try again in a moment.</p>
       <PillButton onClick={() => window.location.reload()} style={{ background: BTN_GRADIENT }}>Retry</PillButton>
     </div>
@@ -312,7 +329,7 @@ export default function CreatorPage() {
     <div style={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', textAlign: 'center' }}>
       <div style={{ fontSize: '28px', marginBottom: '16px', color: ROSE }}>✦</div>
       <p style={{ ...ui(400, 16), margin: '0 0 8px' }}>This profile is unavailable</p>
-      <p style={ui(300, 14, MUTED)}>You can't view this profile.</p>
+      <p style={ui(300, 14, MUTED)}>You can&apos;t view this profile.</p>
     </div>
   )
 
@@ -357,7 +374,7 @@ export default function CreatorPage() {
             scrim so any avatar colour stays inside the Laque palette; the
             avatar-less fallback keeps its original lighter scrim untouched. */}
         {profile.avatar_url
-          ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'blur(48px) saturate(0.5)', transform: 'scale(1.3)' }} />
+          ? <StorageImage src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'blur(48px) saturate(0.5)', transform: 'scale(1.3)' }} />
           : <div className="lq-bg-wine" style={{ width: '100%', height: '100%' }} />}
         <div style={{ position: 'absolute', inset: 0, background: profile.avatar_url ? 'rgba(41, 0, 10, 0.78)' : 'rgba(26, 5, 13, 0.6)' }} />
         <div className="lq-grain" />
@@ -399,7 +416,7 @@ export default function CreatorPage() {
           <div style={{ width: '104px', height: '104px', borderRadius: '50%', border: `2px solid ${ROSE}`, padding: '2px', marginBottom: '12px' }}>
             <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: PANEL, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {profile.avatar_url
-                ? <img src={profile.avatar_url} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ? <StorageImage src={profile.avatar_url} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 : <span style={ui(400, 34)}>{realName ? realName[0].toUpperCase() : '?'}</span>}
             </div>
           </div>
@@ -613,7 +630,7 @@ export default function CreatorPage() {
                         textDecoration: 'none', display: 'block', position: 'relative',
                       }}>
                         {design.image_url
-                          ? <img src={design.image_url} alt={design.title} loading="lazy" decoding="async" width={design.image_width || undefined} height={design.image_height || undefined} style={{ width: '100%', height: 'auto', aspectRatio: design.image_width && design.image_height ? `${design.image_width} / ${design.image_height}` : undefined, display: 'block', background: 'rgba(255,255,255,0.04)' }} />
+                          ? <StorageImage src={design.image_url} alt={design.title} loading="lazy" decoding="async" width={design.image_width || undefined} height={design.image_height || undefined} style={{ width: '100%', height: 'auto', aspectRatio: design.image_width && design.image_height ? `${design.image_width} / ${design.image_height}` : undefined, display: 'block', background: 'rgba(255,255,255,0.04)' }} />
                           : <div style={{ width: '100%', aspectRatio: '1 / 1', background: 'rgba(255,255,255,0.04)' }} />}
                         {design.is_pinned && (
                           <span aria-label="Pinned" style={{ position: 'absolute', top: '8px', right: '8px', background: ROSE, borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -688,7 +705,7 @@ export default function CreatorPage() {
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                               <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 {review.reviewer?.avatar_url
-                                  ? <img src={review.reviewer.avatar_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                  ? <StorageImage src={review.reviewer.avatar_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                   : <span style={ui(600, 11, ROSE)}>{(review.reviewer?.display_name || '?')[0].toUpperCase()}</span>}
                               </div>
                               <span style={ui(500, 13)}>{review.reviewer?.display_name || 'Client'}</span>
@@ -841,4 +858,8 @@ export default function CreatorPage() {
       )}
     </div>
   )
+}
+
+export default function CreatorPage() {
+  return <CheckoutSession title="Sign in to view profiles">{userId => <CreatorPageContent key={userId} />}</CheckoutSession>
 }

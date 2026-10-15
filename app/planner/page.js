@@ -1,9 +1,16 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
-import BackButton from '@/components/ui/BackButton'
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+import BackButton from '@/components/ui/BackButton';
+import Link from 'next/link';
+import CheckoutSession from '@/components/CheckoutSession';
+import { bookingZoneLabel, calendarDate, calendarKey, dateInZone } from '@/lib/booking-time';
+
+
+
+
 
 const ACCENT = '#FF517F'
 const WINE = '#260D14'
@@ -21,7 +28,7 @@ const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'
 function fmt12(t) {
   if (!t) return ''
   const [h, m] = t.slice(0, 5).split(':').map(Number)
-  const ampm = h < 12 ? 'am' : 'pm'
+  const ampm = h % 24 < 12 ? 'am' : 'pm'
   const h12 = h % 12 === 0 ? 12 : h % 12
   return `${h12}${m > 0 ? `:${String(m).padStart(2,'0')}` : ''}${ampm}`
 }
@@ -34,36 +41,53 @@ function fmtDuration(mins) {
 }
 
 function toDateStr(d) {
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`
 }
 
 function getWeekStart(d) {
   const day = new Date(d)
-  day.setDate(d.getDate() - d.getDay())
-  day.setHours(0,0,0,0)
+  day.setUTCDate(d.getUTCDate() - d.getUTCDay())
+  day.setUTCHours(0,0,0,0)
   return day
 }
 
-export default function PlannerPage() {
-  const router = useRouter()
-  const [loading, setLoading] = useState(true)
-  const [bookings, setBookings] = useState([])
-  const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()))
-  const [selectedDay, setSelectedDay] = useState(() => toDateStr(new Date()))
-  const [expanded, setExpanded] = useState(null)
-  const dayRefs = useRef({})
+function Planner({userId}) {
+const [timeZone, setTimeZone] = useState(null)
 
-  useEffect(() => {
+const router = useRouter()
+
+const [loading, setLoading] = useState(true)
+
+const [bookings, setBookings] = useState([])
+
+const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()))
+
+const [selectedDay, setSelectedDay] = useState(() => toDateStr(new Date()))
+
+const [expanded, setExpanded] = useState(null)
+
+const dayRefs = useRef({})
+
+useEffect(() => {
+    let active = true
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/profile'); return }
+      if (!active) return
+      if (user?.id !== userId) { router.push('/profile'); return }
 
       const { data: profile } = await supabase
         .from('profiles').select('account_type').eq('id', user.id).single()
 
+      if (!active) return
+
       if (!profile || (profile.account_type !== 'creator' && profile.account_type !== 'salon')) {
         router.push('/profile'); return
       }
+
+      const { data: settings } = await supabase.from('creator_booking_settings').select('time_zone').eq('creator_id', userId).maybeSingle()
+      if (!active) return
+      setTimeZone(settings?.time_zone || null)
+      if (settings?.time_zone) { const day = calendarDate(dateInZone(settings.time_zone)); setWeekStart(getWeekStart(day)); setSelectedDay(calendarKey(day)) }
 
       // Ordered newest-first + capped so the limit drops old history rather
       // than cutting off upcoming bookings, then reversed for display.
@@ -75,6 +99,7 @@ export default function PlannerPage() {
         .order('booking_date', { ascending: false })
         .order('start_time', { ascending: false })
         .limit(300)
+      if (!active) return
       if (error) console.error('planner bookings fetch failed:', error)
       const data = rawData ? rawData.slice().reverse() : rawData
 
@@ -82,59 +107,54 @@ export default function PlannerPage() {
         const clientIds = [...new Set(data.map(b => b.client_id))]
         const { data: profiles } = await supabase
           .from('profiles').select('id, display_name, avatar_url').in('id', clientIds)
+        if (!active) return
         const pm = Object.fromEntries((profiles || []).map(p => [p.id, p]))
         setBookings(data.map(b => ({ ...b, client: pm[b.client_id] || null })))
       }
       setLoading(false)
     }
     init()
-  }, [])
+    return () => { active = false }
+  }, [router, userId])
 
-  const weekDays = Array.from({ length: 7 }, (_, i) => {
+const weekDays = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart)
-    d.setDate(weekStart.getDate() + i)
+    d.setUTCDate(weekStart.getUTCDate() + i)
     return d
   })
 
-  const todayStr = toDateStr(new Date())
+const todayStr = timeZone ? dateInZone(timeZone) : null
 
-  const bookingsForDay = (dateStr) => bookings.filter(b => b.booking_date === dateStr)
+const bookingsForDay = (dateStr) => bookings.filter(b => b.booking_date === dateStr)
 
-  const prevWeek = () => {
-    const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(d)
-    setSelectedDay(toDateStr(d))
-  }
-  const nextWeek = () => {
-    const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(d)
+const prevWeek = () => {
+    const d = new Date(weekStart); d.setUTCDate(d.getUTCDate() - 7); setWeekStart(d)
     setSelectedDay(toDateStr(d))
   }
 
-  const weekLabel = () => {
-    const end = new Date(weekStart); end.setDate(weekStart.getDate() + 6)
-    if (weekStart.getMonth() === end.getMonth())
-      return `${weekStart.getDate()}–${end.getDate()} ${MONTH_NAMES[weekStart.getMonth()]}`
-    return `${weekStart.getDate()} ${MONTH_NAMES[weekStart.getMonth()]} – ${end.getDate()} ${MONTH_NAMES[end.getMonth()]}`
+const nextWeek = () => {
+    const d = new Date(weekStart); d.setUTCDate(d.getUTCDate() + 7); setWeekStart(d)
+    setSelectedDay(toDateStr(d))
   }
 
-  const selectDay = (dateStr) => {
+const weekLabel = () => {
+    const end = new Date(weekStart); end.setUTCDate(weekStart.getUTCDate() + 6)
+    if (weekStart.getUTCMonth() === end.getUTCMonth())
+      return `${weekStart.getUTCDate()}–${end.getUTCDate()} ${MONTH_NAMES[weekStart.getUTCMonth()]}`
+    return `${weekStart.getUTCDate()} ${MONTH_NAMES[weekStart.getUTCMonth()]} – ${end.getUTCDate()} ${MONTH_NAMES[end.getUTCMonth()]}`
+  }
+
+const selectDay = (dateStr) => {
     setSelectedDay(dateStr)
     const el = dayRefs.current[dateStr]
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
-  const weekBookings = weekDays.reduce((n, d) => n + bookingsForDay(toDateStr(d)).length, 0)
-  const confirmedCount = weekDays.reduce((n, d) => n + bookingsForDay(toDateStr(d)).filter(b => b.status === 'confirmed').length, 0)
+const weekBookings = weekDays.reduce((n, d) => n + bookingsForDay(toDateStr(d)).length, 0)
 
-  const Shell = ({ children }) => (
-    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
-      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
-      {/* nav is shown on this page now — leave room so the floating bar never overlaps the last day's cards */}
-      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 120px)' }}>{children}</div>
-    </div>
-  )
+const confirmedCount = weekDays.reduce((n, d) => n + bookingsForDay(toDateStr(d)).filter(b => b.status === 'confirmed').length, 0)
 
-  if (loading) return (
+if (loading) return (
     <Shell>
       <div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <p style={ui(300, 14, WHITE60)}>Loading…</p>
@@ -142,14 +162,14 @@ export default function PlannerPage() {
     </Shell>
   )
 
-  return (
+return (
     <Shell>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: 'calc(env(safe-area-inset-top) + 16px) 20px 12px' }}>
         <BackButton fallback="/bookings" />
         <h1 style={{ ...display(24), margin: 0, flex: 1 }}>Planner</h1>
         <button
-          onClick={() => { setWeekStart(getWeekStart(new Date())); setSelectedDay(todayStr) }}
+          onClick={() => { setWeekStart(getWeekStart(calendarDate(dateInZone(timeZone)))); setSelectedDay(todayStr) }}
           style={{ background: PANEL, border: PANEL_BORDER, borderRadius: '1000px', padding: '7px 14px', ...ui(500, 12, WHITE60), cursor: 'pointer' }}
         >
           Today
@@ -334,3 +354,15 @@ export default function PlannerPage() {
     </Shell>
   )
 }
+
+export default function PlannerPage() {
+  return <CheckoutSession title="Sign in to view appointments" description="Appointment details are private to the people involved.">{userId => <Planner key={userId} userId={userId} />}</CheckoutSession>
+}
+const Shell = ({ children }) => (
+    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
+      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      {/* nav is shown on this page now — leave room so the floating bar never overlaps the last day's cards */}
+      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 120px)' }}>{children}</div>
+    </div>
+  )

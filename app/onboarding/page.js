@@ -1,8 +1,32 @@
 'use client'
+const emptyForm = () => ({
+  display_name: '',
+  phone_number: '',
+  location: '',
+  bio: '',
+  nail_shape: null,
+  nail_length: null,
+  nail_colors: [],
+  nail_finishes: [],
+  nail_techniques: [],
+  occasions: [],
+  budget_range: null,
+  allergies: '',
+  product_sensitivities: [],
+  removal_needed: false,
+  specialties: [],
+  age_confirmed: false,
+  privacy_accepted: false
+});
 
-import { useState, useEffect, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+// ── Shared styles ───────────────────────────────────────────────────────────
+
+import { useState, useEffect, Suspense, useCallback, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+
+
+
 
 const ACCENT = '#FF517F'
 const WINE = '#260D14'
@@ -68,57 +92,45 @@ function Shell({ children }) {
 }
 
 function OnboardingInner() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
+const loadVersion = useRef({ version: 0 })
 
-  const [profile, setProfile] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [stepIdx, setStepIdx] = useState(0)
-  const [saving, setSaving]   = useState(false)
+const activeUserId = useRef(null)
 
-  const [referralCode, setReferralCode] = useState('')
-  const [errorMsg, setErrorMsg] = useState('')
+const [profile, setProfile] = useState(null)
 
-  const [d, setD] = useState({
-    display_name: '',
-    phone_number: '',
-    location: '',
-    bio: '',
-    nail_shape: null,
-    nail_length: null,
-    nail_colors: [],
-    nail_finishes: [],
-    nail_techniques: [],
-    occasions: [],
-    budget_range: null,
-    allergies: '',
-    product_sensitivities: [],
-    removal_needed: false,
-    specialties: [],
-  })
+const [d, setD] = useState(emptyForm)
 
-  useEffect(() => {
-    // Pre-fill referral code from ?ref= param
-    const ref = searchParams.get('ref')
-    if (ref) setReferralCode(ref.toUpperCase().trim())
+const [stepIdx, setStepIdx] = useState(0)
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session?.user) {
-        router.push(ref ? `/profile?ref=${encodeURIComponent(ref)}` : '/profile')
-        return
-      }
-      init(session.user)
-    })
+const [loading, setLoading] = useState(true)
+
+const [saving, setSaving]   = useState(false)
+
+const [errorMsg, setErrorMsg] = useState('')
+
+const clearForm = useCallback(() => {
+    loadVersion.current.version++
+    activeUserId.current = null
+    setProfile(null); setD(emptyForm()); setStepIdx(0); setLoading(true)
+    setSaving(false); setErrorMsg('')
   }, [])
 
-  const init = async (u) => {
+const router = useRouter()
+
+const searchParams = useSearchParams()
+
+const [referralCode, setReferralCode] = useState(() => (searchParams.get('ref') || '').toUpperCase().trim())
+
+const init = useCallback(async (u) => {
+    clearForm()
+    activeUserId.current = u.id
+    const version = loadVersion.current.version
     const { data: prof } = await supabase.from('profiles').select('*').eq('id', u.id).single()
+    if (version !== loadVersion.current.version) return
     if (!prof) { router.push('/profile'); return }
     // Already completed onboarding → go to feed
     if (prof.onboarding_complete === true) { router.push('/feed'); return }
     setProfile(prof)
-    // Health notes live in their own table now (submitted via complete-onboarding).
-    const { data: health } = await supabase.from('client_health_notes').select('allergies, product_sensitivities, removal_needed').eq('user_id', u.id).maybeSingle()
     setD(prev => ({
       ...prev,
       display_name:         prof.display_name          || '',
@@ -132,36 +144,91 @@ function OnboardingInner() {
       nail_techniques:      prof.nail_techniques        || [],
       occasions:            prof.occasions              || [],
       budget_range:         prof.budget_range           || null,
-      allergies:            health?.allergies           || '',
-      product_sensitivities: health?.product_sensitivities || [],
-      removal_needed:       health?.removal_needed      || false,
+      allergies:            prof.allergies              || '',
+      product_sensitivities: prof.product_sensitivities || [],
+      removal_needed:       prof.removal_needed         || false,
       specialties:          prof.specialties            || [],
     }))
     setLoading(false)
-  }
+  }, [router, clearForm])
 
-  const accountType = profile?.account_type || 'user'
-  const steps   = accountType === 'creator' ? CREATOR_STEPS : accountType === 'salon' ? SALON_STEPS : USER_STEPS
-  const current = steps[stepIdx]
+useEffect(() => {
+    let active = true
+    const requestState = loadVersion.current
+    let authChanged = false
+    const ref = searchParams.get('ref')
+    const changeSession = session => {
+      if (!session?.user) {
+        clearForm()
+        router.push(ref ? `/profile?ref=${encodeURIComponent(ref)}` : '/profile')
+        return
+      }
+      // Token refresh must not discard an in-progress form for the same user.
+      if (activeUserId.current !== session.user.id) init(session.user)
+    }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (active && !authChanged) changeSession(session)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      authChanged = true
+      changeSession(session)
+    })
+    return () => { active = false; requestState.version++; subscription.unsubscribe() }
+  }, [init, router, searchParams, clearForm])
 
-  // Don't count welcome/done in the progress denominator
-  const innerSteps = steps.filter(s => s !== 'welcome' && s !== 'done')
-  const innerIdx   = innerSteps.indexOf(current)
-  const progress   = innerIdx >= 0 ? ((innerIdx + 1) / innerSteps.length) * 100 : innerIdx === -1 && current === 'done' ? 100 : 0
+const accountType = profile?.account_type || 'user'
 
-  const next = () => setStepIdx(i => Math.min(i + 1, steps.length - 1))
-  const back = () => setStepIdx(i => Math.max(i - 1, 0))
+const steps   = accountType === 'creator' ? CREATOR_STEPS : accountType === 'salon' ? SALON_STEPS : USER_STEPS
 
-  const set1  = (field, val) => setD(p => ({ ...p, [field]: p[field] === val ? null : val }))
-  const setN  = (field, val) => setD(p => ({ ...p, [field]: (p[field]||[]).includes(val) ? p[field].filter(v=>v!==val) : [...(p[field]||[]),val] }))
+const current = steps[stepIdx]
 
-  const complete = async (redirectTo = '/feed') => {
+const innerSteps = steps.filter(s => s !== 'welcome' && s !== 'done')
+
+const innerIdx   = innerSteps.indexOf(current)
+
+const progress   = innerIdx >= 0 ? ((innerIdx + 1) / innerSteps.length) * 100 : innerIdx === -1 && current === 'done' ? 100 : 0
+
+const next = () => setStepIdx(i => Math.min(i + 1, steps.length - 1))
+
+const back = () => setStepIdx(i => Math.max(i - 1, 0))
+
+const set1  = (field, val) => setD(p => ({ ...p, [field]: p[field] === val ? null : val }))
+
+const setN  = (field, val) => setD(p => ({ ...p, [field]: (p[field]||[]).includes(val) ? p[field].filter(v=>v!==val) : [...(p[field]||[]),val] }))
+
+const complete = async (redirectTo = '/feed') => {
+    if (saving || !profile) return
+    if (!d.age_confirmed || !d.privacy_accepted) { setErrorMsg("Confirm you are 18 or older and have read the Privacy Policy."); return }
+    const version = loadVersion.current.version
     setSaving(true)
     setErrorMsg('')
-
-    const { data: { session } } = await supabase.auth.getSession()
+    let session
     let res
     try {
+      ;({ data: { session } } = await supabase.auth.getSession())
+      if (version !== loadVersion.current.version) return
+      if (session?.user?.id !== profile.id || activeUserId.current !== profile.id) {
+        clearForm()
+        if (session?.user) await init(session.user)
+        else router.push('/profile')
+        return
+      }
+      // Apply the invitation before committing onboarding so a transient
+      // failure remains visible and retryable. The referral RPC is idempotent.
+      if (referralCode.trim()) {
+        const referralResponse = await fetch('/api/apply-referral', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ code: referralCode.trim() }),
+        })
+        const referral = await referralResponse.json().catch(() => ({}))
+        if (version !== loadVersion.current.version) return
+        if (!referralResponse.ok || referral.ok !== true) {
+          setSaving(false)
+          setErrorMsg(referral.error || 'Your invitation could not be applied. Please retry or remove the referral code to continue.')
+          return
+        }
+      }
       res = await fetch('/api/complete-onboarding', {
         method: 'POST',
         headers: {
@@ -171,35 +238,25 @@ function OnboardingInner() {
         body: JSON.stringify(d),
       })
     } catch {
+      if (version !== loadVersion.current.version) return
       setSaving(false)
       setErrorMsg('Something went wrong. Please check your connection and try again.')
       return
     }
 
     const json = await res.json().catch(() => ({}))
+    if (version !== loadVersion.current.version) return
     if (!res.ok || json.error) {
       setSaving(false)
       setErrorMsg(json.error || 'Something went wrong. Please try again.')
       return
     }
 
-    // Apply referral code if provided
-    if (referralCode.trim()) {
-      fetch('/api/apply-referral', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-        },
-        body: JSON.stringify({ code: referralCode.trim() }),
-      }).catch(() => {})
-    }
-
     setSaving(false)
     router.push(redirectTo)
   }
 
-  if (loading) return (
+if (loading) return (
     <Shell>
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <p style={ui(300, 14, WHITE60)}>Loading…</p>
@@ -207,35 +264,36 @@ function OnboardingInner() {
     </Shell>
   )
 
-  // ── Step renderer ─────────────────────────────────────────────────────────
-  const renderStep = () => {
+const renderStep = () => {
     switch (current) {
 
+      // ── WELCOME ──────────────────────────────────────────────────────────
       case 'welcome':
         return (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', padding: '0 32px' }}>
             <div style={{ fontSize: '52px', marginBottom: '28px', lineHeight: 1 }}>💅</div>
-            <h1 style={{ ...display(30), marginBottom: '14px' }}>
-              Welcome to laQue{d.display_name ? `, ${d.display_name.split(' ')[0]}` : ''}
+            <h1 style={{ color: 'var(--text-primary)', fontSize: '28px', fontWeight: '600', letterSpacing: '-0.03em', marginBottom: '14px', lineHeight: '1.2' }}>
+              Welcome to Laque{d.display_name ? `, ${d.display_name.split(' ')[0]}` : ''}
             </h1>
-            <p style={{ ...ui(300, 15, WHITE60), lineHeight: 1.8, marginBottom: '20px' }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '15px', lineHeight: '1.8', marginBottom: '20px' }}>
               {accountType === 'creator'
                 ? "You're joining as a Nail Artist. Let's set up your profile so clients can discover your work."
                 : accountType === 'salon'
                 ? "You're joining as a Salon. Let's build your page so clients can find and book your team."
                 : "Let's personalise your experience so you discover the nail art you actually love."}
             </p>
-            <p style={ui(300, 12, 'rgba(255,255,255,0.4)')}>Takes about 2 minutes · You can skip anything</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '12px', opacity: 0.5 }}>Takes about 2 minutes · You can skip anything</p>
           </div>
         )
 
+      // ── BASICS ───────────────────────────────────────────────────────────
       case 'basics':
         return (
           <div style={{ flex: 1, padding: '0 20px', overflowY: 'auto' }}>
-            <h2 style={{ ...display(24), marginBottom: '6px' }}>
+            <h2 style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: '600', letterSpacing: '-0.02em', marginBottom: '6px' }}>
               {accountType === 'salon' ? 'Your salon details' : 'About you'}
             </h2>
-            <p style={{ ...ui(300, 14, WHITE60), marginBottom: '24px', lineHeight: 1.6 }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '24px', lineHeight: '1.6' }}>
               {accountType === 'salon' ? 'Used on your public salon page and for bookings.' : 'Used for your profile and bookings.'}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -258,12 +316,12 @@ function OnboardingInner() {
                 <div>
                   <p style={label}>Bio</p>
                   <textarea value={d.bio} onChange={e => setD(p=>({...p,bio:e.target.value}))}
-                    placeholder={accountType === 'salon' ? 'Describe your salon, services, and vibe…' : 'Tell clients about your style and experience…'}
+                    placeholder={accountType === 'salon' ? 'Describe your salon, services, and vibe...' : 'Tell clients about your style and experience...'}
                     rows={3} style={{ ...inp, resize: 'none' }} />
                 </div>
               )}
               <div>
-                <p style={label}>Referral code <span style={{ ...ui(400, 11, WHITE60), textTransform: 'none', letterSpacing: 0 }}>(optional)</span></p>
+                <p style={label}>Referral code <span style={{ fontWeight: '400', opacity: 0.6 }}>(optional)</span></p>
                 <input
                   value={referralCode}
                   onChange={e => setReferralCode(e.target.value.toUpperCase().trim())}
@@ -271,7 +329,7 @@ function OnboardingInner() {
                   style={{ ...inp, letterSpacing: '0.08em' }}
                   maxLength={8}
                 />
-                <p style={{ ...ui(300, 11, WHITE60), marginTop: '6px' }}>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '6px' }}>
                   Got a code from a friend? Enter it here and you&apos;ll both earn Beauty Rewards points.
                 </p>
               </div>
@@ -279,12 +337,13 @@ function OnboardingInner() {
           </div>
         )
 
+      // ── STYLE DNA ────────────────────────────────────────────────────────
       case 'style':
         return (
           <div style={{ flex: 1, padding: '0 20px', overflowY: 'auto' }}>
-            <h2 style={{ ...display(24), marginBottom: '6px' }}>Your Style DNA</h2>
-            <p style={{ ...ui(300, 14, WHITE60), marginBottom: '24px', lineHeight: 1.6 }}>
-              Personalises your feed. All optional — tap to select.
+            <h2 style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: '600', letterSpacing: '-0.02em', marginBottom: '6px' }}>Your Style DNA</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '24px', lineHeight: '1.6' }}>
+              Personalises your feed, search, and Nail Lab results. All optional — tap to select.
             </p>
             {[
               { label: 'Nail shape',          field: 'nail_shape',      opts: SHAPES,     single: true  },
@@ -306,13 +365,12 @@ function OnboardingInner() {
           </div>
         )
 
+      // ── HEALTH + OCCASIONS ───────────────────────────────────────────────
       case 'health':
         return (
           <div style={{ flex: 1, padding: '0 20px', overflowY: 'auto' }}>
-            <h2 style={{ ...display(24), marginBottom: '6px' }}>Occasions + Nail Health</h2>
-            <p style={{ ...ui(300, 14, WHITE60), marginBottom: '24px', lineHeight: 1.6 }}>
-              Saved to your profile, ready for when we can share it with your tech. For now, tell them directly when you book.
-            </p>
+            <h2 style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: '600', letterSpacing: '-0.02em', marginBottom: '6px' }}>Occasions + Nail Health</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '24px', lineHeight: '1.6' }}>Health notes are shared with nail techs when you book — they keep you safe.</p>
 
             <div style={{ marginBottom: '24px' }}>
               <p style={label}>Occasions</p>
@@ -330,13 +388,13 @@ function OnboardingInner() {
 
             <div style={{ marginBottom: '24px' }}>
               <p style={label}>Product sensitivities</p>
-              <p style={{ ...ui(300, 12, WHITE60), marginBottom: '10px', lineHeight: 1.5 }}>Saved to your profile — not shared with your tech unless you turn on sharing.</p>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginBottom: '10px', lineHeight: '1.5' }}>Shared with nail techs when you book.</p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                 {SENSITIVITIES.map(s => {
                   const active = (d.product_sensitivities||[]).includes(s)
                   return (
                     <button key={s} onClick={() => setN('product_sensitivities',s)}
-                      style={{ ...chip(false), background: active ? 'rgba(224,112,112,0.15)' : 'rgba(255,255,255,0.06)', ...ui(active ? 500 : 400, 13, active ? '#E07070' : WHITE60), border: active ? '1px solid rgba(224,112,112,0.4)' : PANEL_BORDER }}>
+                      style={{ ...chip(false), background: active ? 'rgba(224,112,112,0.15)' : 'var(--bg-chip)', color: active ? '#E07070' : 'var(--text-secondary)', border: active ? '0.5px solid rgba(224,112,112,0.4)' : '0.5px solid var(--border)' }}>
                       {s}
                     </button>
                   )
@@ -350,25 +408,25 @@ function OnboardingInner() {
                 placeholder='e.g. "Latex allergy"' style={inp} />
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: PANEL, borderRadius: '12px', padding: '14px 16px', border: PANEL_BORDER }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', borderRadius: '12px', padding: '14px 16px', border: '0.5px solid var(--border)' }}>
               <div>
-                <p style={{ ...ui(400, 14), marginBottom: '2px' }}>Removal needed</p>
-                <p style={ui(300, 12, WHITE60)}>I need removal before a new set</p>
+                <p style={{ color: 'var(--text-primary)', fontSize: '14px', marginBottom: '2px' }}>Removal needed</p>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>I need removal before a new set</p>
               </div>
               <button onClick={() => setD(p=>({...p,removal_needed:!p.removal_needed}))}
-                aria-pressed={d.removal_needed} aria-label="Removal needed"
-                style={{ width: '48px', height: '28px', borderRadius: '1000px', background: d.removal_needed ? ACCENT : 'rgba(255,255,255,0.15)', border: 'none', cursor: 'pointer', position: 'relative', flexShrink: 0, padding: 0 }}>
-                <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '3px', left: d.removal_needed ? '23px' : '3px', transition: 'left 0.2s' }} />
+                style={{ width: '44px', height: '26px', borderRadius: '13px', background: d.removal_needed ? 'var(--accent)' : 'var(--bg-chip)', border: '0.5px solid var(--border)', cursor: 'pointer', position: 'relative', flexShrink: 0 }}>
+                <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '2px', left: d.removal_needed ? '20px' : '2px', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
               </button>
             </div>
           </div>
         )
 
+      // ── SPECIALTIES (creator) ────────────────────────────────────────────
       case 'specialties':
         return (
           <div style={{ flex: 1, padding: '0 20px', overflowY: 'auto' }}>
-            <h2 style={{ ...display(24), marginBottom: '6px' }}>Your specialties</h2>
-            <p style={{ ...ui(300, 14, WHITE60), marginBottom: '24px', lineHeight: 1.6 }}>
+            <h2 style={{ color: 'var(--text-primary)', fontSize: '22px', fontWeight: '600', letterSpacing: '-0.02em', marginBottom: '6px' }}>Your specialties</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '24px', lineHeight: '1.6' }}>
               Clients search by technique. Select everything you offer.
             </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
@@ -380,56 +438,59 @@ function OnboardingInner() {
           </div>
         )
 
+      // ── CREDITS ──────────────────────────────────────────────────────────
       case 'credits': {
         const count = (accountType === 'creator' || accountType === 'salon') ? 5 : 3
         return (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', padding: '0 32px' }}>
-            <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(255,81,127,0.12)', border: '1px solid rgba(255,81,127,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '28px' }}>
+            <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(212,160,192,0.12)', border: '1px solid rgba(212,160,192,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '28px' }}>
               <span style={{ fontSize: '34px', lineHeight: 1 }}>✨</span>
             </div>
-            <h2 style={{ ...display(28), marginBottom: '14px' }}>
+            <h2 style={{ color: 'var(--text-primary)', fontSize: '26px', fontWeight: '600', letterSpacing: '-0.03em', marginBottom: '14px' }}>
               You got {count} free credits
             </h2>
-            <p style={{ ...ui(300, 15, WHITE60), lineHeight: 1.8, marginBottom: '28px' }}>
-              Use them in <span style={ui(500, 15, ACCENT)}>Nail Lab</span> to generate custom AI nail designs. Each generation uses 1 credit. Buy more any time.
+            <p style={{ color: 'var(--text-secondary)', fontSize: '15px', lineHeight: '1.8', marginBottom: '28px' }}>
+              Use them in <span style={{ color: 'var(--accent)', fontWeight: '500' }}>Nail Lab</span> to generate custom AI nail designs. Each generation uses 1 credit. Buy more any time.
             </p>
-            <div style={{ background: PANEL, border: PANEL_BORDER, borderRadius: '16px', padding: '16px 28px', display: 'inline-flex', alignItems: 'center', gap: '14px' }}>
-              <span style={display(36)}>{count}</span>
+            <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '14px', padding: '16px 28px', display: 'inline-flex', alignItems: 'center', gap: '14px' }}>
+              <span style={{ color: 'var(--accent)', fontSize: '36px', fontWeight: '600', letterSpacing: '-0.03em' }}>{count}</span>
               <div style={{ textAlign: 'left' }}>
-                <p style={ui(500, 15)}>Design Credits</p>
-                <p style={ui(300, 12, WHITE60)}>Added to your wallet</p>
+                <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '500' }}>Design Credits</p>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Added to your wallet</p>
               </div>
             </div>
           </div>
         )
       }
 
+      // ── FIRST ACTION ─────────────────────────────────────────────────────
       case 'action':
         return (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', padding: '0 32px' }}>
             <div style={{ fontSize: '52px', marginBottom: '28px', lineHeight: 1 }}>
               {accountType === 'creator' ? '🎨' : '🤍'}
             </div>
-            <h2 style={{ ...display(26), marginBottom: '14px' }}>
+            <h2 style={{ color: 'var(--text-primary)', fontSize: '24px', fontWeight: '600', letterSpacing: '-0.02em', marginBottom: '14px', lineHeight: '1.2' }}>
               {accountType === 'creator' ? 'Post your first design' : 'Save your first look'}
             </h2>
-            <p style={{ ...ui(300, 15, WHITE60), lineHeight: 1.8, marginBottom: '8px' }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '15px', lineHeight: '1.8', marginBottom: '8px' }}>
               {accountType === 'creator'
                 ? "Upload a design from your portfolio. It'll show on your public profile and in the feed."
                 : 'Browse the feed and tap the heart on any design to save it to your collection.'}
             </p>
-            <p style={{ ...ui(300, 12, 'rgba(255,255,255,0.4)'), marginTop: '4px' }}>You can always do this later</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '12px', opacity: 0.5, marginTop: '4px' }}>You can always do this later</p>
           </div>
         )
 
+      // ── DONE ─────────────────────────────────────────────────────────────
       case 'done':
         return (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', padding: '0 32px' }}>
             <div style={{ fontSize: '52px', marginBottom: '28px', lineHeight: 1 }}>💅</div>
-            <h2 style={{ ...display(28), marginBottom: '14px' }}>
+            <h2 style={{ color: 'var(--text-primary)', fontSize: '26px', fontWeight: '600', letterSpacing: '-0.03em', marginBottom: '14px', lineHeight: '1.2' }}>
               {d.display_name ? `You're all set, ${d.display_name.split(' ')[0]}` : "You're all set"}
             </h2>
-            <p style={{ ...ui(300, 15, WHITE60), lineHeight: 1.8 }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '15px', lineHeight: '1.8' }}>
               {accountType === 'creator'
                 ? 'Your creator profile is ready. Start posting designs and getting discovered by clients.'
                 : accountType === 'salon'
@@ -443,9 +504,9 @@ function OnboardingInner() {
     }
   }
 
-  // ── Bottom bar buttons ────────────────────────────────────────────────────
-  const primaryBtn = { width: '100%', background: BTN_GRADIENT, color: 'var(--lq-white)', border: 'none', borderRadius: '1000px', padding: '16px', ...ui(600, 15), cursor: 'pointer' }
-  const renderActions = () => {
+const primaryBtn = { width: '100%', background: BTN_GRADIENT, color: 'var(--lq-white)', border: 'none', borderRadius: '1000px', padding: '16px', ...ui(600, 15), cursor: 'pointer' }
+
+const renderActions = () => {
     if (current === 'done') {
       return (
         <button onClick={() => complete('/feed')} disabled={saving} style={primaryBtn}>
@@ -483,10 +544,11 @@ function OnboardingInner() {
     )
   }
 
-  const showProgress = current !== 'welcome' && current !== 'done'
-  const showBorder   = current !== 'welcome' && current !== 'done' && current !== 'action' && current !== 'credits'
+const showProgress = current !== 'welcome' && current !== 'done'
 
-  return (
+const showBorder   = current !== 'welcome' && current !== 'done' && current !== 'action' && current !== 'credits'
+
+return (
     <Shell>
       {/* Progress bar */}
       {showProgress && (
@@ -520,6 +582,10 @@ function OnboardingInner() {
         {errorMsg && (
           <p style={{ ...ui(400, 13, '#FF8DA8'), marginBottom: '12px', textAlign: 'center' }}>{errorMsg}</p>
         )}
+        {current !== 'done' && <div style={{ display: 'grid', gap: '10px', marginBottom: '12px' }}>
+          <label style={ui(400, 12)}><input type="checkbox" checked={!!d.age_confirmed} onChange={event => setD(previous => ({ ...previous, age_confirmed: event.target.checked }))} /> I am 18 or older</label>
+          <label style={ui(400, 12)}><input type="checkbox" checked={!!d.privacy_accepted} onChange={event => setD(previous => ({ ...previous, privacy_accepted: event.target.checked }))} /> I have read the <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a></label>
+        </div>}
         {renderActions()}
       </div>
     </Shell>
@@ -529,8 +595,8 @@ function OnboardingInner() {
 export default function OnboardingPage() {
   return (
     <Suspense fallback={
-      <div className="lq-bg-wine" style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ fontFamily: 'var(--lq-font-ui)', fontWeight: 300, fontSize: '14px', color: 'rgba(255,255,255,0.6)' }}>Loading…</p>
+      <div style={{ position: 'fixed', inset: 0, background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', fontFamily: "'DM Sans', sans-serif" }}>Loading...</p>
       </div>
     }>
       <OnboardingInner />

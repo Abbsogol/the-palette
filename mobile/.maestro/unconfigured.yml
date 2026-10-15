@@ -1,0 +1,7 @@
+appId: app.laque.mobile.development
+---
+- launchApp:
+    clearState: true
+- assertVisible: LaQue development
+- assertVisible: "This build needs an isolated backend.*"
+- assertNotVisible: Continue with Google

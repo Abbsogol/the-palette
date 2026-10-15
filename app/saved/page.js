@@ -6,14 +6,29 @@
 // now that /moodboards redirects. Rail includes boards shared with you
 // (moodboard_members) so invited boards stay reachable.
 
-import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
-import Sheet from '@/components/ui/Sheet'
-import DesignCard from '@/components/ui/DesignCard'
-import SaveToBoard from '@/components/SaveToBoard'
-import { LaqueWordmark } from '@/components/ui/icons'
-import { useScrollMemory } from '@/lib/scrollMemory'
+// /saved — the full home of hearted designs + collections (extrapolated, no
+// frame; Sogol 2026-09-06). Sections, not tabs: collections rail on top,
+// saved grid below, matching Home's rail+grid IA. Board creation lives here
+// now that /moodboards redirects. Rail includes boards shared with you
+// (moodboard_members) so invited boards stay reachable.
+
+import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
+import Sheet from '@/components/ui/Sheet';
+import DesignCard from '@/components/ui/DesignCard';
+import SaveToBoard from '@/components/SaveToBoard';
+import { LaqueWordmark } from '@/components/ui/icons';
+import { useScrollMemory } from '@/lib/scrollMemory';
+import StorageImage from '@/components/StorageImage';
+
+
+
+
+
+
+
+
 
 const FolderIcon = ({ size = 16 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -47,19 +62,66 @@ function Shell({ children }) {
 }
 
 export default function SavedPage() {
-  const [user, setUser] = useState(null)
-  const [designs, setDesigns] = useState([])
-  const [boards, setBoards] = useState([])       // { ...board, __shared, __ownerName }
-  const [boardCounts, setBoardCounts] = useState({})
-  const [loading, setLoading] = useState(true)
-  const [createOpen, setCreateOpen] = useState(false)
-  const [newName, setNewName] = useState('')
-  const [creating, setCreating] = useState(false)
-  const [createError, setCreateError] = useState('')
+const [user, setUser] = useState(null)
 
-  useScrollMemory(null, !loading)
+const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
+const [designs, setDesigns] = useState([])
+
+const [boards, setBoards] = useState([])
+
+const [boardCounts, setBoardCounts] = useState({})
+
+const loadAll = useCallback(async (userId) => {
+    setLoading(true)
+    const [{ data: saved, error: savedError }, { data: boardData, error: boardsError }] = await Promise.all([
+      supabase.from('saved_designs').select('design_id, designs(*)').eq('user_id', userId).order('saved_at', { ascending: false }).limit(200),
+      supabase.from('moodboards').select('id, name, cover_image_url').eq('user_id', userId).order('created_at', { ascending: false }).limit(100),
+    ])
+    if (savedError) console.error('saved designs fetch failed:', savedError)
+    if (boardsError) console.error('moodboards fetch failed:', boardsError)
+    setDesigns(saved?.map(d => d.designs).filter(Boolean) || [])
+    setBoards(boardData || [])
+
+    // Get design counts
+    if (boardData?.length) {
+      const { data: countData } = await supabase
+        .from('moodboard_designs')
+        .select('moodboard_id')
+        .in('moodboard_id', boardData.map(b => b.id))
+      const c = {}
+      countData?.forEach(r => { c[r.moodboard_id] = (c[r.moodboard_id] || 0) + 1 })
+      setBoardCounts(c)
+    }
+
+    setLoading(false)
+  }, [])
+
+useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user || null)
+      if (session?.user) loadAll(session.user.id)
+      else setLoading(false)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null)
+      if (session?.user) loadAll(session.user.id)
+      else { setDesigns([]); setBoards([]); setLoading(false) }
+    })
+    return () => subscription.unsubscribe()
+  }, [loadAll])
+
+const [createOpen, setCreateOpen] = useState(false)
+
+const [newName, setNewName] = useState('')
+
+const [creating, setCreating] = useState(false)
+
+const [createError, setCreateError] = useState('')
+
+useScrollMemory(null, !loading)
+
+useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user || null)
       if (session?.user) loadAll(session.user.id)
@@ -73,69 +135,7 @@ export default function SavedPage() {
     return () => subscription.unsubscribe()
   }, [])
 
-  const loadAll = async (userId) => {
-    setLoading(true)
-    const [{ data: saved, error: savedError }, { data: ownBoards, error: boardsError }, { data: memberRows }] = await Promise.all([
-      supabase.from('saved_designs').select('design_id, designs(*)').eq('user_id', userId).order('saved_at', { ascending: false }).limit(200),
-      supabase.from('moodboards').select('id, name, cover_image_url, user_id').eq('user_id', userId).order('created_at', { ascending: false }).limit(100),
-      supabase.from('moodboard_members').select('moodboard_id, moodboards(id, name, cover_image_url, user_id)').eq('user_id', userId),
-    ])
-    if (savedError) console.error('saved designs fetch failed:', savedError)
-    if (boardsError) console.error('moodboards fetch failed:', boardsError)
-    setDesigns(saved?.map(d => d.designs).filter(Boolean) || [])
-
-    const shared = (memberRows || []).map(r => r.moodboards).filter(Boolean).filter(b => b.user_id !== userId)
-
-    // Board counts + the first (earliest-added) design per board. The first
-    // design is the fallback cover for any board that has no stored
-    // cover_image_url (e.g. legacy Pick-My-Set boards) — so a board that holds
-    // designs never shows an empty folder, matching every other board. "Make it
-    // consistent" (Sogol 2026-09-26).
-    const boardIds = [...(ownBoards || []), ...shared].map(b => b.id)
-    const counts = {}
-    const firstDesign = {}
-    if (boardIds.length) {
-      const { data: mdRows } = await supabase
-        .from('moodboard_designs')
-        .select('moodboard_id, added_at, designs(image_url, image_width, image_height)')
-        .in('moodboard_id', boardIds)
-        .order('added_at', { ascending: true })
-      mdRows?.forEach(r => {
-        counts[r.moodboard_id] = (counts[r.moodboard_id] || 0) + 1
-        if (!firstDesign[r.moodboard_id] && r.designs?.image_url) firstDesign[r.moodboard_id] = r.designs
-      })
-    }
-
-    // Covers are always a design's image (SaveToBoard/Pick-My-Set write it, and
-    // the fallback above is also a design), so their dims resolve from designs
-    // by URL — no duplicated columns.
-    const coverUrls = [...new Set([...(ownBoards || []), ...shared].map(b => b.cover_image_url).filter(Boolean))]
-    let coverDims = {}
-    if (coverUrls.length) {
-      const { data: dimRows } = await supabase.from('designs').select('image_url, image_width, image_height').in('image_url', coverUrls)
-      dimRows?.forEach(d => { coverDims[d.image_url] = d })
-    }
-    let ownerNames = {}
-    if (shared.length) {
-      const { data: owners } = await supabase.from('profiles').select('id, display_name, username').in('id', [...new Set(shared.map(b => b.user_id))])
-      owners?.forEach(o => { ownerNames[o.id] = o.display_name || o.username })
-    }
-    const all = [
-      ...(ownBoards || []).map(b => ({ ...b, __shared: false })),
-      ...shared.map(b => ({ ...b, __shared: true, __ownerName: ownerNames[b.user_id] || 'someone' })),
-    ].map(b => {
-      const fallback = !b.cover_image_url ? firstDesign[b.id] : null
-      const cover = b.cover_image_url || fallback?.image_url || null
-      const dims = b.cover_image_url ? (coverDims[b.cover_image_url] || null) : (fallback || null)
-      return { ...b, cover_image_url: cover, __coverDims: dims }
-    })
-    setBoards(all)
-    setBoardCounts(counts)
-    setLoading(false)
-  }
-
-  // Same insert the old /moodboards index ran — creation moved here with the redirect.
-  const createBoard = async () => {
+const createBoard = async () => {
     if (!newName.trim() || !user || creating) return
     setCreating(true)
     setCreateError('')
@@ -154,15 +154,15 @@ export default function SavedPage() {
     setCreating(false)
   }
 
-  const removeDesign = (id) => setDesigns(prev => prev.filter(d => d.id !== id))
+const removeDesign = (id) => setDesigns(prev => prev.filter(d => d.id !== id))
 
-  const header = (
+const header = (
     <div style={{ padding: 'calc(env(safe-area-inset-top) + 20px) 24px 0', textAlign: 'center' }}>
       <span style={{ color: 'var(--lq-white)', display: 'inline-flex' }}><LaqueWordmark height={24} /></span>
     </div>
   )
 
-  if (loading) return (
+if (loading) return (
     <Shell>
       {header}
       <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -171,7 +171,7 @@ export default function SavedPage() {
     </Shell>
   )
 
-  if (!user) return (
+if (!user) return (
     <Shell>
       {header}
       <div style={{ padding: '32px 24px' }}>
@@ -187,10 +187,11 @@ export default function SavedPage() {
     </Shell>
   )
 
-  const cols = [[], []]
-  designs.forEach((d, i) => cols[i % 2].push(d))
+const cols = [[], []]
 
-  return (
+designs.forEach((d, i) => cols[i % 2].push(d))
+
+return (
     <Shell>
       {header}
       <div style={{ padding: '24px 24px calc(env(safe-area-inset-bottom) + 120px)' }}>
@@ -225,7 +226,7 @@ export default function SavedPage() {
               }}>
                 <div style={{ width: '132px', background: 'rgba(255,255,255,0.04)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: board.cover_image_url ? undefined : '88px' }}>
                   {board.cover_image_url
-                    ? <img src={board.cover_image_url} alt="" loading="lazy" decoding="async"
+                    ? <StorageImage src={board.cover_image_url} alt="" loading="lazy" decoding="async"
                         width={board.__coverDims?.image_width || undefined} height={board.__coverDims?.image_height || undefined}
                         style={{ width: '100%', height: 'auto', aspectRatio: board.__coverDims ? `${board.__coverDims.image_width} / ${board.__coverDims.image_height}` : undefined, display: 'block' }} />
                     : <span style={{ color: WHITE60, display: 'flex' }}><FolderIcon size={22} /></span>

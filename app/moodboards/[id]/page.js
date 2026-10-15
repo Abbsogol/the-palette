@@ -5,14 +5,28 @@
 // adds owner-only board delete with confirm, and the public/private toggle
 // relocated from the old /moodboards index (which now redirects to /saved).
 
-import { useState, useEffect, useRef } from 'react'
-import { useParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
-import Link from 'next/link'
-import ShareButton from '@/components/ShareButton'
-import Sheet from '@/components/ui/Sheet'
-import BackButton from '@/components/ui/BackButton'
-import { useScrollMemory } from '@/lib/scrollMemory'
+// Board detail, restyled to tokens (extrapolated — no frame). Collaborative
+// wiring (privacy guard, invite-by-username, remove/leave) byte-identical;
+// adds owner-only board delete with confirm, and the public/private toggle
+// relocated from the old /moodboards index (which now redirects to /saved).
+
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+import Link from 'next/link';
+import ShareButton from '@/components/ShareButton';
+import Sheet from '@/components/ui/Sheet';
+import BackButton from '@/components/ui/BackButton';
+import { useScrollMemory } from '@/lib/scrollMemory';
+import StorageImage from '@/components/StorageImage';
+
+
+
+
+
+
+
+
 
 const PANEL = 'rgba(255, 255, 255, 0.06)'
 const PANEL_BORDER = '1px solid rgba(255, 255, 255, 0.1)'
@@ -46,51 +60,48 @@ const Avatar = ({ profile, size = 32, ring = false }) => (
     border: ring ? '1.5px solid #260D14' : PANEL_BORDER,
   }}>
     {profile?.avatar_url
-      ? <img src={profile.avatar_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      ? <StorageImage src={profile.avatar_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
       : <span style={ui(400, Math.round(size * 0.4))}>{(profile?.display_name || '?')[0].toUpperCase()}</span>
     }
   </div>
 )
 
 export default function MoodboardDetailPage() {
-  const { id } = useParams()
-  const [board, setBoard] = useState(null)
-  const [designs, setDesigns] = useState([])
-  const [creatorName, setCreatorName] = useState(null)
-  const [loading, setLoading] = useState(true)
-  useScrollMemory(null, !loading)
-  const [notFound, setNotFound] = useState(false)
-  const [isPrivate, setIsPrivate] = useState(false)
-  const [currentUser, setCurrentUser] = useState(null)
-  const [isOwner, setIsOwner] = useState(false)
-  const [isMember, setIsMember] = useState(false)
+const router = useRouter()
 
-  // Members / manage state
-  const [members, setMembers] = useState([])
-  const [manageOpen, setManageOpen] = useState(false)
-  const [searchUsername, setSearchUsername] = useState('')
-  const [searchResult, setSearchResult] = useState(null)
-  const [searchLoading, setSearchLoading] = useState(false)
-  const [searchError, setSearchError] = useState('')
-  const [addingMember, setAddingMember] = useState(false)
-  const searchTimeout = useRef(null)
+const [showShareModal, setShowShareModal] = useState(false)
 
-  // Delete / privacy state
-  const [confirmDelete, setConfirmDelete] = useState(false)
-  const [deleting, setDeleting] = useState(false)
-  const [deleteError, setDeleteError] = useState('')
-  const [togglingPrivacy, setTogglingPrivacy] = useState(false)
+const loadVersion = useRef({ version: 0 })
 
-  useEffect(() => {
-    if (!id) return
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setCurrentUser(session?.user || null)
-      loadBoard(session?.user?.id || null)
-    })
-  }, [id])
+const [loading, setLoading] = useState(true)
 
-  async function loadBoard(currentUserId) {
+const [board, setBoard] = useState(null)
+
+const [designs, setDesigns] = useState([])
+
+const [members, setMembers] = useState([])
+
+const [creatorName, setCreatorName] = useState(null)
+
+const [notFound, setNotFound] = useState(false)
+
+const [isPrivate, setIsPrivate] = useState(false)
+
+const [isOwner, setIsOwner] = useState(false)
+
+const [isMember, setIsMember] = useState(false)
+
+const [searchResult, setSearchResult] = useState(null)
+
+const { id } = useParams()
+
+const loadBoard = useCallback(async (currentUserId) => {
+    const version = ++loadVersion.current.version
+    const stale = () => version !== loadVersion.current.version
     setLoading(true)
+    setBoard(null); setDesigns([]); setMembers([]); setCreatorName(null)
+    setNotFound(false); setIsPrivate(false); setIsOwner(false); setIsMember(false)
+    setShowShareModal(false); setSearchResult(null)
 
     const { data: boardData } = await supabase
       .from('moodboards')
@@ -98,11 +109,13 @@ export default function MoodboardDetailPage() {
       .eq('id', id)
       .single()
 
+    if (stale()) return
     if (!boardData) { setNotFound(true); setLoading(false); return }
 
     const owner = currentUserId === boardData.user_id
     setIsOwner(owner)
 
+    // Check if current user is a member
     let member = false
     if (currentUserId && !owner) {
       const { data: memberRow } = await supabase
@@ -111,6 +124,7 @@ export default function MoodboardDetailPage() {
         .eq('moodboard_id', id)
         .eq('user_id', currentUserId)
         .maybeSingle()
+      if (stale()) return
       member = !!memberRow
       setIsMember(member)
     }
@@ -124,10 +138,11 @@ export default function MoodboardDetailPage() {
 
     setBoard(boardData)
 
+    // Load designs, creator profile, and members in parallel
     const [{ data: boardDesigns }, { data: profile }, { data: memberRows }] = await Promise.all([
       supabase
         .from('moodboard_designs')
-        .select('design_id, added_at, designs(id, title, image_url, image_width, image_height, shape, category)')
+        .select('design_id, added_at, designs(id, title, image_url, shape, category)')
         .eq('moodboard_id', id)
         .order('added_at', { ascending: false })
         .limit(300),
@@ -142,15 +157,18 @@ export default function MoodboardDetailPage() {
         .eq('moodboard_id', id),
     ])
 
+    if (stale()) return
     setDesigns(boardDesigns?.map(r => r.designs).filter(Boolean) || [])
     setCreatorName(profile?.display_name || profile?.username || null)
 
+    // Fetch member profiles separately (FK → auth.users pattern)
     if (memberRows?.length) {
       const memberIds = memberRows.map(m => m.user_id)
       const { data: memberProfiles } = await supabase
         .from('profiles')
         .select('id, display_name, username, avatar_url')
         .in('id', memberIds)
+      if (stale()) return
       const profileMap = {}
       memberProfiles?.forEach(p => { profileMap[p.id] = p })
       setMembers(memberRows.map(m => ({ ...m, profile: profileMap[m.user_id] || null })))
@@ -159,19 +177,52 @@ export default function MoodboardDetailPage() {
     }
 
     setLoading(false)
-  }
+  }, [id])
 
-  // Search for user by username as they type
-  const handleUsernameChange = (val) => {
-    setSearchUsername(val)
-    setSearchResult(null)
-    setSearchError('')
-    clearTimeout(searchTimeout.current)
-    if (!val.trim()) return
-    searchTimeout.current = setTimeout(() => searchUser(val.trim()), 500)
-  }
+useScrollMemory(null, !loading)
 
-  const searchUser = async (username) => {
+const [currentUser, setCurrentUser] = useState(null)
+
+const [manageOpen, setManageOpen] = useState(false)
+
+const [searchUsername, setSearchUsername] = useState('')
+
+const [searchLoading, setSearchLoading] = useState(false)
+
+const [searchError, setSearchError] = useState('')
+
+const [addingMember, setAddingMember] = useState(false)
+
+const searchTimeout = useRef(null)
+
+const [confirmDelete, setConfirmDelete] = useState(false)
+
+const [deleting, setDeleting] = useState(false)
+
+const [deleteError, setDeleteError] = useState('')
+
+const [togglingPrivacy, setTogglingPrivacy] = useState(false)
+
+useEffect(() => {
+    if (!id) return
+    const requestState = loadVersion.current
+    let active = true, observedAuthEvent = false
+    const update = session => {
+      if (!active) return
+      setCurrentUser(session?.user || null)
+      loadBoard(session?.user?.id || null)
+    }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!observedAuthEvent) update(session)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      observedAuthEvent = true
+      update(session)
+    })
+    return () => { active = false; requestState.version++; clearTimeout(searchTimeout.current); subscription.unsubscribe() }
+  }, [id, loadBoard])
+
+const searchUser = async (username) => {
     setSearchLoading(true)
     setSearchError('')
     const { data } = await supabase
@@ -187,7 +238,16 @@ export default function MoodboardDetailPage() {
     setSearchResult(data)
   }
 
-  const addMember = async () => {
+const handleUsernameChange = (val) => {
+    setSearchUsername(val)
+    setSearchResult(null)
+    setSearchError('')
+    clearTimeout(searchTimeout.current)
+    if (!val.trim()) return
+    searchTimeout.current = setTimeout(() => searchUser(val.trim()), 500)
+  }
+
+const addMember = async () => {
     if (!searchResult || !currentUser || !isOwner) return
     setAddingMember(true)
     const { error } = await supabase.from('moodboard_members').insert({
@@ -200,20 +260,16 @@ export default function MoodboardDetailPage() {
       setAddingMember(false)
       return
     }
-    await supabase.from('notifications').insert({
-      user_id: searchResult.id,
-      actor_id: currentUser.id,
-      type: 'moodboard_invite',
-      design_id: null,
-    })
+    // Send notification
     setMembers(prev => [...prev, { user_id: searchResult.id, profile: searchResult, invited_by: currentUser.id }])
     setSearchResult(null)
     setSearchUsername('')
     setSearchError('')
     setAddingMember(false)
+    setShowShareModal(false)
   }
 
-  const removeMember = async (memberId, memberUserId) => {
+const removeMember = async (memberId, memberUserId) => {
     const { error } = await supabase.from('moodboard_members')
       .delete()
       .eq('moodboard_id', id)
@@ -222,12 +278,11 @@ export default function MoodboardDetailPage() {
     setMembers(prev => prev.filter(m => m.user_id !== memberUserId))
     // If current user just removed themselves, redirect
     if (memberUserId === currentUser?.id) {
-      window.location.href = '/saved'
+      router.push('/moodboards')
     }
   }
 
-  // Public/private toggle — relocated from the old /moodboards index (same update)
-  const togglePrivacy = async () => {
+const togglePrivacy = async () => {
     if (!isOwner || togglingPrivacy) return
     setTogglingPrivacy(true)
     const newVal = !board.is_public
@@ -236,9 +291,7 @@ export default function MoodboardDetailPage() {
     setTogglingPrivacy(false)
   }
 
-  // Owner-only board delete with confirm. Child rows first so a missing FK
-  // cascade can't leave orphans, board row last (scoped to the owner).
-  const deleteBoard = async () => {
+const deleteBoard = async () => {
     if (!isOwner || deleting) return
     setDeleting(true)
     setDeleteError('')
@@ -253,13 +306,13 @@ export default function MoodboardDetailPage() {
     window.location.href = '/saved'
   }
 
-  const input = {
+const input = {
     width: '100%', boxSizing: 'border-box',
     background: PANEL, border: PANEL_BORDER, borderRadius: '14px',
     padding: '13px 16px', ...ui(400, 15), outline: 'none',
   }
 
-  if (loading) return (
+if (loading) return (
     <Shell>
       <div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <p style={ui(300, 14, WHITE60)}>Loading…</p>
@@ -267,7 +320,7 @@ export default function MoodboardDetailPage() {
     </Shell>
   )
 
-  if (isPrivate) return (
+if (isPrivate) return (
     <Shell>
       <div style={{ minHeight: '70vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center' }}>
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={WHITE60} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '14px' }}>
@@ -282,7 +335,7 @@ export default function MoodboardDetailPage() {
     </Shell>
   )
 
-  if (notFound || !board) return (
+if (notFound || !board) return (
     <Shell>
       <div style={{ minHeight: '70vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center' }}>
         <p style={{ ...ui(400, 15), margin: '0 0 20px' }}>Board not found.</p>
@@ -291,7 +344,7 @@ export default function MoodboardDetailPage() {
     </Shell>
   )
 
-  return (
+return (
     <Shell>
       <div style={{ padding: 'calc(env(safe-area-inset-top) + 16px) 24px calc(env(safe-area-inset-bottom) + 120px)' }}>
 
@@ -386,7 +439,7 @@ export default function MoodboardDetailPage() {
                 <Link key={d.id} href={`/design/${d.id}?from=${encodeURIComponent(`/moodboards/${id}`)}`} style={{ textDecoration: 'none', display: 'block' }}>
                   <div style={{ borderRadius: '16px', overflow: 'hidden', background: PANEL, border: PANEL_BORDER }}>
                     {d.image_url
-                      ? <img src={d.image_url} alt={d.title} loading="lazy" decoding="async" width={d.image_width || undefined} height={d.image_height || undefined} style={{ width: '100%', height: 'auto', aspectRatio: d.image_width && d.image_height ? `${d.image_width} / ${d.image_height}` : undefined, display: 'block' }} />
+                      ? <StorageImage src={d.image_url} alt={d.title} loading="lazy" decoding="async" width={d.image_width || undefined} height={d.image_height || undefined} style={{ width: '100%', height: 'auto', aspectRatio: d.image_width && d.image_height ? `${d.image_width} / ${d.image_height}` : undefined, display: 'block' }} />
                       : <div style={{ width: '100%', aspectRatio: '1 / 1' }} />
                     }
                   </div>

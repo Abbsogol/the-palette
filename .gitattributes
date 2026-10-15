@@ -1,0 +1,2 @@
+# Preserve the captured SQL function bytes for production body-hash comparison.
+tests/fixtures/supabase-managed-schema.sql -whitespace

@@ -1,11 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
-import BackButton from '@/components/ui/BackButton'
-import { useScrollMemory } from '@/lib/scrollMemory'
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+import BackButton from '@/components/ui/BackButton';
+import { useScrollMemory } from '@/lib/scrollMemory';
+
+
+
+
+
+
 
 const ACCENT = '#FF517F'
 const WHITE60 = 'rgba(255,255,255,0.6)'
@@ -71,6 +77,8 @@ function PersonRow({ person }) {
 }
 
 export default function FollowersPage() {
+const [userId, setUserId]       = useState(null)
+
   const router = useRouter()
   const [followers, setFollowers] = useState([])
   const [loading, setLoading]     = useState(true)
@@ -79,6 +87,7 @@ export default function FollowersPage() {
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session?.user) { router.push('/profile'); return }
+      setUserId(session.user.id)
       // Get follower IDs, then fetch their profiles
       const { data: followRows, error: followError } = await supabase
         .from('follows')
@@ -101,7 +110,7 @@ export default function FollowersPage() {
       setFollowers(data || [])
       setLoading(false)
     })
-  }, [])
+  }, [router])
 
   return (
     <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>

@@ -16,18 +16,23 @@ const ui = (weight, size, color = 'var(--lq-white)') => ({
 const display = (size) => ({ fontFamily: 'var(--lq-font-display)', fontWeight: 400, fontSize: `${size}px`, color: 'var(--lq-white)', lineHeight: 1.2 })
 
 export default function NailCardPage() {
-  const { id } = useParams()
-  const [profile, setProfile] = useState(null)
-  const [reviews, setReviews] = useState([])
-  const [avgRating, setAvgRating] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [copied, setCopied] = useState(false)
+const { id } = useParams()
 
-  const profileUrl = `https://laque.app/creator/${id}`
-  // QR code via free API — no npm package needed. Blush code on wine for contrast.
-  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=130x130&margin=6&color=FFEBEB&bgcolor=260D14&data=${encodeURIComponent(profileUrl)}`
+const [profile, setProfile] = useState(null)
 
-  useEffect(() => {
+const [reviews, setReviews] = useState([])
+
+const [avgRating, setAvgRating] = useState(null)
+
+const [loading, setLoading] = useState(true)
+
+const [copied, setCopied] = useState(false)
+
+const profileUrl = `https://laque.app/creator/${id}`
+
+const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=130x130&margin=6&color=FFEBEB&bgcolor=260D14&data=${encodeURIComponent(profileUrl)}`
+
+useEffect(() => {
     const load = async () => {
       const [{ data: prof }, { data: revs }] = await Promise.all([
         supabase.from('profiles').select('id, display_name, username, avatar_url, bio, specialties, location, is_verified').eq('id', id).single(),
@@ -49,7 +54,7 @@ export default function NailCardPage() {
     load()
   }, [id])
 
-  const handleShare = async () => {
+const handleShare = async () => {
     const url = `https://laque.app/creator/${id}`
     if (navigator.share) {
       await navigator.share({ title: profile?.display_name, url })
@@ -60,23 +65,15 @@ export default function NailCardPage() {
     }
   }
 
-  const Shell = ({ children }) => (
-    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
-      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
-      <div style={{ position: 'relative', minHeight: '100dvh' }}>{children}</div>
-    </div>
-  )
-
-  if (loading) return (
+if (loading) return (
     <Shell><div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><p style={ui(300, 14, WHITE60)}>Loading…</p></div></Shell>
   )
 
-  if (!profile) return (
+if (!profile) return (
     <Shell><div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><p style={ui(300, 14, WHITE60)}>Profile not found.</p></div></Shell>
   )
 
-  return (
+return (
     <Shell>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 'calc(env(safe-area-inset-top) + 16px) 20px 40px' }}>
 
@@ -202,3 +199,11 @@ export default function NailCardPage() {
     </Shell>
   )
 }
+
+const Shell = ({ children }) => (
+    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
+      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', minHeight: '100dvh' }}>{children}</div>
+    </div>
+  )

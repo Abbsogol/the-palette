@@ -77,7 +77,7 @@ export default function NewStoryPage() {
       if (!session?.user) router.replace('/profile')
       else setUser(session.user)
     })
-  }, [])
+  }, [router])
 
   // ── Pick ──────────────────────────────────────────────────────────────────
   const onPick = (e) => {
@@ -301,6 +301,7 @@ export default function NewStoryPage() {
         {previewSrc && (
           <img
             src={previewSrc}
+            alt="Story photo crop preview"
             draggable={false}
             style={{
               position: 'absolute',
@@ -374,7 +375,8 @@ export default function NewStoryPage() {
         {/* Image + text layer */}
         <div ref={editorRef} style={{ position: 'absolute', inset: 0 }}>
           <img
-            src={previewSrc} alt=""
+            src={previewSrc}
+            alt="Story preview"
             style={{
               position: 'absolute',
               width: iw, height: ih,

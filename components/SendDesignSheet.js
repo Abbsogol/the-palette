@@ -1,9 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
-import Sheet from '@/components/ui/Sheet'
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+import Sheet from '@/components/ui/Sheet';
+
+
+
+
 
 const ACCENT = '#FF517F'
 const WHITE60 = 'rgba(255,255,255,0.6)'
@@ -67,8 +71,6 @@ export default function SendDesignSheet({ design, onClose }) {
       id: design.id,
       title: design.title,
       image_url: design.image_url,
-      image_width: design.image_width ?? null,
-      image_height: design.image_height ?? null,
     })
 
     const { error } = await supabase.from('messages').insert({
@@ -88,21 +90,6 @@ export default function SendDesignSheet({ design, onClose }) {
       setSending(null)
       return
     }
-
-    const { error: convError } = await supabase
-      .from('conversations')
-      .update({ last_message_at: new Date().toISOString() })
-      .eq('id', conv.id)
-    if (convError) console.error('conversation update error:', convError)
-
-    // Notify the other person
-    const otherId = conv.client_id === currentUser.id ? conv.creator_id : conv.client_id
-    const { error: notifError } = await supabase.from('notifications').insert({
-      user_id: otherId,
-      actor_id: currentUser.id,
-      type: 'new_message',
-    })
-    if (notifError) console.error('notification error:', notifError)
 
     onClose()
     router.push(`/messages/${conv.id}`)

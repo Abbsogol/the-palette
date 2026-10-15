@@ -19,13 +19,17 @@ const display = (size) => ({ fontFamily: 'var(--lq-font-display)', fontWeight: 4
 const sectionLabel = { ...ui(600, 11, ACCENT), letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }
 
 export default function AnalyticsPage() {
-  const router = useRouter()
-  const [designs, setDesigns]   = useState([])
-  const [followers, setFollowers] = useState(0)
-  const [loading, setLoading]   = useState(true)
-  useScrollMemory(null, !loading)
+const router = useRouter()
 
-  useEffect(() => {
+const [designs, setDesigns]   = useState([])
+
+const [followers, setFollowers] = useState(0)
+
+const [loading, setLoading]   = useState(true)
+
+useScrollMemory(null, !loading)
+
+useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session?.user) { router.push('/profile'); return }
 
@@ -60,17 +64,9 @@ export default function AnalyticsPage() {
       setFollowers(fCount || 0)
       setLoading(false)
     })
-  }, [])
+  }, [router])
 
-  const Shell = ({ children }) => (
-    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
-      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
-      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 120px)' }}>{children}</div>
-    </div>
-  )
-
-  if (loading) return (
+if (loading) return (
     <Shell>
       <div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <p style={ui(300, 14, WHITE60)}>Loading…</p>
@@ -78,20 +74,21 @@ export default function AnalyticsPage() {
     </Shell>
   )
 
-  const totalLikes    = designs.reduce((s, d) => s + (d.likes_count || 0), 0)
-  const totalSaves    = designs.reduce((s, d) => s + (d.saves_count || 0), 0)
-  const totalComments = designs.reduce((s, d) => s + (d.comments_count || 0), 0)
+const totalLikes    = designs.reduce((s, d) => s + (d.likes_count || 0), 0)
 
-  // Sort by engagement for top design + table
-  const byEngagement = [...designs].sort((a, b) => {
+const totalSaves    = designs.reduce((s, d) => s + (d.saves_count || 0), 0)
+
+const totalComments = designs.reduce((s, d) => s + (d.comments_count || 0), 0)
+
+const byEngagement = [...designs].sort((a, b) => {
     const ea = (a.likes_count || 0) + (a.saves_count || 0) + (a.comments_count || 0)
     const eb = (b.likes_count || 0) + (b.saves_count || 0) + (b.comments_count || 0)
     return eb - ea
   })
 
-  const topDesign = byEngagement[0] || null
+const topDesign = byEngagement[0] || null
 
-  const overviewStats = [
+const overviewStats = [
     { label: 'Designs',   value: designs.length },
     { label: 'Followers', value: followers },
     { label: 'Likes',     value: totalLikes },
@@ -99,7 +96,7 @@ export default function AnalyticsPage() {
     { label: 'Comments',  value: totalComments },
   ]
 
-  return (
+return (
     <Shell>
       {/* Header */}
       <div style={{ padding: 'calc(env(safe-area-inset-top) + 16px) 20px 16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -225,3 +222,11 @@ function LegendItem({ symbol, label }) {
     </div>
   )
 }
+
+const Shell = ({ children }) => (
+    <div className="lq-bg-wine" style={{ minHeight: '100dvh', position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,5,13,0.6)' }} />
+      <div className="lq-grain" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', paddingBottom: 'calc(env(safe-area-inset-bottom) + 120px)' }}>{children}</div>
+    </div>
+  )

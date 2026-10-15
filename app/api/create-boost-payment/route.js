@@ -1,4 +1,6 @@
+import { verifyStripeEnvironment } from '@/lib/stripe-environment'
 import Stripe from 'stripe'
+import { paymentCheckout } from '@/lib/payment-checkout'
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
@@ -12,6 +14,7 @@ export async function POST(request) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    await verifyStripeEnvironment(stripe)
     const { designId, days, price } = await request.json()
 
     if (!designId || !days) {
@@ -33,12 +36,8 @@ export async function POST(request) {
 
     if (!design) return Response.json({ error: 'Design not found' }, { status: 404 })
 
-    // Buckets rapid double-clicks/retries into the same Stripe session instead
-    // of creating a second real Checkout Session for one intended boost.
-    const idempotencyKey = `boost-${user.id}-${designId}-${days}-${Math.floor(Date.now() / 300000)}`
-
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
+    const session = await paymentCheckout(supabase, stripe, user.id, `boost-${designId}-${days}`, {
+      integration_identifier: 'laque_checkout_qmrtxvpa',
       mode: 'payment',
       line_items: [
         {
@@ -73,11 +72,11 @@ export async function POST(request) {
       },
       success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://laque.app'}/design/${designId}?boosted=1`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://laque.app'}/design/${designId}`,
-    }, { idempotencyKey })
+    })
 
     return Response.json({ url: session.url })
   } catch (err) {
-    console.error('Create boost payment error:', err)
+    console.error('Create boost payment error:')
     return Response.json({ error: 'Server error' }, { status: 500 })
   }
 }

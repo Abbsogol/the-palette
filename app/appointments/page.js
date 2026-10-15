@@ -1,12 +1,21 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
-import BackButton from '@/components/ui/BackButton'
-import { useScrollMemory } from '@/lib/scrollMemory'
-import { useTabSwipe } from '@/lib/tabSwipe'
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
+import BackButton from '@/components/ui/BackButton';
+import { useScrollMemory } from '@/lib/scrollMemory';
+import { useTabSwipe } from '@/lib/tabSwipe';
+import CheckoutSession from '@/components/CheckoutSession';
+import { bookingHasEnded, bookingZoneLabel } from '@/lib/booking-time';
+
+
+
+
+
+
+
 
 const ACCENT = '#FF517F'
 const WHITE60 = 'rgba(255,255,255,0.6)'
@@ -102,23 +111,27 @@ function Shell({ children }) {
   )
 }
 
-export default function AppointmentsPage() {
+function AppointmentsList({userId}) {
+const [currentUser, setCurrentUser] = useState(null)
+const [tab, setTab] = useState('upcoming')
+
   const router = useRouter()
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
   // Active tab persists per session so back-from-detail lands on the same tab
   // (scroll memory is keyed per tab; the tab itself must survive too).
-  const [tab, setTabState] = useState(() => {
-    try { return sessionStorage.getItem('lq-tab:/appointments') || 'upcoming' } catch { return 'upcoming' }
-  })
-  const setTab = (t) => { setTabState(t); try { sessionStorage.setItem('lq-tab:/appointments', t) } catch {} }
+
+
   useScrollMemory(tab, !loading)
   const swipeRef = useTabSwipe({ tabs: ['upcoming', 'past'], active: tab, onSelect: setTab })
 
   useEffect(() => {
+    let active = true
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/profile'); return }
+      if (!active) return
+      if (user?.id !== userId) { router.push('/profile'); return }
+      setCurrentUser(user)
 
       // Ordered newest-first + capped so the limit drops old history rather
       // than cutting off upcoming appointments, then reversed for display.
@@ -129,6 +142,7 @@ export default function AppointmentsPage() {
         .order('booking_date', { ascending: false })
         .order('start_time', { ascending: false })
         .limit(300)
+      if (!active) return
       if (error) console.error('appointments fetch failed:', error)
 
       if (!rawData) { setLoading(false); return }
@@ -141,17 +155,20 @@ export default function AppointmentsPage() {
         .select('id, display_name, username, avatar_url')
         .in('id', creatorIds)
 
+      if (!active) return
+
       const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
       setBookings(data.map(b => ({ ...b, creator: profileMap[b.creator_id] || null })))
       setLoading(false)
     }
     init()
-  }, [])
+    return () => { active = false }
+  }, [router, userId])
 
   const today = new Date().toISOString().split('T')[0]
 
-  const upcoming = bookings.filter(b => (b.status === 'pending' || b.status === 'confirmed') && b.booking_date >= today)
-  const past     = bookings.filter(b => b.status === 'declined' || b.status === 'cancelled' || ((b.status === 'confirmed' || b.status === 'pending') && b.booking_date < today))
+  const upcoming = bookings.filter(b => (b.status === 'pending' || b.status === 'confirmed') && !bookingHasEnded(b))
+  const past     = bookings.filter(b => b.status === 'declined' || b.status === 'cancelled' || ((b.status === 'confirmed' || b.status === 'pending') && bookingHasEnded(b)))
 
   const tabs = [
     { key: 'upcoming', label: 'Upcoming', count: upcoming.length },
@@ -224,4 +241,8 @@ export default function AppointmentsPage() {
       </div>
     </Shell>
   )
+}
+
+export default function AppointmentsPage() {
+  return <CheckoutSession title="Sign in to view appointments" description="Appointment details are private to the people involved.">{userId => <AppointmentsList key={userId} userId={userId} />}</CheckoutSession>
 }

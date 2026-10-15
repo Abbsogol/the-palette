@@ -1,4 +1,6 @@
+import { verifyStripeEnvironment } from '@/lib/stripe-environment'
 import Stripe from 'stripe'
+import { paymentCheckout } from '@/lib/payment-checkout'
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
@@ -15,6 +17,8 @@ export async function POST(request) {
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    if (process.env.LAB_APP_ONLY_BILLING === '1') return Response.json({ error: 'Subscribe and purchase design tokens inside the LaQue app.' }, { status: 410 })
+    await verifyStripeEnvironment(stripe)
     const userId = user.id
 
     const { packId } = await request.json()
@@ -33,12 +37,8 @@ export async function POST(request) {
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://laque.app'
 
-    // Buckets rapid double-clicks/retries into the same Stripe session instead
-    // of creating a second real Checkout Session for one intended purchase.
-    const idempotencyKey = `checkout-${userId}-${packId}-${Math.floor(Date.now() / 300000)}`
-
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
+    const session = await paymentCheckout(supabase, stripe, user.id, `credits-${packId}`, {
+      integration_identifier: 'laque_checkout_qmrtxvpa',
       line_items: [
         {
           price_data: {
@@ -72,12 +72,12 @@ export async function POST(request) {
           type: 'credits',
         },
       },
-    }, { idempotencyKey })
+    })
 
     return Response.json({ url: session.url })
 
   } catch (err) {
-    console.error('create-checkout-session error:', err)
+    console.error('create-checkout-session error:')
     return Response.json({ error: 'Server error' }, { status: 500 })
   }
 }

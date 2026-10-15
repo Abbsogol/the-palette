@@ -1,7 +1,10 @@
 'use client'
 
-import { useState } from 'react'
-import BackButton from '@/components/ui/BackButton'
+import { useState } from 'react';
+import BackButton from '@/components/ui/BackButton';
+import Link from 'next/link';
+
+
 
 const ACCENT = '#FF517F'
 const WHITE60 = 'rgba(255,255,255,0.6)'

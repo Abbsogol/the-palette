@@ -1,10 +1,21 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
-import { useRouter, useParams, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
-import Sheet from '@/components/ui/Sheet'
+import { useState, useEffect, Suspense, useRef } from 'react';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
+import Sheet from '@/components/ui/Sheet';
+
+// ── Booking palette from frames 250:2116…2483 ──────────────────────────────
+import CheckoutSession from '@/components/CheckoutSession';
+import { useAccountAction } from '@/lib/use-account-action';
+import { bookingCalendar, calendarKey, dateInZone } from '@/lib/booking-time';
+import { canGoBack } from '@/lib/navHistory';
+
+
+
+
+
 
 // ── Booking palette from frames 250:2116…2483 ──────────────────────────────
 const PANEL = 'rgba(255, 255, 255, 0.06)'
@@ -29,7 +40,7 @@ const MONTH_FULL = ['January','February','March','April','May','June','July','Au
 function fmt12(t) {
   if (!t) return ''
   const [h, m] = t.slice(0, 5).split(':').map(Number)
-  const ampm = h < 12 ? 'am' : 'pm'
+  const ampm = h % 24 < 12 ? 'am' : 'pm'
   const h12 = h % 12 === 0 ? 12 : h % 12
   return `${h12}${m > 0 ? `:${String(m).padStart(2,'0')}` : ''}${ampm}`
 }
@@ -76,57 +87,106 @@ function BookShell({ children }) {
   )
 }
 
-function BookPageInner() {
-  const { creatorId } = useParams()
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const designId = searchParams.get('designId')
-  const prefillServiceId = searchParams.get('serviceId')
-  const prefillNote = searchParams.get('note')
-  // Entry-aware outcome CTAs: the chat sheet's Book link carries
-  // ?from=chat:<conversationId>; profile entries carry nothing.
-  const fromParam = searchParams.get('from') || ''
-  const fromChatConvId = fromParam.startsWith('chat:') ? fromParam.slice(5) : null
+function BookingForm({userId}) {
+const { run, busy: submitting } = useAccountAction(userId)
 
-  const [step, setStep] = useState(1) // 1=service, 2=date, 3=time, 4=confirm
-  const [currentUser, setCurrentUser] = useState(null)
-  const [creator, setCreator] = useState(null)
-  const [isPrivateAndBlocked, setIsPrivateAndBlocked] = useState(false)
-  const [services, setServices] = useState([])
-  const [availability, setAvailability] = useState([]) // active days
-  const [loading, setLoading] = useState(true)
-  const [notFoundMsg, setNotFoundMsg] = useState(null)
-  const [loadError, setLoadError] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [submitError, setSubmitError] = useState('')
-  const [done, setDone] = useState(false)
+const [timeZone, setTimeZone] = useState(null)
 
-  // Inspiration design (from ?designId=)
-  const [inspDesign, setInspDesign] = useState(null)
+const calendarEnabled = process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_ENABLED === 'true'
 
-  // Selections
-  const [selectedService, setSelectedService] = useState(null)
-  const [selectedDate, setSelectedDate] = useState(null)   // Date object
-  const [selectedSlot, setSelectedSlot] = useState(null)   // '10:00'
-  const [note, setNote] = useState('')
-  const [slots, setSlots] = useState([])
-  const [slotsLoading, setSlotsLoading] = useState(false)
+const [calendarWarningKey, setCalendarWarningKey] = useState('')
 
-  // Reference design attachment (bookings.reference_design_id, feature-
-  // detected so the insert can never break if the column is missing)
-  const [refAvailable, setRefAvailable] = useState(false)
-  const [refDesign, setRefDesign] = useState(null)
-  const [refPickerOpen, setRefPickerOpen] = useState(false)
-  const [refLibrary, setRefLibrary] = useState([])
+const [calendarAcknowledgement, setCalendarAcknowledgement] = useState('')
 
-  useEffect(() => {
+const requestIdentity = useRef(null)
+
+const [slotSelection, setSlotSelection] = useState(null)
+
+const [slotResult, setSlotResult] = useState(null)
+
+const [selectedDate, setSelectedDate] = useState(null)
+
+const [selectedService, setSelectedService] = useState(null)
+
+const { creatorId } = useParams()
+
+const slotKey = selectedDate && selectedService && timeZone
+    ? `${creatorId}:${calendarKey(selectedDate)}:${selectedService.id}:${timeZone}` : null
+
+const slots = slotResult?.key === slotKey ? slotResult.rows : []
+
+const slotsError = slotResult?.key === slotKey ? slotResult.error : ''
+
+const slotsLoading = !!slotKey && slotResult?.key !== slotKey
+
+const selectedSlot = slotSelection?.key === slotKey && slots.some(slot => slot.time === slotSelection.time && slot.available)
+    ? slotSelection.time : null
+
+const calendarSelectionKey = `${slotKey}:${selectedSlot}`
+
+const calendarConflict = slots.find(slot => slot.time === selectedSlot && (slot.calendarConflict || slot.calendarUnchecked)) || calendarWarningKey === calendarSelectionKey
+
+const chevronLeft = (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 12H5M12 5l-7 7 7 7"/>
+    </svg>
+  )
+
+const router = useRouter()
+
+const searchParams = useSearchParams()
+
+const designId = searchParams.get('designId')
+
+const prefillServiceId = searchParams.get('serviceId')
+
+const prefillNote = searchParams.get('note')
+
+const fromParam = searchParams.get('from') || ''
+
+const fromChatConvId = fromParam.startsWith('chat:') ? fromParam.slice(5) : null
+
+const [step, setStep] = useState(1)
+
+const [currentUser, setCurrentUser] = useState(null)
+
+const [creator, setCreator] = useState(null)
+
+const [isPrivateAndBlocked, setIsPrivateAndBlocked] = useState(false)
+
+const [services, setServices] = useState([])
+
+const [availability, setAvailability] = useState([])
+
+const [loading, setLoading] = useState(true)
+
+const [notFoundMsg, setNotFoundMsg] = useState(null)
+
+const [loadError, setLoadError] = useState(false)
+
+const [submitError, setSubmitError] = useState('')
+
+const [done, setDone] = useState(false)
+
+const [inspDesign, setInspDesign] = useState(null)
+
+const [note, setNote] = useState('')
+
+const [refAvailable, setRefAvailable] = useState(false)
+
+const [refDesign, setRefDesign] = useState(null)
+
+const [refPickerOpen, setRefPickerOpen] = useState(false)
+
+const [refLibrary, setRefLibrary] = useState([])
+
+useEffect(() => {
+    let active = true
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/profile'); return }
+      if (!active) return
+      if (user?.id !== userId) { router.push('/profile'); return }
       setCurrentUser(user)
-
-      // Can't book yourself.
-      if (creatorId === user.id) { setNotFoundMsg("You can't book yourself."); setLoading(false); return }
 
       // Fetch inspiration design if provided
       if (designId) {
@@ -135,39 +195,37 @@ function BookPageInner() {
           .select('id, title, image_url')
           .eq('id', designId)
           .single()
-        if (d) {
+        if (d && active) {
           setInspDesign(d)
           setNote(`Inspiration: ${d.title}`)
         }
       }
 
-      const [{ data: prof, error: profError }, { data: svcs, error: svcsError }, { data: avail }, { data: followRow }, { error: refColErr }] = await Promise.all([
-        supabase.from('profiles').select('id, display_name, avatar_url, account_type, is_private').eq('id', creatorId).single(),
+      const [{ data: prof, error: profError }, { data: svcs, error: svcsError }, { data: avail }, { data: followRow }, { data: settings, error: zoneError }] = await Promise.all([
+        supabase.from('profiles').select('id, display_name, avatar_url, account_type, is_private, booking_area, location').eq('id', creatorId).single(),
         supabase.from('services').select('*').eq('creator_id', creatorId).eq('is_active', true).order('created_at', { ascending: true }),
         supabase.from('availability').select('*').eq('creator_id', creatorId).eq('is_active', true).order('day_of_week', { ascending: true }),
         creatorId === user.id ? { data: null } : supabase.from('follows').select('*').eq('follower_id', user.id).eq('following_id', creatorId).maybeSingle(),
-        supabase.from('bookings').select('reference_design_id').limit(1),
+        supabase.from('creator_booking_settings').select('time_zone').eq('creator_id', creatorId).maybeSingle(),
       ])
+
+      if (!active) return
+      setTimeZone(settings?.time_zone || null)
 
       // A real fetch failure previously rendered identically to "this
       // creator has no bookable services" — surfaced distinctly instead,
       // same as the existing submit-handler error treatment below.
-      if ((profError && profError.code !== 'PGRST116') || svcsError) {
+      if ((profError && profError.code !== 'PGRST116') || svcsError || zoneError) {
         console.error('book page load failed:', profError || svcsError)
         setLoadError(true)
         setLoading(false)
         return
       }
 
-      // Creator doesn't exist or isn't readable (PGRST116 is the "no rows" case,
-      // which the loadError check above deliberately lets through).
-      if (!prof) { setNotFoundMsg("This artist isn't available."); setLoading(false); return }
-
       setCreator(prof)
       setIsPrivateAndBlocked(!!prof?.is_private && creatorId !== user.id && !followRow)
       setServices(svcs || [])
       setAvailability(avail || [])
-      setRefAvailable(!refColErr)
 
       // Pre-select service + note if coming from Book Again
       if (prefillServiceId && svcs) {
@@ -177,64 +235,39 @@ function BookPageInner() {
           setStep(2)
         }
       }
-      if (prefillNote) setNote(decodeURIComponent(prefillNote))
+      if (prefillNote) setNote(prefillNote)
 
       setLoading(false)
     }
     init()
-  }, [])
+    return () => { active = false }
+  }, [creatorId, designId, prefillNote, prefillServiceId, router, userId])
 
-  // A ?designId= inspiration doubles as the attached reference once the
-  // column exists (the note prefill above is unchanged).
-  useEffect(() => {
-    if (refAvailable && inspDesign && !refDesign) setRefDesign(inspDesign)
-  }, [refAvailable, inspDesign])
-
-  // Generate time slots when date + service selected
-  useEffect(() => {
-    if (!selectedDate || !selectedService) return
-    const fetchSlots = async () => {
-      setSlotsLoading(true)
-      const dow = selectedDate.getDay()
-      const dayAvail = availability.find(a => a.day_of_week === dow)
-      if (!dayAvail) { setSlots([]); setSlotsLoading(false); return }
-
-      // Get existing bookings for this creator on this date
-      const dateStr = toLocalDateStr(selectedDate)
-      const { data: existingBookings } = await supabase
-        .from('bookings')
-        .select('start_time, end_time')
-        .eq('creator_id', creatorId)
-        .eq('booking_date', dateStr)
-        .in('status', ['pending', 'confirmed'])
-
-      const booked = (existingBookings || []).map(b => ({
-        start: timeToMins(b.start_time),
-        end: timeToMins(b.end_time),
-      }))
-
-      // Generate 30-min interval slots from open → close - duration
-      const openMins = timeToMins(dayAvail.start_time)
-      const closeMins = timeToMins(dayAvail.end_time)
-      const dur = selectedService.duration_minutes
-      const generated = []
-
-      for (let t = openMins; t + dur <= closeMins; t += 30) {
-        const slotEnd = t + dur
-        const blocked = booked.some(b => t < b.end && slotEnd > b.start)
-        const hh = String(Math.floor(t / 60)).padStart(2, '0')
-        const mm = String(t % 60).padStart(2, '0')
-        generated.push({ time: `${hh}:${mm}`, available: !blocked })
-      }
-
-      setSlots(generated)
-      setSelectedSlot(null)
-      setSlotsLoading(false)
+useEffect(() => {
+    let active = true
+    if (!slotKey) return
+    const loadSlots = async () => {
+      if (!calendarEnabled) return supabase.rpc('booking_available_slots', { p_creator_id: creatorId, p_date: calendarKey(selectedDate), p_service_id: selectedService.id })
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session || session.user.id !== userId) throw new Error('Sign in again to check availability.')
+      const q = new URLSearchParams({creatorId, serviceId:selectedService.id, date:calendarKey(selectedDate)})
+      const response = await fetch(`/api/mobile/calendar-slots?${q}`, {headers:{Authorization:`Bearer ${session.access_token}`}})
+      const result = await response.json()
+      return response.ok ? { data:result.slots } : { error:{message:result.error} }
     }
-    fetchSlots()
-  }, [selectedDate, selectedService])
+    loadSlots().then(({ data, error }) => {
+      if (!active) return
+      setSlotResult({ key: slotKey,
+        rows: error ? [] : (data || []).map(slot => ({ time: slot.start_time.slice(0, 5), available: slot.available, calendarConflict:slot.client_calendar_conflict, calendarUnchecked:slot.client_calendar_state === "unavailable" })),
+        error: error ? `Available times could not be confirmed. ${error.message || 'Please retry.'}` : '',
+      })
+    }).catch(() => {
+      if (active) setSlotResult({ key: slotKey, rows: [], error: 'Available times could not be loaded. Please try another date.' })
+    })
+    return () => { active = false }
+  }, [creatorId, selectedDate, selectedService, slotKey, calendarEnabled, userId])
 
-  const openRefPicker = async () => {
+const openRefPicker = async () => {
     setRefPickerOpen(true)
     if (refLibrary.length) return
     const { data } = await supabase
@@ -246,73 +279,45 @@ function BookPageInner() {
     setRefLibrary(data || [])
   }
 
-  const [doneBookingId, setDoneBookingId] = useState(null)
+const [doneBookingId, setDoneBookingId] = useState(null)
 
-  const handleSubmit = async () => {
-    if (!selectedService || !selectedDate || !selectedSlot) return
-    setSubmitting(true)
+const handleSubmit = async () => {
+    if (!selectedService || !selectedDate || !selectedSlot || !timeZone) return
     setSubmitError('')
-
-    const dateStr = toLocalDateStr(selectedDate)
-    const endTime = addMinutes(selectedSlot, selectedService.duration_minutes)
-
-    const { data: newBooking, error } = await supabase.from('bookings').insert({
-      client_id: currentUser.id,
-      creator_id: creatorId,
-      service_id: selectedService.id,
-      booking_date: dateStr,
-      start_time: selectedSlot,
-      end_time: endTime,
-      status: 'pending',
-      notes: note.trim() || null,
-      ...(refAvailable && refDesign ? { reference_design_id: refDesign.id } : {}),
-    }).select().single()
-
-    if (error || !newBooking) {
-      setSubmitError('Failed to send booking request. Please try again.')
-      setSubmitting(false)
-      return
-    }
-
-    // Notify the creator
-    await supabase.from('notifications').insert({
-      user_id: creatorId,
-      actor_id: currentUser.id,
-      type: 'booking_request',
-    })
-
-    // Reward the client for booking
-    const { data: { session } } = await supabase.auth.getSession()
-    fetch('/api/add-reward', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) },
-      body: JSON.stringify({ reason: 'book_appointment', ref_id: newBooking.id }),
-    })
-
-    setDoneBookingId(newBooking.id)
-    setSubmitting(false)
-    setDone(true)
+    try {
+      const result = await run(async session => {
+        let newBooking, error
+        if (calendarEnabled) {
+          const payload = { creatorId, serviceId:selectedService.id, date:calendarKey(selectedDate), start:selectedSlot, end:addMinutes(selectedSlot, selectedService.duration_minutes), timeZone, price:Number(selectedService.price), deposit:Number(selectedService.deposit_amount || 0), location:creator.booking_area || creator.location || '', notes:note.trim(), ...(designId ? {designId} : {}), allowCalendarConflict:calendarAcknowledgement === calendarSelectionKey }
+          const fingerprint = JSON.stringify(payload)
+          if (requestIdentity.current?.fingerprint !== fingerprint) requestIdentity.current = {id:crypto.randomUUID(),fingerprint}
+          const response = await fetch('/api/mobile/request-booking', {method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({...payload,id:requestIdentity.current.id})})
+          const result = await response.json()
+          if (!response.ok) {
+            if (['CLIENT_CALENDAR_CONFLICT','CLIENT_CALENDAR_UNCHECKED'].includes(result.code)) setCalendarWarningKey(calendarSelectionKey)
+            throw new Error(result.error || 'Appointment could not be confirmed.')
+          }
+          newBooking = result.booking
+        } else ({ data:newBooking, error } = await supabase.from('bookings').insert({
+          client_id: currentUser.id, creator_id: creatorId, service_id: selectedService.id,
+          booking_date: calendarKey(selectedDate), start_time: selectedSlot,
+          end_time: addMinutes(selectedSlot, selectedService.duration_minutes), time_zone: timeZone,
+          status: 'pending', notes: note.trim() || null,
+        }).select().single())
+        if (error || !newBooking) throw new Error('That appointment time could not be confirmed. Please refresh and choose an available time.')
+        fetch('/api/add-reward', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ reason: 'book_appointment', ref_id: newBooking.id }),
+        }).catch(() => {})
+        return newBooking
+      })
+      if (result) setDone(true)
+    } catch (error) { setSubmitError(error.message) }
   }
 
-  // Build a 42-day (6-week) calendar grid, aligned to Sun–Sat columns so
-  // dates land under their correct weekday header regardless of what
-  // weekday "today" happens to be.
-  const buildCalendar = () => {
-    const activeDows = new Set(availability.map(a => a.day_of_week))
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const startOfWeek = new Date(today)
-    startOfWeek.setDate(today.getDate() - today.getDay())
-    const days = []
-    for (let i = 0; i < 42; i++) {
-      const d = new Date(startOfWeek)
-      d.setDate(startOfWeek.getDate() + i)
-      days.push({ date: d, available: d >= today && activeDows.has(d.getDay()) })
-    }
-    return days
-  }
+const buildCalendar = () => bookingCalendar(availability, timeZone)
 
-  if (loading) return (
+if (loading) return (
     <BookShell>
       <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <p style={ui(300, 14, WHITE50)}>Loading…</p>
@@ -320,10 +325,10 @@ function BookPageInner() {
     </BookShell>
   )
 
-  if (loadError) return (
+if (loadError) return (
     <BookShell>
       <div style={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '20px', textAlign: 'center' }}>
-        <p style={ui(600, 15)}>Couldn't load booking details</p>
+        <p style={ui(600, 15)}>Couldn&apos;t load booking details</p>
         <p style={ui(300, 13, WHITE50)}>Please try again in a moment.</p>
         <button onClick={() => window.location.reload()} style={{ background: BTN_GRADIENT, border: 'none', borderRadius: '1000px', padding: '13px 28px', ...ui(500, 14), cursor: 'pointer' }}>
           Retry
@@ -332,7 +337,7 @@ function BookPageInner() {
     </BookShell>
   )
 
-  if (notFoundMsg) return (
+if (notFoundMsg) return (
     <BookShell>
       <div style={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '20px', textAlign: 'center' }}>
         <p style={ui(600, 15)}>{notFoundMsg}</p>
@@ -341,8 +346,7 @@ function BookPageInner() {
     </BookShell>
   )
 
-  // ── PRIVATE ACCOUNT GUARD ───────────────────────────────────────────────────
-  if (isPrivateAndBlocked) return (
+if (isPrivateAndBlocked) return (
     <BookShell>
       <div style={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px', textAlign: 'center' }}>
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={WHITE50} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '16px' }}>
@@ -358,8 +362,7 @@ function BookPageInner() {
     </BookShell>
   )
 
-  // ── REQUEST SENT (frame 250:2483) — the wizard's true final screen ─────────
-  if (done) return (
+if (done) return (
     <BookShell>
       <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px calc(env(safe-area-inset-bottom) + 40px)', textAlign: 'center' }}>
         <div style={{ width: '68px', height: '68px', borderRadius: '34px', background: PANEL, border: PANEL_BORDER, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
@@ -372,7 +375,7 @@ function BookPageInner() {
           Your appointment request has been sent to {creator?.display_name}.
         </p>
         <p style={{ ...ui(300, 13, WHITE50), margin: '0 0 20px' }}>
-          We'll notify you when {creator?.display_name} confirms or declines.
+          We&apos;ll notify you when {creator?.display_name} confirms or declines.
         </p>
         <span style={{ background: PANEL, border: PANEL_BORDER, borderRadius: '100px', padding: '7px 14px', ...ui(300, 12, WHITE80), marginBottom: '36px' }}>
           {selectedService?.name} · {DAY_SHORT[selectedDate.getDay()]}, {selectedDate.getDate()} {MONTH_NAMES[selectedDate.getMonth()]} · {fmt12(selectedSlot)}
@@ -402,26 +405,27 @@ function BookPageInner() {
     </BookShell>
   )
 
-  const calendarDays = buildCalendar()
-  const monthLabelDate = selectedDate || new Date()
-  const stepHeadings = {
+const calendarDays = buildCalendar()
+
+const monthLabelDate = selectedDate || new Date()
+
+const stepHeadings = {
     1: ['Choose a service', null],
     2: ['Pick a date', 'Available dates are highlighted'],
     3: ['Pick a time', selectedDate ? `${DAY_SHORT[selectedDate.getDay()]}, ${selectedDate.getDate()} ${MONTH_NAMES[selectedDate.getMonth()]} · ${selectedService?.name} (${fmtDuration(selectedService?.duration_minutes || 0)})` : null],
     4: ['Review your booking', 'Review and confirm your request.'],
   }
-  const [heading, subheading] = stepHeadings[step]
 
-  // Plain-text Continue per the frames; the gradient pill is reserved for
-  // the final Send.
-  const continueBtn = (enabled, onClick, label = 'Continue') => (
+const [heading, subheading] = stepHeadings[step]
+
+const continueBtn = (enabled, onClick, label = 'Continue') => (
     <button onClick={onClick} disabled={!enabled}
       style={{ width: '100%', height: '52px', background: 'none', border: 'none', ...ui(500, 16, enabled ? 'var(--lq-white)' : WHITE30), cursor: enabled ? 'pointer' : 'default' }}>
       {label}
     </button>
   )
 
-  return (
+return (
     <>
       {/* ── Reference design picker ── */}
       {refPickerOpen && (
@@ -486,6 +490,8 @@ function BookPageInner() {
             </div>
           )}
 
+          {timeZone && <p style={ui(400, 12, WHITE50)}>All appointment times are in {timeZone}.</p>}
+          {!timeZone && <p role="alert">This creator needs to set their appointment time zone before accepting bookings.</p>}
           {/* ── STEP 1: Choose service (250:2116) ── */}
           {step === 1 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -522,7 +528,7 @@ function BookPageInner() {
             <div>
               {availability.length === 0 ? (
                 <div style={{ background: PANEL, border: PANEL_BORDER, borderRadius: '16px', padding: '32px 20px', textAlign: 'center' }}>
-                  <p style={{ ...ui(500, 15), margin: '0 0 8px' }}>{creator?.display_name || 'This artist'} hasn't opened any booking dates yet</p>
+                  <p style={{ ...ui(500, 15), margin: '0 0 8px' }}>{creator?.display_name || 'This artist'} hasn&apos;t opened any booking dates yet</p>
                   <p style={{ ...ui(300, 13, WHITE50), margin: '0 0 20px', lineHeight: 1.5 }}>Check back soon, or send a message to ask about their availability.</p>
                   <Link href={`/messages?with=${creatorId}`} style={{ display: 'inline-block', background: BTN_GRADIENT, borderRadius: '1000px', padding: '13px 28px', ...ui(500, 14), textDecoration: 'none' }}>
                     Message {creator?.display_name || 'artist'}
@@ -549,6 +555,7 @@ function BookPageInner() {
                     return (
                       <button
                         key={i}
+                        aria-label={calendarKey(item.date)}
                         onClick={() => item.available && setSelectedDate(item.date)}
                         disabled={!item.available}
                         style={{
@@ -573,7 +580,7 @@ function BookPageInner() {
                 </p>
               )}
 
-              {continueBtn(!!selectedDate, () => setStep(3))}
+              {continueBtn(!!selectedDate && !!timeZone, () => setStep(3))}
                 </>
               )}
             </div>
@@ -582,6 +589,7 @@ function BookPageInner() {
           {/* ── STEP 3: Pick a time (250:2327) ── */}
           {step === 3 && (
             <div>
+              {slotsError && <p role="alert">{slotsError}</p>}
               {slotsLoading ? (
                 <p style={{ ...ui(300, 14, WHITE50), textAlign: 'center', padding: '32px 0' }}>Loading slots…</p>
               ) : slots.length === 0 ? (
@@ -600,7 +608,7 @@ function BookPageInner() {
                       return (
                         <button
                           key={slot.time}
-                          onClick={() => slot.available && setSelectedSlot(slot.time)}
+                          onClick={() => slot.available && setSlotSelection({ key: slotKey, time: slot.time })}
                           disabled={!slot.available}
                           style={{
                             padding: '13px 8px', borderRadius: '10px',
@@ -685,13 +693,18 @@ function BookPageInner() {
                 )
               )}
 
+              {calendarConflict && <label style={{ ...ui(400, 13), display: 'block', marginBottom: '16px' }}>
+                <input type="checkbox" checked={calendarAcknowledgement === calendarSelectionKey}
+                  onChange={e => setCalendarAcknowledgement(e.target.checked ? calendarSelectionKey : '')} />
+                I understand this time conflicts with my calendar, or my calendar could not be checked, and want to continue.
+              </label>}
               {submitError && (
                 <p style={{ ...ui(400, 13, '#E07070'), textAlign: 'center', marginBottom: '10px' }}>{submitError}</p>
               )}
               <div style={{ padding: '0 8px' }}>
                 <button
                   onClick={handleSubmit}
-                  disabled={submitting}
+                  disabled={submitting || (!!calendarConflict && calendarAcknowledgement !== calendarSelectionKey)}
                   style={{
                     width: '100%', height: '52px', background: BTN_GRADIENT,
                     border: 'none', borderRadius: '1000px', ...ui(500, 16),
@@ -714,13 +727,6 @@ function BookPageInner() {
 }
 
 export default function BookPage() {
-  return (
-    <Suspense fallback={
-      <div style={{ minHeight: '100dvh', background: '#260D14', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ fontFamily: 'var(--lq-font-ui)', fontWeight: 300, fontSize: '14px', color: 'rgba(255,255,255,0.5)' }}>Loading…</p>
-      </div>
-    }>
-      <BookPageInner />
-    </Suspense>
-  )
+  const { creatorId } = useParams()
+  return <CheckoutSession title="Sign in to book an appointment" description="Your appointment and notes belong to your signed-in account.">{userId => <BookingForm key={`${userId}:${creatorId}`} userId={userId} />}</CheckoutSession>
 }

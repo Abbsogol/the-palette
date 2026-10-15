@@ -1,10 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
-import BackButton from '@/components/ui/BackButton'
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
+import BackButton from '@/components/ui/BackButton';
+import CheckoutSession from '@/components/CheckoutSession';
+import { useAccountAction } from '@/lib/use-account-action';
+
+
+
+
+
 
 const ACCENT = '#FF517F'
 const WHITE60 = 'rgba(255,255,255,0.6)'
@@ -49,32 +56,33 @@ const PACKS = [
   },
 ]
 
-export default function BuyCreditsPage() {
+function CreditStore({userId}) {
+const { run, busy } = useAccountAction(userId)
+
   const router = useRouter()
   const [currentUser, setCurrentUser] = useState(null)
   const [creditBalance, setCreditBalance] = useState(null)
   const [loading, setLoading] = useState(null) // which pack is loading
 
   useEffect(() => {
+    let active = true
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/profile'); return }
-      setCurrentUser(user)
       const { data: profile } = await supabase
         .from('profiles')
         .select('credit_balance')
-        .eq('id', user.id)
+        .eq('id', userId)
         .single()
-      if (profile) setCreditBalance(profile.credit_balance)
+      if (active && profile) setCreditBalance(profile.credit_balance)
     }
     getUser()
-  }, [])
+    return () => { active = false }
+  }, [userId])
 
   const handleBuy = async (pack) => {
-    if (!currentUser) return
+    if (busy) return
     setLoading(pack.id)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      const data = await run(async session => {
       const res = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: {
@@ -84,17 +92,14 @@ export default function BuyCreditsPage() {
         body: JSON.stringify({ packId: pack.id }),
       })
       const data = await res.json()
-      if (data.url) {
-        window.location.href = data.url
-      } else {
-        alert('Something went wrong. Please try again.')
-        setLoading(null)
-      }
+      if (!res.ok || !data.url) throw new Error(data.error || 'Something went wrong. Please try again.')
+      return data
+      })
+      if (data?.url) window.location.assign(data.url)
     } catch (err) {
       console.error(err)
-      alert('Something went wrong. Please try again.')
-      setLoading(null)
-    }
+      alert(err.message || 'Something went wrong. Please try again.')
+    } finally { setLoading(null) }
   }
 
   return (
@@ -215,4 +220,8 @@ export default function BuyCreditsPage() {
       </div>
     </div>
   )
+}
+
+export default function BuyCreditsPage() {
+  return <CheckoutSession>{userId => <CreditStore userId={userId} />}</CheckoutSession>
 }

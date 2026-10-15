@@ -60,7 +60,7 @@ export default function InvitePage() {
       setLoading(false)
     }
     init()
-  }, [])
+  }, [router])
 
   const shareUrl = code ? `https://laque.app/onboarding?ref=${code}` : ''
 
