@@ -25,7 +25,8 @@ jobs:
           cache-dependency-path: mobile/package-lock.json
       - run: npm ci
       - run: npm run verify
-      - run: npx expo export --platform ios --platform android --output-dir .expo/export
+      - name: Export iOS/Android and check client credentials
+        run: node ../scripts/check-client-credentials.mjs --mobile
       - uses: actions/upload-artifact@v4
         with:
           name: mobile-bundles

@@ -13,7 +13,7 @@ export async function POST(request) {
 
   const { data: result, error } = await supabase.rpc('apply_referral', { p_user_id: user.id, p_code: upperCode })
   if (error) {
-    console.error('apply-referral transaction error:', error)
+    console.error('apply-referral transaction error:')
     return Response.json({ error: 'Failed to apply referral. Please retry.' }, { status: 500 })
   }
   const failures = { invalid: [404, 'Invalid code'], self: [400, 'Cannot refer yourself'], already_referred: [409, 'Already referred'] }

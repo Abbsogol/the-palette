@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "release:credential-check": "node scripts/check-client-credentials.mjs",
     "release:rehearse-db": "node scripts/rehearse-migrations.mjs",
     "release:review": "node scripts/review-release-base.mjs",
     "release:git-safety": "node scripts/release-git-safety.mjs",

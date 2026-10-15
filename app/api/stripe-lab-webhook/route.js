@@ -1,4 +1,5 @@
 import { serviceClient as db } from '@/lib/auth';
+import { verifyStripeSignature } from '@/lib/stripe-webhook-signature';
 import { labStripeClient, checkedLabStripe, stripeId, reconcileLabStripe } from '@/lib/lab-stripe';
 export const runtime = 'nodejs';
 const events = new Set(['checkout.session.completed','checkout.session.async_payment_succeeded','checkout.session.async_payment_failed','checkout.session.expired','invoice.paid','invoice.payment_failed','customer.subscription.created','customer.subscription.updated','customer.subscription.deleted','charge.refunded','charge.dispute.created','charge.dispute.closed','refund.updated','payment_intent.succeeded','payment_intent.payment_failed','payment_intent.canceled']);
@@ -8,7 +9,7 @@ export async function POST(request) {
     if (Number(request.headers.get('content-length')) > 1000000) return new Response('Too large', { status: 413 });
     const raw = await request.text();
     if (raw.length > 1000000) return new Response('Too large', { status: 413 });
-    event = labStripeClient().webhooks.constructEvent(raw, request.headers.get('stripe-signature'), process.env.LAB_STRIPE_WEBHOOK_SECRET);
+    event = verifyStripeSignature(labStripeClient(), raw, request.headers.get('stripe-signature'), process.env.LAB_STRIPE_WEBHOOK_SECRET, process.env.LAB_STRIPE_WEBHOOK_PREVIOUS_SECRET);
     if (event.livemode !== false) throw new Error('Wrong environment');
   } catch { return new Response('Invalid webhook', { status: 400 }); }
   if (!events.has(event.type)) return Response.json({ received: true });

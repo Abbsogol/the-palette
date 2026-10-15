@@ -41,7 +41,7 @@ export async function POST(request) {
 
   if (error) {
     if (error.message?.includes('AGE_AND_PRIVACY_CONFIRMATION_REQUIRED')) return Response.json({error:'Confirm you are 18 or older and acknowledge the Privacy Policy.'},{status:400})
-    console.error('complete-onboarding error:', error)
+    console.error('complete-onboarding error:')
     return Response.json({ error: 'Failed to complete onboarding' }, { status: error.code === 'P0002' ? 404 : 500 })
   }
 

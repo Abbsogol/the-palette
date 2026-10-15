@@ -1,3 +1,4 @@
+import { verifyStripeEnvironment } from '@/lib/stripe-environment'
 import Stripe from 'stripe'
 import { paymentCheckout } from '@/lib/payment-checkout'
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
@@ -13,6 +14,7 @@ export async function POST(request) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    await verifyStripeEnvironment(stripe)
     const { designId, days, price } = await request.json()
 
     if (!designId || !days) {
@@ -74,7 +76,7 @@ export async function POST(request) {
 
     return Response.json({ url: session.url })
   } catch (err) {
-    console.error('Create boost payment error:', err)
+    console.error('Create boost payment error:')
     return Response.json({ error: 'Server error' }, { status: 500 })
   }
 }

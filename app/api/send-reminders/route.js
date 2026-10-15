@@ -22,7 +22,7 @@ export async function GET(request) {
       : { emailsSent: 0, emailsFailed: 0, emailDeliveryConfigured: false }
     return Response.json({ sent: bookings * 2, bookings, ...delivery, analyticsCleanupComplete }, { status: delivery.emailsFailed || !analyticsCleanupComplete ? 503 : 200 })
   } catch (error) {
-    console.error('send-reminders error:', error)
+    console.error('send-reminders error:')
     return Response.json({ error: 'Reminder processing failed; retry is safe.' }, { status: 503 })
   }
 }

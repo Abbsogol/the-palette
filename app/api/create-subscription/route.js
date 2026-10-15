@@ -1,3 +1,4 @@
+import { verifyStripeEnvironment } from '@/lib/stripe-environment'
 import Stripe from 'stripe'
 import { SUBSCRIPTION_PLANS as PLANS } from '@/lib/subscription-plans'
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
@@ -13,6 +14,7 @@ export async function POST(request) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
     if (process.env.LAB_APP_ONLY_BILLING === '1') return Response.json({ error: 'Subscribe and purchase design tokens inside the LaQue app.' }, { status: 410 })
+    await verifyStripeEnvironment(stripe)
     const userId = user.id
 
     const { planId } = await request.json()
@@ -88,7 +90,7 @@ export async function POST(request) {
     return Response.json({ error: 'Checkout changed while processing. Please retry.' }, { status: 409 })
 
   } catch (err) {
-    console.error('create-subscription error:', err)
+    console.error('create-subscription error:')
     return Response.json({ error: 'Server error' }, { status: 500 })
   }
 }

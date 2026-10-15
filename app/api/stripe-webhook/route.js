@@ -1,3 +1,5 @@
+import { verifyStripeEnvironment, verifyStripeEventMode } from '@/lib/stripe-environment'
+import { verifyStripeSignature } from '@/lib/stripe-webhook-signature'
 import Stripe from 'stripe'
 import { stripeId } from '@/lib/subscription-plans'
 import { serviceClient as supabase } from '@/lib/auth'
@@ -29,9 +31,11 @@ export async function POST(request) {
   let event
 
   try {
-    event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET)
+    event = verifyStripeSignature(stripe, body, sig, process.env.STRIPE_WEBHOOK_SECRET, process.env.STRIPE_WEBHOOK_PREVIOUS_SECRET)
+    verifyStripeEventMode(event)
+    await verifyStripeEnvironment(stripe)
   } catch (err) {
-    console.error('Webhook signature verification failed:', err.message)
+    console.error('Webhook signature verification failed:')
     return Response.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
@@ -152,7 +156,7 @@ export async function POST(request) {
       return Response.json({ received:true })
     }
   } catch (error) {
-    console.error('Payment transaction failed:',error)
+    console.error('Payment transaction failed:')
     return Response.json({ error:'Payment could not be recorded' },{ status:500 })
   }
 
@@ -176,7 +180,7 @@ export async function POST(request) {
       return Response.json({ received: true })
     }
   } catch (error) {
-    console.error('Credit payment transaction failed:', error)
+    console.error('Credit payment transaction failed:')
     return Response.json({ error: 'Payment could not be recorded' }, { status: 500 })
   }
 
@@ -212,7 +216,7 @@ export async function POST(request) {
       }
       return Response.json({ received: true })
     } catch (error) {
-      console.error('Subscription transaction failed:', error)
+      console.error('Subscription transaction failed:')
       return Response.json({ error: 'Subscription could not be recorded' }, { status: 500 })
     }
   }

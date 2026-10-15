@@ -1,3 +1,4 @@
+import { verifyStripeEnvironment } from '@/lib/stripe-environment'
 import Stripe from 'stripe'
 import { paymentCheckout } from '@/lib/payment-checkout'
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
@@ -17,6 +18,7 @@ export async function POST(request) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
     if (process.env.LAB_APP_ONLY_BILLING === '1') return Response.json({ error: 'Subscribe and purchase design tokens inside the LaQue app.' }, { status: 410 })
+    await verifyStripeEnvironment(stripe)
     const userId = user.id
 
     const { packId } = await request.json()
@@ -75,7 +77,7 @@ export async function POST(request) {
     return Response.json({ url: session.url })
 
   } catch (err) {
-    console.error('create-checkout-session error:', err)
+    console.error('create-checkout-session error:')
     return Response.json({ error: 'Server error' }, { status: 500 })
   }
 }

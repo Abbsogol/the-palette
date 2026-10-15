@@ -1,5 +1,6 @@
 import { pathToFileURL } from 'node:url'
 import nextEnv from '@next/env'
+import { deploymentErrors } from '../lib/deployment-security.mjs'
 
 const buildRequired = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY', 'STRIPE_SECRET_KEY']
 const serverRequired = [...buildRequired, 'NEXT_PUBLIC_APP_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'OPENAI_API_KEY', 'STRIPE_WEBHOOK_SECRET', 'CRON_SECRET']
@@ -7,6 +8,7 @@ const serverRequired = [...buildRequired, 'NEXT_PUBLIC_APP_URL', 'SUPABASE_SERVI
 export function validateEnv(env, profile = 'server') {
   if (!['build', 'server'].includes(profile)) throw new Error('Profile must be build or server')
   const errors = []
+  errors.push(...deploymentErrors(env, { complete: profile === 'server' }));
   for (const key of profile === 'build' ? buildRequired : serverRequired) {
     if (!env[key]?.trim()) errors.push(`${key}: missing`)
     else if (/offline|your[-_]|replace[-_]|example\.invalid/i.test(env[key])) errors.push(`${key}: placeholder value`)

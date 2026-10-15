@@ -1,3 +1,4 @@
+import { verifyStripeEnvironment } from '@/lib/stripe-environment'
 import Stripe from 'stripe'
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
 import { stripeId } from '@/lib/subscription-plans'
@@ -11,6 +12,7 @@ export async function GET(request) {
   const id=new URL(request.url).searchParams.get('session_id')
   if(!id || !id.startsWith('cs_'))return json({error:'Invalid checkout'},400)
   try {
+    await verifyStripeEnvironment(stripe)
     const session=await stripe.checkout.sessions.retrieve(id)
     if(session.mode!=='subscription' || session.metadata?.userId!==user.id)return json({error:'Checkout not found'},404)
     if(session.status==='expired')return json({status:'expired'})

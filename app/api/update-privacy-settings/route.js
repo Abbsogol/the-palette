@@ -29,7 +29,7 @@ export async function POST(request) {
   const { data, error } = await supabase.from('profiles_data').update(update).eq('id', user.id).select('is_private,message_permission,show_saves').maybeSingle()
 
   if (error) {
-    console.error('update-privacy-settings error:', error)
+    console.error('update-privacy-settings error:')
     return Response.json({ error: 'Failed to update settings' }, { status: 500 })
   }
 

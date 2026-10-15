@@ -69,7 +69,7 @@ export async function POST(request) {
   if (Object.keys(fields).length > 0) {
     const { error } = await supabase.from('profiles_data').update(fields).eq('id', user.id)
     if (error) {
-      console.error('update-profile error:', error.code)
+      console.error('update-profile error:')
       const message = error.code === '23505' ? 'That username is already taken' : 'Failed to update profile'
       return Response.json({ error: message }, { status: error.code === '23505' ? 409 : 500 })
     }
@@ -78,13 +78,13 @@ export async function POST(request) {
   if (Object.keys(health).length > 0) {
     const { error } = await supabase.from('client_health_notes')
       .upsert({ user_id: user.id, ...health, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
-    if (error) { console.error('client_health_notes upsert failed:', error.code); return Response.json({ error: 'Failed to save health notes' }, { status: 500 }) }
+    if (error) { console.error('client_health_notes upsert failed:'); return Response.json({ error: 'Failed to save health notes' }, { status: 500 }) }
   }
 
   if (hasBookingNotes) {
     const { error } = await supabase.from('client_booking_notes')
       .upsert({ user_id: user.id, booking_notes: bookingNotes, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
-    if (error) { console.error('client_booking_notes upsert failed:', error.code); return Response.json({ error: 'Failed to save notes' }, { status: 500 }) }
+    if (error) { console.error('client_booking_notes upsert failed:'); return Response.json({ error: 'Failed to save notes' }, { status: 500 }) }
   }
 
   return Response.json({ ok: true })

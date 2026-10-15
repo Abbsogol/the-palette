@@ -12,6 +12,8 @@ This is a launch work list, not a claim that each feature is broken. An unchecke
 
 **F03 complete, 13 October:** Next 16.3.8, sharp 0.35.5, shell-quote 1.12.0 and source-map-js 1.2.2 are installed with reproducible lockfiles. Expo 57 patch versions are aligned. Clean installs, audits, full tests, web/bundle builds and native Android/iOS CI passed at `7c2bf2a5d38375b76e5712c23b67b69a386f7296`. Root production audit has zero findings. Full audits retain 5 high root and 50 high/5 moderate mobile package entries from three unpatched tooling libraries, absent from both exported app graphs. These are recorded with Engineering controls and reopen conditions, not suppressed. See [dependency remediation](mobile-beta/dependency-remediation.md).
 
+**F06 progress, 15 October:** production/beta private variables are isolated from future previews; deployment identity, Stripe account/mode/catalog checks, sanitized diagnostics, versioned token encryption and rotation utilities are implemented. Backend tests and web/mobile credential-canary builds pass. **Blocked:** live Stripe setup/verification is deferred at the Owner’s request; production identity/cron/provider settings, old-preview credential retirement and signed-release acceptance remain open. Return to this before activating production payments. See [production credentials](mobile-beta/production-credentials.md).
+
 ## What the inspection confirmed
 
 **F04 complete, 13 October:** integrated commit `3e23227` resolves all 46 conflicts against actual main `1bc0a54`, preserving the web redesign, security and current policy. PR12 CI, credential checks and native simulator builds pass. See [release-base review](mobile-beta/release-base-review.md).

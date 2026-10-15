@@ -1,3 +1,4 @@
+import { verifyStripeEnvironment } from '@/lib/stripe-environment'
 import Stripe from 'stripe'
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
 import { stripeId } from '@/lib/subscription-plans'
@@ -12,6 +13,7 @@ export async function GET(request) {
     return Response.json({ error: 'Invalid checkout session' }, { status: 400 })
   }
   try {
+    await verifyStripeEnvironment(stripe)
     const session = await stripe.checkout.sessions.retrieve(sessionId)
     if (session.metadata?.userId !== user.id || session.mode !== 'payment' ||
         (session.metadata?.type && session.metadata.type !== 'credits') || !session.metadata?.credits) {
@@ -40,7 +42,7 @@ export async function GET(request) {
     if (balanceError || !profile) throw balanceError || new Error('Profile missing')
     return Response.json({ status: receipt.refunded_credits > 0 ? 'refund_recorded' : 'fulfilled', creditBalance: profile.credit_balance }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {
-    console.error('Credit checkout status failed:', error)
+    console.error('Credit checkout status failed:')
     return Response.json({ error: 'Unable to confirm checkout' }, { status: 503 })
   }
 }

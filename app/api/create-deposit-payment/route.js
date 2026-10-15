@@ -1,3 +1,4 @@
+import { verifyStripeEnvironment } from '@/lib/stripe-environment'
 import Stripe from 'stripe'
 import { depositReturnContext, depositReturnUrls } from '@/lib/mobile-return'
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
@@ -6,6 +7,7 @@ export async function POST(request) {
   const user=await getSessionUser(request)
   if (!user) return Response.json({ error:'Unauthorized' },{ status:401 })
   try {
+    await verifyStripeEnvironment(stripe)
     const {bookingId,returnContext}=await request.json()
     let context
     try { context=depositReturnContext(returnContext) } catch { return Response.json({error:'Invalid mobile return context'},{status:400}) }
@@ -48,7 +50,7 @@ export async function POST(request) {
     }
     return Response.json({error:'Checkout changed. Please retry.'},{status:409})
   } catch(error) {
-    console.error('Deposit checkout failed:',error)
+    console.error('Deposit checkout failed:')
     return Response.json({error:'Unable to prepare deposit checkout'},{status:503})
   }
 }

@@ -75,7 +75,7 @@ export async function POST(request) {
     if (error || !design) return Response.json({ error: 'Failed to save design' }, { status: 500 })
     return Response.json({ designId: design.id, publicUrl: imageUrl, isPublished: !asDraft })
   } catch (error) {
-    console.error('publish-nail-lab-generation error:', error)
+    console.error('publish-nail-lab-generation error:')
     return Response.json({ error: 'Server error' }, { status: 500 })
   }
 }

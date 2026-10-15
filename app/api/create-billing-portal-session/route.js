@@ -1,3 +1,4 @@
+import { verifyStripeEnvironment } from '@/lib/stripe-environment'
 import Stripe from 'stripe'
 import { getSessionUser, serviceClient as supabase } from '@/lib/auth'
 
@@ -9,6 +10,8 @@ export async function POST(request) {
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    await verifyStripeEnvironment(stripe)
 
     // profiles_data, not the profiles view — stripe_customer_id is masked
     // behind auth.uid() = id in the view, always null for a service-role caller.
@@ -32,7 +35,7 @@ export async function POST(request) {
     return Response.json({ url: portalSession.url })
 
   } catch (err) {
-    console.error('create-billing-portal-session error:', err)
+    console.error('create-billing-portal-session error:')
     return Response.json({ error: 'Server error' }, { status: 500 })
   }
 }

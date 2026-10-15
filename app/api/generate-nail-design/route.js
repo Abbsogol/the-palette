@@ -99,8 +99,8 @@ export async function POST(request) {
     })
 
     if (!openaiRes.ok) {
-      const err = await openaiRes.json()
-      console.error('OpenAI error:', err)
+      await openaiRes.body?.cancel()
+      console.error('OpenAI error:')
       return Response.json({ error: 'Image generation failed' }, { status: 500 })
     }
 
@@ -110,7 +110,7 @@ export async function POST(request) {
     const b64 = openaiData?.data?.[0]?.b64_json
 
     if (!b64) {
-      console.error('No image returned from OpenAI:', openaiData)
+      console.error('No image returned from OpenAI:')
       return Response.json({ error: 'No image returned' }, { status: 500 })
     }
 
@@ -122,7 +122,7 @@ export async function POST(request) {
       .upload(fileName, new Uint8Array(imageBuffer), { contentType: 'image/png', upsert: false })
 
     if (uploadError) {
-      console.error('Storage upload error:', uploadError)
+      console.error('Storage upload error:')
       return Response.json({ error: 'Failed to save image' }, { status: 500 })
     }
 
@@ -138,7 +138,7 @@ export async function POST(request) {
       .createSignedUrl(fileName, 3600)
 
     if (signError || !signedData) {
-      console.error('Signed URL error:', signError)
+      console.error('Signed URL error:')
       return Response.json({ error: 'Failed to prepare image' }, { status: 500 })
     }
     const imageUrl = signedData.signedUrl
@@ -165,15 +165,15 @@ export async function POST(request) {
     })
 
   } catch (err) {
-    console.error('generate-nail-design error:', err)
+    console.error('generate-nail-design error:')
     return Response.json({ error: 'Generation could not be completed. Please check your history before retrying.' }, { status: 500 })
   } finally {
     if (reservationId && !completed) {
       try {
         const { error } = await supabase.rpc('release_generation', { p_id: reservationId })
-        if (error) console.error('Generation reservation needs reconciliation:', reservationId, error)
+        if (error) console.error('Generation reservation needs reconciliation:')
       } catch (error) {
-        console.error('Generation reservation needs reconciliation:', reservationId, error)
+        console.error('Generation reservation needs reconciliation:')
       }
     }
   }
