@@ -1,0 +1,897 @@
+{
+  "scope": "Disposable local PostgreSQL; synthetic accounts only",
+  "productionVerified": true,
+  "baselineDate": "2026-09-27",
+  "checks": [
+    "fresh production schema inventory matches reconstructed baseline including privileges and function hashes",
+    "backup and restore legacy",
+    "backup and restore checkpoint026",
+    "001 through 042 preserve existing identities, balances, closure and financial obligation",
+    "two independent migration connections apply each remaining migration exactly once",
+    "restored intermediate backup upgrades to the matching final schema",
+    "complete rerun skips the unchanged checksum journal",
+    "changed or missing applied history fails closed",
+    "injected failure rolls back DDL, balances and journal; retry and additive forward repair succeed",
+    "existing purchase survives the upgrade and concurrent provider replay grants no duplicate credits",
+    "member identity/banner contract, private raw columns, staff isolation and closure safeguards",
+    "concurrent generation/release and duplicate credit correction preserve exactly-once balances",
+    "complete-profile RPC replay, private health fields and RLS match the app contract",
+    "backup and restore final",
+    "final restore retains schema, grants, journal, closed accounts and exact financial rows"
+  ],
+  "backups": [
+    {
+      "label": "legacy",
+      "sha256": "0129c8b6b46a64117bb6a8d1b88d1b1e9e572e3736253f3fff810766e7cf3539",
+      "restored": true
+    },
+    {
+      "label": "checkpoint026",
+      "sha256": "75779a63109e4b231015c2e4bc561ffa41c6a9f9409969e12b8d2b25fd916a75",
+      "restored": true
+    },
+    {
+      "label": "final",
+      "sha256": "35700acf8a26c2d26acae0cf7c44f61415bd229c86366412a4d8f2d66fdcd170",
+      "restored": true
+    }
+  ],
+  "manifest": [
+    {
+      "name": "202609260001_atomic_entitlements.sql",
+      "checksum": "318ebae7edd2f0c3f2ef134621d0a8f9b4ac479156dfb3456940e34809efe207"
+    },
+    {
+      "name": "202609260002_authorization.sql",
+      "checksum": "4dfe836aa9e2123ed6ba8d0b15123660430652efc2e14b4918d6ad6017ebbe8d"
+    },
+    {
+      "name": "202609260003_review_fixes.sql",
+      "checksum": "1f2b41a594d5ea0391d6e3fd971a0b47923921a86141806699dd4a857a72578e"
+    },
+    {
+      "name": "202609260004_credit_refund_order.sql",
+      "checksum": "cb66f3d7f8965911f581c98145cff6703025dcd95e1bd173244bce782d820500"
+    },
+    {
+      "name": "202609260005_phase3_transactions.sql",
+      "checksum": "5d59437e1c728df932846c595ae1dfca88208421011a6d45c2e23871b09ae5b8"
+    },
+    {
+      "name": "202609270006_phase4_lifecycle.sql",
+      "checksum": "5064a7fde9726e4c1bc855e045311e4948afcc774f36e6e8044624eb3cd74e70"
+    },
+    {
+      "name": "202609270007_refunded_generation_holds.sql",
+      "checksum": "3c8c2c84c45c129b40ff699c5283fdcabe2631410184735c7a8f4ca22cf596f7"
+    },
+    {
+      "name": "202609270008_checkout_failures.sql",
+      "checksum": "13820eced2a085bd04bc636ec86e0fe36e56fc58fd3066c813e090cddbf61909"
+    },
+    {
+      "name": "202609270009_subscription_recovery.sql",
+      "checksum": "15d77f75c097e2a23dfecfc01eb321814c45ee0daa49bffa7236742cfb9ad59f"
+    },
+    {
+      "name": "202609270010_refund_reconciliation.sql",
+      "checksum": "9240363a07bb825ad120cde47b1e03ca5d6b9b1e6ebe1684be913ba9efc3ca20"
+    },
+    {
+      "name": "202609270011_booking_availability.sql",
+      "checksum": "03070c66a8b62dd5f4ae3c5019edf7da2697bd2ae8f9b025d4afe342f7f2f3bb"
+    },
+    {
+      "name": "202609270012_payment_refund_states.sql",
+      "checksum": "d22ee2e18c14e442d4d07bc0a36763518d3eead49f08363e74fb703668a80d77"
+    },
+    {
+      "name": "202609270013_phase6_payment_recovery.sql",
+      "checksum": "7014135561b82ea1bb5dafbbb3bef30efd19a67dc2dc096b9c016fb610c31978"
+    },
+    {
+      "name": "202609270014_creator_booking_time.sql",
+      "checksum": "2e9dd6649c1f70c6b509d551be5867f571cdd569957f8ec1f5e83688b90d1883"
+    },
+    {
+      "name": "202609270015_subscription_reconciliation.sql",
+      "checksum": "586e160b173bab1c622710bbb029210b502bddf2b3121bc959ab1cd76e9f9315"
+    },
+    {
+      "name": "202609270016_mobile_booking_safety.sql",
+      "checksum": "31037316493d203fdd1c1dc4aeb256f707d85e8655b726d78bac4783425025e0"
+    },
+    {
+      "name": "202609270017_mobile_notifications_safety.sql",
+      "checksum": "0ff3d85961f38e8fe910ed09bdc5c1c2afc0dfc89a0e5f1dfd4907924384546b"
+    },
+    {
+      "name": "202609270018_mobile_messages_uploads.sql",
+      "checksum": "dd51dcc9d26a6e402cfd7cca0a4e27f71fd9f46f574d7dd769b1d536371499a1"
+    },
+    {
+      "name": "202609270019_mobile_collections.sql",
+      "checksum": "a398a7afa98085e979e233d6a6c3bc98f5e7f8040503994fbf0706e178b3ba39"
+    },
+    {
+      "name": "202609270020_mobile_store_billing.sql",
+      "checksum": "aba77e369f58fdb81e6c0188e6798171ad7d07c3d0ad1760a21875bb4a783c74"
+    },
+    {
+      "name": "202609270021_mobile_media_cleanup.sql",
+      "checksum": "23281265087773179ee771083c5d3211bb7aa1eac2456406361f920a3cb518ef"
+    },
+    {
+      "name": "202609270022_client_table_privileges.sql",
+      "checksum": "265cadc2b4392ff7fc77460770936a492b487e4e54a85ba9fa1b64e2fbd65ada"
+    },
+    {
+      "name": "202609290023_google_calendar.sql",
+      "checksum": "0e602633ddb7bb8a3bc79202f4ae2b80d0175c2c35895c92e8d0f070d4468d2e"
+    },
+    {
+      "name": "202609290024_account_closure.sql",
+      "checksum": "ac2b04c1d51b891622daf13ad30d7090b8a20c4943d98a2740ae3e61b5099dd8"
+    },
+    {
+      "name": "202609290025_designs_social.sql",
+      "checksum": "cebb26942b0f1f18a39de06fd9da3177c03b6773d4bb632611effde3ddd35a88"
+    },
+    {
+      "name": "202609290026_profile_media_age.sql",
+      "checksum": "973129eca7b4b3f46ec70d391131d01873dc93b3821bd4d3129e1d1efdfd71aa"
+    },
+    {
+      "name": "202610080027_pinterest_budget.sql",
+      "checksum": "cc03d27843411e064d9026d3a5c1bd6bb547be6f294a7a8110b7c324809dbf3b"
+    },
+    {
+      "name": "202610080028_pinterest_budget_recovery.sql",
+      "checksum": "914d160e861523aa99db4a86584fb3e2ffa591b56fd8f008e0eab4a92e458fc4"
+    },
+    {
+      "name": "202610080029_pinterest_pilot_allowance.sql",
+      "checksum": "853d18979a4ad86716f8f818301912ea9ad8f8195c2b9b093cd1a8738f1c6f81"
+    },
+    {
+      "name": "202610080030_admin_operations.sql",
+      "checksum": "79ca7bf9dad2011ec7f6741354d44057fd98801060069804df8393f68e91c509"
+    },
+    {
+      "name": "202610080031_pinterest_oauth.sql",
+      "checksum": "0740f7cf84d78f752a841312c5e157d1b5afee311c086b733789f9838c0ce489"
+    },
+    {
+      "name": "202610080032_admin_private_media.sql",
+      "checksum": "af857c3630db8f1e76e4299de5a876c8035d6a1131cde938ce206429de909792"
+    },
+    {
+      "name": "202610080033_admin_analytics.sql",
+      "checksum": "f681d01ee3c6d3aedca5f0cc74c080c3c3c0b2a1cb99f8738afa67634398207d"
+    },
+    {
+      "name": "202610080034_admin_user_directory.sql",
+      "checksum": "6dd1338f1173a561aa107410a84e69c8024bf5ffd55258da986e6104c146bf3c"
+    },
+    {
+      "name": "202610080035_lab_subscription.sql",
+      "checksum": "efbffa51f315030a1536664825fba00644fc57edfa844b925042532aabd42701"
+    },
+    {
+      "name": "202610080036_lab_play_base_plan.sql",
+      "checksum": "93c8043c1b8a3ddcefd6ba4030a701e80873fe1e86923321b31d5668f14691d5"
+    },
+    {
+      "name": "202610080037_members_only_app.sql",
+      "checksum": "83b7c1cae35c23e3b37ad310917e39c50867d8f0d9eb237d5c03df6d2bff1316"
+    },
+    {
+      "name": "202610090038_rewards_updates.sql",
+      "checksum": "9253069a74565089ee428fa3176664b67e246bb82f59b508eae8874aaff13b1b"
+    },
+    {
+      "name": "202610090039_rewards_home_feed.sql",
+      "checksum": "b6e4317d7a5d9ecaa89552d3c0957939e0f0a1aa9f43e8df8460bb27334ea071"
+    },
+    {
+      "name": "202610090040_lab_stripe_sandbox.sql",
+      "checksum": "f3385c094be5305ab7df258ddd2dff8e7ec1f2d189317ff36bf2407351575d4e"
+    },
+    {
+      "name": "202610120041_lab_native_payments.sql",
+      "checksum": "7e3b361ba987b9f350734941b68b4c394f0b9b8babb88de12fc6bdec2425f713"
+    },
+    {
+      "name": "202610130042_web_release_integration.sql",
+      "checksum": "552e84a16ac598687db7cc38f1984c1558c2351b2f4b1674ffcabec16fb679ee"
+    }
+  ],
+  "postgres": "17.10",
+  "tests/fixtures/supabase-managed-schema.sql": "b07f01d67da79e9357c14f4062b260bd56cf3ab31473736110a9a695d984cff6",
+  "supabase/bootstrap/20260927_legacy_schema.sql": "5654c9fb66b4330f61161f9f8eba1ea3453ebf083a85647747992cef0c9d1767",
+  "supabase/bootstrap/20261015_rehearsal_alignment.sql": "5b6af34eca1be91d184c41906ad623694dda1266b62a8236c73f24b4a860ce0f",
+  "productionBaseline": {
+    "project": "faunikvhoommbebsmevg",
+    "capturedAt": "2026-10-15T09:23:21.565615+00:00",
+    "version": "17.6",
+    "inventorySha256": "c6f8ff46b7b61bd62d2dbc2c175225de6d13ab1b440ba96254db635a2ee473b3",
+    "matched": true,
+    "fields": [
+      "relations including owners/options/ACL/columns/constraints/indexes/policies/triggers/views",
+      "functions including body hashes/owners/ACL/settings",
+      "default privileges",
+      "publication tables"
+    ]
+  },
+  "managedServiceLimits": "Local PG17.10 versus hosted PG17.6. Managed pg_stat_statements and supabase_vault extensions, Auth/Storage HTTP and production object bytes are not reproduced.",
+  "publicTables": [
+    {
+      "tablename": "account_closures",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "account_legal_records",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "account_retention_holds",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "admin_actions",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "admin_credit_corrections",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "admin_home",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "admin_moderation",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "admin_notes",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "admin_owned_designs",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "admin_staff",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "admin_suspensions",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "app_analytics_events",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "app_analytics_preferences",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "availability",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "blocks",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "bookings",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "challenge_submissions",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "challenge_votes",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "challenges",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "checkout_failures",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "client_booking_notes",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "client_health_notes",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "client_notes",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "collection_designs",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "collections",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "conversations",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "creator_booking_settings",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "credit_payments",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "deposit_checkouts",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "design_chat_shares",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "design_colours",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "design_comments",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "design_images",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "design_likes",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "design_products",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "design_tags",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "designs",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "favourite_creators",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "follows",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "generation_reservations",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "google_calendar_checks",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "google_calendar_connections",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "google_calendar_jobs",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "google_calendar_oauth",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "hidden_conversations",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "image_backfill_map",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "lab_monthly_allowances",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "lab_stripe_checkouts",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "lab_stripe_customers",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "lab_stripe_invoices",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "lab_stripe_subscriptions",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "messages",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "mobile_billing_reconciliations",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "mobile_entitlements",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "mobile_media_cleanup",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "mobile_notification_outbox",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "mobile_purchase_intents",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "mobile_push_registrations",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "mobile_reports",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "mobile_store_events",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "mobile_store_owners",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "mobile_store_products",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "mobile_store_transactions",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "moodboard_designs",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "moodboard_members",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "moodboards",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "nail_lab_generations",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "notifications",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "official_updates",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "order_payments",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "payment_checkouts",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "payment_refund_states",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "pinterest_boards",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "pinterest_connection",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "pinterest_oauth_attempts",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "pinterest_request_gate",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "pinterest_request_usage",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "processed_webhook_events",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "products",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "profiles_data",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "reminder_emails",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "reviews",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "reward_campaigns",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "reward_entries",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "reward_results",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "reward_settings",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "reward_votes",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "rewards",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "salon_posts",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "saved_designs",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "services",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "stories",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "story_likes",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "subscription_accounts",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "subscription_cancellations",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "subscription_checkouts",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "subscription_credit_grants",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "subscription_prices",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "subscription_reconciliations",
+      "rowsecurity": true
+    },
+    {
+      "tablename": "tags",
+      "rowsecurity": true
+    }
+  ],
+  "journal": [
+    {
+      "name": "202609260001_atomic_entitlements.sql",
+      "checksum": "318ebae7edd2f0c3f2ef134621d0a8f9b4ac479156dfb3456940e34809efe207",
+      "applied_at": "2026-10-15T09:25:53.929Z",
+      "elapsed_ms": 3
+    },
+    {
+      "name": "202609260002_authorization.sql",
+      "checksum": "4dfe836aa9e2123ed6ba8d0b15123660430652efc2e14b4918d6ad6017ebbe8d",
+      "applied_at": "2026-10-15T09:25:53.933Z",
+      "elapsed_ms": 4
+    },
+    {
+      "name": "202609260003_review_fixes.sql",
+      "checksum": "1f2b41a594d5ea0391d6e3fd971a0b47923921a86141806699dd4a857a72578e",
+      "applied_at": "2026-10-15T09:25:53.937Z",
+      "elapsed_ms": 5
+    },
+    {
+      "name": "202609260004_credit_refund_order.sql",
+      "checksum": "cb66f3d7f8965911f581c98145cff6703025dcd95e1bd173244bce782d820500",
+      "applied_at": "2026-10-15T09:25:53.938Z",
+      "elapsed_ms": 1
+    },
+    {
+      "name": "202609260005_phase3_transactions.sql",
+      "checksum": "5d59437e1c728df932846c595ae1dfca88208421011a6d45c2e23871b09ae5b8",
+      "applied_at": "2026-10-15T09:25:53.944Z",
+      "elapsed_ms": 6
+    },
+    {
+      "name": "202609270006_phase4_lifecycle.sql",
+      "checksum": "5064a7fde9726e4c1bc855e045311e4948afcc774f36e6e8044624eb3cd74e70",
+      "applied_at": "2026-10-15T09:25:53.947Z",
+      "elapsed_ms": 3
+    },
+    {
+      "name": "202609270007_refunded_generation_holds.sql",
+      "checksum": "3c8c2c84c45c129b40ff699c5283fdcabe2631410184735c7a8f4ca22cf596f7",
+      "applied_at": "2026-10-15T09:25:53.947Z",
+      "elapsed_ms": 1
+    },
+    {
+      "name": "202609270008_checkout_failures.sql",
+      "checksum": "13820eced2a085bd04bc636ec86e0fe36e56fc58fd3066c813e090cddbf61909",
+      "applied_at": "2026-10-15T09:25:53.948Z",
+      "elapsed_ms": 1
+    },
+    {
+      "name": "202609270009_subscription_recovery.sql",
+      "checksum": "15d77f75c097e2a23dfecfc01eb321814c45ee0daa49bffa7236742cfb9ad59f",
+      "applied_at": "2026-10-15T09:25:53.949Z",
+      "elapsed_ms": 1
+    },
+    {
+      "name": "202609270010_refund_reconciliation.sql",
+      "checksum": "9240363a07bb825ad120cde47b1e03ca5d6b9b1e6ebe1684be913ba9efc3ca20",
+      "applied_at": "2026-10-15T09:25:53.950Z",
+      "elapsed_ms": 1
+    },
+    {
+      "name": "202609270011_booking_availability.sql",
+      "checksum": "03070c66a8b62dd5f4ae3c5019edf7da2697bd2ae8f9b025d4afe342f7f2f3bb",
+      "applied_at": "2026-10-15T09:25:53.950Z",
+      "elapsed_ms": 1
+    },
+    {
+      "name": "202609270012_payment_refund_states.sql",
+      "checksum": "d22ee2e18c14e442d4d07bc0a36763518d3eead49f08363e74fb703668a80d77",
+      "applied_at": "2026-10-15T09:25:53.952Z",
+      "elapsed_ms": 2
+    },
+    {
+      "name": "202609270013_phase6_payment_recovery.sql",
+      "checksum": "7014135561b82ea1bb5dafbbb3bef30efd19a67dc2dc096b9c016fb610c31978",
+      "applied_at": "2026-10-15T09:25:53.953Z",
+      "elapsed_ms": 1
+    },
+    {
+      "name": "202609270014_creator_booking_time.sql",
+      "checksum": "2e9dd6649c1f70c6b509d551be5867f571cdd569957f8ec1f5e83688b90d1883",
+      "applied_at": "2026-10-15T09:25:53.955Z",
+      "elapsed_ms": 2
+    },
+    {
+      "name": "202609270015_subscription_reconciliation.sql",
+      "checksum": "586e160b173bab1c622710bbb029210b502bddf2b3121bc959ab1cd76e9f9315",
+      "applied_at": "2026-10-15T09:25:53.957Z",
+      "elapsed_ms": 2
+    },
+    {
+      "name": "202609270016_mobile_booking_safety.sql",
+      "checksum": "31037316493d203fdd1c1dc4aeb256f707d85e8655b726d78bac4783425025e0",
+      "applied_at": "2026-10-15T09:25:53.958Z",
+      "elapsed_ms": 1
+    },
+    {
+      "name": "202609270017_mobile_notifications_safety.sql",
+      "checksum": "0ff3d85961f38e8fe910ed09bdc5c1c2afc0dfc89a0e5f1dfd4907924384546b",
+      "applied_at": "2026-10-15T09:25:53.962Z",
+      "elapsed_ms": 4
+    },
+    {
+      "name": "202609270018_mobile_messages_uploads.sql",
+      "checksum": "dd51dcc9d26a6e402cfd7cca0a4e27f71fd9f46f574d7dd769b1d536371499a1",
+      "applied_at": "2026-10-15T09:25:53.963Z",
+      "elapsed_ms": 2
+    },
+    {
+      "name": "202609270019_mobile_collections.sql",
+      "checksum": "a398a7afa98085e979e233d6a6c3bc98f5e7f8040503994fbf0706e178b3ba39",
+      "applied_at": "2026-10-15T09:25:53.964Z",
+      "elapsed_ms": 1
+    },
+    {
+      "name": "202609270020_mobile_store_billing.sql",
+      "checksum": "aba77e369f58fdb81e6c0188e6798171ad7d07c3d0ad1760a21875bb4a783c74",
+      "applied_at": "2026-10-15T09:25:53.969Z",
+      "elapsed_ms": 5
+    },
+    {
+      "name": "202609270021_mobile_media_cleanup.sql",
+      "checksum": "23281265087773179ee771083c5d3211bb7aa1eac2456406361f920a3cb518ef",
+      "applied_at": "2026-10-15T09:25:53.971Z",
+      "elapsed_ms": 2
+    },
+    {
+      "name": "202609270022_client_table_privileges.sql",
+      "checksum": "265cadc2b4392ff7fc77460770936a492b487e4e54a85ba9fa1b64e2fbd65ada",
+      "applied_at": "2026-10-15T09:25:53.972Z",
+      "elapsed_ms": 2
+    },
+    {
+      "name": "202609290023_google_calendar.sql",
+      "checksum": "0e602633ddb7bb8a3bc79202f4ae2b80d0175c2c35895c92e8d0f070d4468d2e",
+      "applied_at": "2026-10-15T09:25:53.976Z",
+      "elapsed_ms": 4
+    },
+    {
+      "name": "202609290024_account_closure.sql",
+      "checksum": "ac2b04c1d51b891622daf13ad30d7090b8a20c4943d98a2740ae3e61b5099dd8",
+      "applied_at": "2026-10-15T09:25:53.984Z",
+      "elapsed_ms": 9
+    },
+    {
+      "name": "202609290025_designs_social.sql",
+      "checksum": "cebb26942b0f1f18a39de06fd9da3177c03b6773d4bb632611effde3ddd35a88",
+      "applied_at": "2026-10-15T09:25:53.988Z",
+      "elapsed_ms": 4
+    },
+    {
+      "name": "202609290026_profile_media_age.sql",
+      "checksum": "973129eca7b4b3f46ec70d391131d01873dc93b3821bd4d3129e1d1efdfd71aa",
+      "applied_at": "2026-10-15T09:25:53.990Z",
+      "elapsed_ms": 3
+    },
+    {
+      "name": "202610080027_pinterest_budget.sql",
+      "checksum": "cc03d27843411e064d9026d3a5c1bd6bb547be6f294a7a8110b7c324809dbf3b",
+      "applied_at": "2026-10-15T09:25:54.502Z",
+      "elapsed_ms": 3
+    },
+    {
+      "name": "202610080028_pinterest_budget_recovery.sql",
+      "checksum": "914d160e861523aa99db4a86584fb3e2ffa591b56fd8f008e0eab4a92e458fc4",
+      "applied_at": "2026-10-15T09:25:54.503Z",
+      "elapsed_ms": 1
+    },
+    {
+      "name": "202610080029_pinterest_pilot_allowance.sql",
+      "checksum": "853d18979a4ad86716f8f818301912ea9ad8f8195c2b9b093cd1a8738f1c6f81",
+      "applied_at": "2026-10-15T09:25:54.504Z",
+      "elapsed_ms": 1
+    },
+    {
+      "name": "202610080030_admin_operations.sql",
+      "checksum": "79ca7bf9dad2011ec7f6741354d44057fd98801060069804df8393f68e91c509",
+      "applied_at": "2026-10-15T09:25:54.521Z",
+      "elapsed_ms": 17
+    },
+    {
+      "name": "202610080031_pinterest_oauth.sql",
+      "checksum": "0740f7cf84d78f752a841312c5e157d1b5afee311c086b733789f9838c0ce489",
+      "applied_at": "2026-10-15T09:25:54.524Z",
+      "elapsed_ms": 4
+    },
+    {
+      "name": "202610080032_admin_private_media.sql",
+      "checksum": "af857c3630db8f1e76e4299de5a876c8035d6a1131cde938ce206429de909792",
+      "applied_at": "2026-10-15T09:25:54.526Z",
+      "elapsed_ms": 1
+    },
+    {
+      "name": "202610080033_admin_analytics.sql",
+      "checksum": "f681d01ee3c6d3aedca5f0cc74c080c3c3c0b2a1cb99f8738afa67634398207d",
+      "applied_at": "2026-10-15T09:25:54.529Z",
+      "elapsed_ms": 3
+    },
+    {
+      "name": "202610080034_admin_user_directory.sql",
+      "checksum": "6dd1338f1173a561aa107410a84e69c8024bf5ffd55258da986e6104c146bf3c",
+      "applied_at": "2026-10-15T09:25:54.530Z",
+      "elapsed_ms": 1
+    },
+    {
+      "name": "202610080035_lab_subscription.sql",
+      "checksum": "efbffa51f315030a1536664825fba00644fc57edfa844b925042532aabd42701",
+      "applied_at": "2026-10-15T09:25:54.533Z",
+      "elapsed_ms": 4
+    },
+    {
+      "name": "202610080036_lab_play_base_plan.sql",
+      "checksum": "93c8043c1b8a3ddcefd6ba4030a701e80873fe1e86923321b31d5668f14691d5",
+      "applied_at": "2026-10-15T09:25:54.535Z",
+      "elapsed_ms": 1
+    },
+    {
+      "name": "202610080037_members_only_app.sql",
+      "checksum": "83b7c1cae35c23e3b37ad310917e39c50867d8f0d9eb237d5c03df6d2bff1316",
+      "applied_at": "2026-10-15T09:25:54.551Z",
+      "elapsed_ms": 17
+    },
+    {
+      "name": "202610090038_rewards_updates.sql",
+      "checksum": "9253069a74565089ee428fa3176664b67e246bb82f59b508eae8874aaff13b1b",
+      "applied_at": "2026-10-15T09:25:54.558Z",
+      "elapsed_ms": 7
+    },
+    {
+      "name": "202610090039_rewards_home_feed.sql",
+      "checksum": "b6e4317d7a5d9ecaa89552d3c0957939e0f0a1aa9f43e8df8460bb27334ea071",
+      "applied_at": "2026-10-15T09:25:54.559Z",
+      "elapsed_ms": 1
+    },
+    {
+      "name": "202610090040_lab_stripe_sandbox.sql",
+      "checksum": "f3385c094be5305ab7df258ddd2dff8e7ec1f2d189317ff36bf2407351575d4e",
+      "applied_at": "2026-10-15T09:25:54.565Z",
+      "elapsed_ms": 6
+    },
+    {
+      "name": "202610120041_lab_native_payments.sql",
+      "checksum": "7e3b361ba987b9f350734941b68b4c394f0b9b8babb88de12fc6bdec2425f713",
+      "applied_at": "2026-10-15T09:25:54.566Z",
+      "elapsed_ms": 1
+    },
+    {
+      "name": "202610130042_web_release_integration.sql",
+      "checksum": "552e84a16ac598687db7cc38f1984c1558c2351b2f4b1674ffcabec16fb679ee",
+      "applied_at": "2026-10-15T09:25:54.567Z",
+      "elapsed_ms": 1
+    },
+    {
+      "name": "202610150043_rehearsal_failure.sql",
+      "checksum": "6c2d57a1d8a6d048b416dff400e7b7d3a51da971d351fabbd2a6850e42cb6015",
+      "applied_at": "2026-10-15T09:25:54.660Z",
+      "elapsed_ms": 1
+    },
+    {
+      "name": "202610150044_rehearsal_forward_repair.sql",
+      "checksum": "0ab4660a193b709d01ffa54c21ba4ca727b2b3794bea41998d523ad19bb8b64e",
+      "applied_at": "2026-10-15T09:25:54.661Z",
+      "elapsed_ms": 1
+    }
+  ],
+  "productionNextStep": "The captured 15 October production schema is matched in this disposable rehearsal. Recheck schema drift and migration history at rollout, take an encrypted production recovery backup, and verify hosted workers/PostgREST/app contracts before enabling writes. No production migration was applied. Storage object bytes and external services are not restored by SQL.",
+  "completedAt": "2026-10-15T09:25:55.328Z"
+}
